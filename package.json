@@ -12,6 +12,7 @@
     "sync-assets": "node scripts/sync-assets.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
     "@coreboys/shared": "file:../coreboys-shared",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.1",
