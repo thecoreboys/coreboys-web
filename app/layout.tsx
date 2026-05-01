@@ -9,6 +9,7 @@ import { Cursor } from "@/components/editorial/Cursor";
 import { IntroSequence } from "@/components/editorial/IntroSequence";
 import { GridOverlay } from "@/components/editorial/GridOverlay";
 import { ConsoleEgg } from "@/components/editorial/ConsoleEgg";
+import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { Concierge } from "@/components/concierge/Concierge";
 import "./globals.css";
 
@@ -91,6 +92,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Grain />
         <Scanlines />
         <ConsoleEgg />
+        <OrganizationJsonLd />
       </body>
     </html>
   );
