@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Eyebrow } from "@/components/typography";
+import { SectionNumber } from "@/components/editorial/SectionNumber";
 
 const PILLARS = [
   { letter: "C", word: "REATE", line: "We make the things we want to watch." },
@@ -60,8 +62,9 @@ export function Manifesto() {
       ref={root}
       className="relative w-full bg-[color:var(--bg)] py-32 md:py-48"
     >
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="kicker mb-16">The acronym</div>
+      <SectionNumber index={1} label="Manifesto" />
+      <div className="mx-auto max-w-[1440px] px-6 md:px-16">
+        <Eyebrow className="mb-16">The acronym</Eyebrow>
         <ul className="flex flex-col gap-20 md:gap-28">
           {PILLARS.map(({ letter, word, line }) => (
             <li key={letter} className="manifesto-item">

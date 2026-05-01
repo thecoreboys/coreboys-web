@@ -3,6 +3,8 @@
 import { useQueryState } from "nuqs";
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
 import { SocialIcon, PLATFORM_LABEL } from "@/components/ui/SocialIcon";
+import { Display, Eyebrow } from "@/components/typography";
+import { SectionNumber } from "@/components/editorial/SectionNumber";
 
 const ROLE_LABEL: Record<string, string> = {
   cameraman: "Camera",
@@ -28,11 +30,12 @@ export function Crew() {
 
   return (
     <section id="crew" className="relative w-full bg-[color:var(--bg)] py-28 md:py-36 rule">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="kicker mb-3">Behind the lens</div>
-        <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight">
+      <SectionNumber index={6} label="Crew" />
+      <div className="mx-auto max-w-[1440px] px-6 md:px-16">
+        <Eyebrow className="mb-3">Behind the lens</Eyebrow>
+        <Display as="h2" size={48} className="md:text-[72px]">
           The crew.
-        </h2>
+        </Display>
         <p className="mt-4 max-w-xl text-[color:var(--ink-dim)]">
           The people who make sure the footage exists at all.
         </p>
@@ -40,7 +43,7 @@ export function Crew() {
         <div className="mt-14 grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-3">
           {Object.entries(grouped).map(([role, list]) => (
             <div key={role}>
-              <div className="kicker mb-5">{ROLE_LABEL[role] ?? role}</div>
+              <Eyebrow className="mb-5">{ROLE_LABEL[role] ?? role}</Eyebrow>
               <ul className="flex flex-col gap-3">
                 {list.map((c) => {
                   const works = c.worksWith

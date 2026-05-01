@@ -2,9 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
-import { Pill } from "@/components/ui/Pill";
-import { useLiveStatus } from "@/hooks/useLiveStatus";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { ArrowDown } from "lucide-react";
+import { ease, durations } from "@/lib/motion";
+import { Display, Eyebrow } from "@/components/typography";
 
 const CoreScene = dynamic(() => import("@/components/three/CoreScene").then((m) => m.CoreScene), {
   ssr: false,
@@ -12,9 +13,17 @@ const CoreScene = dynamic(() => import("@/components/three/CoreScene").then((m) 
 });
 
 export function HeroCore() {
+  const sectionRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { data } = useLiveStatus();
-  const anyLive = !!data?.live.some((l) => l.isLive);
+
+  // Parallax: drone video at 0.4x, foreground text at 1.2x.
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  const videoY = useTransform(scrollYProgress, [0, 1], ["0%", "40%"]);
+  const textY = useTransform(scrollYProgress, [0, 1], ["0%", "-20%"]);
+  const textOpacity = useTransform(scrollYProgress, [0, 0.6, 1], [1, 0.4, 0]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -22,7 +31,7 @@ export function HeroCore() {
     v.muted = true;
     v.playsInline = true;
     void v.play().catch(() => {
-      /* autoplay may be blocked; user-gesture fallback */
+      // autoplay may be blocked; user-gesture fallback
     });
   }, []);
 
@@ -34,24 +43,27 @@ export function HeroCore() {
 
   return (
     <section
+      ref={sectionRef}
       id="hero"
       className="relative h-[100svh] min-h-[640px] w-full overflow-hidden border-b border-[color:var(--rule)]"
     >
-      {/* Drone footage background */}
-      <video
-        ref={videoRef}
-        className="absolute inset-0 h-full w-full object-cover opacity-50"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        poster="/group/hero-poster.jpg"
-        aria-hidden="true"
-        tabIndex={-1}
-      >
-        <source src="/house-reveal.mp4" type="video/mp4" />
-      </video>
+      {/* Drone footage background, parallaxed at 0.4x */}
+      <motion.div className="absolute inset-0" style={{ y: videoY }}>
+        <video
+          ref={videoRef}
+          className="h-full w-full object-cover opacity-50"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="/group/hero-poster.jpg"
+          aria-hidden="true"
+          tabIndex={-1}
+        >
+          <source src="/house-reveal.mp4" type="video/mp4" />
+        </video>
+      </motion.div>
 
       {/* Vignette + tonal overlay */}
       <div
@@ -62,86 +74,71 @@ export function HeroCore() {
         }}
       />
 
-      {/* R3F core scene */}
+      {/* R3F core scene — sits at z-index 0, behind text */}
       <Suspense fallback={null}>
         <CoreScene />
       </Suspense>
 
-      {/* Foreground typography */}
-      <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
+      {/* Foreground typography, parallaxed at 1.2x */}
+      <motion.div
+        style={{ y: textY, opacity: textOpacity }}
+        className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center"
+      >
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          className="kicker mb-6"
+          transition={{ duration: durations.slow / 1000, ease: ease.out, delay: 1.4 }}
         >
-          The Core Boys · est. 2026
+          <Eyebrow>The Core Boys · est. 2026</Eyebrow>
         </motion.div>
 
-        <motion.h1
+        <motion.div
           initial={{ opacity: 0, letterSpacing: "0.4em" }}
           animate={{ opacity: 1, letterSpacing: "-0.04em" }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-          className="font-display text-[18vw] leading-[0.85] font-black md:text-[12rem]"
-          style={{
-            backgroundImage:
-              "linear-gradient(180deg, #ffffff 0%, #ffffff 40%, color-mix(in oklab, #ffffff 60%, var(--core)) 100%)",
-            WebkitBackgroundClip: "text",
-            backgroundClip: "text",
-            color: "transparent",
-          }}
+          transition={{ duration: durations.cinematic / 1000, ease: ease.out, delay: 1.5 }}
+          className="mt-6"
         >
-          CORE
-        </motion.h1>
+          <Display
+            size={200}
+            className="wordmark-fill text-[18vw] leading-[0.85] md:text-[200px]"
+          >
+            CORE
+          </Display>
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.5, duration: 0.9 }}
-          className="mt-4 kicker"
+          transition={{ delay: 2.0, duration: durations.slow / 1000, ease: ease.out }}
+          className="mt-4"
         >
-          Create. Own. Run. Everything.
+          <Eyebrow className="text-[color:var(--ink)]">
+            Create. Own. Run. Everything.
+          </Eyebrow>
         </motion.div>
 
         <motion.p
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.9 }}
-          className="mt-8 max-w-md text-base text-[color:var(--ink)]/80"
+          transition={{ delay: 2.2, duration: durations.slow / 1000, ease: ease.out }}
+          className="mt-8 max-w-md text-base text-[color:var(--ink)]/85"
         >
           Six creators. One core.
         </motion.p>
+      </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.85, duration: 0.9 }}
-          className="mt-10 flex flex-wrap items-center justify-center gap-3"
+      {/* Editorial corner anchors — replace twin-pill block from MVP */}
+      <div className="absolute inset-x-0 bottom-6 z-10 flex items-end justify-between px-6 md:px-16">
+        <Eyebrow>House · undisclosed</Eyebrow>
+        <button
+          onClick={() => smoothScrollTo("manifesto")}
+          className="group inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.18em] text-[color:var(--ink)] transition-colors hover:text-[color:var(--core)]"
+          data-cursor="hover"
         >
-          <Pill onClick={() => smoothScrollTo("roster")} variant="primary">
-            Meet the boys
-          </Pill>
-          <Pill
-            onClick={() => smoothScrollTo("live")}
-            variant="ghost"
-            className={anyLive ? "ring-2 ring-[color:var(--live)]/60" : undefined}
-          >
-            {anyLive ? (
-              <>
-                <span className="inline-block h-2 w-2 rounded-full bg-[color:var(--live)] live-pulse" />
-                Watch live
-              </>
-            ) : (
-              <>Watch live</>
-            )}
-          </Pill>
-        </motion.div>
-      </div>
-
-      {/* Bottom kicker */}
-      <div className="absolute inset-x-0 bottom-6 z-10 flex justify-between px-6 kicker text-[10px]">
-        <span>House · undisclosed</span>
-        <span>Scroll ↓</span>
+          <span className="block h-px w-12 bg-current transition-[width] duration-300 [transition-timing-function:var(--ease-out)] group-hover:w-20" />
+          Begin
+          <ArrowDown size={12} />
+        </button>
       </div>
     </section>
   );

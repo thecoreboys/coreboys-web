@@ -6,6 +6,9 @@ import { MEMBERS_BY_SLUG } from "@/lib/members";
 import { MEMBERS } from "@/lib/members";
 import { formatViewerCount } from "@/lib/utils";
 import { LiveDot } from "@/components/ui/LiveDot";
+import { Display, Eyebrow } from "@/components/typography";
+import { SectionNumber } from "@/components/editorial/SectionNumber";
+import { StreamContext } from "@/components/concierge/StreamContext";
 
 export function LiveNow() {
   const { data, error, isLoading, mutate } = useLiveStatus();
@@ -17,18 +20,19 @@ export function LiveNow() {
 
   return (
     <section id="live" className="relative w-full bg-[color:var(--bg)] py-28 md:py-36 rule">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="flex items-center justify-between">
+      <SectionNumber index={4} label="Live Now" />
+      <div className="mx-auto max-w-[1440px] px-6 md:px-16">
+        <div className="flex items-end justify-between">
           <div>
-            <div className="kicker mb-3">Live now</div>
-            <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight">
+            <Eyebrow className="mb-3">Live now</Eyebrow>
+            <Display as="h2" size={48} className="md:text-[72px]">
               {liveEntries.length > 0 ? "Streaming, right now." : "The core is quiet."}
-            </h2>
+            </Display>
           </div>
           {data ? (
-            <div className="kicker hidden md:block">
+            <Eyebrow className="hidden md:block">
               Updated {new Date(data.fetchedAt).toLocaleTimeString()}
-            </div>
+            </Eyebrow>
           ) : null}
         </div>
 
@@ -94,17 +98,20 @@ export function LiveNow() {
                           </div>
                         ) : null}
                       </div>
-                      <div className="flex items-center justify-between gap-4 p-5">
-                        <div className="min-w-0">
-                          <div className="text-base font-semibold tracking-tight">{member.stageName}</div>
-                          <div className="kicker mt-1 truncate text-[10px]">{entry.title ?? "Streaming"}</div>
+                      <div className="flex flex-col gap-2 p-5">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-base font-semibold tracking-tight">{member.stageName}</div>
+                            <div className="kicker mt-1 truncate text-[10px]">{entry.title ?? "Streaming"}</div>
+                          </div>
+                          <span
+                            className="kicker text-[10px] text-[color:var(--ink)] opacity-70 transition-opacity group-hover:opacity-100"
+                            style={{ color: member.accent }}
+                          >
+                            Watch ↗
+                          </span>
                         </div>
-                        <span
-                          className="kicker text-[10px] text-[color:var(--ink)] opacity-70 transition-opacity group-hover:opacity-100"
-                          style={{ color: member.accent }}
-                        >
-                          Watch ↗
-                        </span>
+                        <StreamContext login={entry.login} />
                       </div>
                     </a>
                   </li>

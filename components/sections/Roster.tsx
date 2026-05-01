@@ -5,6 +5,8 @@ import { useCallback, useMemo } from "react";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { MemberHex } from "@/components/ui/MemberHex";
 import { MemberDialog } from "@/components/ui/MemberDialog";
+import { Display, Eyebrow } from "@/components/typography";
+import { SectionNumber } from "@/components/editorial/SectionNumber";
 
 export function Roster() {
   const [memberSlug, setMemberSlug] = useQueryState("member", {
@@ -34,11 +36,12 @@ export function Roster() {
       id="roster"
       className="relative w-full bg-[color:var(--bg)] py-28 md:py-40 rule"
     >
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="kicker mb-3">The boys</div>
-        <h2 className="font-display text-5xl md:text-7xl font-semibold tracking-tight">
+      <SectionNumber index={2} label="The Boys" />
+      <div className="mx-auto max-w-[1440px] px-6 md:px-16">
+        <Eyebrow className="mb-3">The boys</Eyebrow>
+        <Display as="h2" size={72} className="md:text-[120px]">
           The names on the wall.
-        </h2>
+        </Display>
 
         <div className="mt-16 grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:gap-x-10 lg:gap-y-14">
           {MEMBERS.map((m, i) => (
