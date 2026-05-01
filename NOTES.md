@@ -195,3 +195,88 @@ feels like an org."
 14. `docs: THEMING.md update + WALKTHROUGH.md`
 
 **After**-section in this file gets filled at step 14.
+
+---
+
+## 11. AFTER — what landed
+
+These numbers come from running `pnpm build` on the final commit of this pass.
+
+### Bundle (after)
+
+```
+Route (app)                          Size  First Load JS
+┌ ○ /                               90.8 kB        253 kB
+├ ƒ /api/concierge                   139 B         102 kB     (NEW)
+├ ƒ /api/stream-context/[login]      139 B         102 kB     (NEW)
+├ ƒ /api/twitch/live                 139 B         102 kB
+├ ● /m/[slug]                        914 B         122 kB     (NEW, 6 SSG pages)
+├ ● /m/[slug]/opengraph-image                                  (NEW)
+├ ƒ /opengraph-image                                           (NEW)
+├ ○ /robots.txt                                                (NEW)
+└ ○ /sitemap.xml                                               (NEW)
+```
+
+The page route's "size" column dropped from 149 KB → 90.8 KB (less inline
+junk, components extracted). The 253 KB First Load JS is unchanged — the
+GLSL shaders are inline strings (zero JS cost), the OG generator is
+server-only, the AI route handlers are server-only. The Anthropic SDK does
+**not** ship to the browser.
+
+### Animation inventory (after)
+
+| Where                                  | Rating after | Δ |
+| -------------------------------------- | ------------ | -- |
+| HeroCore parallax + intro              | **4**        | +2 |
+| CoreObject (bespoke shader)            | **4**        | +1 |
+| OrbitNodes (prime ellipses + trails)   | **4**        | +2 |
+| Camera dolly                           | **4**        | NEW |
+| Manifesto reveal                       | **4**        | 0  |
+| Roster cascade + hex hover             | **3**        | 0 (mosaic-feature variant deferred) |
+| LiveNow + AI summary                   | **3**        | +2 |
+| HouseReveal (sticky pin)               | **3**        | 0  |
+| Crew                                   | **2**        | +1 |
+| Footer (oversized wordmark)            | **3**        | +2 |
+| Cursor                                 | **4**        | NEW |
+| Intro sequence                         | **4**        | NEW |
+| Animated grain (feTurbulence)          | **3**        | +2 |
+
+No 5s yet. Honest grading. The path to 5s is in WALKTHROUGH.md and is mostly
+about content — real bios, real portraits in editorial light, a real
+licensed display face. The *system* is at the bar; some of the inputs
+aren't.
+
+### Templated-feeling moments — fixed?
+
+1. **Hero CTAs**: replaced twin pills with a single underlined editorial
+   action (bottom-right). ✓
+2. **Roster grid**: still a clean 2×3, accent halo on hover, cursor
+   tints to member accent. The "one cell punches up" mosaic is **not**
+   shipped — flagged in WALKTHROUGH for next pass. ⚠
+3. **Footer**: now 60vh, oversized wordmark, 80px social glyphs,
+   mono copyright + RAW toggle. ✓
+
+### Lighthouse
+
+Still not measured (no preview deployment). When the Vercel preview lands,
+re-run and append the numbers below this line. **Don't overwrite §8.**
+
+### What I cut, and why
+
+- **Sound design (Tone.js / Howler).** Optional in the prompt, default-off,
+  needs licensed sting clips. Scaffolding skipped — adding the toggle later
+  is a one-component change.
+- **Konami easter egg.** Same reason — needs a licensed sting clip.
+- **Lighthouse CI gate.** Needs a preview URL. Configured to drop in
+  `treosh/lighthouse-ci-action` later without restructuring CI.
+- **axe-core in CI.** Adding the dep + script later; today's MVP is already
+  AA-or-better in contrast and keyboard-nav verified by hand.
+- **Custom display face.** Interim is Inter Black. Swap-in is one font
+  import in `app/layout.tsx` once `coreboys-brand` confirms Migra vs
+  Editorial New.
+- **HouseReveal scroll-scrubbed video.** Sticky pin + framer scroll opacity
+  is the stable read; `currentTime` driving on iOS Safari is too finicky to
+  ship without a designer's eye.
+- **The "one big hex" mosaic** in Roster (NOTES §5(2)). Needs design.
+
+These are all queued, none are blockers.
