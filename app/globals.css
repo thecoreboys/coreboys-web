@@ -1,20 +1,33 @@
 @import "tailwindcss";
 
 @theme {
+  /* Surfaces */
   --color-bg: #06070a;
   --color-bg-elev: #0e1014;
+
+  /* Text */
   --color-ink: #f2f3f5;
   --color-ink-dim: #8a8e97;
+  --color-ink-faint: #3a3d43; /* tertiary text + rules. AAA-careful. */
+
+  /* Rule lines */
   --color-rule: #1a1d23;
+
+  /* Brand accents */
   --color-core: #ff6a00;
   --color-core-2: #ffb020;
+  --color-core-3: #ff3a00;
   --color-live: #ff1f3d;
 
+  /* Type stack — see THEMING.md */
   --font-display: var(--font-display), "Inter", "Helvetica Neue", system-ui, sans-serif;
   --font-sans: var(--font-sans), "Inter", system-ui, sans-serif;
-  --font-mono: var(--font-mono), ui-monospace, "Geist Mono", monospace;
+  --font-mono: var(--font-mono), ui-monospace, "JetBrains Mono", monospace;
 
-  --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Eases */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 :root {
@@ -23,10 +36,16 @@
   --bg-elev: var(--color-bg-elev);
   --ink: var(--color-ink);
   --ink-dim: var(--color-ink-dim);
+  --ink-faint: var(--color-ink-faint);
   --rule: var(--color-rule);
   --core: var(--color-core);
   --core-2: var(--color-core-2);
+  --core-3: var(--color-core-3);
   --live: var(--color-live);
+
+  /* The CORE glow gradient. Used for: wordmark fill, primary CTA glow, live
+     pulse halo. Nowhere else without sign-off. */
+  --core-glow: linear-gradient(135deg, #ff6a00 0%, #ff3a00 50%, #ffb020 100%);
 }
 
 * {
@@ -52,17 +71,6 @@ body {
   overflow-x: hidden;
 }
 
-/* The grain layer — fixed, low opacity, multiplied over everything. */
-.grain {
-  pointer-events: none;
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  opacity: 0.04;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1   0 0 0 0 1   0 0 0 0 1   0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  mix-blend-mode: overlay;
-}
-
 ::selection {
   background: var(--core);
   color: #06070a;
@@ -74,29 +82,56 @@ body {
   border-radius: 2px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+/* ────────────────────────────────────────────────────────────────────────
+   Grain
+   - Real animated SVG noise via feTurbulence.
+   - Painted into a fixed positioned <svg> in app/layout.tsx; this rule
+     just lays out the host element + the optional CRT scanline overlay
+     used by RAW mode.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.grain-host {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  mix-blend-mode: overlay;
+  opacity: 0.04;
 }
 
-/* Display kicker — small caps, wide tracking */
-.kicker {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
+.grain-host > svg {
+  width: 100%;
+  height: 100%;
 }
 
-/* Hex clip-path — pointy-top regular hexagon */
-.hex-clip {
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+/* CRT scanlines — only render when [data-mode="raw"] is set on <html>. */
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(255, 255, 255, 0.04) 2px,
+    rgba(255, 255, 255, 0.04) 3px
+  );
+  opacity: 0;
+  transition: opacity 250ms var(--ease-out);
+}
+
+[data-mode="raw"] .scanlines {
+  opacity: 1;
+}
+
+/* RAW mode also tints the page slightly amber and bumps grain. */
+[data-mode="raw"] .grain-host {
+  opacity: 0.08;
+}
+
+[data-mode="raw"] body {
+  filter: contrast(1.06) saturate(0.92);
 }
 
 /* Live pulse */
@@ -111,10 +146,104 @@ body {
 }
 
 .live-pulse {
-  animation: live-pulse 1.6s var(--ease-expo-out) infinite;
+  animation: live-pulse 1.6s var(--ease-out) infinite;
 }
 
 /* Hairline rule between sections */
 .rule {
   border-top: 1px solid var(--rule);
+}
+
+/* Hex clip-path — pointy-top regular hexagon */
+.hex-clip {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+/* Kicker utility — kept for backwards compat; new code should use <Eyebrow>. */
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* The wordmark gradient fill — uses --core-glow tokenized above. */
+.wordmark-fill {
+  background-image: var(--core-glow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Custom cursor — only on devices that have a mouse.
+   The cursor itself is rendered by <Cursor> in components/Cursor.tsx;
+   this rule hides the native cursor when the body opts in.
+   ──────────────────────────────────────────────────────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  body[data-cursor="custom"] {
+    cursor: none;
+  }
+  body[data-cursor="custom"] * {
+    cursor: none !important;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Dev-only 12-column grid overlay, toggled by ?grid=1.
+   The toggling lives in <GridOverlay>; this rule paints the lines when
+   the data attribute is on.
+   ──────────────────────────────────────────────────────────────────────── */
+[data-grid="1"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background-image:
+    linear-gradient(to right, rgba(255, 106, 0, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: calc((100% - 128px) / 12) 8px;
+  background-position: 64px 0;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Reduced motion
+   ──────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .grain-host,
+  .scanlines {
+    display: none;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Skip link — visually hidden until focused.
+   ──────────────────────────────────────────────────────────────────────── */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 8px 14px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--core);
+  border-radius: 4px;
+  transform: translateY(-150%);
+  transition: transform 200ms var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
 }
