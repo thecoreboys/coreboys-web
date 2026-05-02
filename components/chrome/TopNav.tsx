@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Instagram, Menu, Moon, Sun, X, Youtube } from "lucide-react";
 
@@ -374,13 +375,17 @@ export function TopNav({
         </div>
       ) : null}
 
-      {/* Live members modal */}
-      {liveModalOpen && liveCount > 0 ? (
+      {/* Live members modal — portaled to document.body so it escapes the
+          navbar's `backdrop-filter`, which would otherwise turn the
+          navbar into the containing block for this `fixed` element and
+          break centering once the navbar gains its scrolled blur. */}
+      {liveModalOpen && liveCount > 0 && typeof window !== "undefined"
+        ? createPortal(
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Live members"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onClick={() => setLiveModalOpen(false)}
         >
           <div
@@ -464,8 +469,10 @@ export function TopNav({
               </Link>
             </div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+        document.body,
+        )
+        : null}
     </header>
   );
 }
