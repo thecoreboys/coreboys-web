@@ -13,6 +13,7 @@ import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { UnreleasedBanner } from "@/components/chrome/UnreleasedBanner";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 // Inter does the heavy lifting: tight in display sizes, calm at body.
@@ -60,6 +61,13 @@ export const viewport: Viewport = {
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
 
+const embedImage = {
+  url: "/embed-preview.png",
+  width: 1200,
+  height: 630,
+  alt: "The Core Boys",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -69,17 +77,21 @@ export const metadata: Metadata = {
   description:
     "Six creators. One core. Everything we make, we own. The Core Boys: Marlon, StableRonaldo, Adapt, Jason TheWeen, Lacy, and Silky.",
   alternates: { canonical: siteUrl },
+  // Favicon comes from the file convention at `app/icon.png` — Next.js
+  // emits the <link rel="icon"> automatically.
   openGraph: {
     title: "The Core Boys",
     description: "Six creators. One core. Everything we make, we own.",
     url: siteUrl,
     siteName: "The Core Boys",
     type: "website",
+    images: [embedImage],
   },
   twitter: {
     card: "summary_large_image",
     title: "The Core Boys",
     description: "Six creators. One core. Everything we make, we own.",
+    images: [embedImage.url],
   },
   robots: { index: true, follow: true },
 };
@@ -105,38 +117,40 @@ async function getMemberAvatars(): Promise<Record<string, string>> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const avatars = await getMemberAvatars();
   return (
-    <html
-      lang="en"
-      className={`${sans.variable} ${mono.variable} ${display.variable} ${typewriter.variable} ${editorialSerif.variable}`}
-    >
-      <body>
-        <a href="#main" className="skip-link">
-          Skip to content
-        </a>
+    <ClerkProvider>
+      <html
+        lang="en"
+        className={`${sans.variable} ${mono.variable} ${display.variable} ${typewriter.variable} ${editorialSerif.variable}`}
+      >
+        <body>
+          <a href="#main" className="skip-link">
+            Skip to content
+          </a>
 
-        <NuqsAdapter>
-          <ThemeProvider>
-            <LenisProvider>
-              <div className="fixed inset-x-0 top-0 z-50">
-                <UnreleasedBanner />
-                <TopNav initialAvatars={avatars} />
-              </div>
-              <main id="main">{children}</main>
-            </LenisProvider>
-          </ThemeProvider>
-        </NuqsAdapter>
+          <NuqsAdapter>
+            <ThemeProvider>
+              <LenisProvider>
+                <div className="fixed inset-x-0 top-0 z-50">
+                  <UnreleasedBanner />
+                  <TopNav initialAvatars={avatars} />
+                </div>
+                <main id="main">{children}</main>
+              </LenisProvider>
+            </ThemeProvider>
+          </NuqsAdapter>
 
-        <Cursor />
-        <Suspense fallback={null}>
-          <GridOverlay />
-        </Suspense>
-        <Grain />
-        <Scanlines />
-        <ConsoleEgg />
-        <OrganizationJsonLd />
-        <CookieBanner />
-        <GoogleAnalytics />
-      </body>
-    </html>
+          <Cursor />
+          <Suspense fallback={null}>
+            <GridOverlay />
+          </Suspense>
+          <Grain />
+          <Scanlines />
+          <ConsoleEgg />
+          <OrganizationJsonLd />
+          <CookieBanner />
+          <GoogleAnalytics />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
