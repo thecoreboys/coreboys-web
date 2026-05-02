@@ -7,6 +7,12 @@ const config: NextConfig = {
   // doesn't need pnpm or node_modules — just `node server.js`.
   output: "standalone",
   images: {
+    // Custom loader — see lib/image-loader.ts. Maps `/members/...`,
+    // `/crew/...`, `/group/...` etc. to the Spaces CDN since those
+    // folders aren't in the runtime image. Default optimizer can't
+    // help here because it tries to read from /public on disk.
+    loader: "custom",
+    loaderFile: "./lib/image-loader.ts",
     remotePatterns: [
       { protocol: "https", hostname: "static-cdn.jtvnw.net" },
       { protocol: "https", hostname: "i.ytimg.com" },
