@@ -5,14 +5,20 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
 import { MEMBERS_BY_SLUG, MEMBERS, CREW } from "@/lib/members";
 import { ageFromIso } from "@/lib/utils";
-import { fetchUserIdsByLogin, fetchFollowerCount, fetchUsersByLogin } from "@/lib/twitch";
+import { fetchUserIdsByLogin, fetchFollowerCount, fetchUsersByLogin, buildLiveResponse, type LiveEntry } from "@/lib/twitch";
 import { getMemberPhotos, getCrewPortrait, getGroupPhotos } from "@/lib/asset-index";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { PlatformLink, type PlatformKey } from "@/components/ui/PlatformLink";
 import { AutoScrollGallery } from "@/components/ui/AutoScrollGallery";
 import { FanMailPostcard } from "@/components/sections/FanMailPostcard";
+import { MemberLiveStatus } from "@/components/live/MemberLiveStatus";
 import { ViralityTimeline } from "@/components/member/ViralityTimeline";
 import { SEED_CLIPS } from "@/lib/clips";
+
+// Live status freshness — page regenerates at most every 60s so the
+// "Live now" pill in the hero stays roughly current. The client SWR
+// hook in MemberLiveStatus refreshes on top of that.
+export const revalidate = 60;
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -56,9 +62,10 @@ export default async function MemberPage({ params }: Params) {
   const otherMembers = MEMBERS.filter((m) => m.slug !== member.slug);
 
   // Twitch lookups: follower count for this member + avatars for the
-  // "Check out the other members" rail.
+  // "Check out the other members" rail + live status for the hero pill.
   let twitchFollowers: number | null = null;
   const avatarsByLogin: Record<string, string> = {};
+  let liveEntry: LiveEntry | undefined;
   try {
     const allLogins = MEMBERS.map((m) => m.twitchLogin);
     const users = await fetchUsersByLogin(allLogins);
@@ -69,6 +76,10 @@ export default async function MemberPage({ params }: Params) {
     if (user) {
       twitchFollowers = await fetchFollowerCount(user.id);
     }
+    const liveResponse = await buildLiveResponse([member.twitchLogin]);
+    liveEntry = liveResponse.live.find(
+      (e) => e.login.toLowerCase() === member.twitchLogin.toLowerCase(),
+    );
   } catch {
     /* ignore */
   }
@@ -220,6 +231,10 @@ export default async function MemberPage({ params }: Params) {
                     </span>
                   </span>
                 </span>
+              </div>
+
+              <div className="mt-5">
+                <MemberLiveStatus login={member.twitchLogin} initial={liveEntry} />
               </div>
 
               <p className="mt-6 max-w-[60ch] text-[15px] leading-relaxed text-[color:var(--ink-dim)] md:text-[16px]">
