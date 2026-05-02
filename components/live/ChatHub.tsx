@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, Maximize2, Minimize2, Plus, RotateCcw, Settings2, X } from "lucide-react";
 import { TwitchChat } from "@/components/live/TwitchChat";

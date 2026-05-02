@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ArrowUpRight, PlayCircle, Youtube } from "lucide-react";
 import { GROUP } from "@/lib/group";
 import { fetchYouTubeChannelFeed, type FeedItem } from "@/lib/social-feed";

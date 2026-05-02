@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { MEMBERS } from "@/lib/members";
 import { fetchUsersByLogin, fetchFollowerCount } from "@/lib/twitch";
 import { MembersGridClient, type MemberCardData } from "@/components/sections/MembersGridClient";

@@ -2,8 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import type { Route } from "next";
 import { ChevronDown } from "lucide-react";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { LiveDot } from "@/components/ui/LiveDot";
