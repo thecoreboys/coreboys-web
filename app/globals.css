@@ -915,6 +915,24 @@ body {
   animation: core-pulse 1.6s var(--ease-out) infinite;
 }
 
+/* Image fade-in for the media gallery + clip thumbnails — stops the
+   "spam pop-in" effect by reserving aspect-ratio space and easing each
+   image from transparent to opaque once it actually loads. Pair with a
+   subtle background placeholder so the slot isn't pure black. */
+.media-fade {
+  opacity: 0;
+  transition: opacity 420ms ease-out;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.015) 100%
+  );
+}
+.media-fade[data-loaded] {
+  opacity: 1;
+  background: transparent;
+}
+
 /* Live-now ping ring — softer than tailwind's animate-ping. Used by
    MemberLiveStatus on the member hero. */
 @keyframes ping-soft {
