@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import type SharpType from "sharp";
+
+type SharpModule = typeof SharpType;
 
 /**
  * Server-side photo renderer.
@@ -44,10 +47,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  let sharp: typeof import("sharp");
+  // Lazy-load: keeps cold start fast on routes that don't render.
+  let sharp: SharpModule;
   try {
-    // Lazy-load: keeps cold start fast on routes that don't render.
-    sharp = (await import("sharp")).default as unknown as typeof import("sharp");
+    sharp = (await import("sharp")).default as unknown as SharpModule;
   } catch {
     // Sharp isn't installed (or its native binaries aren't present).
     // Fall back to streaming the source bytes — better than 500.

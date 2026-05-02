@@ -26,7 +26,7 @@ export type PoBoxCardClientProps = {
  * lives both on the tile (for power users) and inside the modal.
  */
 export function PoBoxCardClient({
-  slug,
+  slug: _slug,
   stageName,
   realName,
   accent,

@@ -38,7 +38,7 @@ export type FanMailPostcardProps = {
  */
 export function FanMailPostcard({
   stageName,
-  realName,
+  realName: _realName,
   initial,
   accent,
   poBox,
