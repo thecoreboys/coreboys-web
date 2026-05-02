@@ -136,12 +136,12 @@ export function HouseTourParallax() {
       </motion.div>
 
       {/* ── Foreground content ─────────────────────────────────────── */}
-      {/* Title fills the area above the bottom group and centers within
-          it — so it lands at the optical middle of the visible video,
-          not the geometric middle of the section (which would feel low
-          because of the CTA + stats below). */}
+      {/* Single cohesive stack — eyebrow, title, CTA, stats — all in one
+          tight column that's vertically centered as a unit. The CTA sits
+          right under the title (no big gap) so the composition reads as
+          one editorial block. */}
       <motion.div
-        className="relative z-10 mx-auto flex h-full w-full max-w-[1440px] flex-col px-6 pt-10 pb-10 text-center md:px-8 md:pb-16"
+        className="relative z-10 mx-auto flex h-full w-full max-w-[1440px] flex-col items-center justify-center gap-7 px-6 text-center md:gap-8 md:px-8"
         style={reduced ? undefined : { y: fgY }}
       >
         <motion.div
@@ -149,88 +149,82 @@ export function HouseTourParallax() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-15%" }}
           transition={{ duration: 0.7, ease: EASE_OUT }}
-          className="grid flex-1 place-items-center"
+          className="flex flex-col items-center"
         >
-          <div className="flex flex-col items-center">
-            <span
-              className="block font-mono text-[clamp(11px,1.3vw,16px)] uppercase tracking-[0.32em] text-white/75"
-              style={{ textShadow: "0 2px 12px rgba(0,0,0,0.55)" }}
-            >
-              This is the
-            </span>
-            <h2
-              className="mt-3 text-display text-[clamp(56px,10vw,160px)] font-black leading-[0.9] tracking-[-0.04em] text-white"
-              style={{
-                textShadow:
-                  "0 0 6px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.55), 0 0 36px rgba(255,59,31,0.85), 0 0 80px rgba(255,59,31,0.55), 0 0 140px rgba(255,59,31,0.35)",
-                animation: "core-glow 4.5s ease-in-out infinite",
-              }}
-            >
-              CORE house.
-            </h2>
-          </div>
-        </motion.div>
-
-        {/* Bottom group — natural flow at the end of the flex column. */}
-        <div className="flex flex-col items-center gap-8">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15%" }}
-            transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.16 }}
+          <span
+            className="block font-mono text-[clamp(11px,1.3vw,16px)] uppercase tracking-[0.32em] text-white/75"
+            style={{ textShadow: "0 2px 12px rgba(0,0,0,0.55)" }}
           >
-            <Link
-              href={youtubeHref as never}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group/cta inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-5 py-2.5 text-[13px] font-semibold tracking-tight text-white backdrop-blur-md transition-all hover:-translate-y-px hover:border-white hover:bg-white/20"
-            >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FF0033] text-white shadow-[0_0_18px_rgba(255,0,51,0.5)]">
-                <Play size={11} fill="currentColor" />
-              </span>
-              Watch on YouTube
-              <ArrowUpRight
-                size={14}
-                className="transition-transform group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5"
-              />
-            </Link>
-          </motion.div>
-
-          {/* Stat strip with stagger */}
-          <motion.ul
-            className="mx-auto grid w-full max-w-[760px] grid-cols-2 gap-3 md:grid-cols-4"
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-15%" }}
-            variants={{
-              hidden: {},
-              show: { transition: { staggerChildren: 0.08, delayChildren: 0.2 } },
+            This is the
+          </span>
+          <h2
+            className="mt-3 text-display text-[clamp(56px,10vw,160px)] font-black leading-[0.9] tracking-[-0.04em] text-white"
+            style={{
+              textShadow:
+                "0 0 6px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.55), 0 0 36px rgba(255,59,31,0.85), 0 0 80px rgba(255,59,31,0.55), 0 0 140px rgba(255,59,31,0.35)",
+              animation: "core-glow 4.5s ease-in-out infinite",
             }}
           >
-            {[
-              { l: "Square ft.", v: "30,000" },
-              { l: "Rooms", v: "9" },
-              { l: "Members", v: String(MEMBERS.length) },
-              { l: "Crew", v: String(CREW.length) },
-            ].map((s) => (
-              <motion.li
-                key={s.l}
-                variants={{
-                  hidden: { opacity: 0, y: 16 },
-                  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT } },
-                }}
-                className="rounded-md border border-white/15 bg-black/40 px-4 py-3 text-center backdrop-blur-md"
-              >
-                <p className="text-display text-[20px] font-black tabular-nums text-white md:text-[22px]">
-                  {s.v}
-                </p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-white/60">
-                  {s.l}
-                </p>
-              </motion.li>
-            ))}
-          </motion.ul>
-        </div>
+            CORE house.
+          </h2>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-15%" }}
+          transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.16 }}
+        >
+          <Link
+            href={youtubeHref as never}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group/cta inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-5 py-2.5 text-[13px] font-semibold tracking-tight text-white backdrop-blur-md transition-all hover:-translate-y-px hover:border-white hover:bg-white/20"
+          >
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FF0033] text-white shadow-[0_0_18px_rgba(255,0,51,0.5)]">
+              <Play size={11} fill="currentColor" />
+            </span>
+            Watch on YouTube
+            <ArrowUpRight
+              size={14}
+              className="transition-transform group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5"
+            />
+          </Link>
+        </motion.div>
+
+        <motion.ul
+          className="grid w-full max-w-[760px] grid-cols-2 gap-3 md:grid-cols-4"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-15%" }}
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.08, delayChildren: 0.2 } },
+          }}
+        >
+          {[
+            { l: "Square ft.", v: "30,000" },
+            { l: "Rooms", v: "9" },
+            { l: "Members", v: String(MEMBERS.length) },
+            { l: "Crew", v: String(CREW.length) },
+          ].map((s) => (
+            <motion.li
+              key={s.l}
+              variants={{
+                hidden: { opacity: 0, y: 16 },
+                show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT } },
+              }}
+              className="rounded-md border border-white/15 bg-black/40 px-4 py-3 text-center backdrop-blur-md"
+            >
+              <p className="text-display text-[20px] font-black tabular-nums text-white md:text-[22px]">
+                {s.v}
+              </p>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-white/60">
+                {s.l}
+              </p>
+            </motion.li>
+          ))}
+        </motion.ul>
       </motion.div>
 
       {/* Edge fades into the surrounding sections */}
