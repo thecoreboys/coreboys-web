@@ -7,12 +7,15 @@ const config: NextConfig = {
   // doesn't need pnpm or node_modules — just `node server.js`.
   output: "standalone",
   images: {
-    // Custom loader — see lib/image-loader.ts. Maps `/members/...`,
-    // `/crew/...`, `/group/...` etc. to the Spaces CDN since those
-    // folders aren't in the runtime image. Default optimizer can't
-    // help here because it tries to read from /public on disk.
-    loader: "custom",
-    loaderFile: "./lib/image-loader.ts",
+    // Skip the Next/Image optimizer entirely. The runtime Docker image
+    // doesn't carry the gitignored `public/{members,crew,group,...}/`
+    // folders, so the optimizer would 404 reading from disk. With
+    // `unoptimized` the browser fetches `src` directly; the redirects
+    // below send those paths to the Spaces CDN. Side benefit: avoids
+    // the Turbopack-dev regression where `loader: "custom"` +
+    // `loaderFile` isn't picked up reliably and every <Image> errors
+    // with "missing loader prop".
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "static-cdn.jtvnw.net" },
       { protocol: "https", hostname: "i.ytimg.com" },

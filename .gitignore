@@ -17,3 +17,6 @@ public/group
 public/comms
 public/crew
 public/house-reveal.mp4
+
+# clerk configuration (can include secrets)
+/.clerk/
