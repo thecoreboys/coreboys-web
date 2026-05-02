@@ -85,10 +85,21 @@ export function TopNav({
   const [open, setOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [liveModalOpen, setLiveModalOpen] = useState(false);
+  // Mount flag so the portal target (`document.body`) is only consulted
+  // after hydration. `typeof window` checks at render time are subtle —
+  // on the first client render the body may still be the SSR markup,
+  // and createPortal can quietly resolve into a containing-block-bound
+  // ancestor instead of body. This guarantees a post-hydration mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const { data } = useLiveStatus();
   const liveEntries = (data?.live ?? []).filter((l) => l.isLive);
   const liveCount = liveEntries.length;
+  const combinedViewers = liveEntries.reduce(
+    (sum, e) => sum + (e.viewerCount ?? 0),
+    0,
+  );
   const liveProfiles = useTwitchProfiles();
   // Server pre-fetch first; client SWR fills in if it has fresher data.
   const profiles = { ...(initialAvatars ?? {}), ...liveProfiles };
@@ -298,7 +309,7 @@ export function TopNav({
               type="button"
               onClick={() => setLiveModalOpen(true)}
               className="group relative inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/60 bg-[color:var(--core)]/12 px-3 py-1.5 cursor-pointer transition-all hover:bg-[color:var(--core)]/20"
-              aria-label={`${liveCount} live — open member picker`}
+              aria-label={`${liveCount} live${combinedViewers > 0 ? ` — ${combinedViewers.toLocaleString("en-US")} watching` : ""} — open member picker`}
             >
               <span
                 aria-hidden
@@ -306,7 +317,7 @@ export function TopNav({
                 style={{ animation: "live-blink 1s ease-in-out infinite" }}
               />
               <span className="text-[11px] font-bold tracking-tight text-[color:var(--core)]">
-                LIVE · {liveCount}
+                LIVE
               </span>
             </button>
           ) : (
@@ -395,7 +406,7 @@ export function TopNav({
           navbar's `backdrop-filter`, which would otherwise turn the
           navbar into the containing block for this `fixed` element and
           break centering once the navbar gains its scrolled blur. */}
-      {liveModalOpen && liveCount > 0 && typeof window !== "undefined"
+      {mounted && liveModalOpen && liveCount > 0
         ? createPortal(
         <div
           role="dialog"
@@ -409,7 +420,7 @@ export function TopNav({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-[color:var(--rule)] bg-[color:var(--surface)] px-4 py-3">
-              <div className="inline-flex items-center gap-2">
+              <div className="inline-flex items-center gap-2.5">
                 <span
                   aria-hidden
                   className="h-2 w-2 rounded-full bg-white"
@@ -418,6 +429,17 @@ export function TopNav({
                 <span className="text-[12px] font-bold uppercase tracking-tight text-[color:var(--core)]">
                   LIVE · {liveCount}
                 </span>
+                {combinedViewers > 0 ? (
+                  <>
+                    <span className="text-[color:var(--ink-faint)]" aria-hidden>
+                      ·
+                    </span>
+                    <span className="text-[12px] font-semibold tabular-nums text-[color:var(--ink)]">
+                      {combinedViewers.toLocaleString("en-US")}{" "}
+                      <span className="font-normal text-[color:var(--ink-dim)]">watching</span>
+                    </span>
+                  </>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -453,12 +475,19 @@ export function TopNav({
                         <p className="text-[14px] font-semibold text-[color:var(--ink)]">
                           {member.stageName}
                         </p>
-                        <p className="text-[11px] text-[color:var(--ink-dim)]">
+                        <p className="truncate text-[11px] text-[color:var(--ink-dim)]">
                           {e.title ?? "Streaming"}
-                          {e.viewerCount != null
-                            ? ` · ${e.viewerCount.toLocaleString("en-US")} watching`
-                            : ""}
                         </p>
+                        {e.viewerCount != null ? (
+                          <p className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--core)]">
+                            <span
+                              aria-hidden
+                              className="h-1.5 w-1.5 rounded-full bg-[color:var(--core)]"
+                              style={{ animation: "live-blink 1s ease-in-out infinite" }}
+                            />
+                            {e.viewerCount.toLocaleString("en-US")} watching
+                          </p>
+                        ) : null}
                       </div>
                       <span
                         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-tight"
@@ -491,6 +520,13 @@ export function TopNav({
         : null}
     </header>
   );
+}
+
+/** Compact viewer-count format: 12 → 12, 2300 → 2.3K, 1.5M → 1.5M. */
+function formatCompactCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString("en-US");
 }
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
