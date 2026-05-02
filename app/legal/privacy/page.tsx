@@ -12,9 +12,13 @@ export default function PrivacyPage() {
   return (
     <LegalLayout title="Privacy policy" effectiveDate="2026-01-01">
       <p>
-        CORE Inc. (&quot;<strong>we</strong>,&quot; &quot;<strong>us</strong>&quot;) operates{" "}
-        <strong>thecoreboys.com</strong>. This policy explains what data the
-        site collects, why we collect it, and what you can do about it.
+        <strong>thecoreboys.com</strong> is an{" "}
+        <strong>unofficial site</strong> about The Core Boys. It is not
+        operated by, endorsed by, or affiliated with The Core Boys or any
+        of its members. &quot;<strong>We</strong>&quot; / &quot;<strong>us</strong>&quot;
+        in this policy refers to the maintainers of this site. This
+        policy explains what data the site collects, why we collect it,
+        and what you can do about it.
       </p>
 
       <h2>The short version</h2>
@@ -118,7 +122,7 @@ export default function PrivacyPage() {
 
       <h2>Contact</h2>
       <p>
-        CORE Inc. · 3712 Brawdlawn Dr. · <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>
+        <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>
       </p>
     </LegalLayout>
   );

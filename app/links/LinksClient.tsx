@@ -78,7 +78,7 @@ export function LinksClient({ members, groupSocials }: Props) {
   return (
     <div className="mx-auto min-h-screen max-w-[640px] px-4 py-10 md:py-14">
       <header className="mb-6 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+        <p className="font-logo text-[14px] uppercase text-[color:var(--ink-faint)]">
           The Core Boys
         </p>
         <h1 className="mt-2 font-display text-[44px] font-black leading-[0.95] tracking-[-0.04em] text-[color:var(--ink)] md:text-[64px]">

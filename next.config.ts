@@ -51,7 +51,9 @@ const config: NextConfig = {
       { source: "/group/:path*", destination: `${cdn}/group/:path*`, permanent: true },
       { source: "/comms/:path*", destination: `${cdn}/comms/:path*`, permanent: true },
       { source: "/brand/:path*", destination: `${cdn}/brand/:path*`, permanent: true },
-      { source: "/fonts/:path*", destination: `${cdn}/fonts/:path*`, permanent: true },
+      // /fonts/* is intentionally NOT redirected — Nord-Regular.ttf lives
+      // in public/fonts and must be served same-origin so @font-face can
+      // load it without a CORS preflight.
       { source: "/house-reveal.mp4", destination: `${cdn}/house-reveal.mp4`, permanent: true },
     ];
   },

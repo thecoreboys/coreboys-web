@@ -90,7 +90,9 @@ export function HeroCore() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: durations.slow / 1000, ease: ease.out, delay: 1.4 }}
         >
-          <Eyebrow>The Core Boys · est. 2026</Eyebrow>
+          <span className="font-logo text-[14px] uppercase leading-[16px] text-[color:var(--ink-dim)]">
+            The Core Boys · est. 2026
+          </span>
         </motion.div>
 
         <motion.div
