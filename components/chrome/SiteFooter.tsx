@@ -121,7 +121,7 @@ export function SiteFooter() {
         {/* Bottom bar */}
         <div className="mt-12 flex flex-col items-start justify-between gap-3 border-t border-[color:var(--rule)] pt-6 md:mt-16 md:flex-row md:items-center">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-            © {new Date().getFullYear()} CORE Inc. All rights reserved.
+            © {new Date().getFullYear()} · Unofficial site · Not affiliated with The Core
           </p>
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">

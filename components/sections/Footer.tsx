@@ -94,7 +94,7 @@ export function Footer() {
           {/* Bottom row */}
           <div className="flex flex-col items-start gap-3 border-t border-[color:var(--rule)] pt-8 text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)] md:flex-row md:items-center md:justify-between">
             <p className="font-mono">
-              © {new Date().getFullYear()} CORE Inc. · 3712 Brawdlawn Dr.
+              © {new Date().getFullYear()} · Unofficial site · Not affiliated with The Core
             </p>
             <div className="flex items-center gap-4">
               <a
