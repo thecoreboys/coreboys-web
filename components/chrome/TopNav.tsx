@@ -101,6 +101,22 @@ export function TopNav({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Lock body scroll + close-on-Escape while the live modal is open so
+  // it doesn't drift visually with Lenis-driven background scroll.
+  useEffect(() => {
+    if (!liveModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLiveModalOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [liveModalOpen]);
+
   useEffect(() => {
     if (!membersOpen) return;
     function onKey(e: KeyboardEvent) {
