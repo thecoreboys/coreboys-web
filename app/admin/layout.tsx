@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ClerkProvider } from "@clerk/nextjs";
 import { currentUser } from "@clerk/nextjs/server";
 
@@ -25,8 +25,10 @@ function emailOf(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>): st
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
   if (!user) {
-    // Middleware should have redirected; defensive fallback.
-    redirect("/sign-in");
+    // Middleware should have redirected to Clerk's hosted sign-in
+    // before this layout ever runs. Defensive fallback in case
+    // someone bypasses middleware (e.g. internal route ops).
+    notFound();
   }
 
   const email = emailOf(user);
