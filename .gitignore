@@ -9,6 +9,9 @@ dist
 *.log
 coverage
 .vercel
+# Stray local CLI installs — never commit
+doctl-*
+*.exe
 public/members
 public/group
 public/comms
