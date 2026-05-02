@@ -67,7 +67,17 @@ type WebExtras = {
   description?: string;
   /** Public business / management contact email. */
   managementEmail?: string;
+  /** Manual follower / subscriber counts for platforms without a free
+   *  public stats API. Rendered as the metric on /m/[slug] socials.
+   *  YouTube subs come from the YouTube API and don't need this; Twitch
+   *  comes from Helix. Use this for tiktok / instagram / x / snapchat. */
+  manualCounts?: Partial<Record<"tiktok" | "instagram" | "x" | "snapchat", number>>;
 };
+
+// Placeholder follower counts for platforms without a free public API.
+// Replace with real numbers; any value of 0 is treated as "no data" and
+// the metric is hidden on the member page social link.
+const TODO_COUNTS = { tiktok: 0, instagram: 0, x: 0, snapchat: 0 } as const;
 
 const EXTRAS: Record<string, WebExtras> = {
   marlon: {
@@ -86,6 +96,7 @@ const EXTRAS: Record<string, WebExtras> = {
     },
     bio: "One of the most-watched IRL streamers of his generation. Brings camera-on-shoulder energy and an unfiltered through-line — at CORE, he is the connective tissue between studio polish and street tempo.",
     managementEmail: "marlon@night.co",
+    manualCounts: { ...TODO_COUNTS },
   },
   ron: {
     stageName: "StableRonaldo",
@@ -103,6 +114,7 @@ const EXTRAS: Record<string, WebExtras> = {
     },
     bio: "Built a household name in competitive Fortnite before pivoting into a creator who streams the way other people host shows. The strategist of CORE — calls the play, then runs it.",
     managementEmail: "stableronaldobusiness@gmail.com",
+    manualCounts: { ...TODO_COUNTS },
   },
   adapt: {
     stageName: "Adapt",
@@ -120,6 +132,7 @@ const EXTRAS: Record<string, WebExtras> = {
     },
     bio: "Built one of the original FaZe channels and a generation's idea of what a creator could be. At CORE, he is the producer's instinct in front of the camera.",
     managementEmail: "ahdaptingbusiness@gmail.com",
+    manualCounts: { ...TODO_COUNTS },
   },
   jason: {
     stageName: "JasonTheWeen",
@@ -137,6 +150,7 @@ const EXTRAS: Record<string, WebExtras> = {
     },
     bio: "Came up streaming long-form gameplay and grew it into one of Twitch's most consistent draws. The signal at CORE — when he's live, the room shifts.",
     managementEmail: "jasontheweenbusiness@gmail.com",
+    manualCounts: { ...TODO_COUNTS },
   },
   lacy: {
     stageName: "Lacy",
@@ -154,6 +168,7 @@ const EXTRAS: Record<string, WebExtras> = {
     },
     bio: "A multi-channel operator who turned IRL streaming into a format. The reporter's eye at CORE — nothing happens in the house that doesn't end up on camera.",
     managementEmail: "lacybizinquiries@gmail.com",
+    manualCounts: { ...TODO_COUNTS },
   },
   silky: {
     stageName: "Silky",
@@ -163,6 +178,7 @@ const EXTRAS: Record<string, WebExtras> = {
     index: "06",
     bio: "Streamer's streamer with a decade in the trenches. The veteran voice in the room — the one who keeps the rest honest.",
     managementEmail: "yungsilkmgmt@gmail.com",
+    manualCounts: { ...TODO_COUNTS },
   },
 };
 
