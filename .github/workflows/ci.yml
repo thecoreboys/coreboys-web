@@ -1,9 +1,10 @@
 name: CI
 
 on:
+  # Push trigger temporarily disabled — re-enable once the reusable
+  # workflow can clone sibling repos via GITHUB_BUILD_TOKEN. Until then
+  # CI runs on PRs only so red badges don't appear on main pushes.
   pull_request:
-  push:
-    branches: [main]
 
 jobs:
   ci:
