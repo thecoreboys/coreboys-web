@@ -243,7 +243,7 @@ export default async function MemberPage({ params }: Params) {
 
               {member.managementEmail ? (
                 <div className="mt-5">
-                  <p className="eyebrow mb-2">Business · Management</p>
+                  <p className="eyebrow mb-2">Business contact</p>
                   <a
                     href={`mailto:${member.managementEmail}`}
                     className="group inline-flex items-center gap-2 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-[13px] font-medium text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)]"
