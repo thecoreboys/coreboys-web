@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, Calendar } from "lucide-react";
-import { getGroupPhotos } from "@/lib/asset-index";
 import { ScrollItem, ScrollReveal } from "@/components/ui/ScrollReveal";
 
 type Announcement = {
@@ -20,26 +19,11 @@ type Announcement = {
  * in Phase 3 with no shape change.
  */
 export function AnnouncementsRail() {
-  const photos = getGroupPhotos();
-
-  const items: Announcement[] = [
-    {
-      id: "we-are-the-core-boys",
-      date: "2026-04-20",
-      category: "Org",
-      title: "We are CORE.",
-      href: "/news/we-are-the-core-boys",
-      image: photos[0],
-    },
-    {
-      id: "inside-our-20-million-dollar-content-house",
-      date: "2026-04-12",
-      category: "House",
-      title: "Inside our $20 million dollar content house.",
-      href: "/news/inside-our-20-million-dollar-content-house",
-      image: photos[1] ?? photos[0],
-    },
-  ];
+  // Empty until articles ship from the DB. The whole rail hides when
+  // there's nothing rather than rendering a "Latest from the org"
+  // header followed by a placeholder card.
+  const items: Announcement[] = [];
+  if (items.length === 0) return null;
 
   return (
     <section className="border-t border-[color:var(--rule)] bg-[color:var(--bg)]">

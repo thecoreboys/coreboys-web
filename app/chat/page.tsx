@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/chat" },
 };
 
-// Re-fetch the Twitch user lookup hourly. Numeric user IDs are stable;
-// this just keeps a fresh edge cache.
-export const revalidate = 3600;
+// Force-dynamic: fetchUsersByLogin uses `cache: "no-store"` for the
+// Twitch OAuth token, which Next 15 forbids inside an ISR-cached page.
+export const dynamic = "force-dynamic";
 
 export default async function ChatHubPage() {
   let coreChannels: ChatChannel[] = [];
