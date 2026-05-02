@@ -23,6 +23,14 @@ WORKDIR /workspace
 ARG SHARED_REF=main
 ARG SHARED_REPO=https://github.com/thecoreboys/coreboys-shared.git
 
+# Build-time-only token for cloning the private sibling repo. Stored
+# encrypted in App Platform; never embedded in the runtime image because
+# this stage gets discarded.
+ARG GITHUB_BUILD_TOKEN
+RUN if [ -n "$GITHUB_BUILD_TOKEN" ]; then \
+      git config --global url."https://oauth2:${GITHUB_BUILD_TOKEN}@github.com/".insteadOf "https://github.com/"; \
+    fi
+
 RUN git clone --depth 1 --branch ${SHARED_REF} ${SHARED_REPO} coreboys-shared && \
     cd coreboys-shared && pnpm install --frozen-lockfile && pnpm build
 
