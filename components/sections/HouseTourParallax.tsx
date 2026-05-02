@@ -70,8 +70,10 @@ export function HouseTourParallax() {
   });
 
   // Background moves slower (overshoots top) — classic parallax depth.
-  const bgY = useTransform(smooth, [0, 1], ["-12%", "12%"]);
-  const bgScale = useTransform(smooth, [0, 1], [1.18, 1.32]);
+  // Range tightened from ±12% so the house stays framed through the scroll
+  // instead of drifting off the visible crop.
+  const bgY = useTransform(smooth, [0, 1], ["-6%", "6%"]);
+  const bgScale = useTransform(smooth, [0, 1], [1.12, 1.22]);
   const fgY = useTransform(smooth, [0, 1], ["6%", "-6%"]);
   const overlayOpacity = useTransform(smooth, [0, 0.5, 1], [0.85, 0.55, 0.85]);
 
@@ -100,6 +102,7 @@ export function HouseTourParallax() {
           playsInline
           preload="auto"
           className="absolute left-1/2 top-1/2 h-full w-full min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover"
+          style={{ objectPosition: "center 40%" }}
         />
       </motion.div>
 
@@ -133,8 +136,11 @@ export function HouseTourParallax() {
       </motion.div>
 
       {/* ── Foreground content ─────────────────────────────────────── */}
+      {/* Title block is dead-centered in the section. CTA + stat strip
+          live in their own row anchored toward the bottom so they don't
+          push the title visually upward when calculating flex centering. */}
       <motion.div
-        className="relative z-10 mx-auto flex h-full max-w-[1440px] flex-col items-center justify-center px-6 py-24 text-center md:px-8 md:py-32"
+        className="relative z-10 mx-auto flex h-full max-w-[1440px] flex-col items-center px-6 py-12 text-center md:px-8 md:py-16"
         style={reduced ? undefined : { y: fgY }}
       >
         <motion.div
@@ -142,7 +148,7 @@ export function HouseTourParallax() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-15%" }}
           transition={{ duration: 0.7, ease: EASE_OUT }}
-          className="flex flex-col items-center text-center"
+          className="flex flex-1 flex-col items-center justify-center text-center"
         >
           <span
             className="block font-mono text-[clamp(11px,1.3vw,16px)] uppercase tracking-[0.32em] text-white/75"
@@ -167,7 +173,7 @@ export function HouseTourParallax() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-15%" }}
           transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.16 }}
-          className="mt-7 flex flex-col items-center gap-5"
+          className="flex flex-col items-center gap-5"
         >
           <Link
             href={youtubeHref as never}
