@@ -1,26 +1,24 @@
 import { Suspense } from "react";
-import { HeroCore } from "@/components/sections/HeroCore";
-import { Manifesto } from "@/components/sections/Manifesto";
-import { Roster } from "@/components/sections/Roster";
-import { LiveNow } from "@/components/sections/LiveNow";
-import { HouseReveal } from "@/components/sections/HouseReveal";
-import { Crew } from "@/components/sections/Crew";
-import { Footer } from "@/components/sections/Footer";
+import { HeroCorporate } from "@/components/sections/HeroCorporate";
+import { AnnouncementsRail } from "@/components/sections/AnnouncementsRail";
+import { MembersGrid } from "@/components/sections/MembersGrid";
+import { HouseTourParallax } from "@/components/sections/HouseTourParallax";
+import { FeaturedContent } from "@/components/sections/FeaturedContent";
+import { CrewWall } from "@/components/sections/CrewWall";
+import { SiteFooter } from "@/components/chrome/SiteFooter";
 
 export default function HomePage() {
   return (
-    <main>
-      <HeroCore />
-      <Manifesto />
+    <>
+      <HeroCorporate />
+      <AnnouncementsRail />
+      <MembersGrid />
+      <HouseTourParallax />
       <Suspense fallback={null}>
-        <Roster />
+        <FeaturedContent />
       </Suspense>
-      <LiveNow />
-      <HouseReveal />
-      <Suspense fallback={null}>
-        <Crew />
-      </Suspense>
-      <Footer />
-    </main>
+      <CrewWall />
+      <SiteFooter />
+    </>
   );
 }

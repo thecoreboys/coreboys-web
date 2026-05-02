@@ -39,6 +39,31 @@ const memberFolders = {
   silky: "silky",
 };
 
+// Crew slug → folder name in /assets. The folder name doesn't always match
+// the canonical slug (e.g. crew slug "drew-wall" lives in /assets/drew).
+const crewFolders = {
+  rocket: "rocket",
+  "drew-wall": "drew",
+  laiys: "laiys",
+  gilbert: "gilbert",
+  lazer: "lazer",
+  "john-ngo": "john",
+  wojito: "wojito",
+  said: "said",
+};
+
+// Comm logo files in /assets are named `{twitchLogin}_comm.png`. We expose
+// them under /public/comms/{slug}.png so member pages can <Image src=…>
+// them by slug without thinking about Twitch handles.
+const commLogos = {
+  marlon: "marlon_comm.png",
+  ron: "stableronaldo_comm.png",
+  adapt: "adapt_comm.png",
+  jason: "jasontheween_comm.png",
+  lacy: "lacy_comm.png",
+  silky: "silky_comm.png",
+};
+
 async function main() {
   if (!existsSync(workspaceAssets)) {
     console.error(`No /assets folder found at ${workspaceAssets}`);
@@ -47,11 +72,27 @@ async function main() {
 
   await ensureDir(resolve(publicDir, "members"));
   await ensureDir(resolve(publicDir, "group"));
+  await ensureDir(resolve(publicDir, "comms"));
+  await ensureDir(resolve(publicDir, "crew"));
 
   for (const [slug, folder] of Object.entries(memberFolders)) {
     await safeCopy(
       resolve(workspaceAssets, folder),
       resolve(publicDir, "members", slug),
+    );
+  }
+
+  for (const [slug, folder] of Object.entries(crewFolders)) {
+    await safeCopy(
+      resolve(workspaceAssets, folder),
+      resolve(publicDir, "crew", slug),
+    );
+  }
+
+  for (const [slug, file] of Object.entries(commLogos)) {
+    await safeCopy(
+      resolve(workspaceAssets, file),
+      resolve(publicDir, "comms", `${slug}.png`),
     );
   }
 

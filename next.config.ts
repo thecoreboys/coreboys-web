@@ -5,10 +5,8 @@ const config: NextConfig = {
   typedRoutes: true,
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "static-cdn.jtvnw.net",
-      },
+      { protocol: "https", hostname: "static-cdn.jtvnw.net" },
+      { protocol: "https", hostname: "i.ytimg.com" },
     ],
   },
   transpilePackages: ["@coreboys/shared"],

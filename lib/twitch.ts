@@ -7,6 +7,21 @@ const TokenResponseSchema = z.object({
   token_type: z.string(),
 });
 
+const UserSchema = z.object({
+  id: z.string(),
+  login: z.string(),
+  display_name: z.string(),
+  profile_image_url: z.string().url().optional(),
+});
+
+const UsersResponseSchema = z.object({
+  data: z.array(UserSchema),
+});
+
+const FollowResponseSchema = z.object({
+  total: z.number().int().nonnegative(),
+});
+
 const StreamSchema = z.object({
   id: z.string(),
   user_id: z.string(),
@@ -106,6 +121,159 @@ export type LiveResponse = {
   live: LiveEntry[];
   fetchedAt: string;
 };
+
+/**
+ * Resolves Twitch logins → numeric user IDs. Required for the BTTV / 7TV
+ * emote APIs, which key off Twitch user IDs and not logins. Cached for an
+ * hour because user IDs are effectively immutable.
+ */
+export async function fetchUserIdsByLogin(
+  logins: readonly string[],
+): Promise<Record<string, string>> {
+  if (logins.length === 0) return {};
+  const env = serverEnv();
+  const token = await getAppAccessToken();
+  const url = new URL("https://api.twitch.tv/helix/users");
+  for (const login of logins) {
+    url.searchParams.append("login", login);
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Client-Id": env.TWITCH_CLIENT_ID,
+    },
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`twitch users fetch failed (${res.status}): ${body}`);
+  }
+  const parsed = UsersResponseSchema.parse(await res.json());
+  return Object.fromEntries(parsed.data.map((u) => [u.login.toLowerCase(), u.id]));
+}
+
+/**
+ * Resolves Twitch logins → full user records (id, display name, profile image).
+ * Used by the roster + nav avatar paths so we render the canonical Twitch
+ * profile picture rather than a static asset. Cached at the edge for an hour.
+ */
+export type TwitchUser = z.infer<typeof UserSchema>;
+
+export async function fetchUsersByLogin(
+  logins: readonly string[],
+): Promise<Record<string, TwitchUser>> {
+  if (logins.length === 0) return {};
+  const env = serverEnv();
+  const token = await getAppAccessToken();
+  const url = new URL("https://api.twitch.tv/helix/users");
+  for (const login of logins) {
+    url.searchParams.append("login", login);
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Client-Id": env.TWITCH_CLIENT_ID,
+    },
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`twitch users fetch failed (${res.status}): ${body}`);
+  }
+  const parsed = UsersResponseSchema.parse(await res.json());
+  return Object.fromEntries(parsed.data.map((u) => [u.login.toLowerCase(), u]));
+}
+
+/**
+ * Returns the real-time follower count for a Twitch user_id. Twitch's
+ * Helix follower endpoint accepts an app token but only returns the
+ * `total` field (no list) without broadcaster auth — that's exactly
+ * what we need.
+ *
+ * Cached for 10 minutes so we don't hammer Helix on every page view.
+ */
+export async function fetchFollowerCount(userId: string): Promise<number | null> {
+  const env = serverEnv();
+  const token = await getAppAccessToken();
+  const url = new URL("https://api.twitch.tv/helix/channels/followers");
+  url.searchParams.set("broadcaster_id", userId);
+  url.searchParams.set("first", "1");
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Client-Id": env.TWITCH_CLIENT_ID,
+    },
+    next: { revalidate: 600 },
+  });
+  if (!res.ok) return null;
+  try {
+    const parsed = FollowResponseSchema.parse(await res.json());
+    return parsed.total;
+  } catch {
+    return null;
+  }
+}
+
+export type MemberLiveSnapshot = {
+  login: string;
+  userId: string;
+  displayName: string;
+  profileImageUrl?: string;
+  followers: number | null;
+  isLive: boolean;
+  viewerCount?: number;
+  game?: string;
+  title?: string;
+  startedAt?: string;
+};
+
+/**
+ * High-level helper: returns a single payload with everything needed
+ * to render a "real-time analytics" panel for a list of members —
+ * follower counts, current live status + viewers, profile pics.
+ */
+export async function fetchMemberSnapshots(
+  logins: readonly string[],
+): Promise<MemberLiveSnapshot[]> {
+  const [users, streams] = await Promise.all([
+    fetchUsersByLogin(logins),
+    fetchLiveStreams(logins),
+  ]);
+  const liveByLogin = new Map(streams.map((s) => [s.user_login.toLowerCase(), s]));
+
+  const out: MemberLiveSnapshot[] = await Promise.all(
+    logins.map(async (login) => {
+      const u = users[login.toLowerCase()];
+      if (!u) {
+        return {
+          login,
+          userId: "",
+          displayName: login,
+          followers: null,
+          isLive: false,
+        };
+      }
+      const followers = await fetchFollowerCount(u.id);
+      const live = liveByLogin.get(login.toLowerCase());
+      return {
+        login,
+        userId: u.id,
+        displayName: u.display_name,
+        profileImageUrl: u.profile_image_url,
+        followers,
+        isLive: !!live,
+        viewerCount: live?.viewer_count,
+        game: live?.game_name,
+        title: live?.title,
+        startedAt: live?.started_at,
+      };
+    }),
+  );
+  return out;
+}
 
 export async function buildLiveResponse(logins: readonly string[]): Promise<LiveResponse> {
   const streams = await fetchLiveStreams(logins);

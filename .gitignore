@@ -11,4 +11,6 @@ coverage
 .vercel
 public/members
 public/group
+public/comms
+public/crew
 public/house-reveal.mp4

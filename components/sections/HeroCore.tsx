@@ -6,6 +6,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 import { ease, durations } from "@/lib/motion";
 import { Display, Eyebrow } from "@/components/typography";
+import { HeroLiveOverlay } from "@/components/live/HeroLiveOverlay";
 
 const CoreScene = dynamic(() => import("@/components/three/CoreScene").then((m) => m.CoreScene), {
   ssr: false,
@@ -126,6 +127,9 @@ export function HeroCore() {
           Six creators. One core.
         </motion.p>
       </motion.div>
+
+      {/* Live HUD overlay — fades in only when someone is streaming */}
+      <HeroLiveOverlay />
 
       {/* Editorial corner anchors — replace twin-pill block from MVP */}
       <div className="absolute inset-x-0 bottom-6 z-10 flex items-end justify-between px-6 md:px-16">
