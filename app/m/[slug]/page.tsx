@@ -15,10 +15,12 @@ import { MemberLiveStatus } from "@/components/live/MemberLiveStatus";
 import { ViralityTimeline } from "@/components/member/ViralityTimeline";
 import { SEED_CLIPS } from "@/lib/clips";
 
-// Live status freshness — page regenerates at most every 60s so the
-// "Live now" pill in the hero stays roughly current. The client SWR
-// hook in MemberLiveStatus refreshes on top of that.
-export const revalidate = 60;
+// Render fresh on every request. Twitch token fetches use `cache:
+// "no-store"` which is incompatible with Next 15's static prerender +
+// ISR pipeline ("Page changed from static to dynamic"). The client
+// SWR hook in MemberLiveStatus also refreshes the live pill, so this
+// only affects the initial server render.
+export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ slug: string }> };
 
