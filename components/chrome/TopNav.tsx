@@ -303,13 +303,15 @@ export function TopNav({
             })}
           </ul>
 
-          {/* LIVE / OFFLINE pill — opens member-picker modal when live. */}
+          {/* LIVE / OFFLINE pill — opens member-picker modal when live.
+              When live, the whole pill blinks red (live-pill-blink) and
+              shows the combined viewer count across every live member. */}
           {liveCount > 0 ? (
             <button
               type="button"
               onClick={() => setLiveModalOpen(true)}
-              className="group relative inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/60 bg-[color:var(--core)]/12 px-3 py-1.5 cursor-pointer transition-all hover:bg-[color:var(--core)]/20"
-              aria-label={`${liveCount} live${combinedViewers > 0 ? ` — ${combinedViewers.toLocaleString("en-US")} watching` : ""} — open member picker`}
+              className="live-pill-blink group relative inline-flex items-center gap-2 rounded-md border px-3 py-1.5 cursor-pointer"
+              aria-label={`Live${combinedViewers > 0 ? ` — ${combinedViewers.toLocaleString("en-US")} watching` : ""} — open member picker`}
             >
               <span
                 aria-hidden
@@ -318,6 +320,12 @@ export function TopNav({
               />
               <span className="text-[11px] font-bold tracking-tight text-[color:var(--core)]">
                 LIVE
+                {combinedViewers > 0 ? (
+                  <>
+                    <span className="mx-1.5 text-[color:var(--core)]/50">·</span>
+                    <span className="tabular-nums">{formatCompactCount(combinedViewers)}</span>
+                  </>
+                ) : null}
               </span>
             </button>
           ) : (

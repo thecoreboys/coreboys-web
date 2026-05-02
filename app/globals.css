@@ -558,7 +558,10 @@ body {
   --paper-shadow: rgba(0, 0, 0, 0.55);
   --paper-ink: #1f1810;
   --paper-ink-dim: #5b4f40;
-  --paper-rule: rgba(31, 24, 16, 0.32);
+  /* Bumped from 0.32 → 0.55 so the dashed/dotted divider lines stay
+     visible against the cream paper-card background, which can otherwise
+     blend with the page in light mode. */
+  --paper-rule: rgba(31, 24, 16, 0.55);
   --stamp-edge: #f1ead6;
   --postmark: #6e2a18;
 }
@@ -772,6 +775,16 @@ body {
   color: var(--paper-ink);
 }
 
+/* Postcard divider lines — explicit selectors so the universal
+   `* { border-color: var(--rule) }` can't repaint them with the site
+   chrome rule color, and so the dashed/dotted borders stay readable on
+   the cream paper in BOTH dark and light themes. */
+.paper-card .postcard-message,
+.paper-card .postcard-divider-top,
+.paper-card .postcard-address-line {
+  border-color: var(--paper-rule);
+}
+
 /* Copy button on paper. */
 .paper-button {
   font-family: var(--font-typewriter), monospace;
@@ -891,8 +904,41 @@ body {
   0%, 49% { background: #fff; }
   50%, 100% { background: #ef4444; }
 }
+
+/* Ping ripple — used by the live-status indicator on member pages.
+   Outer ring scales out and fades, inner dot stays solid. */
+@keyframes ping-soft {
+  0% { transform: scale(1); opacity: 0.75; }
+  80%, 100% { transform: scale(2.2); opacity: 0; }
+}
 .core-pulse {
   animation: core-pulse 1.6s var(--ease-out) infinite;
+}
+
+/* Live-now ping ring — softer than tailwind's animate-ping. Used by
+   MemberLiveStatus on the member hero. */
+@keyframes ping-soft {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  75%  { transform: scale(2.4); opacity: 0;   }
+  100% { transform: scale(2.4); opacity: 0;   }
+}
+
+/* Whole-button red blink for the navbar's LIVE pill. Cycles between a
+   subdued red bg and a brighter "alert" state with a glowing border. */
+@keyframes live-pill-blink {
+  0%, 100% {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.6);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    background: rgba(239, 68, 68, 0.28);
+    border-color: rgba(239, 68, 68, 1);
+    box-shadow: 0 0 18px -2px rgba(239, 68, 68, 0.65);
+  }
+}
+.live-pill-blink {
+  animation: live-pill-blink 1.4s ease-in-out infinite;
 }
 
 /* Headline bloom — used on "CORE house." in the parallax welcome section. */
