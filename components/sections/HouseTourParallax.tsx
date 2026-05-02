@@ -141,7 +141,7 @@ export function HouseTourParallax() {
           right under the title (no big gap) so the composition reads as
           one editorial block. */}
       <motion.div
-        className="relative z-10 mx-auto flex h-full w-full max-w-[1440px] flex-col items-center justify-center gap-7 px-6 text-center md:gap-8 md:px-8"
+        className="relative z-10 mx-auto flex h-full w-full max-w-[1440px] flex-col items-center justify-center gap-7 px-6 pb-[18vh] pt-[6vh] text-center md:gap-8 md:px-8"
         style={reduced ? undefined : { y: fgY }}
       >
         <motion.div
