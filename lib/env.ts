@@ -3,6 +3,7 @@ import { z } from "zod";
 const ServerEnvSchema = z.object({
   TWITCH_CLIENT_ID: z.string().min(1, "TWITCH_CLIENT_ID is required"),
   TWITCH_CLIENT_SECRET: z.string().min(1, "TWITCH_CLIENT_SECRET is required"),
+  ANTHROPIC_API_KEY: z.string().optional(),
 });
 
 const PublicEnvSchema = z.object({
@@ -16,6 +17,7 @@ export function serverEnv(): z.infer<typeof ServerEnvSchema> {
   const parsed = ServerEnvSchema.safeParse({
     TWITCH_CLIENT_ID: process.env.TWITCH_CLIENT_ID,
     TWITCH_CLIENT_SECRET: process.env.TWITCH_CLIENT_SECRET,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   });
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");

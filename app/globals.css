@@ -1,25 +1,51 @@
 @import "tailwindcss";
 
+/* Nord — logo-only typeface used for the CORE wordmark in the
+   navbar and footer. Loaded once, rendered nowhere else. */
+@font-face {
+  font-family: "Nord";
+  src: url("/fonts/Nord-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-logo {
+  font-family: "Nord", "Inter", system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  /* Nord ships one weight — paint a stroke at the same color to fatten
+     glyphs without the synthetic-bold smearing browsers produce. */
+  -webkit-text-stroke: 0.045em currentColor;
+  paint-order: stroke fill;
+}
+
 @theme {
-  /* Surfaces */
-  --color-bg: #06070a;
-  --color-bg-elev: #0e1014;
+  /* Premium dark corporate. 100T / Misfits / Vercel-grade neutrals. */
+  --color-bg: #08080a;
+  --color-bg-elev: #101013;
+  --color-surface: #16161a;
 
-  /* Text */
-  --color-ink: #f2f3f5;
-  --color-ink-dim: #8a8e97;
-  --color-ink-faint: #3a3d43; /* tertiary text + rules. AAA-careful. */
+  /* Text — zinc-50, zinc-400, zinc-600. */
+  --color-ink: #f4f4f5;
+  --color-ink-dim: #a1a1aa;
+  --color-ink-faint: #52525b;
 
-  /* Rule lines */
-  --color-rule: #1a1d23;
+  /* Rule lines — subtle and solid options. Use the subtle one by default. */
+  --color-rule: #1f1f23;
+  --color-rule-strong: #2a2a30;
 
-  /* Brand accents */
-  --color-core: #ff6a00;
-  --color-core-2: #ffb020;
-  --color-core-3: #ff3a00;
-  --color-live: #ff1f3d;
+  /* CORE signal red. Used SPARINGLY — only CTAs, live dots, accents. */
+  --color-core: #ef4444;
+  --color-core-2: #f87171;
+  --color-core-3: #dc2626;
+  --color-live: #ef4444;
 
-  /* Type stack — see THEMING.md */
+  /* Status */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+
+  /* Type stack — Inter for display + body, JetBrains for labels. */
   --font-display: var(--font-display), "Inter", "Helvetica Neue", system-ui, sans-serif;
   --font-sans: var(--font-sans), "Inter", system-ui, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, "JetBrains Mono", monospace;
@@ -30,22 +56,260 @@
   --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-:root {
+:root,
+[data-theme="dark"] {
   color-scheme: dark;
   --bg: var(--color-bg);
   --bg-elev: var(--color-bg-elev);
+  --surface: var(--color-surface);
   --ink: var(--color-ink);
   --ink-dim: var(--color-ink-dim);
   --ink-faint: var(--color-ink-faint);
   --rule: var(--color-rule);
+  --rule-strong: var(--color-rule-strong);
   --core: var(--color-core);
   --core-2: var(--color-core-2);
   --core-3: var(--color-core-3);
   --live: var(--color-live);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
 
-  /* The CORE glow gradient. Used for: wordmark fill, primary CTA glow, live
-     pulse halo. Nowhere else without sign-off. */
-  --core-glow: linear-gradient(135deg, #ff6a00 0%, #ff3a00 50%, #ffb020 100%);
+  /* Single-color signal-red glow gradient. */
+  --core-glow: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* Light mode — same component classes, different tokens. Whites stay
+   warm-neutral; the signal red is unchanged so brand recognition holds. */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f8f8f7;
+  --bg-elev: #ffffff;
+  --surface: #f1f1ef;
+  --ink: #0a0a0a;
+  --ink-dim: #525258;
+  --ink-faint: #8a8a90;
+  --rule: #e6e6e3;
+  --rule-strong: #d3d3cf;
+  --core: #ef4444;
+  --core-2: #f87171;
+  --core-3: #dc2626;
+  --live: #ef4444;
+  --success: #059669;
+  --warning: #d97706;
+  --core-glow: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+[data-theme="light"] .bg-dot-grid {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle at 1px 1px, rgba(10, 10, 10, 0.07) 1px, transparent 0);
+}
+
+/* Pre-paint flash guard: keep `<html>` dark until the provider sets the
+   attribute on first paint. */
+html { background: var(--bg); color: var(--ink); }
+
+/* Ambient page texture — dot grid + multi-color blooms layered across
+   the full viewport. Brighter than the v1 ambience so pages don't feel
+   flat between sections. */
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--ink) 6%, transparent) 1px, transparent 0),
+    /* Top-left red */
+    radial-gradient(45% 35% at 8% -2%, rgba(239, 68, 68, 0.18), transparent 70%),
+    /* Top-right indigo */
+    radial-gradient(40% 30% at 100% 4%, rgba(99, 102, 241, 0.14), transparent 70%),
+    /* Mid-left amber */
+    radial-gradient(35% 30% at -5% 38%, rgba(245, 158, 11, 0.10), transparent 70%),
+    /* Mid-right teal */
+    radial-gradient(35% 30% at 105% 56%, rgba(34, 197, 220, 0.10), transparent 70%),
+    /* Bottom red */
+    radial-gradient(55% 30% at 50% 105%, rgba(239, 68, 68, 0.12), transparent 75%);
+  background-size: 24px 24px, auto, auto, auto, auto, auto;
+  background-attachment: fixed, fixed, fixed, fixed, fixed, fixed;
+}
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(10, 10, 10, 0.06) 1px, transparent 0),
+    radial-gradient(45% 35% at 8% -2%, rgba(239, 68, 68, 0.14), transparent 70%),
+    radial-gradient(40% 30% at 100% 4%, rgba(99, 102, 241, 0.10), transparent 70%),
+    radial-gradient(35% 30% at -5% 38%, rgba(245, 158, 11, 0.08), transparent 70%),
+    radial-gradient(35% 30% at 105% 56%, rgba(34, 197, 220, 0.08), transparent 70%),
+    radial-gradient(55% 30% at 50% 105%, rgba(239, 68, 68, 0.08), transparent 75%);
+}
+
+/* In light mode, text overlays sitting on photos still need a dark
+   gradient because the photos themselves are darker than the page bg.
+   Override the linear-gradient masks where we hard-coded the dark color
+   to keep text readable. */
+[data-theme="light"] .media-tone::after {
+  /* Slightly darker scanlines so they read on bright photos in light mode. */
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0.04) 0, rgba(0,0,0,0.04) 1px, transparent 1px, transparent 4px);
+  mix-blend-mode: multiply;
+  opacity: 0.35;
+}
+
+/* Logo wall in light mode — invert the grayscale tone so wordmarks
+   read as crisp dark text on the light surface. */
+[data-theme="light"] .logo-tile img,
+[data-theme="light"] .logo-tile svg {
+  filter: grayscale(1) brightness(0.4) opacity(0.7);
+}
+[data-theme="light"] .logo-tile:hover img,
+[data-theme="light"] .logo-tile:hover svg {
+  filter: grayscale(0) brightness(0.92) opacity(1);
+}
+
+/* Comm logo PNGs are dark-on-transparent and disappear in light mode.
+   Slap an inverted filter on them when the data-theme is light, applied
+   selectively via the .comm-logo helper class. */
+[data-theme="light"] .comm-logo {
+  filter: brightness(0.85);
+}
+
+/* Any text/icon that sits on top of a photo always needs to read as
+   light, regardless of theme — the photo gradient is dark in both modes. */
+.text-on-image,
+[data-theme="light"] .text-on-image {
+  color: #f4f4f5;
+}
+.text-on-image-dim,
+[data-theme="light"] .text-on-image-dim {
+  color: #d4d4d8;
+}
+
+/* Light-mode global salvage — anywhere a photo-bottom overlay uses the
+   `media-tone` host, force descendant text-color tokens to always be
+   light so cards remain readable. Specific to the `.absolute.inset-x-3`
+   overlay pattern we use across roster/crew/clip cards. */
+[data-theme="light"] .media-tone .absolute h1,
+[data-theme="light"] .media-tone .absolute h2,
+[data-theme="light"] .media-tone .absolute h3,
+[data-theme="light"] .media-tone .absolute p,
+[data-theme="light"] .media-tone .absolute span,
+[data-theme="light"] .media-tone .absolute time {
+  color: #f4f4f5;
+}
+[data-theme="light"] .media-tone .absolute .member-name {
+  color: #f4f4f5;
+}
+
+/* Hero wordmark gradient text — ensure it has decent contrast in light. */
+[data-theme="light"] .gradient-text {
+  background: linear-gradient(
+    100deg,
+    #0a0a0a 0%,
+    #0a0a0a 30%,
+    var(--core) 50%,
+    var(--core-3) 60%,
+    #0a0a0a 80%,
+    #0a0a0a 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
+
+/* The dotted-fade edge on the marquee gallery uses var(--bg) which is
+   correct in both modes — but the overlay text inside the gallery
+   tiles still needs to read light because the photo bottom is dark. */
+[data-theme="light"] .photo-strip .text-\[color\:var\(--ink\)\] {
+  color: #f4f4f5;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Visual flourishes — glass morphism, lens flares, grain overlays, glow
+   text. Used selectively on heroes, hover states, and admin chrome.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* Glass card — frosted surface that lifts above the dot-grid bg. */
+.glass {
+  background: color-mix(in oklab, var(--bg-elev) 65%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid color-mix(in oklab, var(--ink) 8%, transparent);
+}
+.glass-strong {
+  background: color-mix(in oklab, var(--bg-elev) 80%, transparent);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+
+/* Lens flare — a positioned blurred orb. Use with style overrides for
+   placement. The blob inherits its color from `--flare`. */
+.lens-flare {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(64px);
+  mix-blend-mode: screen;
+  background: radial-gradient(closest-side, var(--flare, rgba(239,68,68,0.55)), transparent 70%);
+  opacity: 0.7;
+}
+
+/* Image grain — a subtle noise overlay applied via ::after on any
+   container with `.image-grain`. Pairs with `media-tone` for richer
+   photo composition. */
+.image-grain {
+  position: relative;
+}
+.image-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.45 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+  mix-blend-mode: overlay;
+  opacity: 0.18;
+}
+
+/* Glow text — accent-tinted soft halo. Pair sparingly with the display
+   wordmark + hero CTAs. */
+.glow-text {
+  color: var(--ink);
+  text-shadow:
+    0 0 18px color-mix(in oklab, var(--core) 55%, transparent),
+    0 0 4px color-mix(in oklab, var(--core) 35%, transparent);
+}
+
+/* Grainy text — applies the noise filter via mask-image on the text glyph.
+   Keep to display sizes; tiny sizes look muddy. */
+.grainy-text {
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.7'/></svg>"),
+    linear-gradient(180deg, var(--ink), var(--ink));
+  background-blend-mode: overlay;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
+
+/* Animated gradient text — used on big headings. Slowly cycles a hue
+   through the wordmark so the page feels alive without being loud. */
+@keyframes gradient-text-pan {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.gradient-text {
+  background: linear-gradient(
+    100deg,
+    var(--ink) 0%,
+    var(--ink) 30%,
+    var(--core) 50%,
+    var(--core-2) 60%,
+    var(--ink) 80%,
+    var(--ink) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  animation: gradient-text-pan 8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gradient-text { animation: none; }
 }
 
 * {
@@ -168,6 +432,33 @@ body {
   color: var(--ink-dim);
 }
 
+/* Editorial post body — drop cap on the first paragraph. Skipped when the
+   first node is a heading or a media block (e.g. <TaggedMedia> first). */
+.post-body > p:first-of-type::first-letter {
+  font-family: var(--font-display);
+  float: left;
+  font-size: 5.5em;
+  line-height: 0.85;
+  margin-right: 0.08em;
+  margin-top: 0.08em;
+  font-weight: 800;
+  color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .post-card .group-hover\:scale-\[1\.025\],
+  .post-card .group-hover\:scale-\[1\.04\] {
+    transform: none !important;
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.animate-pulse-soft {
+  animation: pulse-soft 1.4s ease-in-out infinite;
+}
+
 /* The wordmark gradient fill — uses --core-glow tokenized above. */
 .wordmark-fill {
   background-image: var(--core-glow);
@@ -221,6 +512,14 @@ body {
     scroll-behavior: auto !important;
   }
 
+  /* AutoScrollGallery is the editorial pulse of member + crew pages —
+     keep it animating even under prefers-reduced-motion. Hover-to-pause
+     remains the user-control fallback. */
+  .ag-row {
+    animation-duration: var(--ag-speed, 40s) !important;
+    animation-iteration-count: infinite !important;
+  }
+
   .grain-host,
   .scanlines {
     display: none;
@@ -246,4 +545,726 @@ body {
 
 .skip-link:focus-visible {
   transform: translateY(0);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Postal-editorial — scoped to /fan-mail and /send-to-* pages.
+   These tokens deliberately don't reach the rest of the site; the postal
+   feel is intentional contrast against the dark editorial chrome.
+   ────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --paper: #f1ead6;
+  --paper-shadow: rgba(0, 0, 0, 0.55);
+  --paper-ink: #1f1810;
+  --paper-ink-dim: #5b4f40;
+  --paper-rule: rgba(31, 24, 16, 0.32);
+  --stamp-edge: #f1ead6;
+  --postmark: #6e2a18;
+}
+
+/* Light mode: keep the original paper tone + grain layers but deepen the
+   drop-shadow so the card still reads as resting on the page rather than
+   blending into a light background. */
+[data-theme="light"] .paper-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 0 0 1px rgba(31, 24, 16, 0.22),
+    0 22px 44px -20px rgba(31, 24, 16, 0.55),
+    0 8px 16px -6px rgba(31, 24, 16, 0.32);
+}
+[data-theme="light"] .paper-card:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 0 0 1px rgba(31, 24, 16, 0.26),
+    0 30px 56px -24px rgba(31, 24, 16, 0.65),
+    0 12px 20px -8px rgba(31, 24, 16, 0.4);
+}
+
+.fan-mail-shell {
+  background:
+    radial-gradient(80% 60% at 50% 20%, rgba(255, 106, 0, 0.06), transparent 70%),
+    radial-gradient(60% 50% at 20% 80%, rgba(110, 42, 24, 0.08), transparent 70%),
+    var(--bg);
+}
+
+.font-typewriter {
+  font-family: var(--font-typewriter), "Courier New", monospace;
+  letter-spacing: 0.01em;
+}
+
+.font-editorial-serif {
+  font-family: var(--font-editorial-serif), Georgia, "Times New Roman", serif;
+  font-feature-settings: "ss01" on, "ss02" on;
+}
+
+/* The paper card itself. Cream background, soft drop shadow that makes
+   it feel like it's resting on a desk. The slight inner rule on top
+   gives the impression of paper grain without an image asset. */
+.paper-card {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.025) 0%, transparent 12%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.04) 0%, transparent 14%),
+    var(--paper);
+  color: var(--paper-ink);
+  border-radius: 6px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 0 0 1px rgba(31, 24, 16, 0.08),
+    0 24px 48px -24px rgba(0, 0, 0, 0.55),
+    0 8px 16px -8px rgba(0, 0, 0, 0.45);
+  padding: clamp(20px, 4vw, 32px);
+  transform: rotate(var(--paper-rotate, 0deg));
+  transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.paper-card:hover {
+  transform: rotate(0deg) translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 0 0 1px rgba(31, 24, 16, 0.08),
+    0 32px 56px -24px rgba(0, 0, 0, 0.65),
+    0 12px 18px -8px rgba(0, 0, 0, 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .paper-card,
+  .paper-card:hover {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* USPS-style postage stamp. Perforated edge built with a radial-gradient
+   mask — no image asset needed and scales cleanly. */
+.postage-stamp {
+  --stamp-size: 88px;
+  position: relative;
+  width: var(--stamp-size);
+  height: calc(var(--stamp-size) * 1.18);
+  background: var(--stamp-edge);
+  padding: 6px;
+  -webkit-mask:
+    radial-gradient(circle 4px at 4px 4px, transparent 99%, black 100%) -4px -4px / 12px 12px,
+    linear-gradient(black, black);
+  -webkit-mask-composite: xor;
+          mask:
+    radial-gradient(circle 4px at 4px 4px, transparent 99%, black 100%) -4px -4px / 12px 12px,
+    linear-gradient(black, black);
+  mask-composite: exclude;
+}
+.postage-stamp__inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background:
+    radial-gradient(60% 60% at 50% 50%, var(--stamp-bg, #ffe4c4) 0%, transparent 70%),
+    var(--stamp-bg-base, #f6c879);
+  color: var(--paper-ink);
+  position: relative;
+  overflow: hidden;
+}
+.postage-stamp__initial {
+  font-family: var(--font-editorial-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 1;
+  font-variation-settings: "WONK" 1, "SOFT" 70;
+  letter-spacing: -0.02em;
+}
+.postage-stamp__caption {
+  font-family: var(--font-typewriter), monospace;
+  font-size: 7px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--paper-ink-dim);
+}
+
+/* Comm-logo stamp — flat printed badge, slightly tilted, that sits on
+   top of the postcard like a rubber stamp. No perforations / no inner
+   texture so the logo reads cleanly. */
+.comm-stamp {
+  --accent: #ff6a00;
+  position: relative;
+  width: 96px;
+  height: 110px;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid color-mix(in oklab, var(--accent) 45%, #1f1810 55%);
+  border-radius: 4px;
+  transform: rotate(-4deg);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 0 0 2px color-mix(in oklab, var(--accent) 30%, transparent),
+    0 12px 22px -10px rgba(31, 24, 16, 0.55),
+    0 6px 10px -4px rgba(31, 24, 16, 0.4);
+}
+.comm-stamp::after {
+  /* Faint corner price tick to feel like a real stamp. */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed color-mix(in oklab, var(--accent) 35%, transparent);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.comm-stamp__inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+}
+.comm-stamp__caption {
+  font-family: var(--font-typewriter), monospace;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #1f1810;
+}
+
+/* Postmark — overlapping circle ink with date arc text. Pure CSS. */
+.postmark {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  pointer-events: none;
+  border: 1.5px solid var(--postmark);
+  border-radius: 50%;
+  opacity: 0.78;
+  transform: rotate(-12deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-typewriter), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 8px;
+  line-height: 1.05;
+  color: var(--postmark);
+  text-align: center;
+  padding: 6px;
+  mix-blend-mode: multiply;
+}
+.postmark::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid var(--postmark);
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+/* Address block typography. */
+.address-block {
+  font-family: var(--font-typewriter), "Courier New", monospace;
+  font-size: 17px;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  color: var(--paper-ink);
+}
+
+/* Copy button on paper. */
+.paper-button {
+  font-family: var(--font-typewriter), monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border: 1px dashed var(--paper-ink);
+  background: transparent;
+  color: var(--paper-ink);
+  padding: 8px 14px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    border-style 180ms ease,
+    transform 120ms ease,
+    box-shadow 200ms ease;
+}
+.paper-button:hover,
+.paper-button:focus-visible {
+  background: var(--paper-ink);
+  color: var(--paper);
+  border-style: solid;
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 14px -6px rgba(31, 24, 16, 0.4),
+    0 2px 4px -1px rgba(31, 24, 16, 0.25);
+  outline: none;
+}
+.paper-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(31, 24, 16, 0.25);
+}
+.paper-button[data-copied="1"] {
+  background: #2a6b2c;
+  color: var(--paper);
+  border-color: #2a6b2c;
+  border-style: solid;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Corporate dark system — utilities used by Home, Members, Crew, Media,
+   Blog, Partners, Assets, Analytics. Built on a subtle dot-grid texture
+   and controlled red glow accents.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* Eyebrow — uppercase mono label used above every section heading. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* Display type — Inter at heavy weights with tight tracking. */
+.text-display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+/* Hairline rule + grid utilities */
+.hairline {
+  border-color: var(--rule);
+}
+.hairline-strong {
+  border-color: var(--rule-strong);
+}
+
+/* Subtle dot grid — page background texture. */
+.bg-dot-grid {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle at 1px 1px, rgba(244, 244, 245, 0.045) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Subtle hairline grid — used inside hero panels. */
+.bg-grid-lines {
+  background-image:
+    linear-gradient(to right, var(--rule) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--rule) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+/* Soft red glow — used behind the wordmark and on primary CTAs. */
+.glow-core::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.18) 0%, transparent 60%);
+  filter: blur(24px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Section reveal animation — used once per first-paint section. */
+@keyframes corp-reveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.corp-reveal {
+  animation: corp-reveal 720ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Live dot — small pulsing indicator beside live counts. */
+@keyframes core-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+/* Live nav pill blink — white dot that fades to red, broadcast-style. */
+@keyframes live-blink {
+  0%, 49% { background: #fff; }
+  50%, 100% { background: #ef4444; }
+}
+.core-pulse {
+  animation: core-pulse 1.6s var(--ease-out) infinite;
+}
+
+/* Headline bloom — used on "CORE house." in the parallax welcome section. */
+@keyframes core-glow {
+  0%, 100% {
+    text-shadow:
+      0 0 6px rgba(255, 255, 255, 0.85),
+      0 0 18px rgba(255, 255, 255, 0.55),
+      0 0 36px rgba(255, 59, 31, 0.85),
+      0 0 80px rgba(255, 59, 31, 0.55),
+      0 0 140px rgba(255, 59, 31, 0.35);
+  }
+  50% {
+    text-shadow:
+      0 0 8px rgba(255, 255, 255, 1),
+      0 0 26px rgba(255, 255, 255, 0.7),
+      0 0 56px rgba(255, 59, 31, 1),
+      0 0 110px rgba(255, 59, 31, 0.7),
+      0 0 180px rgba(255, 59, 31, 0.45);
+  }
+}
+
+/* Member-card hover treatment used on rosters across the site. */
+.member-card {
+  --hover: var(--card-accent, var(--core));
+  position: relative;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  transition: border-color 280ms var(--ease-out), background-color 280ms var(--ease-out);
+}
+.member-card:hover,
+.member-card:focus-within {
+  border-color: var(--hover);
+  background: var(--surface);
+}
+.member-card .member-photo {
+  filter: grayscale(0.45) contrast(1.04) brightness(0.95);
+  transition: filter 600ms var(--ease-out), transform 600ms var(--ease-out);
+}
+.member-card:hover .member-photo {
+  filter: grayscale(0) contrast(1) brightness(1);
+  transform: scale(1.025);
+}
+.member-card .member-name {
+  transition: color 240ms var(--ease-out);
+}
+.member-card:hover .member-name {
+  color: var(--hover);
+}
+
+/* Buttons — consistent primary, secondary, ghost. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 200ms var(--ease-out), border-color 200ms var(--ease-out), color 200ms var(--ease-out), transform 120ms var(--ease-out), box-shadow 200ms var(--ease-out);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--core);
+  color: #fff;
+  border-color: var(--core);
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+}
+.btn-primary:hover {
+  background: var(--core-3);
+  box-shadow: 0 8px 24px -8px rgba(239, 68, 68, 0.55);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+.btn-secondary {
+  background: var(--bg-elev);
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.btn-secondary:hover {
+  background: var(--surface);
+  border-color: var(--ink-faint);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-dim);
+  border-color: var(--rule);
+}
+.btn-ghost:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+  background: var(--bg-elev);
+}
+
+/* Platform-branded buttons. Use the brand's canonical color when the CTA
+   is *for* that platform — Twitch purple, YouTube red, etc. Hover lifts
+   into the saturated brand color with a matching glow. */
+.btn-twitch {
+  background: #9146FF;
+  color: #fff;
+  border-color: #9146FF;
+  box-shadow: 0 0 0 0 rgba(145, 70, 255, 0);
+}
+.btn-twitch:hover {
+  background: #772CE8;
+  border-color: #772CE8;
+  box-shadow: 0 8px 24px -8px rgba(145, 70, 255, 0.6);
+  transform: translateY(-1px);
+}
+.btn-youtube {
+  background: #FF0033;
+  color: #fff;
+  border-color: #FF0033;
+}
+.btn-youtube:hover {
+  background: #cc0029;
+  border-color: #cc0029;
+  box-shadow: 0 8px 24px -8px rgba(255, 0, 51, 0.55);
+  transform: translateY(-1px);
+}
+
+/* Comm chip — small accented badge next to a member's name. */
+.comm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--chip-color, var(--rule));
+  background: color-mix(in oklab, var(--chip-color, var(--ink-faint)) 12%, transparent);
+  color: var(--chip-color, var(--ink));
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+
+/* Kbd-style data tag — for stats, role labels, etc. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--rule);
+  background: var(--bg-elev);
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+
+/* Subtle scan-line overlay for media cards. */
+.media-tone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025) 0, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 4px);
+  mix-blend-mode: overlay;
+  opacity: 0.45;
+}
+
+/* Photo strip — auto-scrolling horizontal gallery. */
+@keyframes strip-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.photo-strip {
+  animation: strip-scroll 60s linear infinite;
+}
+.photo-strip:hover {
+  animation-play-state: paused;
+}
+
+
+/* Lenis smooth scroll — class hooks toggled by LenisProvider. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+/* Iframes (YouTube embeds, Twitch chat, clip embeds) capture wheel
+   events while smooth-scrolling and break Lenis. Disable pointer-events
+   on iframes during smooth scroll — they re-enable when Lenis releases
+   on click via CSS. */
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+.lenis.lenis-smooth iframe:hover {
+  pointer-events: auto;
+}
+
+/* Author chip — pure CSS hover so it can live in server components. */
+.author-chip {
+  --accent: var(--core);
+}
+.author-chip:hover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px -10px color-mix(in oklab, var(--accent) 60%, transparent);
+}
+
+/* AutoScrollGallery — two-row auto-scroller used on member + crew pages. */
+@keyframes ag-scroll-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes ag-scroll-right {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+
+.ag-row {
+  display: flex;
+  width: max-content;
+  gap: 0.75rem;
+  will-change: transform;
+  animation-duration: var(--ag-speed, 40s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-play-state: running;
+  animation-fill-mode: none;
+}
+.ag-row-left {
+  animation-name: ag-scroll-left;
+}
+.ag-row-right {
+  animation-name: ag-scroll-right;
+}
+.ag-row[data-paused="1"] {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-strip { animation: none; }
+  /* AutoScrollGallery deliberately keeps moving — it's core to the
+     editorial rhythm of the member pages. Hover pauses it as the
+     user-control fallback. */
+}
+
+/* Logo wall — sponsor logos with tone-down + saturate-on-hover. */
+.logo-tile img,
+.logo-tile svg {
+  filter: grayscale(1) brightness(0.95) opacity(0.7);
+  transition: filter 240ms var(--ease-out);
+}
+.logo-tile:hover img,
+.logo-tile:hover svg {
+  filter: grayscale(0) brightness(1) opacity(1);
+}
+
+/* Page wrap — a thin ambient signal-red glow at the top of each page. */
+.page-glow::before {
+  content: "";
+  position: absolute;
+  top: -200px;
+  left: 50%;
+  width: 1100px;
+  height: 600px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(239, 68, 68, 0.10), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Animated gradient border — wraps an element in a slowly-rotating
+   conic gradient. Use sparingly: hero CTAs, "live now" callouts, the
+   chat-header join button. The element itself sits inset by 1px so the
+   border animates around it. */
+@keyframes gradient-spin {
+  to { --gradient-angle: 360deg; }
+}
+@property --gradient-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.glow-border {
+  position: relative;
+  isolation: isolate;
+}
+.glow-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--gradient-angle),
+    transparent 0%,
+    var(--core) 25%,
+    transparent 50%,
+    var(--core-2) 75%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: gradient-spin 6s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+.glow-border > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Soft radial glow on hover for any anchor/button. Pair with a relative
+   parent. Less subtle than the existing :hover translate; use on hero
+   CTAs only. */
+.btn-pulse-glow {
+  position: relative;
+}
+.btn-pulse-glow::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+  background: radial-gradient(closest-side, rgba(239, 68, 68, 0.45), transparent 70%);
+  opacity: 0;
+  transition: opacity 220ms var(--ease-out);
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(14px);
+}
+.btn-pulse-glow:hover::after {
+  opacity: 1;
+}
+
+/* Gradient text — subtle, single-pass shimmer for the wordmark. */
+@keyframes shimmer-pass {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+.shimmer-text {
+  background: linear-gradient(
+    100deg,
+    var(--ink) 0%,
+    var(--ink) 30%,
+    color-mix(in oklab, var(--core) 45%, var(--ink)) 50%,
+    var(--ink) 70%,
+    var(--ink) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  animation: shimmer-pass 9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-border::before,
+  .shimmer-text {
+    animation: none;
+  }
 }
