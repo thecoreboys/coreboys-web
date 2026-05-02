@@ -3,6 +3,7 @@ import { readdirSync, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import exifr from "exifr";
 import sharp from "sharp";
+import manifest from "@/lib/asset-manifest.json";
 
 /**
  * Reads the synced asset folders under /public and exposes ordered photo
@@ -12,10 +13,23 @@ import sharp from "sharp";
  * In production this gets replaced by the `coreboys-api` `/v1/media`
  * endpoint backed by Postgres + S3 — the shape of `PhotoMeta` matches
  * the `MediaAsset` table 1:1 so the swap is mechanical.
+ *
+ * Production runs this without the source files on local disk (those
+ * live in Spaces and are served via CDN-backed redirect rules in
+ * next.config.ts). When the local files are missing we fall back to
+ * the static `asset-manifest.json` produced by
+ * `scripts/generate-asset-manifest.mjs` so the page still enumerates.
  */
 
 const PUBLIC = path.join(process.cwd(), "public");
 const IMAGE_RE = /\.(jpe?g|png|webp|avif)$/i;
+
+type Manifest = {
+  members: Record<string, string[]>;
+  crew: Record<string, string[]>;
+  group: string[];
+};
+const MANIFEST = manifest as Manifest;
 
 export type PhotoMeta = {
   src: string;
@@ -178,7 +192,8 @@ export function sortNewestFirst(metas: readonly PhotoMeta[]): PhotoMeta[] {
 export function getMemberPhotos(slug: string): string[] {
   const cached = memberPhotos.get(slug);
   if (cached) return cached;
-  const list = listImages(path.join(PUBLIC, "members", slug), `/members/${slug}`);
+  const fromDisk = listImages(path.join(PUBLIC, "members", slug), `/members/${slug}`);
+  const list = fromDisk.length > 0 ? fromDisk : (MANIFEST.members[slug] ?? []);
   memberPhotos.set(slug, list);
   return list;
 }
@@ -191,7 +206,8 @@ export function getMemberPortrait(slug: string): string | null {
 export function getCrewPhotos(slug: string): string[] {
   const cached = crewPhotos.get(slug);
   if (cached) return cached;
-  const list = listImages(path.join(PUBLIC, "crew", slug), `/crew/${slug}`);
+  const fromDisk = listImages(path.join(PUBLIC, "crew", slug), `/crew/${slug}`);
+  const list = fromDisk.length > 0 ? fromDisk : (MANIFEST.crew[slug] ?? []);
   crewPhotos.set(slug, list);
   return list;
 }
@@ -203,13 +219,16 @@ export function getCrewPortrait(slug: string): string | null {
 
 export function getGroupPhotos(): string[] {
   if (groupPhotos) return groupPhotos;
-  groupPhotos = listImages(path.join(PUBLIC, "group"), "/group");
+  const fromDisk = listImages(path.join(PUBLIC, "group"), "/group");
+  groupPhotos = fromDisk.length > 0 ? fromDisk : (MANIFEST.group ?? []);
   return groupPhotos;
 }
 
 export function getHeroGroupPhoto(): string {
   const explicit = "/group/thecoreboys.jpg";
   if (existsSync(path.join(PUBLIC, "group", "thecoreboys.jpg"))) return explicit;
+  // Manifest contains it as one of the group entries; check there too.
+  if (MANIFEST.group.includes(explicit)) return explicit;
   const all = getGroupPhotos();
   return all[0] ?? explicit;
 }
