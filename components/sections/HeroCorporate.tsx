@@ -182,7 +182,7 @@ export async function HeroCorporate() {
               />
               <div className="absolute inset-x-4 top-4 flex items-center justify-between">
                 <span className="rounded-md border border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold tracking-tight text-on-image-dim backdrop-blur">
-                  CORE · 001
+                  CORE
                 </span>
                 <span className="rounded-md border border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold tracking-tight text-on-image-dim backdrop-blur">
                   6 / 6
