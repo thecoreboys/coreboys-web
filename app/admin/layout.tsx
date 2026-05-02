@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ClerkProvider } from "@clerk/nextjs";
 import { currentUser } from "@clerk/nextjs/server";
 
 /**
@@ -30,25 +32,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const email = emailOf(user);
   if (!email || !ALLOWED_ADMIN_EMAILS.includes(email)) {
     return (
-      <main className="relative flex min-h-screen items-center justify-center px-6 pt-24">
-        <div className="max-w-[480px] rounded-xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center">
-          <h1 className="text-[22px] font-bold tracking-tight text-[color:var(--ink)]">
-            Not authorized
-          </h1>
-          <p className="mt-3 text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
-            You&apos;re signed in as <strong>{email ?? "(no email on file)"}</strong>, but that
-            account isn&apos;t on the admin allowlist for this site.
-          </p>
-          <a
-            href="/"
-            className="mt-6 inline-flex items-center gap-2 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-4 py-2 text-[13px] font-medium text-[color:var(--ink)] hover:border-[color:var(--rule-strong)]"
-          >
-            ← Back to site
-          </a>
-        </div>
-      </main>
+      <ClerkProvider>
+        <main className="relative flex min-h-screen items-center justify-center px-6 pt-24">
+          <div className="max-w-[480px] rounded-xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center">
+            <h1 className="text-[22px] font-bold tracking-tight text-[color:var(--ink)]">
+              Not authorized
+            </h1>
+            <p className="mt-3 text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
+              You&apos;re signed in as <strong>{email ?? "(no email on file)"}</strong>, but that
+              account isn&apos;t on the admin allowlist for this site.
+            </p>
+            <Link
+              href="/"
+              className="mt-6 inline-flex items-center gap-2 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-4 py-2 text-[13px] font-medium text-[color:var(--ink)] hover:border-[color:var(--rule-strong)]"
+            >
+              ← Back to site
+            </Link>
+          </div>
+        </main>
+      </ClerkProvider>
     );
   }
 
-  return <>{children}</>;
+  return <ClerkProvider>{children}</ClerkProvider>;
 }
