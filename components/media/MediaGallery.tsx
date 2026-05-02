@@ -384,15 +384,29 @@ function GridView({
             className="group relative mb-3 block w-full break-inside-avoid rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-left transition-all duration-300 hover:border-[color:var(--rule-strong)] hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_rgba(0,0,0,0.6)] cursor-pointer"
           >
             {/* Photo is clipped here so the scale-on-hover stays inside,
-                but the chip overlay below can render its tooltip outside. */}
-            <span className="relative block overflow-hidden rounded-md media-tone">
+                but the chip overlay below can render its tooltip outside.
+                aspect-ratio (when EXIF/sharp gave us dims) reserves the
+                slot so layout doesn't jump as images stream in. */}
+            <span
+              className="relative block overflow-hidden rounded-md media-tone"
+              style={
+                item.meta?.width && item.meta?.height
+                  ? { aspectRatio: `${item.meta.width} / ${item.meta.height}` }
+                  : undefined
+              }
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.src}
                 alt={peopleHere.map((p) => p.name).join(", ") || "CORE photo"}
-                className="block w-full transition group-hover:scale-[1.02]"
+                width={item.meta?.width}
+                height={item.meta?.height}
+                className="media-fade block h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 loading="lazy"
                 decoding="async"
+                onLoad={(e) => {
+                  (e.currentTarget as HTMLImageElement).dataset.loaded = "";
+                }}
               />
               <span
                 aria-hidden
