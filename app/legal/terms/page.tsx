@@ -12,19 +12,21 @@ export default function TermsPage() {
   return (
     <LegalLayout title="Terms of service" effectiveDate="2026-01-01">
       <p>
-        These Terms of Service (&quot;<strong>Terms</strong>&quot;) govern your
-        access to and use of <strong>thecoreboys.com</strong> and any
-        subdomains operated by CORE Inc. (&quot;<strong>we</strong>,&quot; &quot;<strong>us</strong>,&quot; or
-        &quot;<strong>CORE</strong>&quot;). By using the site, you agree to these Terms.
+        <strong>thecoreboys.com</strong> is an{" "}
+        <strong>unofficial site</strong> about The Core Boys. It is not
+        operated by, endorsed by, or affiliated with The Core Boys or any
+        of its members. These Terms of Service (&quot;<strong>Terms</strong>&quot;)
+        govern your access to and use of this site. &quot;<strong>We</strong>&quot;
+        / &quot;<strong>us</strong>&quot; refers to the maintainers of this
+        site. By using the site, you agree to these Terms.
       </p>
 
       <h2>The site, in plain English</h2>
       <p>
-        thecoreboys.com is the public-facing website for CORE Inc., the
-        organization behind the creator collective known as The Core Boys.
-        It links to publicly available channels, surfaces live status,
-        publishes editorial content, and provides press / partnership
-        contact information.
+        thecoreboys.com is an unofficial site that links to publicly
+        available channels, surfaces live status from public APIs, embeds
+        publicly published content, and aggregates editorial coverage. It
+        is not an official property of The Core Boys.
       </p>
       <p>
         We do not host streaming video, chat, or accounts on this site.
@@ -44,21 +46,23 @@ export default function TermsPage() {
       <ul>
         <li>Do not attempt to disrupt, deny service, or probe the site for vulnerabilities outside a coordinated disclosure.</li>
         <li>Do not scrape at a rate that materially burdens our infrastructure. The robots.txt and sitemap are the supported integration paths.</li>
-        <li>Do not impersonate CORE Inc. or any of The Core Boys members.</li>
+        <li>Do not impersonate the maintainers of this site, The Core Boys, or any of its members.</li>
         <li>Do not use the site to distribute malicious software, infringing content, or harassing material.</li>
       </ul>
 
       <h2>Intellectual property</h2>
       <p>
-        The CORE wordmark, logo, member portraits, the editorial typography
-        treatment, and the codebase that powers thecoreboys.com are owned
-        by CORE Inc. or our licensors. Use of these assets without written
-        permission is not granted by these Terms.
+        The CORE wordmark, logo, and member portraits referenced on this
+        site belong to The Core Boys and their respective owners. We
+        claim no ownership of those marks and reference them only as
+        part of this unofficial site. The codebase that powers thecoreboys.com is owned by
+        the site maintainers; use of it without written permission is not
+        granted by these Terms.
       </p>
       <p>
-        Editorial content (essays, photos, video clips) embedded in
-        thecoreboys.com is owned by CORE Inc. or the third-party platform
-        on which it was originally published.
+        Editorial content (essays, photos, video clips) embedded on this
+        site is owned by the third-party platform on which it was
+        originally published, or by the original creator.
       </p>
 
       <h2>Third-party services</h2>
@@ -82,8 +86,8 @@ export default function TermsPage() {
 
       <h2>Limitation of liability</h2>
       <p>
-        To the fullest extent permitted by law, CORE Inc., its members,
-        officers, contractors, and licensors will not be liable for any
+        To the fullest extent permitted by law, the maintainers of this
+        site, contractors, and licensors will not be liable for any
         indirect, incidental, consequential, special, or punitive damages
         arising from your use of the site.
       </p>

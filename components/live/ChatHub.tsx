@@ -559,7 +559,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                     setDragLogin(null);
                     setDragOverLogin(null);
                   }}
-                  className={`group/tile relative flex flex-col pt-7 transition-all ${
+                  className={`group/tile relative flex min-w-0 flex-col overflow-hidden pt-7 transition-all ${
                     fullscreen ? "h-full min-h-0" : "h-[calc(100vh-260px)] min-h-[480px]"
                   } ${isDragging ? "opacity-40 scale-[0.98]" : ""} ${
                     isHiddenOnMobile ? "hidden md:flex" : ""

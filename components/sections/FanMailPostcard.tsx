@@ -80,7 +80,7 @@ export function FanMailPostcard({
       style={{ ["--paper-rotate" as string]: "-0.6deg", padding: 0 }}
     >
       {/* Left — message side */}
-      <div className="relative flex flex-col gap-4 p-6 md:border-r md:border-dashed md:border-[color:var(--paper-rule)] md:p-8">
+      <div className="postcard-message relative flex flex-col gap-4 p-6 md:border-r md:border-dashed md:p-8">
         <div className="flex items-center gap-2">
           <Mail size={14} className="text-[color:var(--paper-ink-dim)]" />
           <p className="font-typewriter text-[10px] uppercase tracking-[0.22em] text-[color:var(--paper-ink-dim)]">
@@ -97,7 +97,7 @@ export function FanMailPostcard({
           Mail gets opened on stream — much appreciated.
         </p>
 
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-dashed border-[color:var(--paper-rule)] pt-4">
+        <div className="postcard-divider-top mt-auto flex items-center justify-between gap-3 border-t border-dashed pt-4">
           <button type="button" onClick={onCopy} data-copied={copied ? "1" : undefined} className="paper-button">
             {copied ? (
               <>
@@ -175,7 +175,7 @@ export function FanMailPostcard({
               <div
                 // eslint-disable-next-line react/no-array-index-key
                 key={i}
-                className="border-b border-dotted border-[color:var(--paper-rule)] pb-1.5"
+                className="postcard-address-line border-b border-dotted pb-1.5"
               >
                 <p className="address-block">{line}</p>
               </div>

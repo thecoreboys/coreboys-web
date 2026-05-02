@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { useEffect, useState } from "react";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -39,6 +40,12 @@ export function ScrollReveal({
   as = "div",
 }: ScrollRevealProps) {
   const reduced = useReducedMotion();
+  // Defer `whileInView` until after hydration. Without this, items already
+  // in the viewport on first paint advance to the "show" state on the
+  // client before React finishes hydrating, while SSR markup is still in
+  // the "hidden" state — causing an opacity/transform mismatch warning.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const container: Variants = {
     hidden: {},
@@ -53,7 +60,7 @@ export function ScrollReveal({
     <Comp
       className={className}
       initial="hidden"
-      whileInView="show"
+      whileInView={mounted ? "show" : undefined}
       viewport={{ once: true, margin }}
       variants={container}
     >
