@@ -73,7 +73,7 @@ const YouTubeChannelStats = z.object({
     .default([]),
 });
 
-async function fetchYouTubeChannel(handle: string): Promise<{
+export async function fetchYouTubeChannel(handle: string): Promise<{
   followers: number | null;
   views: number | null;
   videoCount: number | null;

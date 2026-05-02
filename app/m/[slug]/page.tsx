@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
 import { MEMBERS_BY_SLUG, MEMBERS, CREW } from "@/lib/members";
 import { ageFromIso } from "@/lib/utils";
 import { fetchUserIdsByLogin, fetchFollowerCount, fetchUsersByLogin, buildLiveResponse, type LiveEntry } from "@/lib/twitch";
+import { fetchYouTubeChannel } from "@/lib/stats";
 import { getMemberPhotos, getCrewPortrait, getGroupPhotos } from "@/lib/asset-index";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { PlatformLink, type PlatformKey } from "@/components/ui/PlatformLink";
@@ -88,6 +89,43 @@ export default async function MemberPage({ params }: Params) {
   // Older code used fetchUserIdsByLogin alone; kept the helper export
   // so other server components can still use it.
   void fetchUserIdsByLogin;
+
+  // Per-channel YouTube subscriber counts. Each YouTube social maps to
+  // its own URL → metric in `youtubeSubsByUrl`. Requires YOUTUBE_API_KEY;
+  // falls back to no metric when unset / on error.
+  const youtubeSubsByUrl: Record<string, number | null> = {};
+  await Promise.all(
+    member.socials
+      .filter((s) => s.platform === "youtube")
+      .map(async (s) => {
+        const handle = (s.handle ?? "").replace(/^@/, "");
+        if (!handle) return;
+        try {
+          const stats = await fetchYouTubeChannel(handle);
+          youtubeSubsByUrl[s.url] = stats?.followers ?? null;
+        } catch {
+          youtubeSubsByUrl[s.url] = null;
+        }
+      }),
+  );
+
+  // Build the metric label per social URL — pulls from the right source
+  // per platform. TikTok / IG / X have no free public stats API, so they
+  // come from the optional `manualCounts` map on member-page extras.
+  const metricByUrl: Record<string, string | undefined> = {};
+  for (const s of member.socials) {
+    if (s.platform === "twitch" && twitchFollowers != null) {
+      metricByUrl[s.url] = `${formatCompact(twitchFollowers)} followers`;
+    } else if (s.platform === "youtube") {
+      const subs = youtubeSubsByUrl[s.url];
+      if (subs != null) metricByUrl[s.url] = `${formatCompact(subs)} subs`;
+    } else {
+      const manual = member.manualCounts?.[s.platform as keyof NonNullable<typeof member.manualCounts>];
+      // Treat 0 / undefined as "no data" so unfilled placeholders don't
+      // render as "0 followers".
+      if (manual && manual > 0) metricByUrl[s.url] = `${formatCompact(manual)} followers`;
+    }
+  }
 
   // Wikipedia / Fandom intentionally excluded — we don't link out to them.
   const sameAs = member.socials.map((s) => s.url);
@@ -273,11 +311,7 @@ export default async function MemberPage({ params }: Params) {
                           platform={p}
                           url={s.url}
                           handle={s.handle ?? s.label}
-                          metric={
-                            p === "twitch" && twitchFollowers != null
-                              ? `${formatCompact(twitchFollowers)} followers`
-                              : undefined
-                          }
+                          metric={metricByUrl[s.url]}
                           variant="secondary"
                         />
                       </li>
