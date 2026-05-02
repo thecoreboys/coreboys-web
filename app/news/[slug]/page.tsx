@@ -48,9 +48,9 @@ function slugifyHeading(text: string): string {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const a = getDemoArticle(slug, getGroupPhotos());
-  if (!a) return { title: "News — The Core Boys" };
+  if (!a) return { title: "News — CORE" };
   return {
-    title: `${a.title} — The Core Boys`,
+    title: `${a.title} — CORE`,
     description: a.dek,
   };
 }

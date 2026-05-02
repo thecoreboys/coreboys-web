@@ -27,7 +27,7 @@ export function AnnouncementsRail() {
       id: "we-are-the-core-boys",
       date: "2026-04-20",
       category: "Org",
-      title: "We are The CORE Boys.",
+      title: "We are CORE.",
       href: "/news/we-are-the-core-boys",
       image: photos[0],
     },

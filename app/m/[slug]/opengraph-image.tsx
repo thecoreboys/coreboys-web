@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const revalidate = 60;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "The Core Boys — member";
+export const alt = "CORE — member";
 
 export async function generateImageMetadata({ params }: { params: { slug: string } }) {
   const member = MEMBERS_BY_SLUG[params.slug];
@@ -13,7 +13,7 @@ export async function generateImageMetadata({ params }: { params: { slug: string
   return [
     {
       id: member.slug,
-      alt: `${member.stageName} — The Core Boys`,
+      alt: `${member.stageName} — CORE`,
       contentType: "image/png" as const,
       size,
     },
@@ -112,10 +112,10 @@ export default async function MemberOG({ params }: { params: { slug: string } })
                 textTransform: "uppercase",
               }}
             >
-              The Core Boys
+              CORE
             </div>
             <div style={{ fontSize: 16, color: "#8a8e97", fontFamily: "monospace" }}>
-              thecoreboys.com/m/{member.slug}
+              corecrew.org/m/{member.slug}
             </div>
           </div>
         </div>

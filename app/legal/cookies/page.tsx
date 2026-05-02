@@ -4,7 +4,7 @@ import { CookieSettingsLink } from "@/components/legal/CookieSettingsLink";
 
 export const metadata: Metadata = {
   title: "Cookie policy",
-  description: "Which cookies thecoreboys.com sets and how to manage them.",
+  description: "Which cookies corecrew.org sets and how to manage them.",
   alternates: { canonical: "/legal/cookies" },
   robots: { index: true, follow: true },
 };
@@ -14,7 +14,7 @@ export default function CookiesPage() {
     <LegalLayout title="Cookie policy" effectiveDate="2026-01-01">
       <p>
         Cookies are small files that websites place on your device. This
-        page lists every cookie thecoreboys.com may set and explains how
+        page lists every cookie corecrew.org may set and explains how
         to control them.
       </p>
 
@@ -53,7 +53,7 @@ export default function CookiesPage() {
 
       <h2>Managing cookies</h2>
       <p>
-        Two ways to control cookies on thecoreboys.com:
+        Two ways to control cookies on corecrew.org:
       </p>
       <ul>
         <li>
@@ -61,7 +61,7 @@ export default function CookiesPage() {
           footer to re-open the consent banner.
         </li>
         <li>
-          Clear cookies for thecoreboys.com via your browser&apos;s site-
+          Clear cookies for corecrew.org via your browser&apos;s site-
           settings menu. The banner will reappear on your next visit.
         </li>
       </ul>
@@ -73,7 +73,7 @@ export default function CookiesPage() {
       <h2>Contact</h2>
       <p>
         Questions? Write to{" "}
-        <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>.
+        <a href="mailto:privacy@corecrew.org">privacy@corecrew.org</a>.
       </p>
     </LegalLayout>
   );

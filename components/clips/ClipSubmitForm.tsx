@@ -289,7 +289,7 @@ export function ClipSubmitForm({
             className="mt-0.5 h-4 w-4 cursor-pointer accent-[color:var(--core)]"
           />
           <span>
-            I confirm I&apos;m okay with this clip being shown publicly on thecoreboys.com with
+            I confirm I&apos;m okay with this clip being shown publicly on corecrew.org with
             credit to my first name and last initial, and I&apos;ve read and accept the{" "}
             <button
               type="button"
@@ -365,7 +365,7 @@ function TermsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="max-h-[70vh] overflow-y-auto p-6 text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
-          <p>By submitting a clip to The Core Boys you confirm the following:</p>
+          <p>By submitting a clip to CORE you confirm the following:</p>
           <ul className="mt-4 flex flex-col gap-3">
             <li>
               <strong className="text-[color:var(--ink)]">The clip is appropriate</strong> — no
@@ -374,7 +374,7 @@ function TermsModal({ onClose }: { onClose: () => void }) {
             </li>
             <li>
               <strong className="text-[color:var(--ink)]">You consent to public display</strong>{" "}
-              of the clip embed on thecoreboys.com with attribution to your{" "}
+              of the clip embed on corecrew.org with attribution to your{" "}
               <em>first name + last initial</em>. Your full last name and email are admin-only
               and never shown publicly.
             </li>
@@ -385,7 +385,7 @@ function TermsModal({ onClose }: { onClose: () => void }) {
             </li>
             <li>
               <strong className="text-[color:var(--ink)]">Removal requests</strong> at{" "}
-              <code className="font-mono">press@thecoreboys.com</code>. We act on verified
+              <code className="font-mono">press@corecrew.org</code>. We act on verified
               requests within 72 hours.
             </li>
           </ul>

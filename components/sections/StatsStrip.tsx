@@ -37,7 +37,7 @@ export async function StatsStrip() {
 
   return (
     <section
-      aria-label="The Core Boys at a glance"
+      aria-label="CORE at a glance"
       className="relative w-full bg-[color:var(--bg-elev)]/40 py-8 md:py-10 backdrop-blur-sm"
     >
       <div className="mx-auto max-w-[1280px] px-6 md:px-16">

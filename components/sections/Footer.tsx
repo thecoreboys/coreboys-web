@@ -36,7 +36,7 @@ export function Footer() {
                 href={s.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`The Core Boys on ${PLATFORM_LABEL[s.platform as GroupSocialPlatform]}`}
+                aria-label={`CORE on ${PLATFORM_LABEL[s.platform as GroupSocialPlatform]}`}
                 data-cursor="hover"
                 className="group inline-flex h-16 w-16 items-center justify-center rounded-full border border-[color:var(--rule)] text-[color:var(--ink-dim)] transition-all hover:-translate-y-0.5 hover:border-[color:var(--ink)] hover:text-[color:var(--ink)] md:h-20 md:w-20"
               >
@@ -84,7 +84,7 @@ export function Footer() {
           {/* Address + corp block */}
           <div className="border-t border-[color:var(--rule)] pt-8">
             <p className="font-display text-[18px] font-bold tracking-[-0.01em] text-[color:var(--ink)]">
-              The Official Unofficial Website of the CORE boys.
+              The Official Unofficial Website of CORE.
             </p>
             <Eyebrow className="mt-2 block text-[color:var(--ink-dim)]">
               Create. Own. Run. Everything.

@@ -58,7 +58,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://corecrew.org";
 
 const embedImage = {
   url: "/embed-preview.png",

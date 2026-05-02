@@ -22,7 +22,7 @@ export function TopChrome() {
       <Link
         href="#hero"
         className="fixed left-6 top-6 z-50 font-display text-[18px] font-black tracking-[-0.04em] text-[color:var(--ink)] mix-blend-difference"
-        aria-label="The Core Boys"
+        aria-label="CORE"
       >
         CORE
       </Link>

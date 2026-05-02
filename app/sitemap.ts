@@ -3,7 +3,7 @@ import { MEMBERS } from "@/lib/members";
 import { listPublishedPosts } from "@/lib/blog";
 import { MAIL_MEMBERS } from "@/lib/fan-mail";
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://corecrew.org";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();

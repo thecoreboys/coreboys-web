@@ -105,7 +105,7 @@ export function HeroEditorial() {
             <div className="relative aspect-[4/5] w-full overflow-hidden border border-[color:var(--rule)] bg-black darkroom">
               <Image
                 src={photo}
-                alt="The Core Boys group photo"
+                alt="CORE group photo"
                 fill
                 sizes="(max-width: 1024px) 100vw, 42vw"
                 priority

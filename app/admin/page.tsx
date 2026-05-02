@@ -4,7 +4,7 @@ import { ArrowUpRight, FileText, Image as ImageIcon, MessageSquareCode, ScanFace
 import { AuthGate, SignOutButton } from "@/components/admin/AuthGate";
 
 export const metadata: Metadata = {
-  title: "Admin — The Core Boys",
+  title: "Admin — CORE",
   robots: { index: false, follow: false },
 };
 
