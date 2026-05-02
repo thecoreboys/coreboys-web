@@ -296,6 +296,15 @@ export function MediaGallery({ members, taggablePeople, items }: MediaGalleryPro
         </span>
       </div>
 
+      {/* AI search backend stub — until the AI ranker is wired up, the
+          search box just falls back to substring filtering. Tell users so
+          they don't expect natural-language matching yet. */}
+      {aiSearch ? (
+        <div className="mb-4 rounded-md border border-[color:var(--core)]/40 bg-[color:var(--core)]/10 px-4 py-3 text-[13px] text-[color:var(--ink)]">
+          AI search abilty backend is not set up yet sorry guys! &lt;3
+        </div>
+      ) : null}
+
       {/* Filter chips — Twitch avatar + name */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <FilterChip

@@ -420,10 +420,10 @@ function Field({
         {label}
         {required ? <span className="ml-1 text-[color:var(--core)]">*</span> : null}
       </span>
-      {hint ? (
-        <span className="-mt-0.5 text-[11px] text-[color:var(--ink-dim)]">{hint}</span>
-      ) : null}
       {children}
+      {hint ? (
+        <span className="text-[11px] text-[color:var(--ink-dim)]">{hint}</span>
+      ) : null}
     </label>
   );
 }
