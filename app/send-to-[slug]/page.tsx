@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!member) return {};
   return {
     title: `Send to ${member.displayName}`,
-    description: `Mailing address for ${member.displayName} of The Core Boys.`,
+    description: `Mailing address for ${member.displayName} of CORE.`,
     alternates: {
       canonical: `/send-to-${member.slug}`,
     },

@@ -3,7 +3,7 @@ import { LegalLayout } from "@/components/legal/LegalLayout";
 
 export const metadata: Metadata = {
   title: "Terms of service",
-  description: "The terms governing use of thecoreboys.com.",
+  description: "The terms governing use of corecrew.org.",
   alternates: { canonical: "/legal/terms" },
   robots: { index: true, follow: true },
 };
@@ -12,9 +12,9 @@ export default function TermsPage() {
   return (
     <LegalLayout title="Terms of service" effectiveDate="2026-01-01">
       <p>
-        <strong>thecoreboys.com</strong> is an{" "}
-        <strong>unofficial site</strong> about The Core Boys. It is not
-        operated by, endorsed by, or affiliated with The Core Boys or any
+        <strong>corecrew.org</strong> is an{" "}
+        <strong>unofficial site</strong> about CORE. It is not
+        operated by, endorsed by, or affiliated with CORE or any
         of its members. These Terms of Service (&quot;<strong>Terms</strong>&quot;)
         govern your access to and use of this site. &quot;<strong>We</strong>&quot;
         / &quot;<strong>us</strong>&quot; refers to the maintainers of this
@@ -23,10 +23,10 @@ export default function TermsPage() {
 
       <h2>The site, in plain English</h2>
       <p>
-        thecoreboys.com is an unofficial site that links to publicly
+        corecrew.org is an unofficial site that links to publicly
         available channels, surfaces live status from public APIs, embeds
         publicly published content, and aggregates editorial coverage. It
-        is not an official property of The Core Boys.
+        is not an official property of CORE.
       </p>
       <p>
         We do not host streaming video, chat, or accounts on this site.
@@ -36,7 +36,7 @@ export default function TermsPage() {
 
       <h2>Eligibility</h2>
       <p>
-        You may use thecoreboys.com if you can form a binding contract under
+        You may use corecrew.org if you can form a binding contract under
         applicable law. If you&apos;re using the site on behalf of an entity,
         you represent that you have authority to bind that entity to these
         Terms.
@@ -46,16 +46,16 @@ export default function TermsPage() {
       <ul>
         <li>Do not attempt to disrupt, deny service, or probe the site for vulnerabilities outside a coordinated disclosure.</li>
         <li>Do not scrape at a rate that materially burdens our infrastructure. The robots.txt and sitemap are the supported integration paths.</li>
-        <li>Do not impersonate the maintainers of this site, The Core Boys, or any of its members.</li>
+        <li>Do not impersonate the maintainers of this site, CORE, or any of its members.</li>
         <li>Do not use the site to distribute malicious software, infringing content, or harassing material.</li>
       </ul>
 
       <h2>Intellectual property</h2>
       <p>
         The CORE wordmark, logo, and member portraits referenced on this
-        site belong to The Core Boys and their respective owners. We
+        site belong to CORE and their respective owners. We
         claim no ownership of those marks and reference them only as
-        part of this unofficial site. The codebase that powers thecoreboys.com is owned by
+        part of this unofficial site. The codebase that powers corecrew.org is owned by
         the site maintainers; use of it without written permission is not
         granted by these Terms.
       </p>
@@ -77,7 +77,7 @@ export default function TermsPage() {
 
       <h2>Disclaimers</h2>
       <p>
-        thecoreboys.com is provided &quot;as is&quot; and &quot;as available&quot;.
+        corecrew.org is provided &quot;as is&quot; and &quot;as available&quot;.
         We do not warrant that the site will be uninterrupted, error-free,
         or that the public numbers we surface (live status, follower
         counts) are perfectly current. Numbers are refreshed on a best-
@@ -102,7 +102,7 @@ export default function TermsPage() {
 
       <h2>Contact</h2>
       <p>
-        Questions about these Terms? Write to <a href="mailto:legal@thecoreboys.com">legal@thecoreboys.com</a>.
+        Questions about these Terms? Write to <a href="mailto:legal@corecrew.org">legal@corecrew.org</a>.
       </p>
     </LegalLayout>
   );

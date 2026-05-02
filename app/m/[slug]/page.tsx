@@ -31,11 +31,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const member = MEMBERS_BY_SLUG[slug];
   if (!member) return {};
   return {
-    title: `${member.stageName} — The Core Boys`,
+    title: `${member.stageName} — CORE`,
     description: member.bio,
     alternates: { canonical: `/m/${member.slug}` },
     openGraph: {
-      title: `${member.stageName} — The Core Boys`,
+      title: `${member.stageName} — CORE`,
       description: member.bio,
       type: "profile",
       url: `/m/${member.slug}`,
@@ -94,14 +94,14 @@ export default async function MemberPage({ params }: Params) {
     "@type": "Person",
     name: member.stageName,
     alternateName: member.realName,
-    url: `https://thecoreboys.com/m/${member.slug}`,
+    url: `https://corecrew.org/m/${member.slug}`,
     description: member.bio,
     ...(member.birthDate ? { birthDate: member.birthDate } : {}),
     sameAs,
     memberOf: {
       "@type": "Organization",
-      name: "The Core Boys",
-      url: "https://thecoreboys.com",
+      name: "CORE",
+      url: "https://corecrew.org",
     },
   };
 

@@ -18,7 +18,7 @@ import {
 } from "@/components/media/MediaGallery";
 
 export const metadata: Metadata = {
-  title: "Photos — The Core Boys",
+  title: "Photos — CORE",
   description: "CORE photo gallery — searchable, taggable, sorted newest first.",
   alternates: { canonical: "/media" },
 };

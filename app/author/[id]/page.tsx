@@ -4,7 +4,7 @@ import { PostCard } from "@/components/blog/PostCard";
 
 type Params = { params: Promise<{ id: string }> };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://corecrew.org";
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;

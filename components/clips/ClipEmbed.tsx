@@ -79,7 +79,7 @@ export function ClipEmbed({ clip }: { clip: Clip }) {
 }
 
 function ClipIframe({ clip }: { clip: Clip }) {
-  const parent = typeof window !== "undefined" ? window.location.hostname : "thecoreboys.com";
+  const parent = typeof window !== "undefined" ? window.location.hostname : "corecrew.org";
   switch (clip.source) {
     case "twitch":
       return (

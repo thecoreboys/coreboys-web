@@ -3,7 +3,7 @@ import { LegalLayout } from "@/components/legal/LegalLayout";
 
 export const metadata: Metadata = {
   title: "Privacy policy",
-  description: "What thecoreboys.com collects, why, and what you can do about it.",
+  description: "What corecrew.org collects, why, and what you can do about it.",
   alternates: { canonical: "/legal/privacy" },
   robots: { index: true, follow: true },
 };
@@ -12,9 +12,9 @@ export default function PrivacyPage() {
   return (
     <LegalLayout title="Privacy policy" effectiveDate="2026-01-01">
       <p>
-        <strong>thecoreboys.com</strong> is an{" "}
-        <strong>unofficial site</strong> about The Core Boys. It is not
-        operated by, endorsed by, or affiliated with The Core Boys or any
+        <strong>corecrew.org</strong> is an{" "}
+        <strong>unofficial site</strong> about CORE. It is not
+        operated by, endorsed by, or affiliated with CORE or any
         of its members. &quot;<strong>We</strong>&quot; / &quot;<strong>us</strong>&quot;
         in this policy refers to the maintainers of this site. This
         policy explains what data the site collects, why we collect it,
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         <li>We use Google Analytics — only after you accept the cookie banner.</li>
         <li>We embed third-party content (Twitch, YouTube, etc.) which sets its own cookies on its own surfaces.</li>
         <li>We don&apos;t sell personal data.</li>
-        <li>We respond to deletion / access requests at <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>.</li>
+        <li>We respond to deletion / access requests at <a href="mailto:privacy@corecrew.org">privacy@corecrew.org</a>.</li>
       </ul>
 
       <h2>What we collect</h2>
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
 
       <h3>Embedded third-party services</h3>
       <p>
-        thecoreboys.com embeds content from third-party services. Each
+        corecrew.org embeds content from third-party services. Each
         service may set its own cookies and collect its own data:
       </p>
       <ul>
@@ -92,7 +92,7 @@ export default function PrivacyPage() {
         Depending on where you live, you may have rights to access,
         correct, or delete personal data we hold about you, and to object
         to certain processing. Email{" "}
-        <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>{" "}
+        <a href="mailto:privacy@corecrew.org">privacy@corecrew.org</a>{" "}
         with your request and we&apos;ll respond within 30 days.
       </p>
 
@@ -106,10 +106,10 @@ export default function PrivacyPage() {
 
       <h2>Children</h2>
       <p>
-        thecoreboys.com is not directed at children under 13. We don&apos;t
+        corecrew.org is not directed at children under 13. We don&apos;t
         knowingly collect personal information from children. If you
         believe a child has provided us with information, email{" "}
-        <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>{" "}
+        <a href="mailto:privacy@corecrew.org">privacy@corecrew.org</a>{" "}
         and we&apos;ll delete it.
       </p>
 
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
 
       <h2>Contact</h2>
       <p>
-        <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>
+        <a href="mailto:privacy@corecrew.org">privacy@corecrew.org</a>
       </p>
     </LegalLayout>
   );

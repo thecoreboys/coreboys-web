@@ -5,10 +5,10 @@ import { MAIL_MEMBERS } from "@/lib/fan-mail";
 export const metadata: Metadata = {
   title: "Fan mail",
   description:
-    "Send letters, packages, postcards, and weird trinkets to The Core Boys. Every member's PO box, formatted for the post office.",
+    "Send letters, packages, postcards, and weird trinkets to CORE. Every member's PO box, formatted for the post office.",
   alternates: { canonical: "/fan-mail" },
   openGraph: {
-    title: "The Core Boys — Fan mail",
+    title: "CORE — Fan mail",
     description: "Old-school mail still hits different.",
     url: "/fan-mail",
     type: "website",

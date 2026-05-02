@@ -6,7 +6,7 @@ import { ChatHub, type ChatChannel } from "@/components/live/ChatHub";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Chat — The Core Boys",
+  title: "Chat — CORE",
   description: "Every CORE Twitch chat, side by side. Show, hide, or add channels — BTTV + 7TV emotes supported.",
   alternates: { canonical: "/chat" },
 };

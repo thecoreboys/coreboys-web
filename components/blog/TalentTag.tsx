@@ -120,10 +120,10 @@ function oneLineContext(person: ResolvedPerson): string {
     const primary = person.socials[0];
     if (primary?.handle) return `Member · ${primary.platform} ${primary.handle}`;
     if (m) return `Member · ${m.stageName}`;
-    return "Member of The Core Boys";
+    return "Member of CORE";
   }
   if (person.kind === "crew") {
-    return "Behind the camera at The Core Boys";
+    return "Behind the camera at CORE";
   }
   const primary = person.socials[0];
   if (primary?.handle) return `${primary.platform} ${primary.handle}`;

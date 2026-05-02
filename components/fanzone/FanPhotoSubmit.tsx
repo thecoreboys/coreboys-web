@@ -339,7 +339,7 @@ export function FanPhotoSubmit({
           />
           <span>
             I confirm I own this photo or have permission to share it, I&apos;m okay with it
-            being displayed publicly on thecoreboys.com with my first name and last initial
+            being displayed publicly on corecrew.org with my first name and last initial
             credited, and I&apos;ve read and accept the{" "}
             <button
               type="button"
@@ -449,7 +449,7 @@ function TermsModal({ onClose }: { onClose: () => void }) {
             </li>
             <li>
               <strong className="text-[color:var(--ink)]">Removal requests</strong> at{" "}
-              <code className="font-mono">press@thecoreboys.com</code>. We act on verified
+              <code className="font-mono">press@corecrew.org</code>. We act on verified
               requests within 72 hours.
             </li>
           </ul>

@@ -91,7 +91,7 @@ export function HeroCore() {
           transition={{ duration: durations.slow / 1000, ease: ease.out, delay: 1.4 }}
         >
           <span className="font-logo text-[14px] uppercase leading-[16px] text-[color:var(--ink-dim)]">
-            The Core Boys · est. 2026
+            CORE · est. 2026
           </span>
         </motion.div>
 

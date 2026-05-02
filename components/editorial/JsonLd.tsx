@@ -1,7 +1,7 @@
 import { MEMBERS } from "@/lib/members";
 import { GROUP_SOCIALS } from "@coreboys/shared";
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://corecrew.org";
 
 /**
  * Site-wide JSON-LD Organization schema. Members are projected as Person
@@ -11,7 +11,7 @@ export function OrganizationJsonLd() {
   const data = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "The Core Boys",
+    name: "CORE",
     alternateName: "CORE",
     url: SITE,
     description: "Six creators. One core. Everything we make, we own.",

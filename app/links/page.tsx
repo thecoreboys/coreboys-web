@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     "Every Core Boys channel — Marlon, StableRonaldo, Adapt, JasonTheWeen, Lacy, Silky — plus the org socials. Live status updates every 60s.",
   alternates: { canonical: "/links" },
   openGraph: {
-    title: "The Core Boys — links",
+    title: "CORE — links",
     description:
       "Every Core Boys channel — live status, socials, and group accounts in one place.",
     url: "/links",

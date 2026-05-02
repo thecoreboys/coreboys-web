@@ -17,7 +17,7 @@ type Params = { params: Promise<{ slug: string }> };
 
 export const revalidate = 3600;
 
-const BOOKING_EMAIL = process.env.NEXT_PUBLIC_BOOKING_EMAIL ?? "booking@thecoreboys.com";
+const BOOKING_EMAIL = process.env.NEXT_PUBLIC_BOOKING_EMAIL ?? "booking@corecrew.org";
 
 export async function generateStaticParams() {
   return MEMBERS.map((m) => ({ slug: m.slug }));
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!member) return {};
   return {
     title: `${member.stageName} — Numbers`,
-    description: `Audience and reach for ${member.stageName}, member of The Core Boys.`,
+    description: `Audience and reach for ${member.stageName}, member of CORE.`,
     alternates: { canonical: `/m/${slug}/numbers` },
     openGraph: {
       title: `${member.stageName} — Numbers`,
@@ -88,7 +88,7 @@ export default async function MemberNumbersPage({ params }: Params) {
             </div>
             <div className="min-w-0">
               <p className="font-mono text-[12px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-                The Core Boys / {member.realName}
+                CORE / {member.realName}
               </p>
               <h1
                 className="mt-2 font-display text-[44px] font-black leading-[0.92] tracking-[-0.04em] md:text-[96px]"
