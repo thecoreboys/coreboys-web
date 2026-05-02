@@ -12,9 +12,6 @@ const ASCII = `
     ░  ▒      ░ ▒ ▒░   ░▒ ░ ▒░ ░ ░  ░
 
   Create. Own. Run. Everything.
-
-  You read the source. We're hiring engineers.
-  dm @thecoreboys
 `;
 
 /**
