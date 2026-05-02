@@ -57,6 +57,10 @@ export function TwitchChat({
   const [emoteMap, setEmoteMap] = useState<EmoteMap | null>(null);
   const [playerParent, setPlayerParent] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  // Suppress scroll-handler reactions during programmatic scrolls so the
+  // act of pinning to bottom doesn't accidentally flip autoScroll off
+  // when subpixel rounding leaves us > threshold from the floor.
+  const programmaticScrollRef = useRef(false);
   const { theme } = useTheme();
 
   // Twitch player iframe requires the hostname as `parent` and refuses
@@ -95,18 +99,31 @@ export function TwitchChat({
   }, [login, emoteMap]);
 
   // Auto-scroll to newest unless the user has scrolled up.
+  // Wraps in a programmatic-scroll guard so the resulting `scroll`
+  // event doesn't trip the onScroll handler below.
   useEffect(() => {
     if (!autoScroll) return;
     const el = scrollerRef.current;
     if (!el) return;
+    programmaticScrollRef.current = true;
     el.scrollTop = el.scrollHeight;
+    // Two raf ticks to outlast the scroll event the assignment fires.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        programmaticScrollRef.current = false;
+      });
+    });
   }, [messages, autoScroll]);
 
+  // Only react to USER scrolls. The threshold is generous (120px) so
+  // small rounding bumps from images loading / emote layout shifts
+  // don't kick the user out of follow-mode.
   const onScroll = () => {
+    if (programmaticScrollRef.current) return;
     const el = scrollerRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
-    setAutoScroll(distanceFromBottom < 32);
+    setAutoScroll(distanceFromBottom < 120);
   };
 
   const popoutHref = useMemo(
