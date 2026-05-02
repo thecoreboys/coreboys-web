@@ -38,13 +38,9 @@ export default function BlogIndexPage() {
       {posts.length === 0 ? (
         <section className="border-t border-[color:var(--rule)] bg-[color:var(--bg)]">
           <div className="mx-auto max-w-[1440px] px-6 py-16 md:px-8 md:py-24">
-            <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-10 text-center">
+            <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-10 text-center">
               <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
                 No articles yet
-              </p>
-              <p className="max-w-[44ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)]">
-                The news desk is quiet for now. Editorial pieces will land here as soon as
-                they&apos;re published.
               </p>
             </div>
           </div>

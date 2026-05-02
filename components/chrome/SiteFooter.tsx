@@ -44,9 +44,11 @@ export function SiteFooter() {
                 CORE
               </span>
             </Link>
-            <p className="mt-4 max-w-[36ch] text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
-              Create. Own. Run Everything. Six creators, one house — built, owned and run by the
-              people on screen.
+            <p className="mt-4 max-w-[36ch] text-[13px] font-semibold leading-relaxed text-[color:var(--ink)]">
+              Create. Own. <span className="text-[color:var(--core)]">Run Everything.</span>
+            </p>
+            <p className="mt-2 max-w-[36ch] text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
+              Six creators, one house — built, owned and run by the people on screen.
             </p>
 
             <ul className="mt-6 flex items-center gap-2">
