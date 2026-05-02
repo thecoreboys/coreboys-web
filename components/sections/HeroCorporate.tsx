@@ -85,27 +85,16 @@ export async function HeroCorporate() {
               <span>Content Organization · Est. 2026</span>
             </div>
 
-            {/* Wordmark — "THE" sits above CORE; "BOYS" baseline-aligned to
-                the right. Manifesto follows on its own line. */}
+            {/* Wordmark — single-word "CORE" hero. */}
             <h1 className="mt-7">
-              <span className="block pl-1 text-[clamp(13px,1.3vw,18px)] font-bold uppercase tracking-[0.5em] text-[color:var(--ink-dim)]">
-                The
-              </span>
-              <span className="mt-2 flex items-end gap-x-3 whitespace-nowrap sm:gap-x-4">
-                <span
-                  className="text-display text-[clamp(64px,10vw,160px)] font-black leading-[0.84] tracking-[-0.05em] text-[color:var(--ink)]"
-                  style={{
-                    textShadow:
-                      "0 0 28px rgba(244,244,245,0.45), 0 0 8px rgba(244,244,245,0.35), 0 2px 30px rgba(0,0,0,0.6)",
-                  }}
-                >
-                  CORE
-                </span>
-                <span
-                  className="pb-3 text-display text-[clamp(18px,2.4vw,36px)] font-black uppercase leading-[0.9] tracking-[-0.02em] text-[color:var(--ink)] sm:pb-4 lg:pb-5"
-                >
-                  Boys
-                </span>
+              <span
+                className="block font-logo text-[clamp(72px,11vw,180px)] leading-[0.84] tracking-[-0.04em] text-[color:var(--ink)]"
+                style={{
+                  textShadow:
+                    "0 0 28px rgba(244,244,245,0.45), 0 0 8px rgba(244,244,245,0.35), 0 2px 30px rgba(0,0,0,0.6)",
+                }}
+              >
+                CORE
               </span>
             </h1>
 
@@ -153,6 +142,7 @@ export async function HeroCorporate() {
                           alt={m.stageName}
                           fill
                           sizes="80px"
+                          unoptimized
                           className="object-cover grayscale-[0.35] transition duration-500 group-hover:grayscale-0 group-hover:scale-105"
                         />
                       </span>
@@ -177,6 +167,7 @@ export async function HeroCorporate() {
                 alt="The CORE house"
                 fill
                 priority
+                unoptimized
                 sizes="(max-width: 1024px) 100vw, 42vw"
                 className="object-cover"
                 style={{ objectPosition: "50% 35%" }}
