@@ -136,11 +136,12 @@ export function HouseTourParallax() {
       </motion.div>
 
       {/* ── Foreground content ─────────────────────────────────────── */}
-      {/* Title sits dead-centered via grid placement; CTA + stat strip
-          remain anchored to the bottom so they read as one footer unit
-          without affecting where the title visually lands. */}
+      {/* Title fills the area above the bottom group and centers within
+          it — so it lands at the optical middle of the visible video,
+          not the geometric middle of the section (which would feel low
+          because of the CTA + stats below). */}
       <motion.div
-        className="relative z-10 mx-auto grid h-full w-full max-w-[1440px] grid-rows-1 place-items-center px-6 text-center md:px-8"
+        className="relative z-10 mx-auto flex h-full w-full max-w-[1440px] flex-col px-6 pt-10 pb-10 text-center md:px-8 md:pb-16"
         style={reduced ? undefined : { y: fgY }}
       >
         <motion.div
@@ -148,30 +149,30 @@ export function HouseTourParallax() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-15%" }}
           transition={{ duration: 0.7, ease: EASE_OUT }}
-          className="flex flex-col items-center"
+          className="grid flex-1 place-items-center"
         >
-          <span
-            className="block font-mono text-[clamp(11px,1.3vw,16px)] uppercase tracking-[0.32em] text-white/75"
-            style={{ textShadow: "0 2px 12px rgba(0,0,0,0.55)" }}
-          >
-            This is the
-          </span>
-          <h2
-            className="mt-3 text-display text-[clamp(56px,10vw,160px)] font-black leading-[0.9] tracking-[-0.04em] text-white"
-            style={{
-              textShadow:
-                "0 0 6px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.55), 0 0 36px rgba(255,59,31,0.85), 0 0 80px rgba(255,59,31,0.55), 0 0 140px rgba(255,59,31,0.35)",
-              animation: "core-glow 4.5s ease-in-out infinite",
-            }}
-          >
-            CORE house.
-          </h2>
+          <div className="flex flex-col items-center">
+            <span
+              className="block font-mono text-[clamp(11px,1.3vw,16px)] uppercase tracking-[0.32em] text-white/75"
+              style={{ textShadow: "0 2px 12px rgba(0,0,0,0.55)" }}
+            >
+              This is the
+            </span>
+            <h2
+              className="mt-3 text-display text-[clamp(56px,10vw,160px)] font-black leading-[0.9] tracking-[-0.04em] text-white"
+              style={{
+                textShadow:
+                  "0 0 6px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.55), 0 0 36px rgba(255,59,31,0.85), 0 0 80px rgba(255,59,31,0.55), 0 0 140px rgba(255,59,31,0.35)",
+                animation: "core-glow 4.5s ease-in-out infinite",
+              }}
+            >
+              CORE house.
+            </h2>
+          </div>
         </motion.div>
 
-        {/* Bottom group — CTA + stats, anchored, horizontally centered.
-            Sits OUTSIDE the grid track so it doesn't shift the title's
-            placement. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-10 flex flex-col items-center gap-8 px-6 text-center md:bottom-16 md:px-8 [&>*]:pointer-events-auto">
+        {/* Bottom group — natural flow at the end of the flex column. */}
+        <div className="flex flex-col items-center gap-8">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
