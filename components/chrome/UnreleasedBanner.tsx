@@ -18,7 +18,16 @@ export function UnreleasedBanner() {
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink)] md:text-[11px]">
           <span className="font-bold text-[color:var(--core)]">Under Maintenance</span>
           <span className="mx-2 text-[color:var(--ink-faint)]">·</span>
-          This is a unofficial site. If you enjoy it, maybe I can make an official website.
+          This is a unofficial site. If you enjoy it, maybe It can be an official website.
+          {" "}
+          <a
+            href="https://mdcran.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 decoration-[color:var(--ink-faint)] hover:text-[color:var(--core)] hover:decoration-[color:var(--core)]"
+          >
+            Built by MDCran ↗
+          </a>
         </p>
       </div>
     </div>
