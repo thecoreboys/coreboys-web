@@ -17,11 +17,9 @@ export type ChatStatsClientProps = {
 };
 
 type Range = "1d" | "7d" | "31d";
-type Metric = "messages" | "chatters";
 
 export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
   const [range, setRange] = useState<Range>("7d");
-  const [metric, setMetric] = useState<Metric>("messages");
 
   const cutoff = useMemo(() => {
     const days = range === "1d" ? 1 : range === "7d" ? 7 : 31;
@@ -68,14 +66,12 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
   const combinedTrend: TrendPoint[] = useMemo(() => {
     const bucket = new Map<string, number>();
     for (const r of ranged) {
-      const key = r.hour;
-      const v = metric === "messages" ? r.messages : r.chatters;
-      bucket.set(key, (bucket.get(key) ?? 0) + v);
+      bucket.set(r.hour, (bucket.get(r.hour) ?? 0) + r.messages);
     }
     return [...bucket.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([hour, value]) => ({ date: hour.slice(0, 16), value }));
-  }, [ranged, metric]);
+  }, [ranged]);
 
   const empty = chat.length === 0;
   const accent = "#ef4444";
@@ -123,10 +119,12 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
         </div>
       ) : (
         <>
-          <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            <KpiCard label="Total messages" value={totals.totalMessages.toLocaleString("en-US")} sub={`${ranged.length} hour bucket${ranged.length === 1 ? "" : "s"}`} />
-            <KpiCard label="Peak unique chatters" value={totals.maxConcurrentChatters.toLocaleString("en-US")} sub="Highest 1-hour count in range" />
-            <KpiCard label="Active channels" value={String(new Set(ranged.map((r) => r.slug)).size)} sub="Members observed live" />
+          <section>
+            <KpiCard
+              label="Total messages"
+              value={totals.totalMessages.toLocaleString("en-US")}
+              sub={`${ranged.length} hour bucket${ranged.length === 1 ? "" : "s"}`}
+            />
           </section>
 
           <section className="rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 md:p-6">
@@ -136,34 +134,11 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
                   Combined trend
                 </p>
                 <h3 className="mt-1 text-[16px] font-bold tracking-tight text-[color:var(--ink)] md:text-[20px]">
-                  {metric === "messages"
-                    ? "Messages per hour, all channels"
-                    : "Peak unique chatters per hour, all channels"}
+                  Messages per hour, all channels
                 </h3>
               </div>
-              <div className="inline-flex rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-0.5">
-                {(["messages", "chatters"] as Metric[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMetric(m)}
-                    aria-pressed={metric === m}
-                    className={`inline-flex cursor-pointer items-center rounded-sm px-3 py-1 text-[11px] font-semibold tracking-tight transition-colors ${
-                      metric === m
-                        ? "bg-[color:var(--surface)] text-[color:var(--ink)]"
-                        : "text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-                    }`}
-                  >
-                    {m === "messages" ? "Messages" : "Unique chatters"}
-                  </button>
-                ))}
-              </div>
             </header>
-            <TrendLine
-              data={combinedTrend}
-              accent={accent}
-              unit={metric === "messages" ? "msgs" : "chatters"}
-            />
+            <TrendLine data={combinedTrend} accent={accent} unit="msgs" />
           </section>
 
           <section className="overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)]">
@@ -178,7 +153,6 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
                   <th className="px-4 py-2 font-mono">Member</th>
                   <th className="px-4 py-2 font-mono">Trend</th>
                   <th className="px-4 py-2 text-right font-mono">Messages</th>
-                  <th className="px-4 py-2 text-right font-mono">Peak chatters / hour</th>
                 </tr>
               </thead>
               <tbody>
@@ -192,15 +166,12 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
                     </td>
                     <td className="px-4 py-2.5">
                       <Sparkline
-                        points={ranged.filter((r) => r.slug === m.slug).map((r) => (metric === "messages" ? r.messages : r.chatters))}
+                        points={ranged.filter((r) => r.slug === m.slug).map((r) => r.messages)}
                         accent={m.accent}
                       />
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-[12px] tabular-nums text-[color:var(--ink)]">
                       {m.messages.toLocaleString("en-US")}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-[12px] tabular-nums text-[color:var(--ink)]">
-                      {m.peakChatters.toLocaleString("en-US")}
                     </td>
                   </tr>
                 ))}

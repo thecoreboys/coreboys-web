@@ -155,6 +155,13 @@ export default async function MetricsPage() {
           <h1 className="mt-2 text-display text-[clamp(36px,5vw,64px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
             Metrics &amp; Analytics
           </h1>
+          <p
+            className="mt-3 inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/40 bg-[color:var(--core)]/10 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[color:var(--core)]"
+            style={{ animation: "live-blink 1.4s ease-in-out infinite" }}
+          >
+            <span aria-hidden>⚠</span>
+            This page is heavily under maintenance as I have not made all the backend endpoints required.
+          </p>
         </div>
       </section>
 

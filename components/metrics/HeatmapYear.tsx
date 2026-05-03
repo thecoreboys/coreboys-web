@@ -10,7 +10,7 @@
  * keep the grid rectangular.
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 
 export type HeatmapDay = {
   /** YYYY-MM-DD */
@@ -25,6 +25,8 @@ export type HeatmapDay = {
    * "X went live for Yh Zm").
    */
   hover?: string;
+  /** Optional structured analytics rows shown in the rich tooltip. */
+  stats?: Array<{ label: string; value: string }>;
 };
 
 export type HeatmapYearProps = {
@@ -54,6 +56,21 @@ export function HeatmapYear({
   accent = "#ef4444",
   deltaThresholds,
 }: HeatmapYearProps) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<{
+    date: string;
+    x: number;
+    y: number;
+    label: string;
+    value: number;
+    delta?: number;
+    body?: string;
+    stats?: Array<{ label: string; value: string }>;
+    isToday: boolean;
+    isFuture: boolean;
+    bucket: number;
+  } | null>(null);
+
   const cells = useMemo(() => {
     const out: Array<{
       date: string;
@@ -148,7 +165,11 @@ export function HeatmapYear({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="overflow-x-auto">
+      <div
+        ref={wrapperRef}
+        className="relative overflow-x-auto"
+        onMouseLeave={() => setHover(null)}
+      >
         <svg
         width={w}
         height={h}
@@ -195,14 +216,7 @@ export function HeatmapYear({
               year: "numeric",
             });
             const isToday = c.date === todayIso();
-            const tooltip = c.data?.hover
-              ? `${dayLabel}${isToday ? " · today" : ""}\n${c.data.hover}`
-              : c.data
-                ? `${dayLabel}${isToday ? " · today" : ""}\n${c.data.value.toLocaleString("en-US")}` +
-                  (c.data.delta != null
-                    ? `\nΔ ${c.data.delta > 0 ? "+" : ""}${c.data.delta.toLocaleString("en-US")}`
-                    : "")
-                : `${dayLabel}${isToday ? " · today" : ""}\n${c.isPast ? "No data" : "Upcoming"}`;
+            const isHovered = hover?.date === c.date;
             return (
               <g key={c.date} className="heatmap-cell">
                 <rect
@@ -212,17 +226,79 @@ export function HeatmapYear({
                   height={SQUARE}
                   rx={2}
                   fill={fill}
-                  stroke={isToday ? "var(--ink)" : "transparent"}
-                  strokeWidth={isToday ? 1.4 : 0}
-                  className="cursor-pointer transition-[stroke-width,stroke] hover:!stroke-[color:var(--ink)] hover:!stroke-[1.5px]"
-                >
-                  <title>{tooltip}</title>
-                </rect>
+                  stroke={isHovered ? "var(--ink)" : isToday ? "var(--ink)" : "transparent"}
+                  strokeWidth={isHovered ? 1.5 : isToday ? 1.4 : 0}
+                  className="cursor-pointer transition-[stroke-width,stroke]"
+                  onMouseEnter={(e) => {
+                    const wrap = wrapperRef.current;
+                    if (!wrap) return;
+                    const wr = wrap.getBoundingClientRect();
+                    const rr = (e.target as SVGRectElement).getBoundingClientRect();
+                    setHover({
+                      date: c.date,
+                      x: rr.left - wr.left + rr.width / 2 + wrap.scrollLeft,
+                      y: rr.top - wr.top,
+                      label: dayLabel,
+                      value: c.data?.value ?? 0,
+                      delta: c.data?.delta,
+                      body: c.data?.hover,
+                      stats: c.data?.stats,
+                      isToday,
+                      isFuture: !c.isPast,
+                      bucket: c.bucket,
+                    });
+                  }}
+                />
               </g>
             );
           })}
         </g>
       </svg>
+      {hover ? (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-full rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/95 px-3 py-2 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.7)] backdrop-blur-md"
+          style={{ left: hover.x, top: hover.y - 8, minWidth: 180 }}
+        >
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+            {hover.label}
+            {hover.isToday ? " · today" : ""}
+            {hover.isFuture ? " · upcoming" : ""}
+          </p>
+          {hover.body ? (
+            <p className="mt-1 whitespace-pre-line text-[12px] leading-snug text-[color:var(--ink)]">
+              {hover.body}
+            </p>
+          ) : (
+            <p className="mt-1 text-[12px] leading-snug text-[color:var(--ink)]">
+              <span className="font-bold tabular-nums">
+                {hover.value.toLocaleString("en-US")}
+              </span>
+              {hover.delta != null ? (
+                <span
+                  className="ml-2 font-mono text-[11px] tabular-nums"
+                  style={{ color: hover.delta >= 0 ? "var(--core)" : "var(--ink-dim)" }}
+                >
+                  {hover.delta > 0 ? "+" : ""}
+                  {hover.delta.toLocaleString("en-US")}
+                </span>
+              ) : null}
+            </p>
+          )}
+          {hover.stats && hover.stats.length > 0 ? (
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[10px]">
+              {hover.stats.map((s) => (
+                <div key={s.label} className="contents">
+                  <dt className="text-[color:var(--ink-faint)]">{s.label}</dt>
+                  <dd className="text-right tabular-nums text-[color:var(--ink)]">
+                    {s.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+        </div>
+      ) : null}
       </div>
       {/* Color-scale legend — five buckets matching bucketColor(). */}
       <div className="flex items-center gap-1.5 self-end font-mono text-[9px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">

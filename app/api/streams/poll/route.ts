@@ -64,12 +64,18 @@ export async function POST(req: Request) {
     const open = openBySlug.get(m.slug);
 
     if (stream && !open) {
-      // Newly live — open a session.
+      // Newly live — open a session. `started_at` is the actual stream
+      // start time from Twitch (often hours before we caught it), so
+      // we initialize `total_minutes` to that elapsed delta — otherwise
+      // the streak / airtime KPIs would show 0 until the stream closes.
       await query(
         `INSERT INTO stream_sessions
            (member_slug, twitch_login, twitch_stream_id, started_at,
-            peak_viewers, sum_viewers, sample_count, title, game, last_polled_at)
-         VALUES ($1,$2,$3,$4,$5,$6,1,$7,$8,NOW())`,
+            peak_viewers, sum_viewers, sample_count, total_minutes,
+            title, game, last_polled_at)
+         VALUES ($1,$2,$3,$4,$5,$6,1,
+                 GREATEST(0, CAST(EXTRACT(EPOCH FROM (NOW() - $4::timestamptz)) / 60 AS INTEGER)),
+                 $7,$8,NOW())`,
         [
           m.slug,
           m.twitchLogin.toLowerCase(),
@@ -83,12 +89,19 @@ export async function POST(req: Request) {
       );
       opened++;
     } else if (stream && open) {
-      // Still live — fold this poll into the running totals.
+      // Still live — fold this poll into the running totals + advance
+      // total_minutes to the current elapsed wall-clock so the metrics
+      // page reflects in-progress streams instead of showing 0 until
+      // the session closes.
       await query(
         `UPDATE stream_sessions SET
             peak_viewers = GREATEST(peak_viewers, $1),
             sum_viewers = sum_viewers + $1,
             sample_count = sample_count + 1,
+            total_minutes = GREATEST(
+              total_minutes,
+              CAST(EXTRACT(EPOCH FROM (NOW() - started_at)) / 60 AS INTEGER)
+            ),
             title = $2,
             game = $3,
             last_polled_at = NOW()
