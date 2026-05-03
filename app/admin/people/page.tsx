@@ -40,7 +40,7 @@ export default async function AdminPeoplePage() {
     twitchLogin: m.twitchLogin,
     commName: m.comm.name,
     commLogo: m.comm.logo,
-    avatarUrl: avatars[m.twitchLogin.toLowerCase()] ?? m.portrait,
+    avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
     bio: m.bio,
   }));
 

@@ -126,7 +126,7 @@ export async function HeroCorporate() {
             {/* Roster strip — Twitch profile pictures */}
             <ul className="mt-12 grid grid-cols-6 gap-2 border-t border-[color:var(--rule)] pt-6">
               {MEMBERS.map((m) => {
-                const avatar = avatars[m.twitchLogin.toLowerCase()] ?? m.portrait;
+                const avatar = m.portrait ?? avatars[m.twitchLogin.toLowerCase()];
                 return (
                   <li key={m.slug}>
                     <Link

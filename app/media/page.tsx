@@ -43,7 +43,7 @@ export default async function MediaPage() {
     name: m.stageName,
     kind: "member",
     accent: m.accent,
-    avatarUrl: avatars[m.twitchLogin.toLowerCase()] ?? m.portrait,
+    avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
     href: `/m/${m.slug}`,
   }));
 

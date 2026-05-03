@@ -52,7 +52,7 @@ export async function CrewWall() {
         slug: m.slug,
         stageName: m.stageName,
         accent: m.accent,
-        avatarUrl: avatars[m.twitchLogin.toLowerCase()] ?? m.portrait,
+        avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
       })),
     };
   });
