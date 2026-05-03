@@ -12,7 +12,13 @@ export const metadata: Metadata = {
   alternates: { canonical: "/fanzone" },
 };
 
-export const revalidate = 600;
+// Render at request time, not at build. The PO box cards depend on
+// Twitch profile pics fetched via TWITCH_CLIENT_* envs which are
+// RUN_TIME-scoped on App Platform — a build-time render returns
+// empty avatars and the page falls back to local portraits. The 10-
+// min ISR cache also pinned that miss in place. Force dynamic so
+// the first server render has the secrets available.
+export const dynamic = "force-dynamic";
 
 export default async function FanzonePage() {
   let avatars: Record<string, string> = {};
