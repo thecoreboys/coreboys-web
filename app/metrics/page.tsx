@@ -135,7 +135,7 @@ export default async function MetricsPage() {
           </h1>
           <p className="mt-3 max-w-[60ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)] md:text-[16px]">
             Snapshot of every public account behind CORE — group socials and
-            each member's Twitch followers. A daily cron job writes one row
+            each member&apos;s Twitch followers. A daily cron job writes one row
             per platform, so the line chart and heatmap fill in over time.
           </p>
         </div>
@@ -146,8 +146,8 @@ export default async function MetricsPage() {
           {dbError ? (
             <div className="rounded-lg border border-[color:var(--core)]/40 bg-[color:var(--core)]/10 p-4 text-[13px] text-[color:var(--ink)]">
               <strong className="font-semibold">Database not reachable.</strong>{" "}
-              Snapshots can't load right now. Most likely DATABASE_URL isn't set
-              in the runtime, or the metric_snapshots table hasn't been
+              Snapshots can&apos;t load right now. Most likely DATABASE_URL isn&apos;t set
+              in the runtime, or the metric_snapshots table hasn&apos;t been
               migrated yet. <span className="font-mono">{dbError}</span>
             </div>
           ) : (

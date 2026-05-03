@@ -160,10 +160,6 @@ function Header() {
             <h1 className="mt-2 text-display text-[clamp(40px,6vw,72px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
               Stories from the house.
             </h1>
-            <p className="mt-4 max-w-[60ch] text-[15px] leading-relaxed text-[color:var(--ink-dim)]">
-              Recaps, craft notes, product updates, and the occasional long read. Editorial only —
-              no AI-generated copy.
-            </p>
           </div>
         </div>
       </div>

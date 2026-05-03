@@ -248,7 +248,7 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
             One square per day. Brighter = bigger gain.
           </h2>
           <p className="mt-1 max-w-[60ch] text-[13px] text-[color:var(--ink-dim)]">
-            Visualises the day-over-day delta for the trend you've selected
+            Visualises the day-over-day delta for the trend you&apos;ve selected
             above. Empty squares = no snapshot recorded that day.
           </p>
         </header>
