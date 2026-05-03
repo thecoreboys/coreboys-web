@@ -8,6 +8,7 @@ import {
   type DailyAirtime,
   type StreamSession,
 } from "@/components/metrics/StreamStatsClient";
+import { ChatStatsClient, type ChatRow } from "@/components/metrics/ChatStatsClient";
 
 export const metadata: Metadata = {
   title: "Metrics",
@@ -48,14 +49,22 @@ type DailyAirtimeDbRow = {
   peak_viewers: string;
 };
 
+type ChatDbRow = {
+  member_slug: string;
+  hour_utc: string;
+  message_count: number;
+  unique_chatters: number;
+};
+
 export default async function MetricsPage() {
   let rows: MetricsRow[] = [];
   let sessions: StreamSession[] = [];
   let daily: DailyAirtime[] = [];
+  let chat: ChatRow[] = [];
   let dbError: string | null = null;
 
   try {
-    const [snapshots, sessionRes, dailyRes] = await Promise.all([
+    const [snapshots, sessionRes, dailyRes, chatRes] = await Promise.all([
       query<DbRow>(
         `SELECT member_slug, platform, count::text AS count, snapshot_date::text AS snapshot_date
          FROM metric_snapshots
@@ -83,6 +92,12 @@ export default async function MetricsPage() {
          WHERE started_at >= NOW() - INTERVAL '400 days'
          GROUP BY member_slug, DATE(started_at AT TIME ZONE 'America/Los_Angeles')
          ORDER BY day ASC`,
+      ),
+      query<ChatDbRow>(
+        `SELECT member_slug, hour_utc::text, message_count, unique_chatters
+         FROM chat_metrics
+         WHERE hour_utc >= NOW() - INTERVAL '31 days'
+         ORDER BY hour_utc ASC`,
       ),
     ]);
 
@@ -112,6 +127,13 @@ export default async function MetricsPage() {
       minutes: Number(r.minutes),
       sessions: Number(r.sessions),
       peakViewers: Number(r.peak_viewers),
+    }));
+
+    chat = chatRes.rows.map((r) => ({
+      slug: r.member_slug,
+      hour: r.hour_utc,
+      messages: r.message_count,
+      chatters: r.unique_chatters,
     }));
   } catch (e) {
     dbError = e instanceof Error ? e.message : String(e);
@@ -154,6 +176,8 @@ export default async function MetricsPage() {
                 daily={daily}
                 members={members}
               />
+              <hr className="border-[color:var(--rule)]" />
+              <ChatStatsClient chat={chat} members={members} />
             </div>
           )}
         </div>

@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { Check, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
 
-const TALENTS_KEY = "coreboys-talents:v1";
-
 type SocialKey = "twitch" | "youtube" | "x" | "tiktok" | "instagram" | "snapchat";
 
 type SocialSuggestion = {
@@ -18,54 +16,105 @@ export type Talent = {
   id: string;
   name: string;
   twitchLogin?: string;
-  /** Public URL for the avatar. Twitch profile pic when sourced from a
-   * Twitch handle; admin-uploaded image URL when manual. */
   avatarUrl?: string;
   socials: SocialSuggestion[];
   createdAt: string;
 };
 
+type ApiTalent = {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  socials: Array<{ platform: SocialKey; url: string; handle?: string; label?: string }>;
+  created_at: string;
+};
+
 type Mode = "twitch" | "manual";
 
 /**
- * Talent admin: lookup-by-Twitch + manual-create with AI social
- * discovery. Phase 1 persists everything to localStorage; Phase 4
- * targets `collab_people` and a `POST /v1/talents` endpoint that
- * delegates to Anthropic for the social-discovery step.
+ * Talent admin — manages external_people via /api/admin/talents.
+ * Add path 1: lookup a Twitch login to seed name + avatar + twitch
+ * social. Path 2: enter a name manually + AI-suggest socials, admin
+ * approves each, save.
  */
 export function TalentManager() {
   const [mode, setMode] = useState<Mode>("twitch");
   const [talents, setTalents] = useState<Talent[]>([]);
+  const [, setLoading] = useState(true);
+  const [, setLoadError] = useState<string | null>(null);
 
-  // Twitch-lookup state
   const [login, setLogin] = useState("");
   const [tLooking, setTLooking] = useState(false);
   const [tError, setTError] = useState<string | null>(null);
 
-  // Manual state
   const [manualName, setManualName] = useState("");
   const [manualImage, setManualImage] = useState("");
   const [aiSearching, setAiSearching] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<SocialSuggestion[]>([]);
   const [savingManual, setSavingManual] = useState(false);
 
-  useEffect(() => {
+  function fromApi(t: ApiTalent): Talent {
+    const twitch = t.socials.find((s) => s.platform === "twitch");
+    return {
+      id: t.id,
+      name: t.name,
+      twitchLogin: twitch?.handle ?? twitch?.url.split("/").pop(),
+      avatarUrl: t.avatar_url ?? undefined,
+      socials: t.socials.map((s) => ({
+        platform: s.platform,
+        handle: s.handle ?? s.url,
+        url: s.url,
+        approved: true,
+      })),
+      createdAt: t.created_at,
+    };
+  }
+
+  async function load() {
+    setLoading(true);
+    setLoadError(null);
     try {
-      const raw = localStorage.getItem(TALENTS_KEY);
-      if (raw) setTalents(JSON.parse(raw));
-    } catch {
-      /* ignore */
+      const res = await fetch("/api/admin/talents", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as { talents: ApiTalent[] };
+      setTalents(json.talents.map(fromApi));
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "load failed");
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
+    load();
+    // load() is stable per-render and intentionally not memoised; the
+    // mount-time call doesn't need to refire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const persist = (next: Talent[]) => {
-    setTalents(next);
+  async function persistCreate(t: Talent): Promise<boolean> {
     try {
-      localStorage.setItem(TALENTS_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
+      const res = await fetch("/api/admin/talents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: t.name,
+          twitchLogin: t.twitchLogin,
+          avatarUrl: t.avatarUrl,
+          socials: t.socials
+            .filter((s) => s.approved)
+            .map((s) => ({ platform: s.platform, url: s.url, handle: s.handle })),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await load();
+      return true;
+    } catch (e) {
+      alert(`Save failed: ${e instanceof Error ? e.message : e}`);
+      return false;
     }
-  };
+  }
 
   // --- Twitch lookup add path ---
   const addByTwitch = async (e: React.FormEvent) => {
@@ -87,7 +136,7 @@ export function TalentManager() {
         profileImageUrl: string | null;
       } = await res.json();
       const t: Talent = {
-        id: `talent:${data.login}`,
+        id: "",
         name: data.displayName,
         twitchLogin: data.login,
         avatarUrl: data.profileImageUrl ?? undefined,
@@ -101,8 +150,8 @@ export function TalentManager() {
         ],
         createdAt: new Date().toISOString(),
       };
-      persist([t, ...talents.filter((x) => x.id !== t.id)]);
-      setLogin("");
+      const ok = await persistCreate(t);
+      if (ok) setLogin("");
     } catch {
       setTError("Network error");
     } finally {
@@ -157,29 +206,36 @@ export function TalentManager() {
     );
   };
 
-  const saveManual = (e: React.FormEvent) => {
+  const saveManual = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = manualName.trim();
     if (!name) return;
     setSavingManual(true);
-    const id = `talent:custom:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
     const t: Talent = {
-      id,
+      id: "",
       name,
       avatarUrl: manualImage.trim() || undefined,
       socials: aiSuggestions.filter((s) => s.approved),
       createdAt: new Date().toISOString(),
     };
-    persist([t, ...talents.filter((x) => x.id !== t.id)]);
-    setManualName("");
-    setManualImage("");
-    setAiSuggestions([]);
+    const ok = await persistCreate(t);
+    if (ok) {
+      setManualName("");
+      setManualImage("");
+      setAiSuggestions([]);
+    }
     setSavingManual(false);
   };
 
-  const remove = (id: string) => {
+  const remove = async (id: string) => {
     if (!confirm("Remove this talent?")) return;
-    persist(talents.filter((t) => t.id !== id));
+    try {
+      const res = await fetch(`/api/admin/talents/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setTalents((prev) => prev.filter((t) => t.id !== id));
+    } catch (e) {
+      alert(`Delete failed: ${e instanceof Error ? e.message : e}`);
+    }
   };
 
   return (

@@ -2,41 +2,25 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, Plus } from "lucide-react";
-
-const STORAGE_KEY = "coreboys-admin-clips:v1";
-
-type ClipDraft = {
-  id: string;
-  source: "twitch" | "youtube" | "tiktok" | "instagram";
-  externalId: string;
-  url: string;
-  title: string;
-  memberSlugs: string[];
-  publishedAt: string;
-  aiDescription?: string;
-  aspect: "vertical" | "horizontal";
-};
 
 type MemberLite = { slug: string; stageName: string; accent: string };
 
 /**
- * Phase-1 stub form. Detects platform + ID from the URL and writes a
- * `ClipDraft` to localStorage. Phase 4 calls
- * `POST /v1/clips` on coreboys-api which:
- *   1. Validates the URL.
- *   2. Hits the platform's oEmbed / scraper to fetch title, thumbnail,
- *      duration, view count.
- *   3. Runs AWS Rekognition or Claude Vision on the cover frame for AI
- *      tagging suggestions.
- *   4. Persists to Postgres.
+ * Direct-add clip form. Detects platform + ID from the URL, posts to
+ * `POST /api/admin/clips` which inserts into the clips table and
+ * mirrors the picked member slugs into clip_member_tags.
  */
 export function ClipNewForm({ members }: { members: MemberLite[] }) {
+  const router = useRouter();
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [aiDesc, setAiDesc] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const detection = useMemo(() => detectPlatform(url), [url]);
 
@@ -46,45 +30,43 @@ export function ClipNewForm({ members }: { members: MemberLite[] }) {
     );
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!detection.source || !detection.externalId || !title.trim()) return;
-    const aspect: "vertical" | "horizontal" =
-      detection.source === "tiktok"
-        ? "vertical"
-        : detection.source === "instagram"
-          ? /\/reel\//i.test(url)
-            ? "vertical"
-            : "horizontal"
-          : detection.source === "youtube"
-            ? /\/shorts\//i.test(url)
-              ? "vertical"
-              : "horizontal"
-            : "horizontal";
-    const draft: ClipDraft = {
-      id: `${detection.source}-${detection.externalId}-${Date.now()}`,
-      source: detection.source,
-      externalId: detection.externalId,
-      url,
-      title: title.trim(),
-      memberSlugs: picked,
-      publishedAt: new Date().toISOString(),
-      aiDescription: aiDesc.trim() || undefined,
-      aspect,
-    };
+    setError(null);
+    setSaving(true);
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const prev = raw ? (JSON.parse(raw) as ClipDraft[]) : [];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([draft, ...prev]));
-    } catch {
-      /* ignore */
+      const res = await fetch("/api/admin/clips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: detection.source,
+          externalId: detection.externalId,
+          url,
+          title: title.trim(),
+          memberSlugs: picked,
+          description: aiDesc.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const j: { error?: string; detail?: string } = await res.json().catch(() => ({}));
+        throw new Error(j.detail ?? j.error ?? `HTTP ${res.status}`);
+      }
+      setSaved(true);
+      setUrl("");
+      setTitle("");
+      setAiDesc("");
+      setPicked([]);
+      window.setTimeout(() => {
+        setSaved(false);
+        router.push("/admin/clips");
+        router.refresh();
+      }, 1000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "save failed");
+    } finally {
+      setSaving(false);
     }
-    setSaved(true);
-    setUrl("");
-    setTitle("");
-    setAiDesc("");
-    setPicked([]);
-    window.setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -173,25 +155,30 @@ export function ClipNewForm({ members }: { members: MemberLite[] }) {
       <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[color:var(--rule)] pt-5">
         <button
           type="submit"
-          disabled={!detection.source || !title.trim()}
+          disabled={!detection.source || !title.trim() || saving}
           className="btn btn-primary disabled:opacity-50"
         >
           {saved ? (
             <>
               <Check size={14} /> Saved
             </>
+          ) : saving ? (
+            <>Saving…</>
           ) : (
             <>
               <Plus size={14} /> Save clip
             </>
           )}
         </button>
-        <Link href="/clips" className="btn btn-secondary">
-          View library
+        <Link href="/admin/clips" className="btn btn-secondary">
+          All clips
         </Link>
         <Link href="/admin" className="text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]">
           Back to admin
         </Link>
+        {error ? (
+          <span className="ml-auto text-[12px] text-[color:var(--core)]">{error}</span>
+        ) : null}
       </div>
     </form>
   );

@@ -219,14 +219,6 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
         />
       </section>
 
-      {/* Chat-tracking stubs — Watch time and Concurrent peak are
-          already covered downstream by Hours watched / Peak viewers in
-          the stream-stats section, so they're not duplicated here. */}
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <StubCard label="Chat messages" />
-        <StubCard label="Unique chatters" />
-      </section>
-
       {/* Trend chart — single platform pill row, brand-colored, with the
           chart for the active selection underneath. */}
       <section className="rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 md:p-6">
@@ -357,20 +349,6 @@ function KpiCard({
   return (
     <div className={className} style={style}>
       {inner}
-    </div>
-  );
-}
-
-function StubCard({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/50 p-4">
-      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-        {label}
-      </p>
-      <p className="text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
-        Coming once the Twitch IRC worker ships. Joins each member&apos;s chat
-        and counts messages + unique chatters per hour.
-      </p>
     </div>
   );
 }
