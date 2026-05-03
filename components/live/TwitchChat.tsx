@@ -55,19 +55,12 @@ export function TwitchChat({
   const [status, setStatus] = useState<Status>("connecting");
   const [autoScroll, setAutoScroll] = useState(true);
   const [emoteMap, setEmoteMap] = useState<EmoteMap | null>(null);
-  const [playerParent, setPlayerParent] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   // Suppress scroll-handler reactions during programmatic scrolls so the
   // act of pinning to bottom doesn't accidentally flip autoScroll off
   // when subpixel rounding leaves us > threshold from the floor.
   const programmaticScrollRef = useRef(false);
   const { theme } = useTheme();
-
-  // Twitch player iframe requires the hostname as `parent` and refuses
-  // to render until it's set, so defer mounting until we have it.
-  useEffect(() => {
-    setPlayerParent(window.location.hostname);
-  }, []);
 
   // Load emote sets once per (login, userId).
   useEffect(() => {
@@ -211,21 +204,6 @@ export function TwitchChat({
           ) : null}
         </div>
       </header>
-
-      {/* Tiny live preview — muted, autoplay; offline shows Twitch's
-          channel placeholder card. */}
-      {playerParent ? (
-        <div className="shrink-0 border-b border-[color:var(--rule)] bg-black">
-          <iframe
-            key={`${login}-${playerParent}`}
-            src={`https://player.twitch.tv/?channel=${encodeURIComponent(login)}&parent=${encodeURIComponent(playerParent)}&muted=true&autoplay=true`}
-            title={`${displayName ?? login} live stream`}
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            className={`block w-full ${compact ? "h-[120px]" : "h-[160px]"}`}
-          />
-        </div>
-      ) : null}
 
       {/* Messages */}
       <div

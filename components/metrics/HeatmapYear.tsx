@@ -10,7 +10,8 @@
  * keep the grid rectangular.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type HeatmapDay = {
   /** YYYY-MM-DD */
@@ -56,11 +57,13 @@ export function HeatmapYear({
   accent = "#ef4444",
   deltaThresholds,
 }: HeatmapYearProps) {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [hover, setHover] = useState<{
     date: string;
-    x: number;
-    y: number;
+    /** viewport coords (px) — paired with `position: fixed` */
+    cx: number;
+    top: number;
     label: string;
     value: number;
     delta?: number;
@@ -113,11 +116,14 @@ export function HeatmapYear({
       const inYear = d.getFullYear() === yr;
       const data = byDate.get(iso);
       const sample = colorBy === "delta" ? data?.delta ?? 0 : data?.value ?? 0;
+      // Anything strictly > 0 must show some color so a "lightest stream
+      // day" never looks identical to a no-data day. Quartile thresholds
+      // then split the upper tiers.
       let bucket = 0;
-      if (sample > thresholds[0]) bucket = 1;
-      if (sample > thresholds[1]) bucket = 2;
-      if (sample > thresholds[2]) bucket = 3;
-      if (sample > thresholds[3]) bucket = 4;
+      if (sample > 0) bucket = 1;
+      if (sample > thresholds[0]) bucket = 2;
+      if (sample > thresholds[1]) bucket = 3;
+      if (sample > thresholds[2]) bucket = 4;
       out.push({
         date: iso,
         day: d.getDay(),
@@ -166,8 +172,7 @@ export function HeatmapYear({
   return (
     <div className="flex flex-col gap-2">
       <div
-        ref={wrapperRef}
-        className="relative overflow-x-auto"
+        className="overflow-x-auto"
         onMouseLeave={() => setHover(null)}
       >
         <svg
@@ -230,14 +235,11 @@ export function HeatmapYear({
                   strokeWidth={isHovered ? 1.5 : isToday ? 1.4 : 0}
                   className="cursor-pointer transition-[stroke-width,stroke]"
                   onMouseEnter={(e) => {
-                    const wrap = wrapperRef.current;
-                    if (!wrap) return;
-                    const wr = wrap.getBoundingClientRect();
                     const rr = (e.target as SVGRectElement).getBoundingClientRect();
                     setHover({
                       date: c.date,
-                      x: rr.left - wr.left + rr.width / 2 + wrap.scrollLeft,
-                      y: rr.top - wr.top,
+                      cx: rr.left + rr.width / 2,
+                      top: rr.top,
                       label: dayLabel,
                       value: c.data?.value ?? 0,
                       delta: c.data?.delta,
@@ -254,52 +256,58 @@ export function HeatmapYear({
           })}
         </g>
       </svg>
-      {hover ? (
-        <div
-          role="tooltip"
-          className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-full rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/95 px-3 py-2 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.7)] backdrop-blur-md"
-          style={{ left: hover.x, top: hover.y - 8, minWidth: 180 }}
-        >
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-            {hover.label}
-            {hover.isToday ? " · today" : ""}
-            {hover.isFuture ? " · upcoming" : ""}
-          </p>
-          {hover.body ? (
-            <p className="mt-1 whitespace-pre-line text-[12px] leading-snug text-[color:var(--ink)]">
-              {hover.body}
-            </p>
-          ) : (
-            <p className="mt-1 text-[12px] leading-snug text-[color:var(--ink)]">
-              <span className="font-bold tabular-nums">
-                {hover.value.toLocaleString("en-US")}
-              </span>
-              {hover.delta != null ? (
-                <span
-                  className="ml-2 font-mono text-[11px] tabular-nums"
-                  style={{ color: hover.delta >= 0 ? "var(--core)" : "var(--ink-dim)" }}
-                >
-                  {hover.delta > 0 ? "+" : ""}
-                  {hover.delta.toLocaleString("en-US")}
-                </span>
-              ) : null}
-            </p>
-          )}
-          {hover.stats && hover.stats.length > 0 ? (
-            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[10px]">
-              {hover.stats.map((s) => (
-                <div key={s.label} className="contents">
-                  <dt className="text-[color:var(--ink-faint)]">{s.label}</dt>
-                  <dd className="text-right tabular-nums text-[color:var(--ink)]">
-                    {s.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-        </div>
-      ) : null}
       </div>
+      {/* Portal the tooltip to <body> so it sits above the entire page,
+          not inside the heatmap's overflow-x-auto wrapper (which would
+          clip it as the cursor approaches the next member's row). */}
+      {mounted && hover
+        ? createPortal(
+            <div
+              role="tooltip"
+              className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/95 px-3 py-2 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md"
+              style={{ left: hover.cx, top: hover.top - 8, minWidth: 180 }}
+            >
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+                {hover.label}
+                {hover.isToday ? " · today" : ""}
+                {hover.isFuture ? " · upcoming" : ""}
+              </p>
+              {hover.body ? (
+                <p className="mt-1 whitespace-pre-line text-[12px] leading-snug text-[color:var(--ink)]">
+                  {hover.body}
+                </p>
+              ) : (
+                <p className="mt-1 text-[12px] leading-snug text-[color:var(--ink)]">
+                  <span className="font-bold tabular-nums">
+                    {hover.value.toLocaleString("en-US")}
+                  </span>
+                  {hover.delta != null ? (
+                    <span
+                      className="ml-2 font-mono text-[11px] tabular-nums"
+                      style={{ color: hover.delta >= 0 ? "var(--core)" : "var(--ink-dim)" }}
+                    >
+                      {hover.delta > 0 ? "+" : ""}
+                      {hover.delta.toLocaleString("en-US")}
+                    </span>
+                  ) : null}
+                </p>
+              )}
+              {hover.stats && hover.stats.length > 0 ? (
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[10px]">
+                  {hover.stats.map((s) => (
+                    <div key={s.label} className="contents">
+                      <dt className="text-[color:var(--ink-faint)]">{s.label}</dt>
+                      <dd className="text-right tabular-nums text-[color:var(--ink)]">
+                        {s.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
       {/* Color-scale legend — five buckets matching bucketColor(). */}
       <div className="flex items-center gap-1.5 self-end font-mono text-[9px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
         <span>Less</span>

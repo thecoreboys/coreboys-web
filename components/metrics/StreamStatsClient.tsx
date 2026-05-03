@@ -47,8 +47,8 @@ type Range = "1d" | "7d" | "31d" | "all";
 export function StreamStatsClient({ sessions, daily, members }: StreamStatsClientProps) {
   const [range, setRange] = useState<Range>("31d");
 
-  // Live viewer counts — used for the per-member "LIVE · X watching"
-  // badge and the combined header tally. SWR refreshes every 60s.
+  // Live viewer counts — used for the per-member tile "LIVE" badge.
+  // SWR refreshes every 60s.
   const { data: liveData } = useLiveStatus();
   const liveByLogin = useMemo(() => {
     const map = new Map<string, { isLive: boolean; viewerCount: number | null }>();
@@ -57,33 +57,21 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
     }
     return map;
   }, [liveData]);
-  const combinedLiveViewers = useMemo(() => {
-    let n = 0;
-    for (const m of members) {
-      const v = liveByLogin.get(m.twitchLogin.toLowerCase());
-      if (v?.isLive) n += v.viewerCount ?? 0;
-    }
-    return n;
-  }, [members, liveByLogin]);
-  const liveCount = useMemo(() => {
-    let n = 0;
-    for (const m of members) {
-      if (liveByLogin.get(m.twitchLogin.toLowerCase())?.isLive) n += 1;
-    }
-    return n;
-  }, [members, liveByLogin]);
 
-  const cutoff = useMemo(() => {
+  const cutoffMs = useMemo(() => {
     if (range === "all") return null;
     const days = range === "1d" ? 1 : range === "7d" ? 7 : 31;
-    const c = new Date();
-    c.setDate(c.getDate() - days);
-    return c.toISOString();
+    return Date.now() - days * 86_400_000;
   }, [range]);
 
+  // PG ::text shape is "2026-05-02 18:00:00+00", JS toISOString uses T.
+  // Compare via parsed ms so we don't drop the cutoff-day rows.
   const ranged = useMemo(
-    () => (cutoff ? sessions.filter((s) => s.startedAt >= cutoff) : sessions),
-    [sessions, cutoff],
+    () =>
+      cutoffMs == null
+        ? sessions
+        : sessions.filter((s) => Date.parse(s.startedAt.replace(" ", "T")) >= cutoffMs),
+    [sessions, cutoffMs],
   );
 
   const perMember = useMemo(() => {
@@ -199,11 +187,6 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
     return out;
   }, [members, daily]);
 
-  const recentSessions = useMemo(
-    () => [...ranged].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, 14),
-    [ranged],
-  );
-
   const empty = sessions.length === 0;
   // Locked to 2026 per spec — consistency grid renders the current
   // calendar year only, no rolling 365-day window.
@@ -211,32 +194,14 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Range toggle + section header (with live combined viewers) */}
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-              Twitch · Stream stats
-            </p>
-            <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
-              Live time, peak watchers, daily streaks.
-            </h2>
-          </div>
-          {liveCount > 0 ? (
-            <span className="inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/60 bg-[color:var(--core)]/12 px-3 py-1.5">
-              <span
-                aria-hidden
-                className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(239,68,68,0.7)]"
-                style={{ animation: "live-blink 1s ease-in-out infinite" }}
-              />
-              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--core)]">
-                LIVE · {liveCount}
-                {combinedLiveViewers > 0
-                  ? ` · ${combinedLiveViewers.toLocaleString("en-US")} watching`
-                  : ""}
-              </span>
-            </span>
-          ) : null}
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+            Twitch · Stream stats
+          </p>
+          <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
+            Live time, peak watchers, daily streaks.
+          </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(["1d", "7d", "31d", "all"] as Range[]).map((r) => (
@@ -414,99 +379,6 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
         </div>
       </section>
 
-      {/* Recent sessions timeline */}
-      <section className="overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)]">
-        <header className="border-b border-[color:var(--rule)] px-4 py-3 md:px-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-            Recent sessions · last {recentSessions.length} streams in range
-          </p>
-        </header>
-        {recentSessions.length === 0 ? (
-          <div className="px-4 py-6 text-center text-[13px] text-[color:var(--ink-dim)]">
-            No streams in this window.
-          </div>
-        ) : (
-          <ul>
-            {recentSessions.map((s) => {
-              const member = members.find((m) => m.slug === s.slug);
-              const ended = s.endedAt ? new Date(s.endedAt) : null;
-              const isLive = ended === null;
-              return (
-                <li
-                  key={s.id}
-                  className="flex flex-wrap items-center gap-3 border-t border-[color:var(--rule)] px-4 py-3 first:border-t-0"
-                >
-                  {member ? (
-                    <Link
-                      href={`/m/${member.slug}` as `/m/${string}`}
-                      className="inline-flex items-center gap-2"
-                    >
-                      <span
-                        className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-2 ring-inset"
-                        style={{ ["--tw-ring-color" as string]: `${member.accent}66` }}
-                      >
-                        <Image
-                          src={member.portrait}
-                          alt={member.name}
-                          fill
-                          unoptimized
-                          sizes="28px"
-                          className="object-cover"
-                        />
-                      </span>
-                      <span
-                        className="text-[13px] font-bold tracking-tight text-[color:var(--ink)]"
-                        style={{ textShadow: `0 0 14px ${member.accent}66, 0 0 3px rgba(255,255,255,0.4)` }}
-                      >
-                        {member.name}
-                      </span>
-                    </Link>
-                  ) : (
-                    <span className="text-[13px] font-bold text-[color:var(--ink)]">{s.slug}</span>
-                  )}
-                  <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em]">
-                    <span
-                      aria-hidden
-                      className="inline-block h-1.5 w-1.5 rounded-full"
-                      style={{
-                        background: isLive ? "var(--core)" : "var(--ink-faint)",
-                        animation: isLive ? "live-blink 1s ease-in-out infinite" : undefined,
-                      }}
-                    />
-                    <span className={isLive ? "text-[color:var(--core)]" : "text-[color:var(--ink-dim)]"}>
-                      {isLive ? "Live now" : "Ended"}
-                    </span>
-                  </span>
-                  <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-[11px] tabular-nums text-[color:var(--ink-dim)]">
-                    <span>
-                      {new Date(s.startedAt).toLocaleString("en-US", {
-                        timeZone: "America/Los_Angeles",
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                      {ended
-                        ? ` → ${ended.toLocaleString("en-US", {
-                            timeZone: "America/Los_Angeles",
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}`
-                        : " · live"}
-                    </span>
-                    <span>·</span>
-                    <span>{formatMinutes(s.totalMinutes)}</span>
-                    <span>·</span>
-                    <span>peak {s.peakViewers.toLocaleString("en-US")}</span>
-                    <span>·</span>
-                    <span>avg {s.avgViewers.toLocaleString("en-US")}</span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }
