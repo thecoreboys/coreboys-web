@@ -47,7 +47,10 @@ const config: NextConfig = {
     const cdn = "https://coreboys-media.nyc3.cdn.digitaloceanspaces.com";
     return [
       { source: "/members/:path*", destination: `${cdn}/members/:path*`, permanent: true },
-      { source: "/crew/:path*", destination: `${cdn}/crew/:path*`, permanent: true },
+      // /crew/:slug is a real page route (app/crew/[slug]/page.tsx). Only
+      // redirect when there's an asset segment after the slug, otherwise
+      // clicking a crew card sends the user to the CDN instead of the page.
+      { source: "/crew/:slug/:asset+", destination: `${cdn}/crew/:slug/:asset+`, permanent: true },
       { source: "/group/:path*", destination: `${cdn}/group/:path*`, permanent: true },
       { source: "/comms/:path*", destination: `${cdn}/comms/:path*`, permanent: true },
       { source: "/brand/:path*", destination: `${cdn}/brand/:path*`, permanent: true },
