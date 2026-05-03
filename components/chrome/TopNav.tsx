@@ -213,7 +213,7 @@ export function TopNav({
                 </div>
                 <ul className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-6">
                   {MEMBERS.map((m) => {
-                    const avatar = profiles[m.twitchLogin.toLowerCase()] ?? m.portrait;
+                    const avatar = m.portrait ?? profiles[m.twitchLogin.toLowerCase()];
                     return (
                       <li key={m.slug}>
                         <Link
@@ -367,7 +367,7 @@ export function TopNav({
             <p className="eyebrow">Members</p>
             <ul className="mt-3 grid grid-cols-3 gap-2">
               {MEMBERS.map((m) => {
-                const avatar = profiles[m.twitchLogin.toLowerCase()] ?? m.portrait;
+                const avatar = m.portrait ?? profiles[m.twitchLogin.toLowerCase()];
                 return (
                   <li key={m.slug}>
                     <Link
@@ -464,7 +464,7 @@ export function TopNav({
                   (m) => m.twitchLogin.toLowerCase() === e.login.toLowerCase(),
                 );
                 if (!member) return null;
-                const avatar = profiles[e.login.toLowerCase()] ?? member.portrait;
+                const avatar = member.portrait ?? profiles[e.login.toLowerCase()];
                 return (
                   <li key={e.login}>
                     <a

@@ -37,7 +37,7 @@ export async function MembersGrid() {
     realName: m.realName,
     accent: m.accent,
     index: m.index,
-    avatarUrl: avatars[m.twitchLogin.toLowerCase()] ?? m.portrait,
+    avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
     commName: m.comm.name,
     commLogo: m.comm.logo,
     twitchFollowers: followerByLogin[m.twitchLogin.toLowerCase()] ?? null,

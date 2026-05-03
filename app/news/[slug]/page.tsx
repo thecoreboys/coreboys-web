@@ -68,7 +68,7 @@ export default async function ArticlePage({ params }: Params) {
   if (author) {
     try {
       const users = await fetchUsersByLogin([author.twitchLogin]);
-      authorAvatar = users[author.twitchLogin.toLowerCase()]?.profile_image_url ?? author.portrait;
+      authorAvatar = author.portrait ?? users[author.twitchLogin.toLowerCase()]?.profile_image_url;
     } catch {
       authorAvatar = author.portrait;
     }

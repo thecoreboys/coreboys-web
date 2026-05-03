@@ -107,7 +107,7 @@ REKOGNITION_FACE_COLLECTION=coreboys-faces`}</pre>
                   >
                     <span className="relative block aspect-square w-full overflow-hidden rounded-md">
                       <Image
-                        src={avatars[m.twitchLogin.toLowerCase()] ?? m.portrait}
+                        src={m.portrait ?? avatars[m.twitchLogin.toLowerCase()]}
                         alt=""
                         fill
                         sizes="80px"

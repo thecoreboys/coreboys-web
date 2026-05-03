@@ -93,7 +93,7 @@ export async function OrgKpiBanner() {
                 >
                   <span className="relative h-6 w-6 overflow-hidden rounded-full">
                     <Image
-                      src={snap.profileImageUrl ?? member.portrait}
+                      src={member.portrait ?? snap.profileImageUrl}
                       alt=""
                       fill
                       sizes="24px"

@@ -170,7 +170,7 @@ export default async function CrewMemberPage({ params }: Params) {
                     <dt className="text-[color:var(--ink-faint)]">Rides with</dt>
                     <dd className="inline-flex items-center gap-1.5">
                       {works.map((m) => {
-                        const avatar = avatars[m.twitchLogin.toLowerCase()] ?? m.portrait;
+                        const avatar = m.portrait ?? avatars[m.twitchLogin.toLowerCase()];
                         return (
                           <Link
                             key={m.slug}
@@ -308,7 +308,7 @@ export default async function CrewMemberPage({ params }: Params) {
                   slug: m.slug,
                   name: m.stageName,
                   accent: m.accent,
-                  avatarUrl: avatars[m.twitchLogin.toLowerCase()] ?? m.portrait,
+                  avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
                   href: `/m/${m.slug}`,
                 })),
               ]}
@@ -331,7 +331,7 @@ export default async function CrewMemberPage({ params }: Params) {
             </header>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {works.map((m) => {
-                const avatar = avatars[m.twitchLogin.toLowerCase()] ?? m.portrait;
+                const avatar = m.portrait ?? avatars[m.twitchLogin.toLowerCase()];
                 return (
                   <li key={m.slug}>
                     <Link
