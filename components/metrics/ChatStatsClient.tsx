@@ -113,12 +113,12 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
       {empty ? (
         <div className="rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/60 p-6">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-            Listener warming up
+            Listener live
           </p>
           <p className="mt-2 max-w-[60ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)]">
-            The chat-listener worker just started writing rows. Hourly buckets
-            populate as members go live; this section fills in over the next
-            day.
+            Chat worker is connected to all six channels and counting every
+            message in real time. Hourly buckets show up here as members
+            stream — refresh after someone goes live.
           </p>
         </div>
       ) : (
@@ -176,6 +176,7 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
               <thead>
                 <tr className="bg-[color:var(--surface)] text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
                   <th className="px-4 py-2 font-mono">Member</th>
+                  <th className="px-4 py-2 font-mono">Trend</th>
                   <th className="px-4 py-2 text-right font-mono">Messages</th>
                   <th className="px-4 py-2 text-right font-mono">Peak chatters / hour</th>
                 </tr>
@@ -188,6 +189,12 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
                         <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: m.accent }} />
                         {m.name}
                       </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Sparkline
+                        points={ranged.filter((r) => r.slug === m.slug).map((r) => (metric === "messages" ? r.messages : r.chatters))}
+                        accent={m.accent}
+                      />
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-[12px] tabular-nums text-[color:var(--ink)]">
                       {m.messages.toLocaleString("en-US")}
@@ -219,5 +226,36 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub: str
         {sub}
       </p>
     </div>
+  );
+}
+
+/** Tiny inline sparkline. Renders a thin line chart of `points` filling
+ *  the available width. Useful for table cells where a full TrendLine
+ *  would be too tall. */
+function Sparkline({ points, accent }: { points: number[]; accent: string }) {
+  if (points.length === 0) {
+    return <span className="font-mono text-[10px] text-[color:var(--ink-faint)]">—</span>;
+  }
+  if (points.length === 1) {
+    return (
+      <span className="font-mono text-[10px] tabular-nums text-[color:var(--ink-dim)]">
+        {points[0]!.toLocaleString("en-US")}
+      </span>
+    );
+  }
+  const W = 120;
+  const H = 24;
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const range = max - min || 1;
+  const x = (i: number) => (W * i) / (points.length - 1);
+  const y = (v: number) => H - ((v - min) / range) * (H - 2) - 1;
+  const path = points
+    .map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
+    .join(" ");
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden className="block">
+      <path d={path} fill="none" stroke={accent} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
