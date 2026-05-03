@@ -2,9 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PlayCircle } from "lucide-react";
 import { getHeroGroupPhoto } from "@/lib/asset-index";
-import { fetchUsersByLogin } from "@/lib/twitch";
 import { getLatestCountsForSlug } from "@/lib/metric-snapshots";
-import { MEMBERS } from "@/lib/members";
 import { GROUP } from "@/lib/group";
 import { BroadcastOrbClient } from "@/components/three/BroadcastOrbDynamic";
 import {
@@ -23,18 +21,6 @@ import {
  */
 export async function HeroCorporate() {
   const groupPhoto = getHeroGroupPhoto();
-
-  // Look up Twitch profile pics server-side. Falls back to portrait
-  // if the lookup fails (no env, no creds, etc.).
-  let avatars: Record<string, string> = {};
-  try {
-    const users = await fetchUsersByLogin(MEMBERS.map((m) => m.twitchLogin));
-    for (const [login, u] of Object.entries(users)) {
-      if (u.profile_image_url) avatars[login] = u.profile_image_url;
-    }
-  } catch {
-    avatars = {};
-  }
 
   // Group-account follower counts come from the metric_snapshots table
   // (written nightly by the cron-snapshot job, with API → scrape
@@ -124,9 +110,9 @@ export async function HeroCorporate() {
         }}
       />
 
-      <div className="relative mx-auto max-w-[1440px] px-6 pt-24 pb-16 md:px-8 md:pt-32 md:pb-24">
-        <div className="grid grid-cols-12 gap-8 lg:gap-12">
-          <div className="col-span-12 corp-reveal lg:col-span-7">
+      <div className="relative mx-auto max-w-[1440px] px-6 pt-32 pb-16 md:px-8 md:pt-44 md:pb-24">
+        <div className="grid grid-cols-12 items-center gap-8 lg:gap-12">
+          <div className="col-span-12 corp-reveal flex flex-col justify-center lg:col-span-7">
             {/* Status row — "live now" indicator if anyone is streaming. */}
             <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-dim)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--success)] core-pulse" aria-hidden />
@@ -175,37 +161,6 @@ export async function HeroCorporate() {
               </a>
             </div>
 
-            {/* Roster strip — Twitch profile pictures */}
-            <ul className="mt-12 grid grid-cols-6 gap-2 border-t border-[color:var(--rule)] pt-6">
-              {MEMBERS.map((m) => {
-                const avatar = m.portrait ?? avatars[m.twitchLogin.toLowerCase()];
-                return (
-                  <li key={m.slug}>
-                    <Link
-                      href={`/m/${m.slug}` as `/m/${string}`}
-                      className="group flex flex-col items-start gap-2 cursor-pointer"
-                    >
-                      <span
-                        className="relative aspect-square w-full overflow-hidden rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] transition-colors group-hover:border-[var(--card-accent)]"
-                        style={{ ["--card-accent" as string]: m.accent }}
-                      >
-                        <Image
-                          src={avatar}
-                          alt={m.stageName}
-                          fill
-                          sizes="80px"
-                          unoptimized
-                          className="object-cover grayscale-[0.35] transition duration-500 group-hover:grayscale-0 group-hover:scale-105"
-                        />
-                      </span>
-                      <span className="hidden truncate text-[11px] font-medium text-[color:var(--ink-dim)] transition-colors group-hover:text-[color:var(--ink)] sm:block">
-                        {m.stageName.split(" ")[0]}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
           </div>
 
           <div
