@@ -335,16 +335,22 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
     persist(new Set(), new Set(), [], [], 1, true);
   }, [persist]);
 
-  /** Effective visibility per CORE channel: hidden wins; else live;
-   *  else only if explicitly pinned in `shown`. */
+  /** Effective visibility per CORE channel:
+   *    - explicit `hidden` always wins (hide it regardless of state)
+   *    - otherwise: live channels show; offline channels show only if
+   *      pinned in `shown` … UNLESS no one is currently live, in which
+   *      case the chat page falls back to showing everyone so the room
+   *      isn't empty when the entire group is offline. */
+  const anyoneLive = liveByLogin.size > 0;
   const isCoreVisible = useCallback(
     (login: string): boolean => {
       const lower = login.toLowerCase();
       if (hidden.has(lower)) return false;
       if (liveByLogin.has(lower)) return true;
-      return shown.has(lower);
+      if (shown.has(lower)) return true;
+      return !anyoneLive;
     },
-    [hidden, shown, liveByLogin],
+    [hidden, shown, liveByLogin, anyoneLive],
   );
 
   const visibleCore = useMemo(
