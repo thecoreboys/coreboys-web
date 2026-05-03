@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
 import { MEMBERS_BY_SLUG, MEMBERS, CREW } from "@/lib/members";
 import { ageFromIso } from "@/lib/utils";
 import { fetchUserIdsByLogin, fetchFollowerCount, fetchUsersByLogin, buildLiveResponse, type LiveEntry } from "@/lib/twitch";
-import { fetchYouTubeChannel } from "@/lib/stats";
+import { fetchSocialCount } from "@/lib/social-fetch";
 import { getMemberPhotos, getCrewPortrait, getGroupPhotos } from "@/lib/asset-index";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { PlatformLink, type PlatformKey } from "@/components/ui/PlatformLink";
@@ -90,40 +90,39 @@ export default async function MemberPage({ params }: Params) {
   // so other server components can still use it.
   void fetchUserIdsByLogin;
 
-  // Per-channel YouTube subscriber counts. Each YouTube social maps to
-  // its own URL → metric in `youtubeSubsByUrl`. Requires YOUTUBE_API_KEY;
-  // falls back to no metric when unset / on error.
-  const youtubeSubsByUrl: Record<string, number | null> = {};
+  // Pull follower / subscriber counts from Social Fetch in parallel.
+  // Returns null per row when the API has no data (Snapchat, missing
+  // handle, etc.); we fall back to the member's manualCounts override.
+  const socialCountByUrl: Record<string, number | null> = {};
   await Promise.all(
-    member.socials
-      .filter((s) => s.platform === "youtube")
-      .map(async (s) => {
-        const handle = (s.handle ?? "").replace(/^@/, "");
-        if (!handle) return;
-        try {
-          const stats = await fetchYouTubeChannel(handle);
-          youtubeSubsByUrl[s.url] = stats?.followers ?? null;
-        } catch {
-          youtubeSubsByUrl[s.url] = null;
-        }
-      }),
+    member.socials.map(async (s) => {
+      const p = s.platform;
+      if (p === "tiktok" || p === "instagram" || p === "x" || p === "twitter" || p === "youtube") {
+        socialCountByUrl[s.url] = await fetchSocialCount(p, s.handle ?? "", s.url);
+      }
+    }),
   );
 
-  // Build the metric label per social URL — pulls from the right source
-  // per platform. TikTok / IG / X have no free public stats API, so they
-  // come from the optional `manualCounts` map on member-page extras.
+  // Build the metric label per social URL. Priority:
+  //   1. Twitch → live Helix follower count (already fetched above)
+  //   2. Social Fetch result for this URL (TikTok/IG/X/YouTube)
+  //   3. Manual override from member.manualCounts (snapchat / fallback)
   const metricByUrl: Record<string, string | undefined> = {};
   for (const s of member.socials) {
+    const label = s.platform === "youtube" ? "subs" : "followers";
     if (s.platform === "twitch" && twitchFollowers != null) {
       metricByUrl[s.url] = `${formatCompact(twitchFollowers)} followers`;
-    } else if (s.platform === "youtube") {
-      const subs = youtubeSubsByUrl[s.url];
-      if (subs != null) metricByUrl[s.url] = `${formatCompact(subs)} subs`;
-    } else {
-      const manual = member.manualCounts?.[s.platform as keyof NonNullable<typeof member.manualCounts>];
-      // Treat 0 / undefined as "no data" so unfilled placeholders don't
-      // render as "0 followers".
-      if (manual && manual > 0) metricByUrl[s.url] = `${formatCompact(manual)} followers`;
+      continue;
+    }
+    const fromApi = socialCountByUrl[s.url];
+    if (fromApi != null && fromApi > 0) {
+      metricByUrl[s.url] = `${formatCompact(fromApi)} ${label}`;
+      continue;
+    }
+    const manual =
+      member.manualCounts?.[s.platform as keyof NonNullable<typeof member.manualCounts>];
+    if (manual && manual > 0) {
+      metricByUrl[s.url] = `${formatCompact(manual)} ${label}`;
     }
   }
 
@@ -354,7 +353,7 @@ export default async function MemberPage({ params }: Params) {
                   slug: member.slug,
                   name: member.stageName,
                   accent: member.accent,
-                  avatarUrl: avatarsByLogin[member.twitchLogin.toLowerCase()] ?? member.portrait,
+                  avatarUrl: member.portrait ?? avatarsByLogin[member.twitchLogin.toLowerCase()],
                   href: `/m/${member.slug}`,
                 },
               ]}
@@ -498,7 +497,7 @@ export default async function MemberPage({ params }: Params) {
           </header>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {otherMembers.map((m) => {
-              const avatar = avatarsByLogin[m.twitchLogin.toLowerCase()] ?? m.portrait;
+              const avatar = m.portrait ?? avatarsByLogin[m.twitchLogin.toLowerCase()];
               return (
                 <li
                   key={m.slug}
