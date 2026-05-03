@@ -34,7 +34,7 @@ export function CrewWallClient({ items }: { items: CrewWallItem[] }) {
       <div className="relative mx-auto max-w-[1440px] px-6 py-20 md:px-8 md:py-28">
         <header className="mb-10 grid grid-cols-12 items-end gap-6">
           <div className="col-span-12 md:col-span-7">
-            <p className="eyebrow">Behind the scenes · Crew</p>
+            <p className="eyebrow">Behind the scenes</p>
             <h2 className="mt-3 text-display text-[clamp(36px,5vw,64px)] font-black leading-[0.95] tracking-[-0.04em] text-[color:var(--ink)]">
               The crew.
             </h2>
