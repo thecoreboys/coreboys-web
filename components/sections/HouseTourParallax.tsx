@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   motion,
@@ -11,6 +12,11 @@ import {
 } from "framer-motion";
 import { ArrowUpRight, Play } from "lucide-react";
 import { CREW, MEMBERS } from "@/lib/members";
+
+// Static fallback shown behind the video if autoplay is blocked
+// (iOS Low Power Mode, slow first paint, etc.). Hardcoded here because
+// `lib/asset-index.ts` is server-only and this component is "use client".
+const HOUSE_FALLBACK = "/group/thecoreboys.jpg";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -115,6 +121,19 @@ export function HouseTourParallax() {
         className="absolute inset-0 -z-30"
         style={reduced ? undefined : { y: bgY, scale: bgScale }}
       >
+        {/* Static fallback frame — sits behind the video so the section
+            never reads as empty on mobile devices that block autoplay
+            (iOS Low Power Mode, data-saver, slow first-paint, etc.). */}
+        <Image
+          src={HOUSE_FALLBACK}
+          alt=""
+          fill
+          unoptimized
+          priority
+          sizes="100vw"
+          className="absolute left-0 top-0 h-full w-full object-cover"
+          style={{ objectPosition: "center 40%" }}
+        />
         <video
           ref={videoRef}
           src="/house-reveal.mp4"
@@ -123,6 +142,7 @@ export function HouseTourParallax() {
           loop
           playsInline
           preload="auto"
+          poster={HOUSE_FALLBACK}
           className="absolute left-1/2 top-1/2 h-full w-full min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover"
           style={{ objectPosition: "center 40%" }}
         />
