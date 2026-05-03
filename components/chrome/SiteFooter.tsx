@@ -20,6 +20,7 @@ const SITE_LINKS: { label: string; href: string }[] = [
   { label: "News", href: "/news" },
   { label: "Fanzone", href: "/fanzone" },
   { label: "Live chat", href: "/chat" },
+  { label: "Metrics", href: "/metrics" },
 ];
 
 const LEGAL_LINKS: { label: string; href: string }[] = [
