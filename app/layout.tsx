@@ -60,11 +60,16 @@ export const viewport: Viewport = {
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://corecrew.org";
 
+// Resolved against `metadataBase` below so Twitter / Discord / Slack
+// always see a fully-qualified URL. Dimensions match the file under
+// public/embed-preview.png (1615 × 907) — Twitter and Discord both
+// honor declared dimensions and clip otherwise, so keep these accurate.
 const embedImage = {
   url: "/embed-preview.png",
-  width: 1200,
-  height: 630,
-  alt: "CORE",
+  width: 1615,
+  height: 907,
+  alt: "CORE — Six creators. One core.",
+  type: "image/png",
 };
 
 export const metadata: Metadata = {
@@ -90,7 +95,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "CORE",
     description: "Six creators. One core. Everything we make, we own.",
-    images: [embedImage.url],
+    images: [{ url: embedImage.url, alt: embedImage.alt }],
   },
   robots: { index: true, follow: true },
 };
