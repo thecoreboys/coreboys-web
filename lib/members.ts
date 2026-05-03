@@ -82,7 +82,7 @@ const TODO_COUNTS = { tiktok: 0, instagram: 0, x: 0, snapchat: 0 } as const;
 const EXTRAS: Record<string, WebExtras> = {
   marlon: {
     stageName: "Marlon",
-    portrait: "/members/marlon/501451406_17948777939981240_5261041131384952857_n.jpg",
+    portrait: "/members/marlon/625895312_18099497024503355_9103766418092766992_n.jpg",
     twitchLogin: "marlon",
     comm: { name: "M3", logo: "/comms/marlon.png" },
     index: "01",
