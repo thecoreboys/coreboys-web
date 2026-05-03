@@ -24,15 +24,14 @@ export default function AdminArticlesPage() {
               </Link>
               <p className="mt-2 eyebrow">Admin · Articles</p>
               <h1 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-                Manage articles.
+                Articles.
               </h1>
               <p className="mt-2 max-w-[60ch] text-[14px] text-[color:var(--ink-dim)]">
-                Drafts saved from the Tiptap editor. Phase 4 swaps for{" "}
-                <code className="font-mono">GET /v1/posts</code>.
+                Write a new piece, or edit / preview / delete existing drafts and publishes.
               </p>
             </div>
             <Link href="/admin/articles/new" className="btn btn-primary">
-              <Plus size={14} /> Write article
+              <Plus size={14} /> New article
             </Link>
           </div>
         </section>

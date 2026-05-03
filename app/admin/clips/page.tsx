@@ -22,17 +22,16 @@ export default function AdminClipsPage() {
               >
                 ← Admin
               </Link>
-              <p className="mt-2 eyebrow">Admin · Clip queue</p>
+              <p className="mt-2 eyebrow">Admin · Clips</p>
               <h1 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-                Review fan submissions.
+                Clips.
               </h1>
               <p className="mt-2 max-w-[60ch] text-[14px] text-[color:var(--ink-dim)]">
-                Approve to publish to <code className="font-mono">/clips</code>, deny with reason.
-                Phase 4: queue lives in <code className="font-mono">clip_submissions</code>.
+                Add a clip directly, or review and publish fan submissions to the public library.
               </p>
             </div>
             <Link href="/admin/clips/new" className="btn btn-primary">
-              <Plus size={14} /> Add a clip directly
+              <Plus size={14} /> Add clip
             </Link>
           </div>
         </section>
