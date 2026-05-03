@@ -1,0 +1,26 @@
+name: cron-snapshot
+
+# Daily follower / sub snapshot. Cheap (one HTTP POST) so we run it
+# once a day at 03:00 UTC to give the previous day's late streams a
+# chance to settle before the row gets written.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/metrics/snapshot
+        env:
+          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          SECRET: ${{ secrets.METRICS_CRON_SECRET }}
+        run: |
+          set -e
+          echo "Hitting $APP_URL/api/metrics/snapshot"
+          curl -fsS -X POST \
+            -H "x-cron-secret: $SECRET" \
+            -w "\nHTTP %{http_code}\n" \
+            "$APP_URL/api/metrics/snapshot"
