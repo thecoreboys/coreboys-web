@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExt from "@tiptap/extension-link";
@@ -24,30 +25,21 @@ import {
   Video,
 } from "lucide-react";
 
-const STORAGE_KEY = "coreboys-admin-articles:v1";
-
-type ArticleDraft = {
-  id: string;
-  title: string;
-  dek: string;
-  bodyHtml: string;
-  category: string;
-  publishedAt: string;
-};
-
 /**
  * Tiptap-powered article editor. Supports H1/H2/H3, bold/italic/strike,
  * ordered + unordered lists, blockquote, links, images, and embedded
- * video iframes via raw HTML insertion.
- *
- * Phase 1 persists drafts to localStorage. Phase 4 wires
- * `POST /v1/posts` on coreboys-api with Tiptap's JSON output.
+ * video iframes via raw HTML insertion. Saves to Postgres `articles`
+ * via POST /api/admin/articles. Save = draft, Publish = status=published.
  */
 export function ArticleEditor() {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [dek, setDek] = useState("");
   const [category, setCategory] = useState("Recap");
+  const [slug, setSlug] = useState("");
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -79,25 +71,56 @@ export function ArticleEditor() {
     );
   }
 
-  const onSave = () => {
-    const draft: ArticleDraft = {
-      id: `draft-${Date.now()}`,
-      title: title.trim(),
-      dek: dek.trim(),
-      bodyHtml: editor.getHTML(),
-      category,
-      publishedAt: new Date().toISOString(),
-    };
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const prev = raw ? (JSON.parse(raw) as ArticleDraft[]) : [];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([draft, ...prev]));
-    } catch {
-      /* ignore */
+  function autoSlug(t: string): string {
+    return t
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80);
+  }
+
+  async function save(status: "draft" | "published") {
+    if (!editor) return;
+    if (!title.trim()) {
+      setError("Title is required");
+      return;
     }
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
-  };
+    setError(null);
+    setSaving(true);
+    try {
+      const finalSlug = slug.trim() || autoSlug(title) || `untitled-${Date.now()}`;
+      const res = await fetch("/api/admin/articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: finalSlug,
+          title: title.trim(),
+          dek: dek.trim(),
+          category,
+          bodyHtml: editor.getHTML(),
+          bodyJson: editor.getJSON(),
+          status,
+        }),
+      });
+      if (!res.ok) {
+        const j: { error?: string; detail?: string } = await res.json().catch(() => ({}));
+        throw new Error(j.detail ?? j.error ?? `HTTP ${res.status}`);
+      }
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+      // Bounce to the table after publish so the admin sees it land.
+      if (status === "published") {
+        router.push("/admin/articles");
+        router.refresh();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,6 +152,13 @@ export function ArticleEditor() {
         placeholder="One-sentence dek (subtitle)"
         className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-4 py-2.5 text-[14px] text-[color:var(--ink-dim)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
       />
+      <input
+        type="text"
+        value={slug}
+        onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+        placeholder="custom-slug (auto-generates from title if blank)"
+        className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-4 py-2 font-mono text-[12px] text-[color:var(--ink-dim)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
+      />
 
       {/* Toolbar */}
       <Toolbar editor={editor} />
@@ -142,17 +172,32 @@ export function ArticleEditor() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-[color:var(--rule)] pt-5">
-        <button type="button" onClick={onSave} className="btn btn-primary">
+        <button
+          type="button"
+          onClick={() => save("draft")}
+          disabled={saving}
+          className="btn btn-secondary disabled:opacity-50"
+        >
           {saved ? (
             <>
-              <Check size={14} /> Draft saved
+              <Check size={14} /> Saved
             </>
+          ) : saving ? (
+            <>Saving…</>
           ) : (
             <>Save draft</>
           )}
         </button>
-        <Link href="/news" className="btn btn-secondary">
-          View news
+        <button
+          type="button"
+          onClick={() => save("published")}
+          disabled={saving}
+          className="btn btn-primary disabled:opacity-50"
+        >
+          Publish
+        </button>
+        <Link href="/admin/articles" className="btn btn-secondary">
+          All articles
         </Link>
         <Link
           href="/admin"
@@ -160,6 +205,9 @@ export function ArticleEditor() {
         >
           Back to admin
         </Link>
+        {error ? (
+          <span className="ml-auto text-[12px] text-[color:var(--core)]">{error}</span>
+        ) : null}
       </div>
     </div>
   );
