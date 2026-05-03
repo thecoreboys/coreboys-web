@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PlayCircle } from "lucide-react";
 import { getHeroGroupPhoto } from "@/lib/asset-index";
-import { getLatestCountsForSlug } from "@/lib/metric-snapshots";
+import { getLatestPlatformTotalsForSlug } from "@/lib/metric-snapshots";
 import { GROUP } from "@/lib/group";
 import { BroadcastOrbClient } from "@/components/three/BroadcastOrbDynamic";
 import {
@@ -26,7 +26,7 @@ export async function HeroCorporate() {
   // (written nightly by the cron-snapshot job, with API → scrape
   // fallback). No live API on the render path so the page stays fast
   // and the chips don't disappear when the upstream is degraded.
-  const groupCounts = await getLatestCountsForSlug("__group__");
+  const groupCounts = await getLatestPlatformTotalsForSlug("__group__");
   const floatingCounts: FloatingCountItem[] = (
     [
       {

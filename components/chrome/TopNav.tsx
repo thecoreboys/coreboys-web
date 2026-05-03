@@ -493,7 +493,11 @@ export function TopNav({
                   (m) => m.twitchLogin.toLowerCase() === e.login.toLowerCase(),
                 );
                 if (!member) return null;
-                const avatar = member.portrait ?? profiles[e.login.toLowerCase()];
+                // Prefer the live Twitch profile pic so the modal stays
+                // in sync with whatever the member is using on their
+                // channel right now. Fall back to the local portrait if
+                // the API lookup hasn't returned yet.
+                const avatar = profiles[e.login.toLowerCase()] ?? member.portrait;
                 return (
                   <li key={e.login}>
                     <a
