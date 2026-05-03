@@ -213,7 +213,11 @@ export function TopNav({
                 </div>
                 <ul className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-6">
                   {MEMBERS.map((m) => {
-                    const avatar = m.portrait ?? profiles[m.twitchLogin.toLowerCase()];
+                    // Prefer the live Twitch profile pic so the dropdown
+                    // tracks whatever the member is currently using on
+                    // Twitch. Fall back to the local portrait if the
+                    // API hasn't returned yet (SSR cold path).
+                    const avatar = profiles[m.twitchLogin.toLowerCase()] ?? m.portrait;
                     return (
                       <li key={m.slug}>
                         <Link
@@ -353,7 +357,12 @@ export function TopNav({
 
         <button
           type="button"
-          className="inline-flex h-9 w-9 items-center justify-center justify-self-end rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] cursor-pointer transition-colors hover:bg-[color:var(--surface)] md:hidden"
+          // On mobile the desktop nav + right rail collapse out of the
+          // grid, so an auto-placed hamburger lands in column 2 (an
+          // `auto`-sized track) and appears centered. Force it into
+          // column 3 (a `1fr` track) and right-align inside it so the
+          // button always hugs the right edge of the navbar.
+          className="col-start-3 inline-flex h-9 w-9 items-center justify-center justify-self-end rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] cursor-pointer transition-colors hover:bg-[color:var(--surface)] md:hidden"
           aria-label={open ? "Close menu" : "Open menu"}
           onClick={() => setOpen((v) => !v)}
         >

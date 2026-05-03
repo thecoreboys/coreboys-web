@@ -433,7 +433,7 @@ export function MonitorClient({
             />
           </div>
 
-          <div className="lg:h-[calc(100vh-200px)] lg:min-h-[520px]">
+          <div className="h-[70vh] min-h-[440px] lg:h-[calc(100vh-200px)] lg:min-h-[520px]">
             {userId ? (
               <TwitchChat
                 login={login}
@@ -447,7 +447,7 @@ export function MonitorClient({
                 onMessage={handleChatMessage}
               />
             ) : (
-              <div className="flex h-full min-h-[520px] items-center justify-center rounded-xl border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center">
+              <div className="flex h-full min-h-[440px] items-center justify-center rounded-xl border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center lg:min-h-[520px]">
                 <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
                   Twitch credentials missing — chat unavailable
                 </p>
