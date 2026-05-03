@@ -31,6 +31,8 @@ export type TwitchChatProps = {
   isCore?: boolean;
   /** Optional close affordance (e.g. for non-CORE channels in the hub). */
   onClose?: () => void;
+  /** Multiplier applied to message + emote sizing. 1.0 = default. */
+  textScale?: number;
   className?: string;
 };
 
@@ -49,8 +51,13 @@ export function TwitchChat({
   avatarUrl,
   isCore = false,
   onClose,
+  textScale = 1,
   className = "",
 }: TwitchChatProps) {
+  const baseFontPx = compact ? 12 : 13;
+  const baseEmotePx = compact ? 20 : 24;
+  const fontPx = baseFontPx * textScale;
+  const emotePx = baseEmotePx * textScale;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<Status>("connecting");
   const [autoScroll, setAutoScroll] = useState(true);
@@ -221,7 +228,14 @@ export function TwitchChat({
         ) : (
           <ul className="flex flex-col gap-1">
             {messages.map((m) => (
-              <Message key={m.id} message={m} accent={accent} compact={compact} theme={theme} />
+              <Message
+                key={m.id}
+                message={m}
+                accent={accent}
+                theme={theme}
+                fontPx={fontPx}
+                emotePx={emotePx}
+              />
             ))}
           </ul>
         )}
@@ -248,19 +262,22 @@ export function TwitchChat({
 function Message({
   message,
   accent,
-  compact,
   theme,
+  fontPx,
+  emotePx,
 }: {
   message: ChatMessage;
   accent: string;
-  compact: boolean;
   theme: "dark" | "light";
+  fontPx: number;
+  emotePx: number;
 }) {
   const color = readableColor(message.color || accent, theme);
-  const sizeClass = compact ? "text-[12px] leading-snug" : "text-[13px] leading-snug";
-  const emoteClass = compact ? "h-[20px]" : "h-[24px]";
   return (
-    <li className={`break-words text-[color:var(--ink)] ${sizeClass}`}>
+    <li
+      className="break-words leading-snug text-[color:var(--ink)]"
+      style={{ fontSize: `${fontPx}px` }}
+    >
       <span
         className="font-semibold"
         style={{ color }}
@@ -280,10 +297,12 @@ function Message({
             <img
               src={t.url}
               alt={t.code}
-              className={`inline-block ${emoteClass} -my-0.5 align-middle`}
+              className="inline-block -my-0.5 align-middle"
+              style={{ height: `${emotePx}px` }}
               loading="lazy"
               decoding="async"
             />
+
             <span
               role="tooltip"
               className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-[10px] font-medium text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity duration-150 group-hover/emote:opacity-100"
