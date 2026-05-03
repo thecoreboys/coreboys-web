@@ -189,15 +189,15 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
 
       {/* Collage — CSS columns so vertical + horizontal clips pack tightly. */}
       {visibleClips.length === 0 ? (
-        <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-10 text-center">
+        <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-10 text-center">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-            {clips.length === 0 ? "Library empty" : "No clips match"}
+            {clips.length === 0 ? "No clips yet" : "No clips match"}
           </p>
-          <p className="max-w-[44ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)]">
-            {clips.length === 0
-              ? "No clips have been published yet. Found a great one? Submit it and we'll review it for the library."
-              : "Try clearing a filter or different search."}
-          </p>
+          {clips.length > 0 ? (
+            <p className="mt-3 max-w-[44ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)]">
+              Try clearing a filter or different search.
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4 [column-fill:_balance]">
