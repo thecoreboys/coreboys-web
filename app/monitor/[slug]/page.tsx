@@ -100,6 +100,7 @@ export default async function MonitorPage({ params }: Params) {
         displayName={member.stageName}
         accent={member.accent}
         userId={userId}
+        avatarUrl={avatar}
       />
 
       <SiteFooter />

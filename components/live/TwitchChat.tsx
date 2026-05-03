@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { Activity, ExternalLink } from "lucide-react";
 import {
   loadEmoteMap,
   startChatClient,
@@ -31,8 +32,17 @@ export type TwitchChatProps = {
   isCore?: boolean;
   /** Optional close affordance (e.g. for non-CORE channels in the hub). */
   onClose?: () => void;
+  /** When set, the chat header shows a single "Monitor" link to
+   *  /monitor/<slug> instead of the Open-in-Twitch + close buttons.
+   *  Used by the chat hub for CORE channels — guests don't have a
+   *  monitor route and so still get the original buttons. */
+  monitorSlug?: string;
   /** Multiplier applied to message + emote sizing. 1.0 = default. */
   textScale?: number;
+  /** Fires whenever a new chat message arrives. Used by the monitor
+   *  page to derive a chat-per-minute rate without running a second
+   *  IRC connection. */
+  onMessage?: (message: ChatMessage) => void;
   className?: string;
 };
 
@@ -52,8 +62,16 @@ export function TwitchChat({
   isCore = false,
   onClose,
   textScale = 1,
+  onMessage,
+  monitorSlug,
   className = "",
 }: TwitchChatProps) {
+  // Latest onMessage in a ref so the IRC effect doesn't have to depend
+  // on it (would otherwise rewire the WebSocket on every render).
+  const onMessageRef = useRef(onMessage);
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
   const baseFontPx = compact ? 12 : 13;
   const baseEmotePx = compact ? 20 : 24;
   const fontPx = baseFontPx * textScale;
@@ -190,25 +208,41 @@ export function TwitchChat({
               Guest
             </span>
           ) : null}
-          <a
-            href={popoutHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--ink)] hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.4)] active:translate-y-0"
-            aria-label="Open in Twitch"
-          >
-            <ExternalLink size={12} />
-          </a>
-          {onClose ? (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={`Hide ${displayName ?? login}`}
-              className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:bg-[color:var(--core)]/10 hover:text-[color:var(--core)] hover:shadow-[0_4px_12px_-4px_rgba(255,106,0,0.4)] active:translate-y-0"
+          {monitorSlug ? (
+            // Single Monitor pill — replaces the open-in-Twitch + close
+            // buttons for CORE channels in the hub. Guests fall through
+            // to the original buttons since they have no monitor route.
+            <Link
+              href={`/monitor/${monitorSlug}` as `/monitor/${string}`}
+              aria-label={`Open monitor for ${displayName ?? login}`}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-2 py-1 text-[11px] font-semibold tracking-tight text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:bg-[color:var(--core)]/10 hover:text-[color:var(--core)] hover:shadow-[0_4px_12px_-4px_rgba(255,106,0,0.4)] active:translate-y-0"
             >
-              <span className="text-[15px] font-semibold leading-none">×</span>
-            </button>
-          ) : null}
+              <Activity size={11} />
+              Monitor
+            </Link>
+          ) : (
+            <>
+              <a
+                href={popoutHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--ink)] hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.4)] active:translate-y-0"
+                aria-label="Open in Twitch"
+              >
+                <ExternalLink size={12} />
+              </a>
+              {onClose ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label={`Hide ${displayName ?? login}`}
+                  className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:bg-[color:var(--core)]/10 hover:text-[color:var(--core)] hover:shadow-[0_4px_12px_-4px_rgba(255,106,0,0.4)] active:translate-y-0"
+                >
+                  <span className="text-[15px] font-semibold leading-none">×</span>
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
       </header>
 

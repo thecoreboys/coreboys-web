@@ -756,6 +756,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                     onClose={c.isCore ? () => toggleHidden(c.login.toLowerCase()) : () => removeGuest(c.login)}
                     compact
                     textScale={textScale}
+                    monitorSlug={c.isCore ? c.slug : undefined}
                   />
                 </div>
               );
