@@ -7,7 +7,7 @@ import { ClipsPageClient, type MemberLite } from "@/components/clips/ClipsPageCl
 import { ClipsHeader } from "@/components/clips/ClipsHeader";
 
 export const metadata: Metadata = {
-  title: "Clips — CORE",
+  title: "Clips",
   description: "Viral clips, recaps, and moments across Twitch, YouTube, TikTok, and Instagram.",
   alternates: { canonical: "/clips" },
 };

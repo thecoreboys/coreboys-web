@@ -5,7 +5,7 @@ import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { ClipSubmitForm } from "@/components/clips/ClipSubmitForm";
 
 export const metadata: Metadata = {
-  title: "Submit a clip — CORE",
+  title: "Submit a clip",
   description: "Send a viral clip our way. Twitch, YouTube, TikTok, Instagram.",
   alternates: { canonical: "/clips/submit" },
 };

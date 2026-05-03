@@ -6,7 +6,7 @@ import { MEMBERS } from "@/lib/members";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "News — CORE",
+  title: "News",
   description: "Editorial articles, recaps, and announcements from CORE.",
   alternates: { canonical: "/news" },
 };

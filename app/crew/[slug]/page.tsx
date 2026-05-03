@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const c = CREW.find((x) => x.slug === slug);
   if (!c) return {};
   return {
-    title: `${c.name} — CORE Crew`,
+    title: `${c.name} · Crew`,
     description: `${c.name}, ${c.role}, working with ${c.worksWith.map((s) => MEMBERS_BY_SLUG[s]?.stageName).filter(Boolean).join(", ")}.`,
     alternates: { canonical: `/crew/${c.slug}` },
   };
