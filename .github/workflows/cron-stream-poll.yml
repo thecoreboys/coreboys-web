@@ -1,0 +1,29 @@
+name: cron-stream-poll
+
+# Twitch live-state poller. Runs every 5 minutes, hits the snapshot
+# endpoint that opens / updates / closes rows in stream_sessions.
+#
+# GitHub-hosted cron jobs run on a best-effort schedule (delays of
+# several minutes are normal at peak hours). Acceptable trade-off here
+# since stream-session boundaries don't need second-level precision.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/streams/poll
+        env:
+          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          SECRET: ${{ secrets.METRICS_CRON_SECRET }}
+        run: |
+          set -e
+          echo "Hitting $APP_URL/api/streams/poll"
+          curl -fsS -X POST \
+            -H "x-cron-secret: $SECRET" \
+            -w "\nHTTP %{http_code}\n" \
+            "$APP_URL/api/streams/poll"

@@ -265,6 +265,7 @@ export function TopNav({
           <NavLink href="/news">News</NavLink>
           <NavLink href="/media">Photos</NavLink>
           <NavLink href="/clips">Clips</NavLink>
+          <NavLink href="/metrics">Metrics</NavLink>
         </nav>
 
         <div className="hidden items-center justify-end gap-2 md:flex">

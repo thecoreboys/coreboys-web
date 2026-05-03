@@ -97,7 +97,7 @@ export default async function MemberPage({ params }: Params) {
   await Promise.all(
     member.socials.map(async (s) => {
       const p = s.platform;
-      if (p === "tiktok" || p === "instagram" || p === "x" || p === "twitter" || p === "youtube") {
+      if (p === "tiktok" || p === "instagram" || p === "x" || p === "youtube") {
         socialCountByUrl[s.url] = await fetchSocialCount(p, s.handle ?? "", s.url);
       }
     }),

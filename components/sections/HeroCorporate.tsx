@@ -44,40 +44,42 @@ export async function HeroCorporate() {
     fetchSocialCount("instagram", GROUP.socials.instagram.handle),
     fetchSocialCount("x", GROUP.socials.x.handle),
   ]);
-  const floatingCounts: FloatingCountItem[] = [
-    {
-      platform: "youtube",
-      count: ytSubs ?? 0,
-      handle: GROUP.socials.youtube.handle,
-      brand: "#FF0033",
-      unit: "subs",
-      href: GROUP.socials.youtube.url,
-    },
-    {
-      platform: "tiktok",
-      count: ttFollowers ?? 0,
-      handle: GROUP.socials.tiktok.handle,
-      brand: "#FE2C55",
-      unit: "followers",
-      href: GROUP.socials.tiktok.url,
-    },
-    {
-      platform: "instagram",
-      count: igFollowers ?? 0,
-      handle: GROUP.socials.instagram.handle,
-      brand: "#E1306C",
-      unit: "followers",
-      href: GROUP.socials.instagram.url,
-    },
-    {
-      platform: "x",
-      count: xFollowers ?? 0,
-      handle: GROUP.socials.x.handle,
-      brand: "#FFFFFF",
-      unit: "followers",
-      href: GROUP.socials.x.url,
-    },
-  ].filter((item) => item.count > 0);
+  const floatingCounts: FloatingCountItem[] = (
+    [
+      {
+        platform: "youtube" as const,
+        count: ytSubs ?? 0,
+        handle: GROUP.socials.youtube.handle,
+        brand: "#FF0033",
+        unit: "subs",
+        href: GROUP.socials.youtube.url,
+      },
+      {
+        platform: "tiktok" as const,
+        count: ttFollowers ?? 0,
+        handle: GROUP.socials.tiktok.handle,
+        brand: "#FE2C55",
+        unit: "followers",
+        href: GROUP.socials.tiktok.url,
+      },
+      {
+        platform: "instagram" as const,
+        count: igFollowers ?? 0,
+        handle: GROUP.socials.instagram.handle,
+        brand: "#E1306C",
+        unit: "followers",
+        href: GROUP.socials.instagram.url,
+      },
+      {
+        platform: "x" as const,
+        count: xFollowers ?? 0,
+        handle: GROUP.socials.x.handle,
+        brand: "#FFFFFF",
+        unit: "followers",
+        href: GROUP.socials.x.url,
+      },
+    ] satisfies FloatingCountItem[]
+  ).filter((item) => item.count > 0);
 
   return (
     <section className="relative overflow-hidden border-b border-[color:var(--rule)] bg-dot-grid">
