@@ -110,7 +110,7 @@ export async function HeroCorporate() {
         }}
       />
 
-      <div className="relative mx-auto max-w-[1440px] px-6 pt-32 pb-16 md:px-8 md:pt-44 md:pb-24">
+      <div className="relative mx-auto max-w-[1440px] px-6 pt-20 pb-16 md:px-8 md:pt-32 md:pb-24">
         <div className="grid grid-cols-12 items-center gap-8 lg:gap-12">
           <div className="col-span-12 corp-reveal flex flex-col justify-center lg:col-span-7">
             {/* Status row — "live now" indicator if anyone is streaming. */}
@@ -142,8 +142,6 @@ export async function HeroCorporate() {
 
             <p className="mt-6 max-w-[60ch] text-[16px] leading-relaxed text-[color:var(--ink-dim)] md:text-[17px]">
               Built, owned and run by the people on screen.
-              <br />
-              Marlon, StableRonaldo, Adapt, JasonTheWeen, Lacy and Silky.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
