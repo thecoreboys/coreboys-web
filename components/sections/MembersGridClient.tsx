@@ -45,10 +45,6 @@ export function MembersGridClient({ cards }: { cards: MemberCardData[] }) {
             <h2 className="mt-3 text-display text-[clamp(48px,7vw,96px)] font-black leading-[0.9] tracking-[-0.04em] text-[color:var(--ink)]">
               Meet the boys.
             </h2>
-            <p className="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-[color:var(--ink-dim)] md:text-[17px]">
-              Tap any card to open their full profile, channel roster, photo gallery, and
-              fan-mail address.
-            </p>
           </div>
           <div className="col-span-12 md:col-span-5 md:text-right">
             <p className="text-[16px] leading-relaxed text-[color:var(--ink-dim)] md:text-[17px]">

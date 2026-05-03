@@ -57,8 +57,7 @@ export default async function FanzonePage() {
             <span className="gradient-text">For the fans.</span>
           </h1>
           <p className="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-[color:var(--ink-dim)] md:text-[17px]">
-            Mail in a postcard, submit a photo for the wall, drop a link to a viral clip. The
-            CORE team opens fan mail on Wednesdays — the most-loved pieces show up on stream.
+            Mail in a postcard or package. Submit a picture you took with one of the members to possibly get featured on the fan wall!
           </p>
         </div>
       </section>
