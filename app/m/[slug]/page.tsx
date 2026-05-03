@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
 import { MEMBERS_BY_SLUG, MEMBERS, CREW } from "@/lib/members";
 import { ageFromIso } from "@/lib/utils";
 import { fetchUserIdsByLogin, fetchFollowerCount, fetchUsersByLogin, buildLiveResponse, type LiveEntry } from "@/lib/twitch";
-import { fetchSocialCount } from "@/lib/social-fetch";
+import { getLatestCountsForSlug } from "@/lib/metric-snapshots";
 import { getMemberPhotos, getCrewPortrait, getGroupPhotos } from "@/lib/asset-index";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { PlatformLink, type PlatformKey } from "@/components/ui/PlatformLink";
@@ -90,22 +90,15 @@ export default async function MemberPage({ params }: Params) {
   // so other server components can still use it.
   void fetchUserIdsByLogin;
 
-  // Pull follower / subscriber counts from Social Fetch in parallel.
-  // Returns null per row when the API has no data (Snapchat, missing
-  // handle, etc.); we fall back to the member's manualCounts override.
-  const socialCountByUrl: Record<string, number | null> = {};
-  await Promise.all(
-    member.socials.map(async (s) => {
-      const p = s.platform;
-      if (p === "tiktok" || p === "instagram" || p === "x" || p === "youtube") {
-        socialCountByUrl[s.url] = await fetchSocialCount(p, s.handle ?? "", s.url);
-      }
-    }),
-  );
+  // Per-platform follower / subscriber counts come from the
+  // metric_snapshots table — populated nightly by the snapshot cron
+  // (which itself uses Social Fetch with a public-profile scrape
+  // fallback). Reading from the DB keeps the render fast and stable.
+  const dbCounts = await getLatestCountsForSlug(member.slug);
 
   // Build the metric label per social URL. Priority:
   //   1. Twitch → live Helix follower count (already fetched above)
-  //   2. Social Fetch result for this URL (TikTok/IG/X/YouTube)
+  //   2. Latest snapshot for that platform from the DB
   //   3. Manual override from member.manualCounts (snapchat / fallback)
   const metricByUrl: Record<string, string | undefined> = {};
   for (const s of member.socials) {
@@ -114,9 +107,9 @@ export default async function MemberPage({ params }: Params) {
       metricByUrl[s.url] = `${formatCompact(twitchFollowers)} followers`;
       continue;
     }
-    const fromApi = socialCountByUrl[s.url];
-    if (fromApi != null && fromApi > 0) {
-      metricByUrl[s.url] = `${formatCompact(fromApi)} ${label}`;
+    const fromDb = dbCounts.get(s.platform);
+    if (fromDb != null && fromDb > 0) {
+      metricByUrl[s.url] = `${formatCompact(fromDb)} ${label}`;
       continue;
     }
     const manual =

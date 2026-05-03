@@ -52,11 +52,31 @@ function pickCount(platform: Platform, body: unknown): number | null {
 }
 
 /**
- * Pull a follower / subscriber count for one profile. Returns `null` on
- * any failure (missing key, 4xx, 5xx, parse error) so callers can fall
- * back to manual counts without ever throwing on a render path.
+ * Pull a follower / subscriber count for one profile. Tries the Social
+ * Fetch API first; on any failure (missing key, 4xx like 402
+ * insufficient-credits, 5xx, parse error) falls back to the public-
+ * profile scraper. Returns `null` only if both paths fail, so callers
+ * can fall through to manual counts without ever throwing.
+ *
+ * Don't call this on a render path — it can take 1–3s when scraping.
+ * Renders should read from the `metric_snapshots` table; the snapshot
+ * cron is what actually invokes this helper.
  */
 export async function fetchSocialCount(
+  platform: Platform,
+  handle: string,
+  url?: string,
+): Promise<number | null> {
+  const fromApi = await tryApi(platform, handle, url);
+  if (fromApi != null) return fromApi;
+
+  // Lazy import so the scraper module doesn't load on render paths
+  // where this helper might still be referenced from older code.
+  const { scrapeSocialCount } = await import("./social-scrape");
+  return scrapeSocialCount(platform, handle, url);
+}
+
+async function tryApi(
   platform: Platform,
   handle: string,
   url?: string,
