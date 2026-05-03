@@ -349,11 +349,10 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       {settingsOpen ? (
         <div className="mb-6 rounded-lg border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-4 md:p-5">
           <p className="text-[12px] font-semibold tracking-tight text-[color:var(--ink)]">
-            Customize the room
+            Customize
           </p>
           <p className="mt-1 text-[13px] text-[color:var(--ink-dim)]">
-            Toggle CORE members on or off, or add another Twitch channel. Saved in this browser
-            only.
+            Toggle members on or off, or add another Twitch channel.
           </p>
 
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
