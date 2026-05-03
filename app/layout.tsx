@@ -136,7 +136,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="fixed inset-x-0 top-0 z-50">
                 <TopNav initialAvatars={avatars} />
               </div>
-              <main id="main">{children}</main>
+              {/* Reserve space for the fixed navbar (h-14 on mobile,
+                  h-16 on md+). Pages with hero sections pad further on
+                  their own; this baseline guarantees no page renders
+                  underneath the navbar regardless of its own layout. */}
+              <main id="main" className="pt-14 md:pt-16">
+                {children}
+              </main>
             </LenisProvider>
           </ThemeProvider>
         </NuqsAdapter>
