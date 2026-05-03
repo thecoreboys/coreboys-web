@@ -262,7 +262,6 @@ export function TopNav({
             ) : null}
           </div>
           <NavLink href="/fanzone">Fanzone</NavLink>
-          <NavLink href="/news">News</NavLink>
           <NavLink href="/media">Photos</NavLink>
           <NavLink href="/clips">Clips</NavLink>
           <NavLink href="/metrics">Metrics</NavLink>
@@ -316,7 +315,7 @@ export function TopNav({
             >
               <span
                 aria-hidden
-                className="h-2 w-2 rounded-full bg-white"
+                className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(239,68,68,0.7)]"
                 style={{ animation: "live-blink 1s ease-in-out infinite" }}
               />
               <span className="text-[11px] font-bold tracking-tight text-[color:var(--core)]">
@@ -391,7 +390,6 @@ export function TopNav({
                 [
                   ["/", "Home"],
                   ["/fanzone", "Fanzone"],
-                  ["/news", "News"],
                   ["/media", "Photos"],
                   ["/clips", "Clips"],
                   ["/chat", `Live · ${liveCount}`],

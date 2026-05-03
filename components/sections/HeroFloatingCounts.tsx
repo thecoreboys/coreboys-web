@@ -16,16 +16,15 @@ export type FloatingCountItem = {
 };
 
 /**
- * Group-account follower / sub counts pinned to the bottom-right of the
- * home hero as a single horizontal row of pill chips. Each chip drifts
- * independently so the bar feels alive without scattering across the
- * face area of the group photo.
+ * Group-account follower / sub counts rendered as a horizontal row of
+ * gently drifting pill chips. Designed to sit inline beneath the
+ * manifesto line in the home hero — flow layout, no absolute
+ * positioning. Each chip drifts on its own period so the row stays
+ * alive without ever covering content above it.
  *
- * Server fetches the counts via Social Fetch + passes them through; this
- * component owns layout, animation, and click-through to each
+ * Server fetches the counts via Social Fetch + passes them through;
+ * this component owns layout, animation, and click-through to each
  * platform's group account.
- *
- * Hidden below `md` so they don't crowd the mobile hero.
  */
 export function HeroFloatingCounts({ items }: { items: FloatingCountItem[] }) {
   if (items.length === 0) return null;
@@ -35,10 +34,7 @@ export function HeroFloatingCounts({ items }: { items: FloatingCountItem[] }) {
   const DRIFT = [4, -5, 6, -4];
 
   return (
-    <div
-      aria-hidden="false"
-      className="pointer-events-none absolute bottom-6 right-4 z-20 hidden flex-row items-end gap-2 md:bottom-10 md:right-8 md:flex"
-    >
+    <div className="flex flex-wrap items-center gap-2">
       {items.map((item, i) => {
         const drift = DRIFT[i % DRIFT.length]!;
         return (
