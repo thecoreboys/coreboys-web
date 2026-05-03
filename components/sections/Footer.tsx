@@ -98,7 +98,7 @@ export function Footer() {
             </p>
             <div className="flex items-center gap-4">
               <a
-                href="https://mdcran.com"
+                href="https://x.com/berryeyu"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono hover:text-[color:var(--ink)]"

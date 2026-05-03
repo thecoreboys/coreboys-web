@@ -21,7 +21,7 @@ export function UnreleasedBanner() {
           This is a unofficial site. If you enjoy it, maybe It can be an official website.
           {" "}
           <a
-            href="https://mdcran.com"
+            href="https://x.com/berryeyu"
             target="_blank"
             rel="noopener noreferrer"
             className="underline underline-offset-2 decoration-[color:var(--ink-faint)] hover:text-[color:var(--core)] hover:decoration-[color:var(--core)]"
