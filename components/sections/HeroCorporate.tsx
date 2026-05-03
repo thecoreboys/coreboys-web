@@ -3,8 +3,14 @@ import Link from "next/link";
 import { PlayCircle } from "lucide-react";
 import { getHeroGroupPhoto } from "@/lib/asset-index";
 import { fetchUsersByLogin } from "@/lib/twitch";
+import { fetchSocialCount } from "@/lib/social-fetch";
 import { MEMBERS } from "@/lib/members";
+import { GROUP } from "@/lib/group";
 import { BroadcastOrbClient } from "@/components/three/BroadcastOrbDynamic";
+import {
+  HeroFloatingCounts,
+  type FloatingCountItem,
+} from "@/components/sections/HeroFloatingCounts";
 
 /**
  * Corporate dark hero. Two-column at lg+. Wordmark stack:
@@ -29,6 +35,49 @@ export async function HeroCorporate() {
   } catch {
     avatars = {};
   }
+
+  // Group-account follower counts (YT subs, TikTok / IG / X followers)
+  // for the floating chips in the hero. Cached 6h via Social Fetch.
+  const [ytSubs, ttFollowers, igFollowers, xFollowers] = await Promise.all([
+    fetchSocialCount("youtube", GROUP.socials.youtube.handle, GROUP.socials.youtube.url),
+    fetchSocialCount("tiktok", GROUP.socials.tiktok.handle),
+    fetchSocialCount("instagram", GROUP.socials.instagram.handle),
+    fetchSocialCount("x", GROUP.socials.x.handle),
+  ]);
+  const floatingCounts: FloatingCountItem[] = [
+    {
+      platform: "youtube",
+      count: ytSubs ?? 0,
+      handle: GROUP.socials.youtube.handle,
+      brand: "#FF0033",
+      unit: "subs",
+      href: GROUP.socials.youtube.url,
+    },
+    {
+      platform: "tiktok",
+      count: ttFollowers ?? 0,
+      handle: GROUP.socials.tiktok.handle,
+      brand: "#FE2C55",
+      unit: "followers",
+      href: GROUP.socials.tiktok.url,
+    },
+    {
+      platform: "instagram",
+      count: igFollowers ?? 0,
+      handle: GROUP.socials.instagram.handle,
+      brand: "#E1306C",
+      unit: "followers",
+      href: GROUP.socials.instagram.url,
+    },
+    {
+      platform: "x",
+      count: xFollowers ?? 0,
+      handle: GROUP.socials.x.handle,
+      brand: "#FFFFFF",
+      unit: "followers",
+      href: GROUP.socials.x.url,
+    },
+  ].filter((item) => item.count > 0);
 
   return (
     <section className="relative overflow-hidden border-b border-[color:var(--rule)] bg-dot-grid">
@@ -75,6 +124,9 @@ export async function HeroCorporate() {
             "linear-gradient(to right, transparent 0%, rgba(239,68,68,0.6) 30%, rgba(99,102,241,0.4) 70%, transparent 100%)",
         }}
       />
+
+      {/* Floating group-account follower counts (YT subs, TikTok / IG / X) */}
+      <HeroFloatingCounts items={floatingCounts} />
 
       <div className="relative mx-auto max-w-[1440px] px-6 pt-24 pb-16 md:px-8 md:pt-32 md:pb-24">
         <div className="grid grid-cols-12 gap-8 lg:gap-12">
