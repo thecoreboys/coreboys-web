@@ -31,11 +31,7 @@ export function ClipsHeader({
             <h1 className="mt-2 text-display text-[clamp(40px,6vw,72px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
               Viral clips. <span className="gradient-text">Across every platform.</span>
             </h1>
-            <p className="mt-4 max-w-[60ch] text-[15px] leading-relaxed text-[color:var(--ink-dim)]">
-              Twitch, YouTube, TikTok, and Instagram clips in one place. Sort by popular or
-              newest, filter by member or platform, or use AI to describe the moment.
-            </p>
-            <p className="mt-3 text-[12px] text-[color:var(--ink-faint)]">
+            <p className="mt-4 text-[12px] text-[color:var(--ink-faint)]">
               {total} clip{total === 1 ? "" : "s"} in the library
             </p>
           </div>

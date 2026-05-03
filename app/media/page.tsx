@@ -145,10 +145,6 @@ function Header({ total }: { total: number }) {
             </span>
           </a>
         </div>
-        <p className="mt-4 max-w-[60ch] text-[15px] leading-relaxed text-[color:var(--ink-dim)]">
-          Search by member, by description, or by camera. Click any photo for full EXIF metadata,
-          credits, tagged people, and download options.
-        </p>
       </div>
     </section>
   );

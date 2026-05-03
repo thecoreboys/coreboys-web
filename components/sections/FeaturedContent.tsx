@@ -37,18 +37,6 @@ export async function FeaturedContent() {
             <h2 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-bold text-[color:var(--ink)]">
               Latest from the org channel.
             </h2>
-            <p className="mt-2 max-w-[60ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)]">
-              Just the group account &mdash; everything published on
-              <a
-                href={GROUP.socials.youtube.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-1 underline decoration-[color:var(--ink-faint)] underline-offset-4 hover:text-[color:var(--ink)]"
-              >
-                {GROUP.socials.youtube.handle}
-              </a>
-              .
-            </p>
           </div>
           <a
             href={GROUP.socials.youtube.url}
@@ -103,12 +91,12 @@ export async function FeaturedContent() {
                     </span>
                   </span>
                   <div className="flex flex-1 flex-col gap-1.5 p-4">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
-                      {formatRelative(it.publishedAt)} · CORE
-                    </span>
                     <h3 className="line-clamp-2 text-balance text-[14px] font-semibold leading-snug tracking-tight text-[color:var(--ink)]">
                       {it.title}
                     </h3>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
+                      {formatRelative(it.publishedAt)} · CORE
+                    </span>
                   </div>
                 </a>
               </li>
