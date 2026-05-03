@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { HeroCorporate } from "@/components/sections/HeroCorporate";
 import { AnnouncementsRail } from "@/components/sections/AnnouncementsRail";
 import { MembersGrid } from "@/components/sections/MembersGrid";
@@ -22,9 +21,12 @@ export default function HomePage() {
       <AnnouncementsRail />
       <MembersGrid />
       <HouseTourParallax />
-      <Suspense fallback={null}>
-        <FeaturedContent />
-      </Suspense>
+      {/* No Suspense wrapper — the page is `dynamic = "force-dynamic"`,
+          so this section renders inline. Wrapping in <Suspense fallback=
+          {null}> caused the section to render as nothing on slower
+          devices (mobile) when the YouTube RSS fetch took longer than
+          the surrounding stream. */}
+      <FeaturedContent />
       <CrewWall />
       <SiteFooter />
     </>
