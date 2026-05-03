@@ -143,14 +143,21 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
       const memberName = members.find((mm) => mm.slug === d.slug)?.name ?? d.slug;
       const liveMsg =
         d.minutes > 0
-          ? `${memberName} went live · ${formatMinutes(d.minutes)}` +
-            (d.sessions > 1 ? ` (${d.sessions} streams)` : "") +
-            (d.peakViewers > 0 ? `\nPeak ${d.peakViewers.toLocaleString("en-US")}` : "")
+          ? `${memberName} went live`
           : `${memberName} did not stream`;
+      const stats: Array<{ label: string; value: string }> =
+        d.minutes > 0
+          ? [
+              { label: "Airtime", value: formatMinutes(d.minutes) },
+              { label: "Streams", value: d.sessions.toLocaleString("en-US") },
+              { label: "Peak", value: d.peakViewers.toLocaleString("en-US") },
+            ]
+          : [];
       inner.set(d.date, {
         date: d.date,
         value: d.minutes,
         hover: liveMsg,
+        stats,
       });
     }
     return map;

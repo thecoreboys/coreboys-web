@@ -144,37 +144,50 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Range toggle + live pulse */}
-      <div className="flex flex-wrap items-center gap-2">
-        {(["1d", "7d", "31d", "all"] as Range[]).map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => setRange(r)}
-            aria-pressed={range === r}
-            className={`inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
-              range === r
-                ? "border-[color:var(--core)] bg-[color:var(--core)]/12 text-[color:var(--core)]"
-                : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
-            }`}
-          >
-            {r === "all" ? "All time" : r === "1d" ? "1 day" : r === "7d" ? "7 days" : "31 days"}
-          </button>
-        ))}
-        {liveEntries.length > 0 ? (
-          <span className="ml-auto inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/60 bg-[color:var(--core)]/12 px-3 py-1.5">
-            <span
-              aria-hidden
-              className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(239,68,68,0.7)]"
-              style={{ animation: "live-blink 1s ease-in-out infinite" }}
-            />
-            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--core)]">
-              LIVE · {liveEntries.length}
-              {liveCombinedViewers > 0 ? ` · ${liveCombinedViewers.toLocaleString("en-US")} watching` : ""}
+      {/* Section header — matches Stream Stats / Chat Stats so the
+          range filters always live in the same spot top-right. */}
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+              Group totals · followers / subs
+            </p>
+            <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
+              Snapshot of every public account.
+            </h2>
+          </div>
+          {liveEntries.length > 0 ? (
+            <span className="inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/60 bg-[color:var(--core)]/12 px-3 py-1.5">
+              <span
+                aria-hidden
+                className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(239,68,68,0.7)]"
+                style={{ animation: "live-blink 1s ease-in-out infinite" }}
+              />
+              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--core)]">
+                LIVE · {liveEntries.length}
+                {liveCombinedViewers > 0 ? ` · ${liveCombinedViewers.toLocaleString("en-US")} watching` : ""}
+              </span>
             </span>
-          </span>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {(["1d", "7d", "31d", "all"] as Range[]).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRange(r)}
+              aria-pressed={range === r}
+              className={`inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
+                range === r
+                  ? "border-[color:var(--core)] bg-[color:var(--core)]/12 text-[color:var(--core)]"
+                  : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
+              }`}
+            >
+              {r === "all" ? "All time" : r === "1d" ? "24h" : r === "7d" ? "7d" : "31d"}
+            </button>
+          ))}
+        </div>
+      </header>
 
       {/* KPI grid — group-level (each linkable to its social) + Twitch combined */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
