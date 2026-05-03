@@ -4,9 +4,6 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 
-const MEMBER_OVERRIDES_KEY = "coreboys-admin-member-overrides:v1";
-const CREW_OVERRIDES_KEY = "coreboys-admin-crew-overrides:v1";
-
 export type MemberRow = {
   slug: string;
   stageName: string;
@@ -75,42 +72,102 @@ export function PeopleEditorClient({
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const m = localStorage.getItem(MEMBER_OVERRIDES_KEY);
-      if (m) setMemberOverrides(JSON.parse(m));
-      const c = localStorage.getItem(CREW_OVERRIDES_KEY);
-      if (c) setCrewOverrides(JSON.parse(c));
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const saveMember = (slug: string, patch: MemberOverride) => {
-    setMemberOverrides((prev) => {
-      const next = { ...prev, [slug]: { ...prev[slug], ...patch } };
+    // Load existing overrides from the API. API returns snake_case
+    // columns; we normalise back to the camelCase keys this component
+    // already uses for state.
+    (async () => {
       try {
-        localStorage.setItem(MEMBER_OVERRIDES_KEY, JSON.stringify(next));
+        const res = await fetch("/api/admin/people/members", { cache: "no-store" });
+        if (res.ok) {
+          const json = (await res.json()) as {
+            overrides: Array<Record<string, unknown> & { slug: string }>;
+          };
+          const m: Record<string, MemberOverride> = {};
+          for (const row of json.overrides) {
+            m[row.slug] = {
+              stageName: (row.stage_name as string) ?? undefined,
+              realName: (row.real_name as string) ?? undefined,
+              bio: (row.bio as string) ?? undefined,
+              birthDate: (row.birth_date as string) ?? undefined,
+              twitchLogin: (row.twitch_login as string) ?? undefined,
+              commName: (row.comm_name as string) ?? undefined,
+              accent: (row.accent_color as string) ?? undefined,
+              hidden: (row.hidden as boolean) ?? false,
+              alias: (row.alias as string) ?? undefined,
+              height: (row.height as string) ?? undefined,
+              weight: (row.weight as string) ?? undefined,
+              nickname: (row.nickname as string) ?? undefined,
+              favoriteGame: (row.favorite_game as string) ?? undefined,
+              description: (row.description as string) ?? undefined,
+              roles: (row.roles as string[]) ?? undefined,
+            };
+          }
+          setMemberOverrides(m);
+        }
       } catch {
         /* ignore */
       }
-      return next;
-    });
+      try {
+        const res = await fetch("/api/admin/people/crew", { cache: "no-store" });
+        if (res.ok) {
+          const json = (await res.json()) as {
+            overrides: Array<Record<string, unknown> & { slug: string }>;
+          };
+          const c: Record<string, CrewOverride> = {};
+          for (const row of json.overrides) {
+            c[row.slug] = {
+              name: (row.display_name as string) ?? undefined,
+              role: (row.role as string) ?? undefined,
+              hidden: (row.hidden as boolean) ?? false,
+            };
+          }
+          setCrewOverrides(c);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
+
+  const saveMember = async (slug: string, patch: MemberOverride) => {
+    setMemberOverrides((prev) => ({ ...prev, [slug]: { ...prev[slug], ...patch } }));
     setEditingMember(null);
+    try {
+      // Translate field names to the API's expected camelCase. Most are
+      // already aligned; `accent` here = `accentColor` in the API.
+      const payload: Record<string, unknown> = { ...patch };
+      if (patch.accent !== undefined) {
+        payload.accentColor = patch.accent;
+        delete payload.accent;
+      }
+      await fetch(`/api/admin/people/members/${slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      /* leave optimistic state in place; admin will see the error indirectly on next load */
+    }
     setSavedSlug(slug);
     window.setTimeout(() => setSavedSlug(null), 1500);
   };
 
-  const saveCrew = (slug: string, patch: CrewOverride) => {
-    setCrewOverrides((prev) => {
-      const next = { ...prev, [slug]: { ...prev[slug], ...patch } };
-      try {
-        localStorage.setItem(CREW_OVERRIDES_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+  const saveCrew = async (slug: string, patch: CrewOverride) => {
+    setCrewOverrides((prev) => ({ ...prev, [slug]: { ...prev[slug], ...patch } }));
     setEditingCrew(null);
+    try {
+      const payload: Record<string, unknown> = {};
+      if (patch.name !== undefined) payload.displayName = patch.name;
+      if (patch.role !== undefined) payload.role = patch.role;
+      if (patch.hidden !== undefined) payload.hidden = patch.hidden;
+      await fetch(`/api/admin/people/crew/${slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      /* ignore */
+    }
     setSavedSlug(slug);
     window.setTimeout(() => setSavedSlug(null), 1500);
   };

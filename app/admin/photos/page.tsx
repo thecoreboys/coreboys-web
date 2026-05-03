@@ -10,6 +10,7 @@ import {
   sortNewestFirst,
 } from "@/lib/asset-index";
 import { AuthGate } from "@/components/admin/AuthGate";
+import { PhotoManager, type PersonOption } from "@/components/admin/PhotoManager";
 
 export const metadata: Metadata = {
   title: "Admin · Photos",
@@ -68,11 +69,18 @@ export default async function AdminPhotosPage() {
                 Photo storage
               </h1>
               <p className="mt-2 max-w-[60ch] text-[14px] text-[color:var(--ink-dim)]">
-                Phase 1: cumulative size of all sync&apos;d photos in <code className="font-mono">/public</code>.
-                Phase 4 reads from <code className="font-mono">media_storage_summary</code> with
-                per-version (original / JPG / PNG / compressed / 0.5x) breakdowns.
+                Upload new photos to DigitalOcean Spaces (rows land in
+                <code className="font-mono"> media_assets</code>) or browse the
+                synced static gallery in <code className="font-mono">/public</code>.
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* Admin upload + gallery */}
+        <section className="border-t border-[color:var(--rule)]">
+          <div className="mx-auto max-w-[1440px] px-6 py-8 md:px-8 md:py-10">
+            <PhotoManager people={peopleOptions()} />
           </div>
         </section>
 
@@ -256,4 +264,18 @@ function formatShort(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function peopleOptions(): PersonOption[] {
+  // Members + crew make up the manual face-tag dropdown. Talents come
+  // from the external_people table; we don't fetch those here so the
+  // page stays static-renderable. Tagging-by-talent comes in a follow-up.
+  const out: PersonOption[] = [];
+  for (const m of MEMBERS) {
+    out.push({ kind: "member", ref: m.slug, name: m.stageName });
+  }
+  for (const c of CREW) {
+    out.push({ kind: "crew", ref: c.slug, name: c.name });
+  }
+  return out;
 }

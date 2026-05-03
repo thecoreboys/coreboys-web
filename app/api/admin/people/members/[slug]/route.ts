@@ -26,6 +26,13 @@ const PatchBody = z.object({
   poPostalCode: z.string().nullable().optional(),
   poCountry: z.string().nullable().optional(),
   youtubeChannelId: z.string().nullable().optional(),
+  alias: z.string().nullable().optional(),
+  height: z.string().nullable().optional(),
+  weight: z.string().nullable().optional(),
+  nickname: z.string().nullable().optional(),
+  favoriteGame: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  roles: z.array(z.string()).optional(),
 });
 
 const COL: Record<keyof z.infer<typeof PatchBody>, string> = {
@@ -44,6 +51,13 @@ const COL: Record<keyof z.infer<typeof PatchBody>, string> = {
   poPostalCode: "po_postal_code",
   poCountry: "po_country",
   youtubeChannelId: "youtube_channel_id",
+  alias: "alias",
+  height: "height",
+  weight: "weight",
+  nickname: "nickname",
+  favoriteGame: "favorite_game",
+  description: "description",
+  roles: "roles",
 };
 
 export async function PATCH(
