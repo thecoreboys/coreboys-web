@@ -7,6 +7,14 @@ import { FeaturedContent } from "@/components/sections/FeaturedContent";
 import { CrewWall } from "@/components/sections/CrewWall";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 
+// Render at request time, not at build time. The hero pulls follower /
+// subscriber counts via SOCIAL_FETCH_API_KEY + TWITCH_CLIENT_* — those
+// envs are RUN_TIME-scoped on DO, so a build-time prerender ships with
+// every counter `null` and the chips disappear. The 6h fetch cache
+// inside fetchSocialCount still applies, so this doesn't add API load
+// — it just defers the work to when the secrets exist.
+export const dynamic = "force-dynamic";
+
 export default function HomePage() {
   return (
     <>
