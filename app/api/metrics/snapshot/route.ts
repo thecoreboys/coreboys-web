@@ -37,7 +37,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const writes: Array<{ slug: string; platform: string; count: number }> = [];
+  // Each write is now keyed by (slug, platform, handle) so multi-channel
+  // members (e.g. Marlon's 3 YouTube channels) snapshot independently.
+  const writes: Array<{
+    slug: string;
+    platform: string;
+    handle: string;
+    count: number;
+  }> = [];
 
   // ── Per-member Twitch follower count ────────────────────────────────
   try {
@@ -48,7 +55,12 @@ export async function POST(req: Request) {
         if (!u) return;
         const followers = await fetchFollowerCount(u.id);
         if (followers != null && followers > 0) {
-          writes.push({ slug: m.slug, platform: "twitch", count: followers });
+          writes.push({
+            slug: m.slug,
+            platform: "twitch",
+            handle: m.twitchLogin.toLowerCase(),
+            count: followers,
+          });
         }
       }),
     );
@@ -69,7 +81,14 @@ export async function POST(req: Request) {
         .map(async (s) => {
           const count = await fetchSocialCount(s.platform, s.handle ?? "", s.url);
           if (count != null && count > 0) {
-            writes.push({ slug: m.slug, platform: s.platform, count });
+            writes.push({
+              slug: m.slug,
+              platform: s.platform,
+              // The URL is the canonical per-channel identifier (handles
+              // can collide across YouTube vanity names; URLs cannot).
+              handle: s.url,
+              count,
+            });
           }
         }),
     ),
@@ -86,29 +105,29 @@ export async function POST(req: Request) {
     fetchSocialCount("instagram", GROUP.socials.instagram.handle),
     fetchSocialCount("x", GROUP.socials.x.handle),
   ]);
-  const groupRows: Array<{ platform: string; count: number | null }> = [
-    { platform: "youtube", count: ytSubs },
-    { platform: "tiktok", count: ttFollowers },
-    { platform: "instagram", count: igFollowers },
-    { platform: "x", count: xFollowers },
+  const groupRows: Array<{ platform: string; handle: string; count: number | null }> = [
+    { platform: "youtube", handle: GROUP.socials.youtube.url, count: ytSubs },
+    { platform: "tiktok", handle: GROUP.socials.tiktok.url, count: ttFollowers },
+    { platform: "instagram", handle: GROUP.socials.instagram.url, count: igFollowers },
+    { platform: "x", handle: GROUP.socials.x.url, count: xFollowers },
   ];
   for (const r of groupRows) {
     if (r.count != null && r.count > 0) {
-      writes.push({ slug: "__group__", platform: r.platform, count: r.count });
+      writes.push({
+        slug: "__group__",
+        platform: r.platform,
+        handle: r.handle,
+        count: r.count,
+      });
     }
   }
 
-  // Dedupe by (slug, platform) — Marlon has 3 YouTube channels, etc.
-  // We sum across them so each member's per-platform total is one row.
-  const merged = new Map<string, { slug: string; platform: string; count: number }>();
+  // Dedupe by (slug, platform, handle) — guards against duplicate
+  // entries within the same run (e.g. retry quirks). We do NOT sum
+  // across handles anymore: each channel keeps its own count.
+  const merged = new Map<string, (typeof writes)[number]>();
   for (const w of writes) {
-    const key = `${w.slug}::${w.platform}`;
-    const existing = merged.get(key);
-    if (existing) {
-      existing.count += w.count;
-    } else {
-      merged.set(key, { ...w });
-    }
+    merged.set(`${w.slug}::${w.platform}::${w.handle}`, w);
   }
   const deduped = [...merged.values()];
 
@@ -122,16 +141,16 @@ export async function POST(req: Request) {
   const values: unknown[] = [];
   const placeholders = deduped
     .map((w, i) => {
-      const base = i * 3;
-      values.push(w.slug, w.platform, w.count);
-      return `($${base + 1}, $${base + 2}, $${base + 3}, CURRENT_DATE, NOW())`;
+      const base = i * 4;
+      values.push(w.slug, w.platform, w.handle, w.count);
+      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, CURRENT_DATE, NOW())`;
     })
     .join(", ");
 
   const sql = `
-    INSERT INTO metric_snapshots (member_slug, platform, count, snapshot_date, taken_at)
+    INSERT INTO metric_snapshots (member_slug, platform, handle, count, snapshot_date, taken_at)
     VALUES ${placeholders}
-    ON CONFLICT (member_slug, platform, snapshot_date)
+    ON CONFLICT (member_slug, platform, handle, snapshot_date)
     DO UPDATE SET count = EXCLUDED.count, taken_at = EXCLUDED.taken_at
   `;
 

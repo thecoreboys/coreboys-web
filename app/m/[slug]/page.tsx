@@ -90,15 +90,16 @@ export default async function MemberPage({ params }: Params) {
   // so other server components can still use it.
   void fetchUserIdsByLogin;
 
-  // Per-platform follower / subscriber counts come from the
+  // Per-channel follower / subscriber counts come from the
   // metric_snapshots table — populated nightly by the snapshot cron
-  // (which itself uses Social Fetch with a public-profile scrape
-  // fallback). Reading from the DB keeps the render fast and stable.
+  // (Social Fetch → scrape fallback). Map keys are `${platform}::${url}`
+  // so each YouTube channel for a multi-channel member lands at its
+  // own URL rather than being summed.
   const dbCounts = await getLatestCountsForSlug(member.slug);
 
   // Build the metric label per social URL. Priority:
   //   1. Twitch → live Helix follower count (already fetched above)
-  //   2. Latest snapshot for that platform from the DB
+  //   2. Latest per-channel snapshot from the DB (keyed by URL)
   //   3. Manual override from member.manualCounts (snapchat / fallback)
   const metricByUrl: Record<string, string | undefined> = {};
   for (const s of member.socials) {
@@ -107,7 +108,7 @@ export default async function MemberPage({ params }: Params) {
       metricByUrl[s.url] = `${formatCompact(twitchFollowers)} followers`;
       continue;
     }
-    const fromDb = dbCounts.get(s.platform);
+    const fromDb = dbCounts.get(`${s.platform}::${s.url}`);
     if (fromDb != null && fromDb > 0) {
       metricByUrl[s.url] = `${formatCompact(fromDb)} ${label}`;
       continue;
