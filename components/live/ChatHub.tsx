@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Maximize2, Minimize2, Minus, Plus, RotateCcw, Settings2, X } from "lucide-react";
+import { GripVertical, Maximize2, Minimize2, Minus, Plus, RotateCcw, Settings2, Tv, TvMinimal, X } from "lucide-react";
 import { TwitchChat } from "@/components/live/TwitchChat";
 
 const TEXT_SCALE_MIN = 0.7;
@@ -44,6 +44,8 @@ type Persisted = {
   order?: string[];
   /** Multiplier applied to chat font + emote sizing across every tile. */
   textScale?: number;
+  /** Whether the multistream player grid is visible above the chats. */
+  streamsVisible?: boolean;
 };
 
 export type ChatHubProps = {
@@ -73,7 +75,16 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
   const [dragOverSide, setDragOverSide] = useState<"before" | "after">("before");
   const [mobileActive, setMobileActive] = useState<string | null>(null);
   const [textScale, setTextScale] = useState<number>(1);
+  const [streamsVisible, setStreamsVisible] = useState<boolean>(true);
+  const [playerParent, setPlayerParent] = useState<string | null>(null);
   const fullscreenRootRef = useRef<HTMLDivElement | null>(null);
+
+  // Twitch's player iframe rejects requests until the embedding host
+  // is sent as `parent=`. Defer mounting the stream grid until we know
+  // the hostname client-side.
+  useEffect(() => {
+    setPlayerParent(window.location.hostname);
+  }, []);
 
   // Real browser fullscreen via the Fullscreen API. Sync the local
   // boolean with the actual document.fullscreenElement so the user
@@ -126,6 +137,9 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       if (typeof parsed.textScale === "number" && Number.isFinite(parsed.textScale)) {
         setTextScale(clampScale(parsed.textScale));
       }
+      if (typeof parsed.streamsVisible === "boolean") {
+        setStreamsVisible(parsed.streamsVisible);
+      }
     } catch {
       /* ignore */
     }
@@ -137,6 +151,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       nextGuests: ChatChannel[],
       nextOrder: string[],
       nextTextScale: number,
+      nextStreamsVisible: boolean,
     ) => {
       const payload: Persisted = {
         hidden: [...nextHidden],
@@ -148,6 +163,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
         })),
         order: nextOrder,
         textScale: nextTextScale,
+        streamsVisible: nextStreamsVisible,
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -164,22 +180,22 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
         const next = new Set(prev);
         if (next.has(login)) next.delete(login);
         else next.add(login);
-        persist(next, guests, order, textScale);
+        persist(next, guests, order, textScale, streamsVisible);
         return next;
       });
     },
-    [guests, order, persist, textScale],
+    [guests, order, persist, textScale, streamsVisible],
   );
 
   const removeGuest = useCallback(
     (login: string) => {
       setGuests((prev) => {
         const next = prev.filter((g) => g.login.toLowerCase() !== login.toLowerCase());
-        persist(hidden, next, order, textScale);
+        persist(hidden, next, order, textScale, streamsVisible);
         return next;
       });
     },
-    [hidden, order, persist, textScale],
+    [hidden, order, persist, textScale, streamsVisible],
   );
 
   /** Move `dragged` to before/after `target`. */
@@ -197,26 +213,34 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       if (toIdx < 0) return;
       current.splice(side === "before" ? toIdx : toIdx + 1, 0, dragged);
       setOrder(current);
-      persist(hidden, guests, current, textScale);
+      persist(hidden, guests, current, textScale, streamsVisible);
     },
-    [coreChannels, guests, hidden, order, persist, textScale],
+    [coreChannels, guests, hidden, order, persist, textScale, streamsVisible],
   );
 
   const adjustTextScale = useCallback(
     (delta: number) => {
       setTextScale((prev) => {
         const next = clampScale(prev + delta);
-        persist(hidden, guests, order, next);
+        persist(hidden, guests, order, next, streamsVisible);
         return next;
       });
     },
-    [hidden, guests, order, persist],
+    [hidden, guests, order, persist, streamsVisible],
   );
 
   const resetTextScale = useCallback(() => {
     setTextScale(1);
-    persist(hidden, guests, order, 1);
-  }, [hidden, guests, order, persist]);
+    persist(hidden, guests, order, 1, streamsVisible);
+  }, [hidden, guests, order, persist, streamsVisible]);
+
+  const toggleStreams = useCallback(() => {
+    setStreamsVisible((prev) => {
+      const next = !prev;
+      persist(hidden, guests, order, textScale, next);
+      return next;
+    });
+  }, [hidden, guests, order, persist, textScale]);
 
   const addGuest = useCallback(async () => {
     const cleaned = draftLogin.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -253,21 +277,22 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       };
       const nextGuests = [...guests, next];
       setGuests(nextGuests);
-      persist(hidden, nextGuests, order, textScale);
+      persist(hidden, nextGuests, order, textScale, streamsVisible);
       setDraftLogin("");
     } catch {
       setAddError("Network error — try again");
     } finally {
       setAdding(false);
     }
-  }, [draftLogin, coreChannels, guests, hidden, order, persist, textScale]);
+  }, [draftLogin, coreChannels, guests, hidden, order, persist, textScale, streamsVisible]);
 
   const reset = useCallback(() => {
     setHidden(new Set());
     setGuests([]);
     setOrder([]);
     setTextScale(1);
-    persist(new Set(), [], [], 1);
+    setStreamsVisible(true);
+    persist(new Set(), [], [], 1, true);
   }, [persist]);
 
   const visibleCore = useMemo(
@@ -333,6 +358,19 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
         >
           <Settings2 size={13} />
           Customize
+        </button>
+        <button
+          type="button"
+          onClick={toggleStreams}
+          aria-pressed={streamsVisible}
+          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-all hover:-translate-y-px cursor-pointer ${
+            streamsVisible
+              ? "border-[color:var(--core)] bg-[color:var(--core)]/12 text-[color:var(--core)]"
+              : "border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--ink)]"
+          }`}
+        >
+          {streamsVisible ? <TvMinimal size={13} /> : <Tv size={13} />}
+          {streamsVisible ? "Hide streams" : "Show streams"}
         </button>
         <button
           type="button"
@@ -538,6 +576,13 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
         </div>
       ) : null}
 
+      {/* Multistream player grid — toggled via "Show streams". Mounted
+          above the chat grid so the chats stay where they are; default
+          off so the page is light by default. */}
+      {streamsVisible && playerParent && visible.length > 0 ? (
+        <StreamGrid channels={visible} parent={playerParent} />
+      ) : null}
+
       {/* Grid */}
       {visible.length === 0 ? (
         <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center">
@@ -719,5 +764,66 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Multistream player grid — drops one Twitch player per visible channel
+ * into a responsive grid above the chats. Each iframe autoplays muted
+ * (browser autoplay policy: muted autoplay is allowed everywhere); the
+ * viewer can unmute individually via the player's own UI.
+ *
+ * Tiles keep a 16:9 aspect ratio so the row heights stay even regardless
+ * of how many streams are visible, and the column count scales with the
+ * total — same step pattern as the chat grid below.
+ */
+function StreamGrid({
+  channels,
+  parent,
+}: {
+  channels: ChatChannel[];
+  parent: string;
+}) {
+  const cols = (() => {
+    const n = channels.length;
+    if (n <= 1) return "grid-cols-1";
+    if (n === 2) return "grid-cols-1 md:grid-cols-2";
+    if (n === 3) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
+    if (n === 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4";
+    if (n === 5) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5";
+    if (n === 6) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3";
+    return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+  })();
+
+  return (
+    <section
+      aria-label="Live multistream"
+      className={`mb-5 grid gap-3 ${cols}`}
+    >
+      {channels.map((c) => (
+        <div
+          key={c.login}
+          className="relative overflow-hidden rounded-lg border border-[color:var(--rule)] bg-black ring-1 ring-inset"
+          style={{ ["--tw-ring-color" as string]: `${c.accent}55`, aspectRatio: "16 / 9" }}
+        >
+          <iframe
+            key={`${c.login}-${parent}`}
+            src={`https://player.twitch.tv/?channel=${encodeURIComponent(c.login)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`}
+            title={`${c.displayName} live stream`}
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full"
+          />
+          {/* Channel pill in the corner so the user can tell tiles apart
+              while every player loads in parallel. */}
+          <span
+            className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-black/65 px-2 py-1 text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.5)] backdrop-blur-sm"
+            style={{ borderLeft: `2px solid ${c.accent}` }}
+          >
+            {c.displayName}
+          </span>
+        </div>
+      ))}
+    </section>
   );
 }
