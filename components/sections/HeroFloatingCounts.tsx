@@ -26,14 +26,14 @@ export type FloatingCountItem = {
 export function HeroFloatingCounts({ items }: { items: FloatingCountItem[] }) {
   if (items.length === 0) return null;
 
-  // Hand-tuned positions over the right half of the hero — same column
-  // as the group photo, scattered enough to feel organic. Each chip
-  // floats with its own period so they never line up.
+  // Cluster chips along the lower-right of the hero so they overlap the
+  // group photo's bottom edge / clothing zone instead of riding above
+  // the face area at the top. Each chip drifts on its own period.
   const POSITIONS: Array<{ top: string; right: string; drift: number }> = [
-    { top: "8%", right: "6%", drift: 6 },
-    { top: "30%", right: "20%", drift: -8 },
-    { top: "55%", right: "8%", drift: 5 },
-    { top: "78%", right: "22%", drift: -7 },
+    { top: "62%", right: "28%", drift: 6 },
+    { top: "74%", right: "4%", drift: -8 },
+    { top: "86%", right: "26%", drift: 5 },
+    { top: "94%", right: "6%", drift: -7 },
   ];
 
   return (
