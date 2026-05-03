@@ -54,7 +54,9 @@ export default async function MonitorPage({ params }: Params) {
   }
 
   return (
-    <main className="relative pt-20 md:pt-24">
+    // No extra pt — the global <main> in app/layout.tsx already pads
+    // for the fixed navbar. The monitor header docks straight below it.
+    <main className="relative">
       <section className="border-b border-[color:var(--rule)] bg-[color:var(--bg)]">
         <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-8">
           <div className="flex items-center gap-3">
