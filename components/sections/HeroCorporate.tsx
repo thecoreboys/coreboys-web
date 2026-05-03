@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PlayCircle } from "lucide-react";
 import { getHeroGroupPhoto } from "@/lib/asset-index";
 import { fetchUsersByLogin } from "@/lib/twitch";
-import { fetchSocialCount } from "@/lib/social-fetch";
+import { getLatestCountsForSlug } from "@/lib/metric-snapshots";
 import { MEMBERS } from "@/lib/members";
 import { GROUP } from "@/lib/group";
 import { BroadcastOrbClient } from "@/components/three/BroadcastOrbDynamic";
@@ -36,19 +36,16 @@ export async function HeroCorporate() {
     avatars = {};
   }
 
-  // Group-account follower counts (YT subs, TikTok / IG / X followers)
-  // for the floating chips in the hero. Cached 6h via Social Fetch.
-  const [ytSubs, ttFollowers, igFollowers, xFollowers] = await Promise.all([
-    fetchSocialCount("youtube", GROUP.socials.youtube.handle, GROUP.socials.youtube.url),
-    fetchSocialCount("tiktok", GROUP.socials.tiktok.handle),
-    fetchSocialCount("instagram", GROUP.socials.instagram.handle),
-    fetchSocialCount("x", GROUP.socials.x.handle),
-  ]);
+  // Group-account follower counts come from the metric_snapshots table
+  // (written nightly by the cron-snapshot job, with API → scrape
+  // fallback). No live API on the render path so the page stays fast
+  // and the chips don't disappear when the upstream is degraded.
+  const groupCounts = await getLatestCountsForSlug("__group__");
   const floatingCounts: FloatingCountItem[] = (
     [
       {
         platform: "youtube" as const,
-        count: ytSubs ?? 0,
+        count: groupCounts.get("youtube") ?? 0,
         handle: GROUP.socials.youtube.handle,
         brand: "#FF0033",
         unit: "subs",
@@ -56,7 +53,7 @@ export async function HeroCorporate() {
       },
       {
         platform: "tiktok" as const,
-        count: ttFollowers ?? 0,
+        count: groupCounts.get("tiktok") ?? 0,
         handle: GROUP.socials.tiktok.handle,
         brand: "#FE2C55",
         unit: "followers",
@@ -64,7 +61,7 @@ export async function HeroCorporate() {
       },
       {
         platform: "instagram" as const,
-        count: igFollowers ?? 0,
+        count: groupCounts.get("instagram") ?? 0,
         handle: GROUP.socials.instagram.handle,
         brand: "#E1306C",
         unit: "followers",
@@ -72,7 +69,7 @@ export async function HeroCorporate() {
       },
       {
         platform: "x" as const,
-        count: xFollowers ?? 0,
+        count: groupCounts.get("x") ?? 0,
         handle: GROUP.socials.x.handle,
         brand: "#FFFFFF",
         unit: "followers",
