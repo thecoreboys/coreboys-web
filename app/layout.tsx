@@ -13,6 +13,7 @@ import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { UnreleasedBanner } from "@/components/chrome/UnreleasedBanner";
+import { FeedbackButton } from "@/components/chrome/FeedbackButton";
 import "./globals.css";
 
 // Inter does the heavy lifting: tight in display sizes, calm at body.
@@ -151,6 +152,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ConsoleEgg />
         <OrganizationJsonLd />
         <CookieBanner />
+        <FeedbackButton />
         <GoogleAnalytics />
       </body>
     </html>
