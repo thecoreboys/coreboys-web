@@ -512,13 +512,16 @@ export function TopNav({
                 );
               })}
             </ul>
-            <div className="border-t border-[color:var(--rule)] bg-[color:var(--bg)] px-3 py-2 text-right">
+            <div className="border-t border-[color:var(--rule)] bg-[color:var(--bg)] p-3">
               <Link
                 href="/chat"
                 onClick={() => setLiveModalOpen(false)}
-                className="text-[11px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--core)]"
+                className="group/cta inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[color:var(--core)] bg-[color:var(--core)] px-4 py-2.5 text-[13px] font-bold uppercase tracking-tight text-white transition-all hover:-translate-y-px hover:shadow-[0_8px_20px_-6px_rgba(239,68,68,0.55)] active:translate-y-0"
               >
-                Open all chats →
+                Open all chats
+                <span className="transition-transform group-hover/cta:translate-x-0.5" aria-hidden>
+                  →
+                </span>
               </Link>
             </div>
           </div>
