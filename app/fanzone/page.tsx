@@ -29,7 +29,7 @@ export default async function FanzonePage() {
     slug: m.slug,
     stageName: m.stageName,
     accent: m.accent,
-    avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
+    avatarUrl: avatars[m.twitchLogin.toLowerCase()] ?? m.portrait,
   }));
 
   return (
@@ -88,7 +88,7 @@ export default async function FanzonePage() {
                   stageName={m.stageName}
                   realName={m.realName}
                   accent={m.accent}
-                  avatarUrl={m.portrait ?? avatars[m.twitchLogin.toLowerCase()]}
+                  avatarUrl={avatars[m.twitchLogin.toLowerCase()] ?? m.portrait}
                   poBox={m.poBox ?? null}
                   commLogo={m.comm.logo}
                   commName={m.comm.name}
