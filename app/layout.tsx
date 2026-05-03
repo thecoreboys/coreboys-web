@@ -12,7 +12,6 @@ import { ConsoleEgg } from "@/components/editorial/ConsoleEgg";
 import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { CookieBanner } from "@/components/legal/CookieBanner";
-import { UnreleasedBanner } from "@/components/chrome/UnreleasedBanner";
 import { FeedbackButton } from "@/components/chrome/FeedbackButton";
 import "./globals.css";
 
@@ -135,7 +134,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <ThemeProvider>
             <LenisProvider>
               <div className="fixed inset-x-0 top-0 z-50">
-                <UnreleasedBanner />
                 <TopNav initialAvatars={avatars} />
               </div>
               <main id="main">{children}</main>
