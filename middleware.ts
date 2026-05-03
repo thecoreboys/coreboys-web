@@ -1,27 +1,35 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { verifySessionToken, SESSION_COOKIE } from "@/lib/admin-auth";
 
 /**
- * Edge middleware. Forces sign-in on /admin/*. The actual email
- * allowlist check happens in app/admin/layout.tsx (server component)
- * so we can read the user record without burning extra Clerk API
- * calls on every request — middleware only verifies "signed in".
- *
- * Public routes (everything else) pass through untouched.
+ * Edge middleware. Custom admin auth (Clerk previously). Verifies the
+ * `coreboys-admin-session` cookie on every /admin/* request and
+ * redirects unauthenticated visitors to /admin/sign-in. The sign-in
+ * page itself is allow-listed so the redirect doesn't loop.
  */
-const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
-
-export default clerkMiddleware(async (auth, req) => {
-  if (!isAdminRoute(req)) return;
-  const { userId, redirectToSignIn } = await auth();
-  if (!userId) {
-    return redirectToSignIn({ returnBackUrl: req.url });
-  }
-});
-
 export const config = {
-  // Skip Next internals + static files. Match everything else.
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|mp4|woff|woff2|ttf)).*)",
-    "/(api|trpc)(.*)",
-  ],
+  matcher: ["/admin/:path*"],
 };
+
+export default async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  if (pathname === "/admin/sign-in" || pathname.startsWith("/api/admin/")) {
+    return NextResponse.next();
+  }
+
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  if (!token) {
+    return redirectToSignIn(req);
+  }
+
+  const session = await verifySessionToken(token);
+  if (!session) {
+    return redirectToSignIn(req);
+  }
+  return NextResponse.next();
+}
+
+function redirectToSignIn(req: NextRequest): NextResponse {
+  const url = new URL("/admin/sign-in", req.url);
+  return NextResponse.redirect(url);
+}

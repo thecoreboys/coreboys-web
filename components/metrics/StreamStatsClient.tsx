@@ -111,9 +111,20 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
     const map = new Map<string, Map<string, HeatmapDay>>();
     for (const m of members) map.set(m.slug, new Map());
     for (const d of daily) {
-      const m = map.get(d.slug);
-      if (!m) continue;
-      m.set(d.date, { date: d.date, value: d.minutes });
+      const inner = map.get(d.slug);
+      if (!inner) continue;
+      const memberName = members.find((mm) => mm.slug === d.slug)?.name ?? d.slug;
+      const liveMsg =
+        d.minutes > 0
+          ? `${memberName} went live · ${formatMinutes(d.minutes)}` +
+            (d.sessions > 1 ? ` (${d.sessions} streams)` : "") +
+            (d.peakViewers > 0 ? `\nPeak ${d.peakViewers.toLocaleString("en-US")}` : "")
+          : `${memberName} did not stream`;
+      inner.set(d.date, {
+        date: d.date,
+        value: d.minutes,
+        hover: liveMsg,
+      });
     }
     return map;
   }, [members, daily]);
@@ -160,7 +171,9 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
   );
 
   const empty = sessions.length === 0;
-  const currentYear = new Date().getFullYear();
+  // Locked to 2026 per spec — consistency grid renders the current
+  // calendar year only, no rolling 365-day window.
+  const currentYear = 2026;
 
   return (
     <div className="flex flex-col gap-8">

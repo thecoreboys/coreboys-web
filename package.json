@@ -3,17 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/sync-db-firewall.mjs",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "echo \"no tests yet\" && exit 0",
-    "sync-assets": "node scripts/sync-assets.mjs"
+    "sync-assets": "node scripts/sync-assets.mjs",
+    "db:seed-admin": "node scripts/seed-admin.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
-    "@clerk/nextjs": "^6.39.3",
     "@coreboys/shared": "file:../coreboys-shared",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-popover": "^1.1.15",
@@ -26,11 +27,13 @@
     "@tiptap/pm": "^3.22.5",
     "@tiptap/react": "^3.22.5",
     "@tiptap/starter-kit": "^3.22.5",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "exifr": "^7.1.3",
     "framer-motion": "^11.11.0",
     "gsap": "^3.12.5",
+    "jose": "^6.2.3",
     "lenis": "^1.1.13",
     "lucide-react": "^0.453.0",
     "next": "^15.0.3",
@@ -48,6 +51,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.7.4",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",

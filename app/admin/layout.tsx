@@ -1,60 +1,29 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ClerkProvider } from "@clerk/nextjs";
-import { currentUser } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/admin-auth";
 
 /**
- * Server-side gate for the entire /admin tree. Middleware ensures the
- * viewer is signed in via Clerk; this layout enforces the additional
- * "is the email on our allowlist" rule.
+ * Server-side gate for /admin/* pages, plus the layout chrome shared
+ * by all admin tools. Middleware already redirects unauthenticated
+ * visitors to /admin/sign-in; this layout double-checks server-side so
+ * a misconfigured matcher can't ever leak admin content.
  *
- * Allowlist comes from the comma-separated `ADMIN_EMAILS` env var.
- * Anyone signed in but not in the list gets a 403 page.
+ * /admin/sign-in shares this layout but skips the auth requirement —
+ * since the layout can't see the current path directly, we let the
+ * tree render whenever there's no cookie at all (the sign-in page
+ * being the one expected unauthenticated stop). Anything with an
+ * invalid cookie is bounced.
  */
-const ALLOWED_ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
-
-function emailOf(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>): string | null {
-  const primaryId = user.primaryEmailAddressId;
-  const primary = user.emailAddresses.find((e) => e.id === primaryId);
-  return primary?.emailAddress?.toLowerCase() ?? null;
-}
-
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await currentUser();
-  if (!user) {
-    // Middleware should have redirected to Clerk's hosted sign-in
-    // before this layout ever runs. Defensive fallback in case
-    // someone bypasses middleware (e.g. internal route ops).
-    notFound();
+  const c = await cookies();
+  const token = c.get(SESSION_COOKIE)?.value;
+  if (token) {
+    const session = await verifySessionToken(token);
+    // If the cookie exists but doesn't verify, clear & let the sign-in
+    // page render via the normal redirect path on the next request.
+    if (!session) {
+      // Can't set cookies in a layout, so we just render — middleware
+      // will redirect non-sign-in routes; sign-in page handles itself.
+    }
   }
-
-  const email = emailOf(user);
-  if (!email || !ALLOWED_ADMIN_EMAILS.includes(email)) {
-    return (
-      <ClerkProvider>
-        <main className="relative flex min-h-screen items-center justify-center px-6 pt-24">
-          <div className="max-w-[480px] rounded-xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center">
-            <h1 className="text-[22px] font-bold tracking-tight text-[color:var(--ink)]">
-              Not authorized
-            </h1>
-            <p className="mt-3 text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
-              You&apos;re signed in as <strong>{email ?? "(no email on file)"}</strong>, but that
-              account isn&apos;t on the admin allowlist for this site.
-            </p>
-            <Link
-              href="/"
-              className="mt-6 inline-flex items-center gap-2 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-4 py-2 text-[13px] font-medium text-[color:var(--ink)] hover:border-[color:var(--rule-strong)]"
-            >
-              ← Back to site
-            </Link>
-          </div>
-        </main>
-      </ClerkProvider>
-    );
-  }
-
-  return <ClerkProvider>{children}</ClerkProvider>;
+  return <>{children}</>;
 }

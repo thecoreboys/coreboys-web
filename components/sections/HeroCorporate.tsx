@@ -127,9 +127,6 @@ export async function HeroCorporate() {
         }}
       />
 
-      {/* Floating group-account follower counts (YT subs, TikTok / IG / X) */}
-      <HeroFloatingCounts items={floatingCounts} />
-
       <div className="relative mx-auto max-w-[1440px] px-6 pt-24 pb-16 md:px-8 md:pt-32 md:pb-24">
         <div className="grid grid-cols-12 gap-8 lg:gap-12">
           <div className="col-span-12 corp-reveal lg:col-span-7">
@@ -155,6 +152,10 @@ export async function HeroCorporate() {
             <p className="mt-3 max-w-[28ch] text-[clamp(18px,2vw,26px)] font-semibold leading-[1.25] tracking-[-0.01em] text-[color:var(--ink)]">
               Create. Own. <span className="text-[color:var(--core)]">Run Everything.</span>
             </p>
+
+            <div className="mt-5">
+              <HeroFloatingCounts items={floatingCounts} />
+            </div>
 
             <p className="mt-6 max-w-[60ch] text-[16px] leading-relaxed text-[color:var(--ink-dim)] md:text-[17px]">
               Built, owned and run by the people on screen.

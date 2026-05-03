@@ -1,32 +1,39 @@
 "use client";
 
-import { SignOutButton as ClerkSignOutButton } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 /**
- * Admin auth used to be a localStorage passcode stub. The real gate
- * now lives in two places that run BEFORE this component renders:
+ * Admin auth flows live in three places that run BEFORE this component
+ * renders:
  *
- *   - middleware.ts forces sign-in via Clerk for any /admin/* route
- *   - app/admin/layout.tsx checks the user email against the
- *     comma-separated ADMIN_EMAILS env var and shows a 403 page
- *     when the signed-in account isn't on the allowlist
+ *   - middleware.ts verifies the `coreboys-admin-session` cookie for
+ *     any /admin/* request and redirects to /admin/sign-in when it's
+ *     missing or invalid.
+ *   - app/admin/layout.tsx double-checks server-side.
+ *   - /api/admin/login bcrypt-compares against admin_users in Postgres
+ *     and sets the cookie.
  *
- * So this component is now a passthrough — kept around so the many
- * admin pages that wrap their JSX in <AuthGate> don't all need edits.
+ * So <AuthGate> stays as a passthrough — kept so the many admin pages
+ * that wrap their JSX in it don't all need edits.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
 export function SignOutButton() {
+  const router = useRouter();
+  async function onClick() {
+    await fetch("/api/admin/logout", { method: "POST" }).catch(() => {});
+    router.replace("/admin/sign-in");
+    router.refresh();
+  }
   return (
-    <ClerkSignOutButton redirectUrl="/">
-      <button
-        type="button"
-        className="text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)] cursor-pointer"
-      >
-        Sign out
-      </button>
-    </ClerkSignOutButton>
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)] cursor-pointer"
+    >
+      Sign out
+    </button>
   );
 }

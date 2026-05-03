@@ -131,13 +131,8 @@ export default async function MetricsPage() {
         <div className="mx-auto max-w-[1440px] px-6 py-12 md:px-8 md:py-16">
           <p className="eyebrow">Metrics · Public dashboard</p>
           <h1 className="mt-2 text-display text-[clamp(36px,5vw,64px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-            Numbers, daily.
+            Metrics &amp; Analytics
           </h1>
-          <p className="mt-3 max-w-[60ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)] md:text-[16px]">
-            Snapshot of every public account behind CORE — group socials and
-            each member&apos;s Twitch followers. A daily cron job writes one row
-            per platform, so the line chart and heatmap fill in over time.
-          </p>
         </div>
       </section>
 

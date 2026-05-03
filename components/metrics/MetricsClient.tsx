@@ -183,12 +183,12 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
         />
       </section>
 
-      {/* Tracking-not-yet-wired stubs */}
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      {/* Chat-tracking stubs — Watch time and Concurrent peak are
+          already covered downstream by Hours watched / Peak viewers in
+          the stream-stats section, so they're not duplicated here. */}
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <StubCard label="Chat messages" />
         <StubCard label="Unique chatters" />
-        <StubCard label="Watch time" />
-        <StubCard label="Concurrent peak" />
       </section>
 
       {/* Trend chart selector + chart */}
@@ -252,7 +252,7 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
             above. Empty squares = no snapshot recorded that day.
           </p>
         </header>
-        <HeatmapYear byDate={heatmap} accent={accent} colorBy="delta" />
+        <HeatmapYear byDate={heatmap} accent={accent} colorBy="delta" year={2026} />
       </section>
     </div>
   );
@@ -328,8 +328,8 @@ function StubCard({ label }: { label: string }) {
         {label}
       </p>
       <p className="text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
-        Tracking pipeline not yet live. Needs a Twitch IRC listener / Helix
-        poller running outside the web app.
+        Coming once the Twitch IRC worker ships. Joins each member&apos;s chat
+        and counts messages + unique chatters per hour.
       </p>
     </div>
   );

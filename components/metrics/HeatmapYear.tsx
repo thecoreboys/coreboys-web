@@ -19,6 +19,12 @@ export type HeatmapDay = {
   value: number;
   /** Optional delta vs prior day — used for coloring growth charts. */
   delta?: number;
+  /**
+   * Optional pre-formatted hover string. When set, replaces the default
+   * value/delta tooltip (used by the consistency grid to show
+   * "X went live for Yh Zm").
+   */
+  hover?: string;
 };
 
 export type HeatmapYearProps = {
@@ -108,8 +114,12 @@ export function HeatmapYear({
   }, [byDate, year, colorBy, deltaThresholds]);
 
   const weeksWide = (cells[cells.length - 1]?.week ?? 0) + 1;
-  const w = weeksWide * (SQUARE + GAP);
-  const h = 7 * (SQUARE + GAP);
+  // Reserve 24px on the left for the Sun..Sat row labels. Month labels
+  // get 14px of vertical headroom up top.
+  const LABEL_W = 24;
+  const HEADER_H = 14;
+  const w = LABEL_W + weeksWide * (SQUARE + GAP);
+  const h = HEADER_H + 7 * (SQUARE + GAP);
 
   // Month labels along the top edge — shown when the column is the first
   // of a new month.
@@ -117,23 +127,32 @@ export function HeatmapYear({
   let lastMonth = -1;
   for (const c of cells) {
     if (c.day !== 0) continue; // only check first row per column
+    if (c.bucket === -1) continue; // skip pre-Jan padding
     const month = new Date(c.date).getMonth();
     if (month !== lastMonth) {
       monthLabels.push({
-        x: c.week * (SQUARE + GAP),
+        x: LABEL_W + c.week * (SQUARE + GAP),
         label: new Date(c.date).toLocaleString("en-US", { month: "short" }),
       });
       lastMonth = month;
     }
   }
 
+  // Mon / Wed / Fri labels — same convention as GitHub. Shown left of
+  // the grid, vertically aligned to their row center.
+  const DOW_LABELS: Array<{ row: number; label: string }> = [
+    { row: 1, label: "Mon" },
+    { row: 3, label: "Wed" },
+    { row: 5, label: "Fri" },
+  ];
+
   return (
     <div className="overflow-x-auto">
       <svg
         width={w}
-        height={h + 20}
+        height={h}
         role="img"
-        aria-label="Daily activity heatmap, last year"
+        aria-label="Daily activity heatmap"
         className="block"
       >
         {monthLabels.map((m) => (
@@ -148,7 +167,21 @@ export function HeatmapYear({
             {m.label}
           </text>
         ))}
-        <g transform="translate(0, 16)">
+        <g transform={`translate(0, ${HEADER_H})`}>
+          {DOW_LABELS.map((l) => (
+            <text
+              key={l.label}
+              x={0}
+              y={l.row * (SQUARE + GAP) + 9}
+              className="fill-[color:var(--ink-faint)]"
+              fontSize={9}
+              fontFamily="var(--font-mono)"
+            >
+              {l.label}
+            </text>
+          ))}
+        </g>
+        <g transform={`translate(${LABEL_W}, ${HEADER_H})`}>
           {cells.map((c) => {
             if (c.bucket === -1) return null; // out-of-year padding
             const x = c.week * (SQUARE + GAP);
@@ -160,6 +193,14 @@ export function HeatmapYear({
               day: "numeric",
               year: "numeric",
             });
+            const tooltip = c.data?.hover
+              ? `${dayLabel}\n${c.data.hover}`
+              : c.data
+                ? `${dayLabel}\n${c.data.value.toLocaleString("en-US")}` +
+                  (c.data.delta != null
+                    ? `\nΔ ${c.data.delta > 0 ? "+" : ""}${c.data.delta.toLocaleString("en-US")}`
+                    : "")
+                : `${dayLabel}\n${c.isPast ? "No data" : "Upcoming"}`;
             return (
               <rect
                 key={c.date}
@@ -170,17 +211,7 @@ export function HeatmapYear({
                 rx={2}
                 fill={fill}
               >
-                <title>
-                  {dayLabel}
-                  {c.data
-                    ? `\n${c.data.value.toLocaleString("en-US")}` +
-                      (c.data.delta != null
-                        ? `\nΔ ${c.data.delta > 0 ? "+" : ""}${c.data.delta.toLocaleString("en-US")}`
-                        : "")
-                    : c.isPast
-                      ? "\nNo data"
-                      : "\nUpcoming"}
-                </title>
+                <title>{tooltip}</title>
               </rect>
             );
           })}

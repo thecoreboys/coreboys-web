@@ -899,10 +899,12 @@ body {
   50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 
-/* Live nav pill blink — white dot that fades to red, broadcast-style. */
+/* Live nav pill blink — red dot that pulses opacity, broadcast-style.
+   The element itself sets the red background (`bg-[color:var(--core)]`)
+   so this keyframe just modulates intensity. */
 @keyframes live-blink {
-  0%, 49% { background: #fff; }
-  50%, 100% { background: #ef4444; }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.28; }
 }
 
 /* Ping ripple — used by the live-status indicator on member pages.
