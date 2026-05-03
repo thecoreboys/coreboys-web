@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, FileText, Image as ImageIcon, MessageSquareCode, ScanFace, UserPlus, Users, Video } from "lucide-react";
+import { ArrowUpRight, FileText, Heart, Image as ImageIcon, UserPlus, Users, Video } from "lucide-react";
 import { AuthGate, SignOutButton } from "@/components/admin/AuthGate";
 
 export const metadata: Metadata = {
@@ -12,56 +12,38 @@ const TILES = [
   {
     href: "/admin/photos",
     title: "Photos",
-    desc: "Upload, tag faces, edit metadata, set credits.",
+    desc: "Upload, manually tag people, edit metadata, set credits.",
     Icon: ImageIcon,
   },
   {
     href: "/admin/clips",
-    title: "Clip review queue",
-    desc: "Approve / deny fan-submitted clips, then publish to the public library.",
-    Icon: Video,
-  },
-  {
-    href: "/admin/clips/new",
-    title: "Add a clip directly",
-    desc: "Paste a Twitch / YouTube / TikTok / Instagram URL — extract metadata + tag people.",
+    title: "Clips",
+    desc: "Add a Twitch / YouTube / TikTok / IG clip directly, or review and publish fan submissions.",
     Icon: Video,
   },
   {
     href: "/admin/articles",
     title: "Articles",
-    desc: "Manage every article — search, preview, delete drafts.",
-    Icon: FileText,
-  },
-  {
-    href: "/admin/articles/new",
-    title: "Write an article",
-    desc: "Rich-text editor with headers, images, video embeds, and links.",
+    desc: "Write, edit, and publish editorial — rich text, embeds, image gallery, callouts, drafts.",
     Icon: FileText,
   },
   {
     href: "/admin/people",
     title: "Members & crew",
-    desc: "Edit name, alias, DOB, comm, height, weight, nickname, fave game, bio.",
+    desc: "Names, aliases, DOB, comms, heights, bios, dynamic social links, gallery picks.",
     Icon: Users,
   },
   {
     href: "/admin/talents",
     title: "Talents",
-    desc: "Add tags by Twitch handle, or create manually with AI-discovered socials.",
+    desc: "Tag external creators by Twitch handle so they're linkable in articles + clips.",
     Icon: UserPlus,
   },
   {
-    href: "/admin/faces",
-    title: "Face recognition",
-    desc: "Manage the Rekognition collection + detection queue for new photo uploads.",
-    Icon: ScanFace,
-  },
-  {
-    href: "/admin/chat-mod",
-    title: "Chat moderation",
-    desc: "Bans, slowmode, ingest health for the BTTV/7TV pipeline.",
-    Icon: MessageSquareCode,
+    href: "/admin/fanzone",
+    title: "Fanzone review",
+    desc: "Approve / deny photos submitted to the fan wall.",
+    Icon: Heart,
   },
 ];
 
@@ -85,8 +67,7 @@ export default function AdminHome() {
                   Admin console.
                 </h1>
                 <p className="mt-3 max-w-[60ch] text-[14px] text-[color:var(--ink-dim)]">
-                  Photos, clips, articles, and people. All edits write to localStorage in this
-                  Phase-1 stub; Phase 4 swaps to <code className="font-mono">coreboys-api</code>.
+                  Photos, clips, articles, members, and fanzone review.
                 </p>
               </div>
               <SignOutButton />
