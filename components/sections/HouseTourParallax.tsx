@@ -57,6 +57,28 @@ export function HouseTourParallax() {
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
   }, []);
+
+  // Mobile Safari ignores the `autoplay` attribute often enough that the
+  // background video never starts on phones — the user just sees a black
+  // section. Calling .play() in a post-hydration effect satisfies the
+  // policy (muted + playsInline + post-load are all true) and works
+  // around the bug. Also retry on the canplay event in case the metadata
+  // loads after we first try.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const tryPlay = () => {
+      const p = v.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    };
+    tryPlay();
+    v.addEventListener("canplay", tryPlay);
+    v.addEventListener("loadeddata", tryPlay);
+    return () => {
+      v.removeEventListener("canplay", tryPlay);
+      v.removeEventListener("loadeddata", tryPlay);
+    };
+  }, []);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start end", "end start"],
