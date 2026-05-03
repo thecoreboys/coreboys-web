@@ -5,7 +5,6 @@ import { ArrowUpRight } from "lucide-react";
 import { HeatmapYear, type HeatmapDay } from "@/components/metrics/HeatmapYear";
 import { TrendLine, type TrendPoint } from "@/components/metrics/TrendLine";
 import { SocialIcon } from "@/components/ui/SocialIcon";
-import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { GROUP } from "@/lib/group";
 
 export type MetricsRow = {
@@ -57,15 +56,6 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
   const [range, setRange] = useState<Range>("31d");
   const [metricKey, setMetricKey] = useState<Metric>("twitch-combined");
   const metric = METRICS.find((m) => m.key === metricKey)!;
-
-  // Live status — drives the "X live now · Y watching" header pill so
-  // metrics page reflects the current stream state in real time.
-  const { data: liveData } = useLiveStatus();
-  const liveEntries = (liveData?.live ?? []).filter((l) => l.isLive);
-  const liveCombinedViewers = liveEntries.reduce(
-    (sum, e) => sum + (e.viewerCount ?? 0),
-    0,
-  );
 
   // Filter rows by range on the client. The /api/metrics endpoint can
   // also enforce range, but we always query "all" here so the toggle is
@@ -147,28 +137,13 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
       {/* Section header — matches Stream Stats / Chat Stats so the
           range filters always live in the same spot top-right. */}
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-              Group totals · followers / subs
-            </p>
-            <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
-              Snapshot of every public account.
-            </h2>
-          </div>
-          {liveEntries.length > 0 ? (
-            <span className="inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/60 bg-[color:var(--core)]/12 px-3 py-1.5">
-              <span
-                aria-hidden
-                className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(239,68,68,0.7)]"
-                style={{ animation: "live-blink 1s ease-in-out infinite" }}
-              />
-              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--core)]">
-                LIVE · {liveEntries.length}
-                {liveCombinedViewers > 0 ? ` · ${liveCombinedViewers.toLocaleString("en-US")} watching` : ""}
-              </span>
-            </span>
-          ) : null}
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+            Group totals · followers / subs
+          </p>
+          <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
+            Snapshot of every public account.
+          </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(["1d", "7d", "31d", "all"] as Range[]).map((r) => (

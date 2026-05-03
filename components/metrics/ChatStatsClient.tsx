@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { TrendLine, type TrendPoint } from "@/components/metrics/TrendLine";
 
 export type ChatRow = {
@@ -13,52 +15,55 @@ export type ChatRow = {
 
 export type ChatStatsClientProps = {
   chat: ChatRow[];
-  members: Array<{ slug: string; name: string; accent: string }>;
+  members: Array<{ slug: string; name: string; accent: string; portrait: string }>;
 };
 
 type Range = "1d" | "7d" | "31d";
 
 export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
   const [range, setRange] = useState<Range>("7d");
+  const router = useRouter();
 
-  const cutoff = useMemo(() => {
+  // Auto-refresh every 5 minutes — server is already
+  // `dynamic = "force-dynamic"`, so router.refresh() pulls fresh
+  // chat_metrics rows without a full page navigation.
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 5 * 60_000);
+    return () => clearInterval(id);
+  }, [router]);
+
+  const cutoffMs = useMemo(() => {
     const days = range === "1d" ? 1 : range === "7d" ? 7 : 31;
-    const c = new Date();
-    c.setDate(c.getDate() - days);
-    return c.toISOString();
+    return Date.now() - days * 86_400_000;
   }, [range]);
 
-  const ranged = useMemo(() => chat.filter((r) => r.hour >= cutoff), [chat, cutoff]);
+  // Postgres `hour_utc::text` ships as "2026-05-02 18:00:00+00" — JS
+  // Date can parse that, but a string-compare against a JS ISO cutoff
+  // (which uses 'T') drops same-day rows, so always compare numeric ms.
+  const ranged = useMemo(
+    () => chat.filter((r) => Date.parse(r.hour.replace(" ", "T")) >= cutoffMs),
+    [chat, cutoffMs],
+  );
 
   const totals = useMemo(() => {
-    const perMember = new Map<string, { messages: number; chatters: Set<string> }>();
-    for (const m of members) perMember.set(m.slug, { messages: 0, chatters: new Set() });
+    // Sum messages per member, plus the grand total. We previously also
+    // computed peak unique chatters here but the user opted to hide that
+    // surface — the chat-listener worker still writes both columns into
+    // chat_metrics, so the data continues to accumulate.
+    const perMemberMessages = new Map<string, number>();
+    for (const m of members) perMemberMessages.set(m.slug, 0);
     let totalMessages = 0;
-    let maxUniqueAcrossHours = 0;
     for (const r of ranged) {
-      const e = perMember.get(r.slug);
-      if (!e) continue;
-      e.messages += r.messages;
-      // We only know per-(slug, hour) unique counts — true cross-hour
-      // dedupe would need raw chatter usernames. Best approximation: max
-      // per-hour count is a lower bound on the period's unique chatters
-      // for that slug.
-      e.chatters.add(`${r.slug}::${r.hour}`); // placeholder; we use per-hour max below
+      if (!perMemberMessages.has(r.slug)) continue;
+      perMemberMessages.set(r.slug, (perMemberMessages.get(r.slug) ?? 0) + r.messages);
       totalMessages += r.messages;
-      maxUniqueAcrossHours = Math.max(maxUniqueAcrossHours, r.chatters);
     }
     return {
       totalMessages,
-      perMember: members.map((m) => {
-        const e = perMember.get(m.slug)!;
-        // For per-member peak, find the row's own max chatters in window.
-        const peakChatters = ranged
-          .filter((r) => r.slug === m.slug)
-          .reduce((max, r) => Math.max(max, r.chatters), 0);
-        return { ...m, messages: e.messages, peakChatters };
-      }),
-      // Combined message count across all members in the window.
-      maxConcurrentChatters: maxUniqueAcrossHours,
+      perMember: members.map((m) => ({
+        ...m,
+        messages: perMemberMessages.get(m.slug) ?? 0,
+      })),
     };
   }, [ranged, members]);
 
@@ -123,7 +128,6 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
             <KpiCard
               label="Total messages"
               value={totals.totalMessages.toLocaleString("en-US")}
-              sub={`${ranged.length} hour bucket${ranged.length === 1 ? "" : "s"}`}
             />
           </section>
 
@@ -160,8 +164,25 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
                   <tr key={m.slug} className="border-t border-[color:var(--rule)]">
                     <td className="px-4 py-2.5 text-[13px] font-semibold text-[color:var(--ink)]">
                       <span className="inline-flex items-center gap-2">
-                        <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: m.accent }} />
-                        {m.name}
+                        <span
+                          className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-2 ring-inset"
+                          style={{ ["--tw-ring-color" as string]: `${m.accent}66` }}
+                        >
+                          <Image
+                            src={m.portrait}
+                            alt={m.name}
+                            fill
+                            unoptimized
+                            sizes="28px"
+                            className="object-cover"
+                          />
+                        </span>
+                        <span
+                          className="tracking-tight"
+                          style={{ textShadow: `0 0 14px ${m.accent}66, 0 0 3px rgba(255,255,255,0.4)` }}
+                        >
+                          {m.name}
+                        </span>
                       </span>
                     </td>
                     <td className="px-4 py-2.5">
@@ -184,7 +205,7 @@ export function ChatStatsClient({ chat, members }: ChatStatsClientProps) {
   );
 }
 
-function KpiCard({ label, value, sub }: { label: string; value: string; sub: string }) {
+function KpiCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4">
       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
@@ -192,9 +213,6 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub: str
       </p>
       <p className="mt-2 text-[24px] font-bold tabular-nums leading-none text-[color:var(--ink)]">
         {value}
-      </p>
-      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-        {sub}
       </p>
     </div>
   );
