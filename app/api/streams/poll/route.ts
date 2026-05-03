@@ -69,12 +69,13 @@ export async function POST(req: Request) {
         `INSERT INTO stream_sessions
            (member_slug, twitch_login, twitch_stream_id, started_at,
             peak_viewers, sum_viewers, sample_count, title, game, last_polled_at)
-         VALUES ($1,$2,$3,$4,$5,$5,1,$6,$7,NOW())`,
+         VALUES ($1,$2,$3,$4,$5,$6,1,$7,$8,NOW())`,
         [
           m.slug,
           m.twitchLogin.toLowerCase(),
           stream.id,
           stream.started_at,
+          stream.viewer_count,
           stream.viewer_count,
           stream.title ?? null,
           stream.game_name ?? null,

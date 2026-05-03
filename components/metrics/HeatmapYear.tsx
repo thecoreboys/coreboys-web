@@ -193,32 +193,40 @@ export function HeatmapYear({
               day: "numeric",
               year: "numeric",
             });
+            const isToday = c.date === todayIso();
             const tooltip = c.data?.hover
-              ? `${dayLabel}\n${c.data.hover}`
+              ? `${dayLabel}${isToday ? " · today" : ""}\n${c.data.hover}`
               : c.data
-                ? `${dayLabel}\n${c.data.value.toLocaleString("en-US")}` +
+                ? `${dayLabel}${isToday ? " · today" : ""}\n${c.data.value.toLocaleString("en-US")}` +
                   (c.data.delta != null
                     ? `\nΔ ${c.data.delta > 0 ? "+" : ""}${c.data.delta.toLocaleString("en-US")}`
                     : "")
-                : `${dayLabel}\n${c.isPast ? "No data" : "Upcoming"}`;
+                : `${dayLabel}${isToday ? " · today" : ""}\n${c.isPast ? "No data" : "Upcoming"}`;
             return (
-              <rect
-                key={c.date}
-                x={x}
-                y={y}
-                width={SQUARE}
-                height={SQUARE}
-                rx={2}
-                fill={fill}
-              >
-                <title>{tooltip}</title>
-              </rect>
+              <g key={c.date}>
+                <rect
+                  x={x}
+                  y={y}
+                  width={SQUARE}
+                  height={SQUARE}
+                  rx={2}
+                  fill={fill}
+                  stroke={isToday ? "var(--ink)" : "transparent"}
+                  strokeWidth={isToday ? 1.4 : 0}
+                >
+                  <title>{tooltip}</title>
+                </rect>
+              </g>
             );
           })}
         </g>
       </svg>
     </div>
   );
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function bucketColor(bucket: number, accent: string, isFuture: boolean): string {

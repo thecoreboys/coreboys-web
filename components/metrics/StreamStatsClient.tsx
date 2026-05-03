@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, Flame } from "lucide-react";
 import { HeatmapYear, type HeatmapDay } from "@/components/metrics/HeatmapYear";
+import { useLiveStatus } from "@/hooks/useLiveStatus";
 
 export type StreamSession = {
   id: string;
@@ -45,6 +46,32 @@ type Range = "1d" | "7d" | "31d" | "all";
 
 export function StreamStatsClient({ sessions, daily, members }: StreamStatsClientProps) {
   const [range, setRange] = useState<Range>("31d");
+
+  // Live viewer counts — used for the per-member "LIVE · X watching"
+  // badge and the combined header tally. SWR refreshes every 60s.
+  const { data: liveData } = useLiveStatus();
+  const liveByLogin = useMemo(() => {
+    const map = new Map<string, { isLive: boolean; viewerCount: number | null }>();
+    for (const e of liveData?.live ?? []) {
+      map.set(e.login.toLowerCase(), { isLive: e.isLive, viewerCount: e.viewerCount ?? null });
+    }
+    return map;
+  }, [liveData]);
+  const combinedLiveViewers = useMemo(() => {
+    let n = 0;
+    for (const m of members) {
+      const v = liveByLogin.get(m.twitchLogin.toLowerCase());
+      if (v?.isLive) n += v.viewerCount ?? 0;
+    }
+    return n;
+  }, [members, liveByLogin]);
+  const liveCount = useMemo(() => {
+    let n = 0;
+    for (const m of members) {
+      if (liveByLogin.get(m.twitchLogin.toLowerCase())?.isLive) n += 1;
+    }
+    return n;
+  }, [members, liveByLogin]);
 
   const cutoff = useMemo(() => {
     if (range === "all") return null;
@@ -177,15 +204,32 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Range toggle + section header */}
+      {/* Range toggle + section header (with live combined viewers) */}
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-            Twitch · Stream stats
-          </p>
-          <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
-            Live time, peak watchers, daily streaks.
-          </h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+              Twitch · Stream stats
+            </p>
+            <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
+              Live time, peak watchers, daily streaks.
+            </h2>
+          </div>
+          {liveCount > 0 ? (
+            <span className="inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/60 bg-[color:var(--core)]/12 px-3 py-1.5">
+              <span
+                aria-hidden
+                className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(239,68,68,0.7)]"
+                style={{ animation: "live-blink 1s ease-in-out infinite" }}
+              />
+              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--core)]">
+                LIVE · {liveCount}
+                {combinedLiveViewers > 0
+                  ? ` · ${combinedLiveViewers.toLocaleString("en-US")} watching`
+                  : ""}
+              </span>
+            </span>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(["1d", "7d", "31d", "all"] as Range[]).map((r) => (
@@ -231,6 +275,8 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {perMember.map((m) => {
           const streak = streaksBySlug.get(m.slug);
+          const live = liveByLogin.get(m.twitchLogin.toLowerCase());
+          const isLive = live?.isLive ?? false;
           return (
             <Link
               key={m.slug}
@@ -239,22 +285,32 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
               style={{ ["--card-accent" as string]: m.accent }}
             >
               <div
-                className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-lg ring-1 ring-inset"
-                style={{ ["--tw-ring-color" as string]: `${m.accent}55` }}
+                className="relative aspect-square w-24 shrink-0 overflow-hidden rounded-lg ring-1 ring-inset"
+                style={{ ["--tw-ring-color" as string]: isLive ? "var(--core)" : `${m.accent}55` }}
               >
                 <Image
                   src={m.portrait}
                   alt={m.name}
                   fill
                   unoptimized
-                  sizes="80px"
+                  sizes="96px"
                   className="object-cover transition-transform duration-500 group-hover:scale-[1.05]"
                 />
+                {isLive ? (
+                  <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-md bg-[color:var(--core)] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.12em] text-white shadow-[0_2px_6px_rgba(239,68,68,0.6)]">
+                    <span
+                      aria-hidden
+                      className="h-1 w-1 rounded-full bg-white"
+                      style={{ animation: "live-blink 1s ease-in-out infinite" }}
+                    />
+                    Live
+                  </span>
+                ) : null}
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex items-center justify-between gap-2">
                   <p
-                    className="truncate text-[14px] font-bold tracking-tight"
+                    className="truncate text-[18px] font-bold tracking-tight md:text-[20px]"
                     style={{ color: m.accent }}
                   >
                     {m.name}
@@ -270,6 +326,12 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
                     <ArrowUpRight size={11} />
                   </a>
                 </div>
+                {isLive && (live?.viewerCount ?? 0) > 0 ? (
+                  <p className="-mt-0.5 inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold text-[color:var(--core)]">
+                    <span className="tabular-nums">{(live!.viewerCount ?? 0).toLocaleString("en-US")}</span>
+                    <span className="font-normal text-[color:var(--ink-dim)]">watching now</span>
+                  </p>
+                ) : null}
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[10px] text-[color:var(--ink-dim)]">
                   <Datum label="Peak" value={m.peak.toLocaleString("en-US")} />
                   <Datum label="Avg" value={m.avg.toLocaleString("en-US")} />

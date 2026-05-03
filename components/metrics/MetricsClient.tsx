@@ -5,6 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import { HeatmapYear, type HeatmapDay } from "@/components/metrics/HeatmapYear";
 import { TrendLine, type TrendPoint } from "@/components/metrics/TrendLine";
 import { SocialIcon } from "@/components/ui/SocialIcon";
+import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { GROUP } from "@/lib/group";
 
 export type MetricsRow = {
@@ -21,13 +22,28 @@ export type MetricsClientProps = {
 
 type Range = "1d" | "7d" | "31d" | "all";
 
-const PLATFORM_LABEL: Record<string, string> = {
-  twitch: "Twitch",
-  youtube: "YouTube",
-  tiktok: "TikTok",
-  instagram: "Instagram",
-  x: "X",
-};
+/** Single-pill trend selector keys — one chart at a time. */
+type Metric =
+  | "twitch-combined"
+  | "youtube-group"
+  | "tiktok-group"
+  | "instagram-group"
+  | "x-group";
+
+const METRICS: ReadonlyArray<{
+  key: Metric;
+  platform: "twitch" | "youtube" | "tiktok" | "instagram" | "x";
+  brand: string;
+  label: string;
+  subtitle: string;
+  unit: string;
+}> = [
+  { key: "twitch-combined", platform: "twitch",    brand: "#9146FF", label: "Twitch",    subtitle: "Members combined", unit: "followers" },
+  { key: "youtube-group",   platform: "youtube",   brand: "#FF0033", label: "YouTube",   subtitle: GROUP.socials.youtube.handle,   unit: "subs" },
+  { key: "tiktok-group",    platform: "tiktok",    brand: "#FE2C55", label: "TikTok",    subtitle: GROUP.socials.tiktok.handle,    unit: "followers" },
+  { key: "instagram-group", platform: "instagram", brand: "#E1306C", label: "Instagram", subtitle: GROUP.socials.instagram.handle, unit: "followers" },
+  { key: "x-group",         platform: "x",         brand: "#a1a1aa", label: "X",         subtitle: GROUP.socials.x.handle,         unit: "followers" },
+];
 
 const PLATFORM_COLOR: Record<string, string> = {
   twitch: "#9146FF",
@@ -39,8 +55,17 @@ const PLATFORM_COLOR: Record<string, string> = {
 
 export function MetricsClient({ rows, members }: MetricsClientProps) {
   const [range, setRange] = useState<Range>("31d");
-  const [scope, setScope] = useState<"group" | "twitch-combined">("group");
-  const [activePlatform, setActivePlatform] = useState<string>("twitch");
+  const [metricKey, setMetricKey] = useState<Metric>("twitch-combined");
+  const metric = METRICS.find((m) => m.key === metricKey)!;
+
+  // Live status — drives the "X live now · Y watching" header pill so
+  // metrics page reflects the current stream state in real time.
+  const { data: liveData } = useLiveStatus();
+  const liveEntries = (liveData?.live ?? []).filter((l) => l.isLive);
+  const liveCombinedViewers = liveEntries.reduce(
+    (sum, e) => sum + (e.viewerCount ?? 0),
+    0,
+  );
 
   // Filter rows by range on the client. The /api/metrics endpoint can
   // also enforce range, but we always query "all" here so the toggle is
@@ -82,25 +107,26 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
     return sum;
   }, [latest, members]);
 
-  // ── Trend series for the selected scope + platform ───────────────────
+  // ── Trend series for the selected metric ────────────────────────────
+  // Twitch combined: sum every member's daily Twitch follower count.
+  // Group platforms: read the __group__ row for that platform.
   const trend: TrendPoint[] = useMemo(() => {
     const buckets = new Map<string, number>();
-    for (const r of ranged) {
-      if (r.platform !== activePlatform) continue;
-      if (scope === "group") {
-        if (r.slug !== "__group__") continue;
-        buckets.set(r.date, r.count);
-      } else {
-        // twitch-combined: sum across members per day, ignore __group__
-        if (r.slug === "__group__") continue;
-        if (activePlatform !== "twitch") continue;
+    if (metric.key === "twitch-combined") {
+      for (const r of ranged) {
+        if (r.platform !== "twitch" || r.slug === "__group__") continue;
         buckets.set(r.date, (buckets.get(r.date) ?? 0) + r.count);
+      }
+    } else {
+      for (const r of ranged) {
+        if (r.platform !== metric.platform || r.slug !== "__group__") continue;
+        buckets.set(r.date, r.count);
       }
     }
     return [...buckets.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, value]) => ({ date, value }));
-  }, [ranged, activePlatform, scope]);
+  }, [ranged, metric]);
 
   // ── Heatmap source: per-day delta vs prior day for the active series ─
   const heatmap: Map<string, HeatmapDay> = useMemo(() => {
@@ -114,11 +140,11 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
     return map;
   }, [trend]);
 
-  const accent = PLATFORM_COLOR[activePlatform] ?? "#ef4444";
+  const accent = metric.brand;
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Range toggle */}
+      {/* Range toggle + live pulse */}
       <div className="flex flex-wrap items-center gap-2">
         {(["1d", "7d", "31d", "all"] as Range[]).map((r) => (
           <button
@@ -135,9 +161,19 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
             {r === "all" ? "All time" : r === "1d" ? "1 day" : r === "7d" ? "7 days" : "31 days"}
           </button>
         ))}
-        <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-          {ranged.length} samples
-        </span>
+        {liveEntries.length > 0 ? (
+          <span className="ml-auto inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/60 bg-[color:var(--core)]/12 px-3 py-1.5">
+            <span
+              aria-hidden
+              className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(239,68,68,0.7)]"
+              style={{ animation: "live-blink 1s ease-in-out infinite" }}
+            />
+            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--core)]">
+              LIVE · {liveEntries.length}
+              {liveCombinedViewers > 0 ? ` · ${liveCombinedViewers.toLocaleString("en-US")} watching` : ""}
+            </span>
+          </span>
+        ) : null}
       </div>
 
       {/* KPI grid — group-level (each linkable to its social) + Twitch combined */}
@@ -191,51 +227,55 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
         <StubCard label="Unique chatters" />
       </section>
 
-      {/* Trend chart selector + chart */}
+      {/* Trend chart — single platform pill row, brand-colored, with the
+          chart for the active selection underneath. */}
       <section className="rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 md:p-6">
-        <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-              Trend
-            </p>
-            <h2 className="mt-1 text-[18px] font-bold tracking-tight text-[color:var(--ink)] md:text-[22px]">
-              {scope === "group"
-                ? `Group ${PLATFORM_LABEL[activePlatform] ?? activePlatform}`
-                : "Combined member Twitch followers"}
-            </h2>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <ScopeToggle value={scope} onChange={setScope} />
-          </div>
+        <header className="mb-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+            Growth trend
+          </p>
+          <h2 className="mt-1 text-[18px] font-bold tracking-tight text-[color:var(--ink)] md:text-[22px]">
+            <span style={{ color: metric.brand }}>{metric.label}</span>
+            <span className="ml-2 text-[color:var(--ink-dim)]">· {metric.subtitle}</span>
+          </h2>
         </header>
 
-        {/* Per-platform tabs (only show when scope=group) */}
-        {scope === "group" ? (
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            {(["twitch", "youtube", "tiktok", "instagram", "x"] as const).map((p) => (
+        {/* Platform pill row — brand icon + label. Active pill is filled
+            with the brand color; the rest stay surface-toned with a tinted
+            border so the icons read but don't fight the chart. */}
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          {METRICS.map((m) => {
+            const active = m.key === metricKey;
+            return (
               <button
-                key={p}
+                key={m.key}
                 type="button"
-                disabled={p === "twitch"}
-                onClick={() => setActivePlatform(p)}
-                aria-pressed={activePlatform === p}
-                title={p === "twitch" ? "Group has no public Twitch account" : undefined}
-                className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  p === "twitch"
-                    ? "cursor-not-allowed border-[color:var(--rule)] bg-transparent text-[color:var(--ink-faint)] opacity-50"
-                    : activePlatform === p
-                      ? "cursor-pointer border-[color:var(--ink)]/40 bg-[color:var(--surface)] text-[color:var(--ink)]"
-                      : "cursor-pointer border-[color:var(--rule)] bg-transparent text-[color:var(--ink-dim)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]"
-                }`}
+                onClick={() => setMetricKey(m.key)}
+                aria-pressed={active}
+                className="group/pill inline-flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold tracking-tight transition-all hover:-translate-y-px"
+                style={
+                  active
+                    ? {
+                        background: m.brand,
+                        borderColor: m.brand,
+                        color: m.platform === "x" ? "#0a0a0a" : "#fff",
+                        boxShadow: `0 8px 20px -8px ${m.brand}99`,
+                      }
+                    : {
+                        background: "transparent",
+                        borderColor: `${m.brand}55`,
+                        color: m.brand,
+                      }
+                }
               >
-                {PLATFORM_LABEL[p]}
+                <SocialIcon platform={m.platform} size={13} />
+                {m.label}
               </button>
-            ))}
-          </div>
-        ) : null}
+            );
+          })}
+        </div>
 
-        <TrendLine data={trend} accent={accent} unit={activePlatform === "youtube" ? "subs" : "followers"} />
+        <TrendLine data={trend} accent={accent} unit={metric.unit} />
       </section>
 
       {/* GitHub-style heatmap of daily deltas */}
@@ -335,30 +375,3 @@ function StubCard({ label }: { label: string }) {
   );
 }
 
-function ScopeToggle({
-  value,
-  onChange,
-}: {
-  value: "group" | "twitch-combined";
-  onChange: (v: "group" | "twitch-combined") => void;
-}) {
-  return (
-    <div className="inline-flex rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-0.5">
-      {(["group", "twitch-combined"] as const).map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          aria-pressed={value === opt}
-          className={`inline-flex cursor-pointer items-center rounded-sm px-3 py-1 text-[11px] font-semibold tracking-tight transition-colors ${
-            value === opt
-              ? "bg-[color:var(--surface)] text-[color:var(--ink)]"
-              : "text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-          }`}
-        >
-          {opt === "group" ? "Group" : "Twitch combined"}
-        </button>
-      ))}
-    </div>
-  );
-}

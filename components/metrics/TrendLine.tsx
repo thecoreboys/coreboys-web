@@ -61,23 +61,18 @@ export function TrendLine({
   }
 
   if (data.length === 1) {
-    // One point isn't a line. Render the value as a hero number so the
-    // tile still feels complete.
+    // One point isn't a line yet — render the value as a hero number
+    // so the tile still feels complete.
     const only = data[0]!;
     return (
       <div
         className="flex items-center justify-center rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)]/50 p-8 text-center"
         style={{ minHeight: height }}
       >
-        <div>
-          <p className="text-[28px] font-bold tabular-nums text-[color:var(--ink)] md:text-[36px]">
-            {only.value.toLocaleString("en-US")}
-            {unit ? <span className="ml-2 text-[14px] font-medium text-[color:var(--ink-dim)]">{unit}</span> : null}
-          </p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-            First snapshot · {only.date} · trend line populates from day 2
-          </p>
-        </div>
+        <p className="text-[32px] font-bold tabular-nums text-[color:var(--ink)] md:text-[42px]">
+          {only.value.toLocaleString("en-US")}
+          {unit ? <span className="ml-2 text-[14px] font-medium text-[color:var(--ink-dim)]">{unit}</span> : null}
+        </p>
       </div>
     );
   }
