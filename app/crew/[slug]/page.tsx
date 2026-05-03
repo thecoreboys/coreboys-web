@@ -254,7 +254,7 @@ export default async function CrewMemberPage({ params }: Params) {
               {c.socials.length > 0 ? (
                 <div className="mt-7">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="eyebrow">Socials · Click to follow</p>
+                    <p className="eyebrow">Socials</p>
                     <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
                       {c.socials.length} channels
                     </span>
