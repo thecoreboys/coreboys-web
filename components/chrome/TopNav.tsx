@@ -353,7 +353,7 @@ export function TopNav({
 
         <button
           type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] cursor-pointer transition-colors hover:bg-[color:var(--surface)] md:hidden"
+          className="inline-flex h-9 w-9 items-center justify-center justify-self-end rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] cursor-pointer transition-colors hover:bg-[color:var(--surface)] md:hidden"
           aria-label={open ? "Close menu" : "Open menu"}
           onClick={() => setOpen((v) => !v)}
         >
@@ -392,7 +392,6 @@ export function TopNav({
                   ["/fanzone", "Fanzone"],
                   ["/media", "Photos"],
                   ["/clips", "Clips"],
-                  ["/chat", `Live · ${liveCount}`],
                 ] as Array<[string, string]>
               ).map(([href, label]) => (
                 <Link
@@ -404,6 +403,37 @@ export function TopNav({
                   {label}
                 </Link>
               ))}
+              {/* /chat tile — matches the desktop LIVE pill: count of
+                  live members + combined viewer total when applicable. */}
+              <Link
+                href="/chat"
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "rounded-md border px-3 py-2 text-[13px] font-medium cursor-pointer transition-colors",
+                  liveCount > 0
+                    ? "border-[color:var(--core)]/60 bg-[color:var(--core)]/12 text-[color:var(--core)] hover:bg-[color:var(--core)]/18"
+                    : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink)] hover:bg-[color:var(--surface)]",
+                )}
+              >
+                {liveCount > 0 ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 rounded-full bg-[color:var(--core)]"
+                      style={{ animation: "live-blink 1s ease-in-out infinite" }}
+                    />
+                    <span className="font-bold tracking-tight">LIVE · {liveCount}</span>
+                    {combinedViewers > 0 ? (
+                      <>
+                        <span className="text-[color:var(--core)]/50">·</span>
+                        <span className="tabular-nums">{formatCompactCount(combinedViewers)} watching</span>
+                      </>
+                    ) : null}
+                  </span>
+                ) : (
+                  "Chat · offline"
+                )}
+              </Link>
             </div>
           </nav>
         </div>
