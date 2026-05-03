@@ -128,7 +128,7 @@ export function SiteFooter() {
           </p>
           <div className="flex items-center gap-4">
             <a
-              href="https://mdcran.com"
+              href="https://x.com/berryeyu"
               target="_blank"
               rel="noopener noreferrer"
               className="font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)] hover:text-[color:var(--ink)]"
