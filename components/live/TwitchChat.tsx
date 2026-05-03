@@ -246,12 +246,14 @@ export function TwitchChat({
         </div>
       </header>
 
-      {/* Messages */}
+      {/* Messages — overflow-x-hidden so long usernames / unbreakable
+          tokens never push a horizontal scrollbar. Long content wraps
+          via overflow-wrap on the message <li>. */}
       <div
         ref={scrollerRef}
         onScroll={onScroll}
         data-lenis-prevent
-        className={`flex-1 overflow-y-auto overscroll-contain ${compact ? "px-3 py-2" : "px-4 py-3"}`}
+        className={`flex-1 overflow-x-hidden overflow-y-auto overscroll-contain ${compact ? "px-3 py-2" : "px-4 py-3"}`}
         role="log"
         aria-live="polite"
       >
@@ -277,17 +279,25 @@ export function TwitchChat({
 
       {/* Resume auto-scroll prompt */}
       {!autoScroll ? (
-        <button
-          type="button"
-          onClick={() => {
-            setAutoScroll(true);
-            const el = scrollerRef.current;
-            if (el) el.scrollTop = el.scrollHeight;
-          }}
-          className="shrink-0 border-t border-[color:var(--rule)] bg-[color:var(--bg)] py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-        >
-          Jump to latest ↓
-        </button>
+        <div className="shrink-0 border-t border-[color:var(--rule)] bg-[color:var(--bg)] p-2">
+          <button
+            type="button"
+            onClick={() => {
+              setAutoScroll(true);
+              const el = scrollerRef.current;
+              if (el) el.scrollTop = el.scrollHeight;
+            }}
+            className="group/jump inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[color:var(--core)]/45 bg-[color:var(--core)]/12 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[color:var(--core)] shadow-[0_4px_12px_-6px_rgba(239,68,68,0.6),inset_0_0_0_1px_rgba(239,68,68,0.2)] transition-all hover:-translate-y-px hover:bg-[color:var(--core)]/20 hover:shadow-[0_8px_18px_-8px_rgba(239,68,68,0.7)] active:translate-y-0"
+          >
+            <span>Jump to latest</span>
+            <span
+              aria-hidden
+              className="inline-block transition-transform group-hover/jump:translate-y-0.5"
+            >
+              ↓
+            </span>
+          </button>
+        </div>
       ) : null}
     </section>
   );
@@ -309,8 +319,15 @@ function Message({
   const color = readableColor(message.color || accent, theme);
   return (
     <li
-      className="break-words leading-snug text-[color:var(--ink)]"
-      style={{ fontSize: `${fontPx}px` }}
+      className="leading-snug text-[color:var(--ink)]"
+      style={{
+        fontSize: `${fontPx}px`,
+        // overflow-wrap:anywhere is stricter than break-words — it'll
+        // break inside long unbreakable tokens (URLs, mashed-emote
+        // strings) so nothing overflows the horizontal axis.
+        overflowWrap: "anywhere",
+        wordBreak: "break-word",
+      }}
     >
       <span
         className="font-semibold"

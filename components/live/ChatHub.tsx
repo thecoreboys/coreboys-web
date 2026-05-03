@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, Maximize2, Minimize2, Minus, Plus, RotateCcw, Settings2, Tv, TvMinimal, X } from "lucide-react";
 import { TwitchChat } from "@/components/live/TwitchChat";
+import { useLiveStatus } from "@/hooks/useLiveStatus";
 
 const TEXT_SCALE_MIN = 0.7;
 const TEXT_SCALE_MAX = 1.8;
@@ -37,7 +38,11 @@ export type ChatChannel = {
 };
 
 type Persisted = {
-  hidden: string[]; // logins explicitly hidden
+  /** Logins the viewer has explicitly hidden — wins over auto-show. */
+  hidden: string[];
+  /** Logins the viewer has explicitly pinned visible — wins over the
+   *  default "hide if offline" behavior. */
+  shown?: string[];
   guests: Array<Pick<ChatChannel, "login" | "userId" | "displayName" | "avatarUrl">>;
   /** Login order — applied to both core + guest channels. Anything not
    *  listed here falls to its natural position at the end. */
@@ -63,6 +68,7 @@ export type ChatHubProps = {
  */
 export function ChatHub({ coreChannels }: ChatHubProps) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [shown, setShown] = useState<Set<string>>(new Set());
   const [guests, setGuests] = useState<ChatChannel[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draftLogin, setDraftLogin] = useState("");
@@ -119,6 +125,9 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       if (Array.isArray(parsed.hidden)) {
         setHidden(new Set(parsed.hidden.map((s) => s.toLowerCase())));
       }
+      if (Array.isArray(parsed.shown)) {
+        setShown(new Set(parsed.shown.map((s) => s.toLowerCase())));
+      }
       if (Array.isArray(parsed.guests)) {
         setGuests(
           parsed.guests.map((g) => ({
@@ -148,6 +157,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
   const persist = useCallback(
     (
       nextHidden: Set<string>,
+      nextShown: Set<string>,
       nextGuests: ChatChannel[],
       nextOrder: string[],
       nextTextScale: number,
@@ -155,6 +165,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
     ) => {
       const payload: Persisted = {
         hidden: [...nextHidden],
+        shown: [...nextShown],
         guests: nextGuests.map((g) => ({
           login: g.login,
           userId: g.userId,
@@ -174,28 +185,56 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
     [],
   );
 
-  const toggleHidden = useCallback(
-    (login: string) => {
-      setHidden((prev) => {
-        const next = new Set(prev);
-        if (next.has(login)) next.delete(login);
-        else next.add(login);
-        persist(next, guests, order, textScale, streamsVisible);
-        return next;
-      });
+  // Live status — drives the auto-hide-when-offline default. SWR
+  // refresh interval lives in useLiveStatus (60s).
+  const { data: liveData } = useLiveStatus();
+  const liveByLogin = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of liveData?.live ?? []) {
+      if (e.isLive) set.add(e.login.toLowerCase());
+    }
+    return set;
+  }, [liveData]);
+
+  /**
+   * Toggle the effective visibility of a CORE channel:
+   *   - hidden ∪ shown encode the user's explicit overrides
+   *   - default: visible iff live, hidden otherwise
+   *   - clicking ON  → drop from hidden, pin in shown when offline
+   *   - clicking OFF → add to hidden, drop from shown
+   */
+  const toggleChannelVisibility = useCallback(
+    (login: string, isCurrentlyVisible: boolean) => {
+      const lower = login.toLowerCase();
+      const isLive = liveByLogin.has(lower);
+      const nextHidden = new Set(hidden);
+      const nextShown = new Set(shown);
+      if (isCurrentlyVisible) {
+        nextHidden.add(lower);
+        nextShown.delete(lower);
+      } else {
+        nextHidden.delete(lower);
+        if (!isLive) nextShown.add(lower);
+        // No need to explicitly mark live channels as shown — the
+        // default for live IS show, so just removing them from hidden
+        // is sufficient.
+      }
+      setHidden(nextHidden);
+      setShown(nextShown);
+      persist(nextHidden, nextShown, guests, order, textScale, streamsVisible);
     },
-    [guests, order, persist, textScale, streamsVisible],
+    [hidden, shown, liveByLogin, guests, order, persist, textScale, streamsVisible],
   );
 
   const removeGuest = useCallback(
     (login: string) => {
       setGuests((prev) => {
         const next = prev.filter((g) => g.login.toLowerCase() !== login.toLowerCase());
-        persist(hidden, next, order, textScale, streamsVisible);
+        persist(hidden, shown, next, order, textScale, streamsVisible);
         return next;
       });
     },
-    [hidden, order, persist, textScale, streamsVisible],
+    [hidden, shown, order, persist, textScale, streamsVisible],
   );
 
   /** Move `dragged` to before/after `target`. */
@@ -213,34 +252,34 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       if (toIdx < 0) return;
       current.splice(side === "before" ? toIdx : toIdx + 1, 0, dragged);
       setOrder(current);
-      persist(hidden, guests, current, textScale, streamsVisible);
+      persist(hidden, shown, guests, current, textScale, streamsVisible);
     },
-    [coreChannels, guests, hidden, order, persist, textScale, streamsVisible],
+    [coreChannels, guests, hidden, shown, order, persist, textScale, streamsVisible],
   );
 
   const adjustTextScale = useCallback(
     (delta: number) => {
       setTextScale((prev) => {
         const next = clampScale(prev + delta);
-        persist(hidden, guests, order, next, streamsVisible);
+        persist(hidden, shown, guests, order, next, streamsVisible);
         return next;
       });
     },
-    [hidden, guests, order, persist, streamsVisible],
+    [hidden, shown, guests, order, persist, streamsVisible],
   );
 
   const resetTextScale = useCallback(() => {
     setTextScale(1);
-    persist(hidden, guests, order, 1, streamsVisible);
-  }, [hidden, guests, order, persist, streamsVisible]);
+    persist(hidden, shown, guests, order, 1, streamsVisible);
+  }, [hidden, shown, guests, order, persist, streamsVisible]);
 
   const toggleStreams = useCallback(() => {
     setStreamsVisible((prev) => {
       const next = !prev;
-      persist(hidden, guests, order, textScale, next);
+      persist(hidden, shown, guests, order, textScale, next);
       return next;
     });
-  }, [hidden, guests, order, persist, textScale]);
+  }, [hidden, shown, guests, order, persist, textScale]);
 
   const addGuest = useCallback(async () => {
     const cleaned = draftLogin.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -277,27 +316,40 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       };
       const nextGuests = [...guests, next];
       setGuests(nextGuests);
-      persist(hidden, nextGuests, order, textScale, streamsVisible);
+      persist(hidden, shown, nextGuests, order, textScale, streamsVisible);
       setDraftLogin("");
     } catch {
       setAddError("Network error — try again");
     } finally {
       setAdding(false);
     }
-  }, [draftLogin, coreChannels, guests, hidden, order, persist, textScale, streamsVisible]);
+  }, [draftLogin, coreChannels, guests, hidden, shown, order, persist, textScale, streamsVisible]);
 
   const reset = useCallback(() => {
     setHidden(new Set());
+    setShown(new Set());
     setGuests([]);
     setOrder([]);
     setTextScale(1);
     setStreamsVisible(true);
-    persist(new Set(), [], [], 1, true);
+    persist(new Set(), new Set(), [], [], 1, true);
   }, [persist]);
 
+  /** Effective visibility per CORE channel: hidden wins; else live;
+   *  else only if explicitly pinned in `shown`. */
+  const isCoreVisible = useCallback(
+    (login: string): boolean => {
+      const lower = login.toLowerCase();
+      if (hidden.has(lower)) return false;
+      if (liveByLogin.has(lower)) return true;
+      return shown.has(lower);
+    },
+    [hidden, shown, liveByLogin],
+  );
+
   const visibleCore = useMemo(
-    () => coreChannels.filter((c) => !hidden.has(c.login.toLowerCase())),
-    [coreChannels, hidden],
+    () => coreChannels.filter((c) => isCoreVisible(c.login)),
+    [coreChannels, isCoreVisible],
   );
 
   const visible: ChatChannel[] = useMemo(() => {
@@ -395,19 +447,25 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
 
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             {coreChannels.map((c) => {
-              const isHidden = hidden.has(c.login.toLowerCase());
+              const visible = isCoreVisible(c.login);
+              const isLive = liveByLogin.has(c.login.toLowerCase());
               return (
                 <button
                   key={c.login}
                   type="button"
-                  onClick={() => toggleHidden(c.login.toLowerCase())}
-                  aria-pressed={!isHidden}
+                  onClick={() => toggleChannelVisibility(c.login, visible)}
+                  aria-pressed={visible}
+                  title={
+                    isLive
+                      ? `${c.displayName} is live`
+                      : `${c.displayName} is offline — toggle on to pin visible`
+                  }
                   className={`group flex items-center gap-2.5 rounded-md border px-2 py-2 text-left transition-colors cursor-pointer ${
-                    isHidden
-                      ? "border-[color:var(--rule)] bg-[color:var(--bg)] opacity-50 hover:opacity-100"
-                      : "border-[color:var(--rule-strong)] bg-[color:var(--surface)]"
+                    visible
+                      ? "border-[color:var(--rule-strong)] bg-[color:var(--surface)]"
+                      : "border-[color:var(--rule)] bg-[color:var(--bg)] opacity-60 hover:opacity-100"
                   }`}
-                  style={!isHidden ? { boxShadow: `inset 0 0 0 1px ${c.accent}55` } : undefined}
+                  style={visible ? { boxShadow: `inset 0 0 0 1px ${c.accent}55` } : undefined}
                 >
                   <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full">
                     {c.avatarUrl ? (
@@ -418,24 +476,34 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                         {c.displayName[0]}
                       </span>
                     )}
+                    {/* Tiny live dot in the corner of the avatar so the
+                        viewer can tell who's actually streaming right
+                        now without reading the toggle state. */}
+                    {isLive ? (
+                      <span
+                        aria-hidden
+                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-[color:var(--bg-elev)] bg-[color:var(--core)] shadow-[0_0_6px_rgba(239,68,68,0.7)]"
+                        style={{ animation: "live-blink 1s ease-in-out infinite" }}
+                      />
+                    ) : null}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col leading-tight">
                     <span className="truncate text-[13px] font-semibold text-[color:var(--ink)]">
                       {c.displayName}
                     </span>
                     <span className="mt-0.5 truncate text-[11px] text-[color:var(--ink-dim)]">
-                      twitch.tv/{c.login}
+                      {isLive ? "Live now" : "Offline"}
                     </span>
                   </span>
                   <span
                     aria-hidden
                     className={`inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
-                      isHidden ? "bg-[color:var(--ink-faint)]/40" : "bg-[color:var(--core)]"
+                      visible ? "bg-[color:var(--core)]" : "bg-[color:var(--ink-faint)]/40"
                     }`}
                   >
                     <span
                       className={`mx-0.5 inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${
-                        isHidden ? "translate-x-0" : "translate-x-3"
+                        visible ? "translate-x-3" : "translate-x-0"
                       }`}
                     />
                   </span>
@@ -753,7 +821,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                     accent={c.accent}
                     avatarUrl={c.avatarUrl}
                     isCore={c.isCore}
-                    onClose={c.isCore ? () => toggleHidden(c.login.toLowerCase()) : () => removeGuest(c.login)}
+                    onClose={c.isCore ? () => toggleChannelVisibility(c.login, true) : () => removeGuest(c.login)}
                     compact
                     textScale={textScale}
                     monitorSlug={c.isCore ? c.slug : undefined}
