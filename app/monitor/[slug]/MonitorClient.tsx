@@ -378,6 +378,14 @@ export function MonitorClient({
         onLoad={() => setScriptReady(true)}
       />
       <div className="bg-[color:var(--bg)]">
+        <div className="mx-auto max-w-[1800px] px-4 pt-4 md:px-8 md:pt-6">
+          <p className="rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-[12px] leading-snug text-[color:var(--ink-dim)] md:text-[13px]">
+            <span className="font-semibold text-[color:var(--ink)]">Heads up</span>{" "}
+            <span aria-hidden className="text-[color:var(--ink-faint)]">·</span>{" "}
+            This is tailored for the streamer to open on their phone to
+            monitor connection, and read chat with 7tv, bttv, &amp; ttv emotes.
+          </p>
+        </div>
         <div className="mx-auto grid max-w-[1800px] gap-4 px-4 py-4 md:px-8 md:py-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           {/* Left column: player + stats. Right column: chat. Stack on mobile. */}
           <div className="flex flex-col gap-4">
