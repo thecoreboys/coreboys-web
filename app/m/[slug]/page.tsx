@@ -266,7 +266,7 @@ export default async function MemberPage({ params }: Params) {
               </div>
 
               <div className="mt-5">
-                <MemberLiveStatus login={member.twitchLogin} initial={liveEntry} />
+                <MemberLiveStatus login={member.twitchLogin} slug={member.slug} initial={liveEntry} />
               </div>
 
               <p className="mt-6 max-w-[60ch] text-[15px] leading-relaxed text-[color:var(--ink-dim)] md:text-[16px]">
