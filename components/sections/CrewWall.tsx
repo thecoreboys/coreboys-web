@@ -52,7 +52,10 @@ export async function CrewWall() {
         slug: m.slug,
         stageName: m.stageName,
         accent: m.accent,
-        avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
+        // Prefer the live Twitch profile pic for the "Rides with"
+        // avatars — the rounded headshots read more distinctly than
+        // the framed editorial portrait crops.
+        avatarUrl: avatars[m.twitchLogin.toLowerCase()] ?? m.portrait,
       })),
     };
   });
