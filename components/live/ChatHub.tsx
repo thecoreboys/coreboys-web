@@ -1,8 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Maximize2, Minimize2, Plus, RotateCcw, Settings2, X } from "lucide-react";
+import { GripVertical, Maximize2, Minimize2, Minus, Plus, RotateCcw, Settings2, X } from "lucide-react";
 import { TwitchChat } from "@/components/live/TwitchChat";
+
+const TEXT_SCALE_MIN = 0.7;
+const TEXT_SCALE_MAX = 1.8;
+const TEXT_SCALE_STEP = 0.1;
+
+function clampScale(n: number): number {
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, Math.round(n * 10) / 10));
+}
 
 const STORAGE_KEY = "coreboys-chat-hub:v1";
 
@@ -33,6 +42,8 @@ type Persisted = {
   /** Login order — applied to both core + guest channels. Anything not
    *  listed here falls to its natural position at the end. */
   order?: string[];
+  /** Multiplier applied to chat font + emote sizing across every tile. */
+  textScale?: number;
 };
 
 export type ChatHubProps = {
@@ -61,6 +72,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
   const [dragOverLogin, setDragOverLogin] = useState<string | null>(null);
   const [dragOverSide, setDragOverSide] = useState<"before" | "after">("before");
   const [mobileActive, setMobileActive] = useState<string | null>(null);
+  const [textScale, setTextScale] = useState<number>(1);
   const fullscreenRootRef = useRef<HTMLDivElement | null>(null);
 
   // Real browser fullscreen via the Fullscreen API. Sync the local
@@ -111,13 +123,21 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       if (Array.isArray(parsed.order)) {
         setOrder(parsed.order.map((s) => s.toLowerCase()));
       }
+      if (typeof parsed.textScale === "number" && Number.isFinite(parsed.textScale)) {
+        setTextScale(clampScale(parsed.textScale));
+      }
     } catch {
       /* ignore */
     }
   }, []);
 
   const persist = useCallback(
-    (nextHidden: Set<string>, nextGuests: ChatChannel[], nextOrder: string[]) => {
+    (
+      nextHidden: Set<string>,
+      nextGuests: ChatChannel[],
+      nextOrder: string[],
+      nextTextScale: number,
+    ) => {
       const payload: Persisted = {
         hidden: [...nextHidden],
         guests: nextGuests.map((g) => ({
@@ -127,6 +147,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
           avatarUrl: g.avatarUrl,
         })),
         order: nextOrder,
+        textScale: nextTextScale,
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -143,22 +164,22 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
         const next = new Set(prev);
         if (next.has(login)) next.delete(login);
         else next.add(login);
-        persist(next, guests, order);
+        persist(next, guests, order, textScale);
         return next;
       });
     },
-    [guests, order, persist],
+    [guests, order, persist, textScale],
   );
 
   const removeGuest = useCallback(
     (login: string) => {
       setGuests((prev) => {
         const next = prev.filter((g) => g.login.toLowerCase() !== login.toLowerCase());
-        persist(hidden, next, order);
+        persist(hidden, next, order, textScale);
         return next;
       });
     },
-    [hidden, order, persist],
+    [hidden, order, persist, textScale],
   );
 
   /** Move `dragged` to before/after `target`. */
@@ -176,10 +197,26 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       if (toIdx < 0) return;
       current.splice(side === "before" ? toIdx : toIdx + 1, 0, dragged);
       setOrder(current);
-      persist(hidden, guests, current);
+      persist(hidden, guests, current, textScale);
     },
-    [coreChannels, guests, hidden, order, persist],
+    [coreChannels, guests, hidden, order, persist, textScale],
   );
+
+  const adjustTextScale = useCallback(
+    (delta: number) => {
+      setTextScale((prev) => {
+        const next = clampScale(prev + delta);
+        persist(hidden, guests, order, next);
+        return next;
+      });
+    },
+    [hidden, guests, order, persist],
+  );
+
+  const resetTextScale = useCallback(() => {
+    setTextScale(1);
+    persist(hidden, guests, order, 1);
+  }, [hidden, guests, order, persist]);
 
   const addGuest = useCallback(async () => {
     const cleaned = draftLogin.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -216,20 +253,21 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       };
       const nextGuests = [...guests, next];
       setGuests(nextGuests);
-      persist(hidden, nextGuests, order);
+      persist(hidden, nextGuests, order, textScale);
       setDraftLogin("");
     } catch {
       setAddError("Network error — try again");
     } finally {
       setAdding(false);
     }
-  }, [draftLogin, coreChannels, guests, hidden, order, persist]);
+  }, [draftLogin, coreChannels, guests, hidden, order, persist, textScale]);
 
   const reset = useCallback(() => {
     setHidden(new Set());
     setGuests([]);
     setOrder([]);
-    persist(new Set(), [], []);
+    setTextScale(1);
+    persist(new Set(), [], [], 1);
   }, [persist]);
 
   const visibleCore = useMemo(
@@ -367,6 +405,50 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                 </button>
               );
             })}
+          </div>
+
+          {/* Text size control — applies to every chat tile. */}
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <p className="text-[11px] font-semibold tracking-tight text-[color:var(--ink-dim)]">
+              Text size
+            </p>
+            <div className="inline-flex items-center gap-1 rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--surface)] p-0.5">
+              <button
+                type="button"
+                onClick={() => adjustTextScale(-TEXT_SCALE_STEP)}
+                disabled={textScale <= TEXT_SCALE_MIN + 1e-6}
+                aria-label="Decrease chat text size"
+                className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm text-[color:var(--ink-dim)] transition-colors hover:text-[color:var(--ink)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Minus size={13} />
+              </button>
+              <span
+                className="min-w-[44px] text-center font-mono text-[12px] tabular-nums text-[color:var(--ink)]"
+                aria-live="polite"
+              >
+                {Math.round(textScale * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => adjustTextScale(TEXT_SCALE_STEP)}
+                disabled={textScale >= TEXT_SCALE_MAX - 1e-6}
+                aria-label="Increase chat text size"
+                className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm text-[color:var(--ink-dim)] transition-colors hover:text-[color:var(--ink)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus size={13} />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={resetTextScale}
+              disabled={Math.abs(textScale - 1) < 1e-6}
+              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[color:var(--ink-dim)]"
+            >
+              <RotateCcw size={11} /> Reset
+            </button>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+              Applies to every chat
+            </span>
           </div>
 
           {guests.length > 0 ? (
@@ -629,6 +711,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                     isCore={c.isCore}
                     onClose={c.isCore ? () => toggleHidden(c.login.toLowerCase()) : () => removeGuest(c.login)}
                     compact
+                    textScale={textScale}
                   />
                 </div>
               );
