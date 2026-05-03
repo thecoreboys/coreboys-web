@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const member = MEMBERS_BY_SLUG[slug];
   if (!member) return {};
   return {
-    title: `${member.stageName} — CORE`,
+    title: member.stageName,
     description: member.bio,
     alternates: { canonical: `/m/${member.slug}` },
     openGraph: {

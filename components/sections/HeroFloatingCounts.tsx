@@ -16,9 +16,13 @@ export type FloatingCountItem = {
 };
 
 /**
- * Scattered, gently drifting follower-count chips for the home hero.
+ * Group-account follower / sub counts pinned to the bottom-right of the
+ * home hero as a single horizontal row of pill chips. Each chip drifts
+ * independently so the bar feels alive without scattering across the
+ * face area of the group photo.
+ *
  * Server fetches the counts via Social Fetch + passes them through; this
- * component owns the placement, animation, and click-through to each
+ * component owns layout, animation, and click-through to each
  * platform's group account.
  *
  * Hidden below `md` so they don't crowd the mobile hero.
@@ -26,23 +30,17 @@ export type FloatingCountItem = {
 export function HeroFloatingCounts({ items }: { items: FloatingCountItem[] }) {
   if (items.length === 0) return null;
 
-  // Cluster chips along the lower-right of the hero so they overlap the
-  // group photo's bottom edge / clothing zone instead of riding above
-  // the face area at the top. Each chip drifts on its own period.
-  const POSITIONS: Array<{ top: string; right: string; drift: number }> = [
-    { top: "62%", right: "28%", drift: 6 },
-    { top: "74%", right: "4%", drift: -8 },
-    { top: "86%", right: "26%", drift: 5 },
-    { top: "94%", right: "6%", drift: -7 },
-  ];
+  // Per-chip vertical drift — different period each so the row never
+  // syncs into a flat slab.
+  const DRIFT = [4, -5, 6, -4];
 
   return (
     <div
       aria-hidden="false"
-      className="pointer-events-none absolute inset-0 z-20 hidden md:block"
+      className="pointer-events-none absolute bottom-6 right-4 z-20 hidden flex-row items-end gap-2 md:bottom-10 md:right-8 md:flex"
     >
       {items.map((item, i) => {
-        const pos = POSITIONS[i % POSITIONS.length]!;
+        const drift = DRIFT[i % DRIFT.length]!;
         return (
           <motion.a
             key={item.platform}
@@ -51,25 +49,23 @@ export function HeroFloatingCounts({ items }: { items: FloatingCountItem[] }) {
             rel="noopener noreferrer"
             aria-label={`${formatCount(item.count)} ${item.unit} on ${item.platform}`}
             initial={{ opacity: 0, scale: 0.85, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: [0, pos.drift, 0] }}
+            animate={{ opacity: 1, scale: 1, y: [0, drift, 0] }}
             transition={{
-              opacity: { duration: 0.7, delay: 0.9 + i * 0.18, ease: [0.16, 1, 0.3, 1] },
-              scale: { duration: 0.7, delay: 0.9 + i * 0.18, ease: [0.16, 1, 0.3, 1] },
+              opacity: { duration: 0.7, delay: 0.9 + i * 0.15, ease: [0.16, 1, 0.3, 1] },
+              scale: { duration: 0.7, delay: 0.9 + i * 0.15, ease: [0.16, 1, 0.3, 1] },
               y: {
-                duration: 5 + i * 0.7,
-                delay: 0.9 + i * 0.18,
+                duration: 4.5 + i * 0.6,
+                delay: 0.9 + i * 0.15,
                 repeat: Infinity,
                 repeatType: "loop",
                 ease: "easeInOut",
               },
             }}
             style={{
-              top: pos.top,
-              right: pos.right,
               borderColor: `${item.brand}55`,
               boxShadow: `0 18px 40px -18px ${item.brand}99, inset 0 0 0 1px ${item.brand}33`,
             }}
-            className="pointer-events-auto absolute inline-flex items-center gap-2.5 rounded-full border bg-[color:var(--bg-elev)]/80 px-3 py-1.5 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-[color:var(--bg-elev)]/95"
+            className="pointer-events-auto inline-flex items-center gap-2.5 rounded-full border bg-[color:var(--bg-elev)]/80 px-3 py-1.5 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-[color:var(--bg-elev)]/95"
           >
             <span
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full"

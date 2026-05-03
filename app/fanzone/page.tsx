@@ -7,7 +7,7 @@ import { FanWallClient } from "@/components/fanzone/FanWallClient";
 import { PoBoxCardClient } from "@/components/fanzone/PoBoxCardClient";
 
 export const metadata: Metadata = {
-  title: "Fanzone — CORE",
+  title: "Fanzone",
   description: "Send fan mail, submit fan photos, and see featured fan content from the CORE community.",
   alternates: { canonical: "/fanzone" },
 };
