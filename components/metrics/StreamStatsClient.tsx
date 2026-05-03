@@ -256,9 +256,8 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
             No sessions recorded yet
           </p>
           <p className="mt-2 max-w-[60ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)]">
-            The Twitch poller hasn&apos;t observed a live session yet. Once
-            the 5-minute cron runs while a member is streaming, every
-            section below populates automatically.
+            Poller is live and watching every five minutes — this section
+            fills the moment a member goes on-stream.
           </p>
         </div>
       ) : null}
@@ -310,8 +309,8 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex items-center justify-between gap-2">
                   <p
-                    className="truncate text-[18px] font-bold tracking-tight md:text-[20px]"
-                    style={{ color: m.accent }}
+                    className="truncate text-[18px] font-bold tracking-tight text-[color:var(--ink)] md:text-[20px]"
+                    style={{ textShadow: `0 0 18px ${m.accent}55, 0 0 4px rgba(255,255,255,0.45)` }}
                   >
                     {m.name}
                   </p>
@@ -363,12 +362,9 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
               Consistency · {currentYear} (PST)
             </p>
             <h3 className="mt-1 text-[16px] font-bold tracking-tight text-[color:var(--ink)] md:text-[20px]">
-              One square per day. Brighter = longer session.
+              One square per day.
             </h3>
           </div>
-          <p className="font-mono text-[10px] text-[color:var(--ink-faint)]">
-            Hover for date + minutes streamed
-          </p>
         </header>
         <div className="flex flex-col gap-5">
           {members.map((m) => {
@@ -386,8 +382,8 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
                       <Image src={m.portrait} alt={m.name} fill unoptimized sizes="28px" className="object-cover" />
                     </span>
                     <span
-                      className="text-[13px] font-semibold tracking-tight transition-colors group-hover:underline"
-                      style={{ color: m.accent }}
+                      className="text-[13px] font-semibold tracking-tight text-[color:var(--ink)] transition-colors group-hover:underline"
+                      style={{ textShadow: `0 0 14px ${m.accent}66, 0 0 3px rgba(255,255,255,0.4)` }}
                     >
                       {m.name}
                     </span>
@@ -452,8 +448,8 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
                         />
                       </span>
                       <span
-                        className="text-[13px] font-bold tracking-tight"
-                        style={{ color: member.accent }}
+                        className="text-[13px] font-bold tracking-tight text-[color:var(--ink)]"
+                        style={{ textShadow: `0 0 14px ${member.accent}66, 0 0 3px rgba(255,255,255,0.4)` }}
                       >
                         {member.name}
                       </span>

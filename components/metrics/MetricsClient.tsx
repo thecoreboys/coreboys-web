@@ -274,15 +274,11 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
       <section className="rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 md:p-6">
         <header className="mb-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-            Daily growth · last year
+            Daily growth · 2026
           </p>
           <h2 className="mt-1 text-[18px] font-bold tracking-tight text-[color:var(--ink)] md:text-[22px]">
-            One square per day. Brighter = bigger gain.
+            One square per day.
           </h2>
-          <p className="mt-1 max-w-[60ch] text-[13px] text-[color:var(--ink-dim)]">
-            Visualises the day-over-day delta for the trend you&apos;ve selected
-            above. Empty squares = no snapshot recorded that day.
-          </p>
         </header>
         <HeatmapYear byDate={heatmap} accent={accent} colorBy="delta" year={2026} />
       </section>

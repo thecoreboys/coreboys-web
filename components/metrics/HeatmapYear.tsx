@@ -147,8 +147,9 @@ export function HeatmapYear({
   ];
 
   return (
-    <div className="overflow-x-auto">
-      <svg
+    <div className="flex flex-col gap-2">
+      <div className="overflow-x-auto">
+        <svg
         width={w}
         height={h}
         role="img"
@@ -203,7 +204,7 @@ export function HeatmapYear({
                     : "")
                 : `${dayLabel}${isToday ? " · today" : ""}\n${c.isPast ? "No data" : "Upcoming"}`;
             return (
-              <g key={c.date}>
+              <g key={c.date} className="heatmap-cell">
                 <rect
                   x={x}
                   y={y}
@@ -213,6 +214,7 @@ export function HeatmapYear({
                   fill={fill}
                   stroke={isToday ? "var(--ink)" : "transparent"}
                   strokeWidth={isToday ? 1.4 : 0}
+                  className="cursor-pointer transition-[stroke-width,stroke] hover:!stroke-[color:var(--ink)] hover:!stroke-[1.5px]"
                 >
                   <title>{tooltip}</title>
                 </rect>
@@ -221,6 +223,20 @@ export function HeatmapYear({
           })}
         </g>
       </svg>
+      </div>
+      {/* Color-scale legend — five buckets matching bucketColor(). */}
+      <div className="flex items-center gap-1.5 self-end font-mono text-[9px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+        <span>Less</span>
+        {[0, 1, 2, 3, 4].map((b) => (
+          <span
+            key={b}
+            aria-hidden
+            className="block h-3 w-3 rounded-[2px]"
+            style={{ background: bucketColor(b, accent, false) }}
+          />
+        ))}
+        <span>More</span>
+      </div>
     </div>
   );
 }
