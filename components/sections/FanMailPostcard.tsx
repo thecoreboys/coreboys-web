@@ -130,20 +130,30 @@ export function FanMailPostcard({
           </div>
           {commLogo ? (
             // Comm-logo "rubber stamp": clean white card stamped on top of
-            // the postcard at an angle. No perforations / no radial texture
-            // — just a flat printed badge so the logo reads cleanly.
+            // the postcard at an angle. The logo itself sits on a dark
+            // accent-tinted tile so white-on-transparent comm logos
+            // (e.g. Marlon's M3) read instead of disappearing into the
+            // white stamp background.
             <div
               className="comm-stamp shrink-0"
               style={{ ["--accent" as string]: accent }}
               aria-label={commName ? `${commName} comm stamp` : "Comm stamp"}
             >
               <div className="comm-stamp__inner">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={commLogo}
-                  alt={commName ? `${commName} comm` : ""}
-                  className="h-[60px] w-[60px] object-contain"
-                />
+                <span
+                  className="inline-flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-md"
+                  style={{
+                    background: `linear-gradient(135deg, color-mix(in oklab, ${accent} 78%, #0a0a0a 22%) 0%, color-mix(in oklab, ${accent} 55%, #0a0a0a 45%) 100%)`,
+                    boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 60%, #0a0a0a 40%)`,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={commLogo}
+                    alt={commName ? `${commName} comm` : ""}
+                    className="h-[54px] w-[54px] object-contain"
+                  />
+                </span>
                 <span className="comm-stamp__caption">
                   {commName ? `${commName.toUpperCase()} · 25¢` : "CORE · 25¢"}
                 </span>
