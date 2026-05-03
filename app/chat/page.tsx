@@ -54,7 +54,7 @@ export default async function ChatHubPage() {
         <div className="relative mx-auto max-w-[1800px] px-6 py-12 md:px-8 md:py-16">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="eyebrow">Chat hub · Live</p>
+              <p className="eyebrow">Chat · Live</p>
               <h1 className="mt-2 text-display text-[clamp(36px,5vw,64px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
                 Every chat, one room.
               </h1>
