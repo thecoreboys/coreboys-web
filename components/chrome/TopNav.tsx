@@ -376,7 +376,10 @@ export function TopNav({
             <p className="eyebrow">Members</p>
             <ul className="mt-3 grid grid-cols-3 gap-2">
               {MEMBERS.map((m) => {
-                const avatar = m.portrait ?? profiles[m.twitchLogin.toLowerCase()];
+                // Prefer the live Twitch profile pic so the mobile menu
+                // stays in sync with whatever the member is using on
+                // their channel today. Fall back to the local portrait.
+                const avatar = profiles[m.twitchLogin.toLowerCase()] ?? m.portrait;
                 return (
                   <li key={m.slug}>
                     <Link
@@ -413,12 +416,14 @@ export function TopNav({
                 </Link>
               ))}
               {/* /chat tile — matches the desktop LIVE pill: count of
-                  live members + combined viewer total when applicable. */}
+                  live members + combined viewer total when applicable.
+                  Spans both columns so the LIVE · N · X watching string
+                  has room to breathe on mobile. */}
               <Link
                 href="/chat"
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "rounded-md border px-3 py-2 text-[13px] font-medium cursor-pointer transition-colors",
+                  "col-span-2 inline-flex items-center justify-center rounded-md border px-3 py-2 text-[13px] font-medium cursor-pointer transition-colors",
                   liveCount > 0
                     ? "border-[color:var(--core)]/60 bg-[color:var(--core)]/12 text-[color:var(--core)] hover:bg-[color:var(--core)]/18"
                     : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink)] hover:bg-[color:var(--surface)]",
