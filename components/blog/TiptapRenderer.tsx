@@ -55,7 +55,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
       return renderChildren(node, ctx);
 
     case "paragraph":
-      return <p className="my-4 text-[17px] leading-[1.75] text-[color:var(--ink-dim)]">{renderInline(node, ctx)}</p>;
+      return <p className="my-4 text-lg leading-[1.75] text-[color:var(--ink-dim)]">{renderInline(node, ctx)}</p>;
 
     case "heading": {
       const level = (node.attrs?.level as number) ?? 2;
@@ -66,7 +66,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
         return (
           <h2
             id={id}
-            className="mt-10 mb-2 font-display text-[28px] font-bold leading-[1.15] tracking-[-0.02em] text-[color:var(--ink)] md:text-[32px]"
+            className="mt-10 mb-2 font-display text-display-xs font-bold leading-[1.15] tracking-[-0.02em] text-[color:var(--ink)] md:text-display-sm"
           >
             {renderInline(node, ctx)}
           </h2>
@@ -76,14 +76,14 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
         return (
           <h3
             id={id}
-            className="mt-6 mb-1.5 font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.01em] text-[color:var(--ink)]"
+            className="mt-6 mb-1.5 font-display text-xl font-semibold leading-[1.2] tracking-[-0.01em] text-[color:var(--ink)]"
           >
             {renderInline(node, ctx)}
           </h3>
         );
       }
       return (
-        <h4 id={id} className="mt-4 mb-1 font-semibold text-[18px] text-[color:var(--ink)]">
+        <h4 id={id} className="mt-4 mb-1 font-semibold text-lg text-[color:var(--ink)]">
           {renderInline(node, ctx)}
         </h4>
       );
@@ -91,7 +91,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
 
     case "bulletList":
       return (
-        <ul className="my-4 list-disc space-y-1 pl-6 text-[17px] text-[color:var(--ink-dim)]">
+        <ul className="my-4 list-disc space-y-1 pl-6 text-lg text-[color:var(--ink-dim)]">
           {(node.content ?? []).map((c, i) => (
             <Fragment key={i}>{renderNode(c, ctx)}</Fragment>
           ))}
@@ -100,7 +100,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
 
     case "orderedList":
       return (
-        <ol className="my-4 list-decimal space-y-1 pl-6 text-[17px] text-[color:var(--ink-dim)]">
+        <ol className="my-4 list-decimal space-y-1 pl-6 text-lg text-[color:var(--ink-dim)]">
           {(node.content ?? []).map((c, i) => (
             <Fragment key={i}>{renderNode(c, ctx)}</Fragment>
           ))}
@@ -112,7 +112,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
 
     case "taskList":
       return (
-        <ul className="my-4 space-y-1 pl-1 text-[17px] text-[color:var(--ink-dim)]">
+        <ul className="my-4 space-y-1 pl-1 text-lg text-[color:var(--ink-dim)]">
           {(node.content ?? []).map((c, i) => (
             <Fragment key={i}>{renderNode(c, ctx)}</Fragment>
           ))}
@@ -124,7 +124,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
       return (
         <li className="flex items-start gap-2">
           <span
-            className={`mt-1 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border ${
+            className={`mt-1 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-md border ${
               checked
                 ? "border-[color:var(--core)] bg-[color:var(--core)] text-black"
                 : "border-[color:var(--rule)]"
@@ -140,7 +140,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
 
     case "blockquote":
       return (
-        <blockquote className="my-6 border-l-2 border-[color:var(--rule)] pl-4 text-[18px] italic text-[color:var(--ink-dim)]">
+        <blockquote className="my-6 border-l-2 border-[color:var(--rule)] pl-4 text-lg italic text-[color:var(--ink-dim)]">
           {renderChildren(node, ctx)}
         </blockquote>
       );
@@ -151,7 +151,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
 
     case "pullquote":
       return (
-        <blockquote className="my-8 border-l-2 border-[color:var(--core)] pl-5 font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.02em] text-[color:var(--ink)] md:text-[32px]">
+        <blockquote className="my-8 border-l-2 border-[color:var(--core)] pl-5 font-display text-display-xs font-semibold leading-[1.15] tracking-[-0.02em] text-[color:var(--ink)] md:text-display-sm">
           {renderChildren(node, ctx)}
         </blockquote>
       );
@@ -162,7 +162,7 @@ function renderNode(node: Node, ctx: RenderContext): ReactNode {
       const Icon = tone.icon;
       return (
         <aside
-          className={`my-6 flex items-start gap-2.5 rounded-[8px] border-l-2 px-4 py-3 text-[15px] ${tone.classes}`}
+          className={`my-6 flex items-start gap-2.5 rounded-lg border-l-2 px-4 py-3 text-sm ${tone.classes}`}
           role="note"
         >
           <span className="mt-0.5 shrink-0">
@@ -270,7 +270,7 @@ function wrapMark(child: ReactNode, mark: Mark): ReactNode {
       return <s>{child}</s>;
     case "code":
       return (
-        <code className="rounded-[3px] border border-[color:var(--rule)] bg-[color:var(--surface)] px-1 py-0.5 font-mono text-[13px]">
+        <code className="rounded-md border border-[color:var(--rule)] bg-[color:var(--surface)] px-1 py-0.5 font-mono text-sm">
           {child}
         </code>
       );

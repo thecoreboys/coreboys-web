@@ -18,7 +18,7 @@ export const GROUP = {
    * video ID (e.g. "dQw4w9WgXcQ"). When unset the section falls back to
    * a poster-image hero so the page still looks intentional.
    */
-  houseTourVideoId: "dQw4w9WgXcQ" as string | undefined,
+  houseTourVideoId: undefined as string | undefined,
   socials: {
     youtube: {
       handle: "@createownruneverything",

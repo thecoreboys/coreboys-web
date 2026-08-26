@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { serverEnv } from "@/lib/env";
+import { requireAdmin } from "@/lib/admin-api";
+import { cancelAiUsage, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 
 /**
  * AI photo description.
@@ -33,6 +35,8 @@ type Body = {
 };
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -70,6 +74,11 @@ export async function POST(req: Request) {
   const mediaType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
   const bytes = readFileSync(abs);
   const base64 = bytes.toString("base64");
+  const reservation = await reserveAiUsage({
+    provider: "anthropic", feature: "photo_describe", model: "claude-sonnet-4-6", subjectKey: `admin:${auth.id}`,
+    estimatedInputTokens: Math.max(4_000, Math.ceil(bytes.length / 1_000)), maxOutputTokens: 400,
+  });
+  if (!reservation.ok) return NextResponse.json({ error: "AI description is temporarily unavailable." }, { status: reservation.reason === "unavailable" ? 503 : 429 });
 
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const system = `You write concise photo descriptions for a media organization called CORE. \
@@ -112,6 +121,9 @@ verify. Keep it factual and neutral. No markdown.`;
       .map((b) => b.text)
       .join("\n")
       .trim();
+    await settleAiUsage(reservation.reservationId, {
+      model: "claude-sonnet-4-6", inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens,
+    }).catch(() => undefined);
 
     return NextResponse.json({
       description,
@@ -119,6 +131,7 @@ verify. Keep it factual and neutral. No markdown.`;
       generatedAt: new Date().toISOString(),
     });
   } catch (err) {
+    await cancelAiUsage(reservation.reservationId).catch(() => undefined);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "anthropic call failed" },
       { status: 502 },

@@ -1,0 +1,2 @@
+{"sample_id":"member-front","synthetic":true,"embedding":[1.0,0.0,0.0],"expected_identity_id":"example-member"}
+{"sample_id":"unknown-control","synthetic":true,"embedding":[0.0,1.0,0.0],"expected_identity_id":null}

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { buildSystemPrompt } from "@/lib/concierge-prompt";
+import { cancelAiUsage, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,6 +88,14 @@ export async function POST(req: NextRequest) {
 
   const client = new Anthropic({ apiKey });
   const system = buildSystemPrompt();
+  const estimatedInputTokens = Math.ceil((system.length + JSON.stringify(body.messages).length) / 4) + 350;
+  const reservation = await reserveAiUsage({
+    provider: "anthropic", feature: "concierge", model: "claude-haiku-4-5-20251001",
+    subjectKey: `ip:${ip}`, estimatedInputTokens, maxOutputTokens: 400,
+  });
+  if (!reservation.ok) {
+    return NextResponse.json({ error: "AI assistant is temporarily unavailable." }, { status: reservation.reason === "unavailable" ? 503 : 429 });
+  }
 
   // Pull the current /v1/live for grounding "who's live" answers.
   let liveContext = "";
@@ -106,21 +115,17 @@ export async function POST(req: NextRequest) {
     // grounding is best-effort; ignore failures.
   }
 
-  const stream = await client.messages.stream({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 400,
-    system: [
-      {
-        type: "text",
-        text: system,
-        cache_control: { type: "ephemeral" },
-      },
-      ...(liveContext
-        ? [{ type: "text" as const, text: liveContext }]
-        : []),
-    ],
-    messages: body.messages,
-  });
+  let stream: ReturnType<typeof client.messages.stream>;
+  try {
+    stream = client.messages.stream({
+      model: "claude-haiku-4-5-20251001", max_tokens: 400,
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }, ...(liveContext ? [{ type: "text" as const, text: liveContext }] : [])],
+      messages: body.messages,
+    });
+  } catch (error) {
+    await cancelAiUsage(reservation.reservationId);
+    return NextResponse.json({ error: error instanceof Error ? error.message : "AI request failed." }, { status: 502 });
+  }
 
   const encoder = new TextEncoder();
   const sse = new ReadableStream({
@@ -136,9 +141,11 @@ export async function POST(req: NextRequest) {
             );
           }
         }
+        await settleAiUsage(reservation.reservationId, { model: "claude-haiku-4-5-20251001", inputTokens: estimatedInputTokens, outputTokens: 400 }).catch(() => undefined);
         controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
         controller.close();
       } catch (err) {
+        await cancelAiUsage(reservation.reservationId).catch(() => undefined);
         const msg = err instanceof Error ? err.message : "stream error";
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
         controller.close();

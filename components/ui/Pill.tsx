@@ -16,13 +16,13 @@ type PillButtonProps = CommonProps & ButtonHTMLAttributes<HTMLButtonElement>;
 type PillLinkProps = CommonProps & AnchorHTMLAttributes<HTMLAnchorElement> & { href: string };
 
 const base =
-  "group relative inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.18em] font-medium transition-[transform,background,border-color,color] duration-200 [transition-timing-function:var(--ease-expo-out)]";
+  "group relative inline-flex cursor-pointer items-center gap-2 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.18em] font-medium transition-[transform,background,border-color,color,box-shadow] duration-150 ease-out [transition-timing-function:var(--ease-expo-out)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--bg)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none";
 
 const variants: Record<Variant, string> = {
   primary:
-    "border-[color:var(--core)] bg-[color:var(--core)] text-[color:var(--bg)] hover:-translate-y-0.5 hover:shadow-[0_8px_30px_color-mix(in_oklab,var(--core)_40%,transparent)]",
+    "border-transparent bg-brand-solid text-white shadow-xs-skeuomorphic hover:-translate-y-0.5 hover:bg-brand-solid_hover hover:shadow-[0_8px_30px_color-mix(in_oklab,var(--core)_40%,transparent)]",
   ghost:
-    "border-[color:var(--rule)] bg-transparent text-[color:var(--ink)] hover:border-[color:var(--ink)]/40 hover:bg-[color:var(--ink)]/5 hover:-translate-y-0.5",
+    "border-primary bg-transparent text-secondary hover:border-brand hover:bg-primary_hover hover:-translate-y-0.5",
 };
 
 export const Pill = forwardRef<HTMLButtonElement, PillButtonProps>(function Pill(

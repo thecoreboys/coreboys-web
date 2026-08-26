@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "runtime": {
+    "data_dir": ".local-data",
+    "enrollment_roots": ["authorized-enrollment"],
+    "media_roots": ["authorized-media"],
+    "event_output": ".local-data/presence-proposals.ndjson",
+    "audit_output": ".local-data/worker-audit.ndjson",
+    "enrollment_store": ".local-data/enrollments.json",
+    "allowed_local_hosts": ["127.0.0.1", "localhost", "::1"],
+    "sample_interval_ms": 500,
+    "authority_recheck_seconds": 1,
+    "review_only": true
+  },
+  "models": {
+    "yunet": {
+      "path": "models/face_detection_yunet_2023mar.onnx",
+      "sha256": "REPLACE_WITH_SHA256_FROM_YOUR_VERIFIED_DOWNLOAD"
+    },
+    "sface": {
+      "path": "models/face_recognition_sface_2021dec.onnx",
+      "sha256": "REPLACE_WITH_SHA256_FROM_YOUR_VERIFIED_DOWNLOAD"
+    }
+  },
+  "matching": {
+    "minimum_similarity": 0.5,
+    "minimum_top_two_margin": 0.08,
+    "consensus_window": 5,
+    "consensus_hits": 3,
+    "maximum_consensus_gap_ms": 2000
+  },
+  "quality": {
+    "detector_score_threshold": 0.9,
+    "minimum_face_pixels": 72,
+    "minimum_sharpness": 60.0,
+    "minimum_mean_luminance": 35.0,
+    "maximum_mean_luminance": 225.0
+  },
+  "identities": [
+    {
+      "id": "example-member",
+      "display_name": "Example Member",
+      "canonical_kind": "member",
+      "canonical_slug": "example-member",
+      "consent": {
+        "biometric_template": true,
+        "live_matching": false,
+        "archive_matching": true,
+        "public_tag": true,
+        "granted_at": "2026-08-21T00:00:00Z",
+        "expires_at": "2027-08-21T00:00:00Z"
+      }
+    }
+  ],
+  "sources": [
+    {
+      "id": "authorized-vod",
+      "content_id": "yt-dQw4w9WgXcQ",
+      "kind": "file",
+      "uri": "authorized-media/example.mp4",
+      "authorized": true,
+      "all_visible_participants_consented": true,
+      "participant_allowlist": ["example-member"]
+    }
+  ],
+  "sessions": [
+    {
+      "id": "review-vod-example",
+      "source_id": "authorized-vod",
+      "mode": "biometric",
+      "purpose": "archive",
+      "active": true,
+      "expires_at": "2027-08-21T00:00:00Z",
+      "identity_allowlist": ["example-member"]
+    },
+    {
+      "id": "manual-vod-example",
+      "source_id": "authorized-vod",
+      "mode": "manual",
+      "purpose": "archive",
+      "active": true,
+      "expires_at": "2027-08-21T00:00:00Z",
+      "identity_allowlist": ["example-member"]
+    }
+  ]
+}

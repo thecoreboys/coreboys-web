@@ -10,6 +10,8 @@ import {
 } from "@/lib/asset-index";
 import { fetchUsersByLogin } from "@/lib/twitch";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
+import { InstagramSection } from "@/components/media/InstagramSection";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   MediaGallery,
   type MediaItem,
@@ -23,7 +25,10 @@ export const metadata: Metadata = {
   alternates: { canonical: "/media" },
 };
 
-export const revalidate = 3600;
+// Dynamic: the "From our Instagram" section reads the admin session
+// cookie to decide whether to show its connect prompt. IG media fetches
+// are individually cached via `next.revalidate` in lib/instagram.
+export const dynamic = "force-dynamic";
 
 export default async function MediaPage() {
   // Twitch profile pictures for the filter chips.
@@ -44,7 +49,7 @@ export default async function MediaPage() {
     kind: "member",
     accent: m.accent,
     avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
-    href: `/m/${m.slug}`,
+    href: `/about/${m.slug}`,
   }));
 
   const taggablePeople: Person[] = CREW.map((c) => ({
@@ -98,54 +103,20 @@ export default async function MediaPage() {
   }
 
   return (
-    <main className="relative pt-20 md:pt-24">
-      <Header total={items.length} />
-      <section id="gallery" className="border-t border-[color:var(--rule)] scroll-mt-24">
-        <div className="mx-auto max-w-[1440px] px-6 py-10 md:px-8 md:py-14">
+    <>
+      <PageHeader
+        eyebrow="Stills"
+        title="Stills."
+        supporting="Every shoot, candid, and group photo. Newest first."
+        meta={`${items.length.toLocaleString()} stills`}
+      />
+      <section id="gallery" className="scroll-mt-24">
+        <div className="mx-auto max-w-container px-6 py-10 md:px-16 md:py-14">
           <MediaGallery members={members} taggablePeople={taggablePeople} items={items} />
         </div>
       </section>
+      <InstagramSection />
       <SiteFooter />
-    </main>
-  );
-}
-
-function Header({ total }: { total: number }) {
-  return (
-    <section className="relative overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: "radial-gradient(50% 40% at 30% 30%, rgba(239,68,68,0.08), transparent 60%)",
-        }}
-      />
-      <div className="relative mx-auto max-w-[1440px] px-6 py-16 md:px-8 md:py-20">
-        <p className="eyebrow">Library · Photos</p>
-        <h1 className="mt-2 text-display text-[clamp(40px,6vw,72px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-          The <span className="gradient-text">photo library.</span>
-        </h1>
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink)]">
-            <span
-              aria-hidden
-              className="h-1.5 w-1.5 rounded-full bg-[color:var(--core)]"
-              style={{ boxShadow: "0 0 8px rgba(255,59,31,0.7)" }}
-            />
-            <span className="tabular-nums">{total.toLocaleString()}</span>
-            <span className="text-[color:var(--ink-dim)]">photos</span>
-          </span>
-          <a
-            href="#gallery"
-            className="group inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[color:var(--rule)] bg-[color:var(--bg)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
-          >
-            Newest first
-            <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
-              ↓
-            </span>
-          </a>
-        </div>
-      </div>
-    </section>
+    </>
   );
 }

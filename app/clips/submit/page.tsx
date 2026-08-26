@@ -36,20 +36,20 @@ export default async function ClipSubmitPage() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(50% 40% at 30% 30%, rgba(239,68,68,0.10), transparent 60%)",
+              "radial-gradient(50% 40% at 30% 30%, rgba(219,3,104,0.10), transparent 60%)",
           }}
         />
         <div className="relative mx-auto max-w-[720px] px-6 py-14 md:px-8 md:py-20">
-          <p className="eyebrow">Community · Submit</p>
-          <h1 className="mt-2 text-display text-[clamp(36px,5vw,64px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-            Found a viral clip? <span className="gradient-text">Send it in.</span>
+          <p className="text-sm font-semibold text-brand-secondary">Community · Submit</p>
+          <h1 className="mt-2 text-display-sm font-semibold tracking-tight text-primary md:text-display-md">
+            Submit a cut.
           </h1>
-          <p className="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-[color:var(--ink-dim)]">
+          <p className="mt-3 max-w-[60ch] text-lg leading-relaxed text-tertiary">
             Twitch clips, YouTube shorts, TikToks, Instagram reels. Drop a link, tag the boys in
             it, and we&apos;ll review it for the public clips library.
           </p>
 
-          <div className="mt-8 overflow-hidden rounded-2xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)]">
+          <div className="mt-8 overflow-hidden rounded-2xl bg-primary shadow-xl ring-1 ring-inset ring-secondary">
             <ClipSubmitForm members={memberOptions} />
           </div>
         </div>

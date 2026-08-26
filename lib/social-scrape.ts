@@ -61,6 +61,16 @@ function parseCompact(input: string): number | null {
  * YouTube — fetch the channel page, look for `subscriberCountText`
  * embedded in the ytInitialData JSON blob. Returns subscriber count.
  */
+export function parseYouTubeSubscriberCount(html: string): number | null {
+  // The accessibility form nests objects before `simpleText`, so this must
+  // cross closing braces. Keep the window bounded to avoid wandering into an
+  // unrelated renderer if YouTube omits subscriberCountText entirely.
+  const m = /"subscriberCountText"\s*:\s*\{[\s\S]{0,800}?"simpleText"\s*:\s*"([^"]+)"/.exec(html);
+  if (!m) return null;
+  const text = m[1]!.replace(/\s*subscribers?\b.*$/i, "").trim();
+  return parseCompact(text);
+}
+
 export async function scrapeYouTubeSubs(channelUrl: string): Promise<number | null> {
   // YouTube serves a richer embedded JSON when the URL is the /about page.
   const url = channelUrl.replace(/\/+$/, "") + "/about";
@@ -71,11 +81,7 @@ export async function scrapeYouTubeSubs(channelUrl: string): Promise<number | nu
   //   "subscriberCountText":{"accessibility":{"accessibilityData":{"label":"3.2M subscribers"}},"simpleText":"3.2M subscribers"}
   //   "subscriberCountText":{"simpleText":"3.2M subscribers"}
   // The simpleText form is most reliable across locales.
-  const m = /"subscriberCountText"\s*:\s*\{[^}]*?"simpleText"\s*:\s*"([^"]+)"/.exec(html);
-  if (!m) return null;
-  // Strip trailing " subscribers" / " subscriber" / locale variants.
-  const text = m[1]!.replace(/\s*subscribers?\b.*$/i, "").trim();
-  return parseCompact(text);
+  return parseYouTubeSubscriberCount(html);
 }
 
 /**
@@ -134,8 +140,12 @@ const NITTER_INSTANCES = [
 export async function scrapeXFollowers(handle: string): Promise<number | null> {
   const stripped = handle.replace(/^@/, "").trim();
   if (!stripped) return null;
-  for (const base of NITTER_INSTANCES) {
-    const html = await getText(`${base}/${encodeURIComponent(stripped)}`);
+  // Mirrors are independent and unreliable. Try them concurrently so a dead
+  // host costs one timeout window, not three sequential windows.
+  const pages = await Promise.all(
+    NITTER_INSTANCES.map((base) => getText(`${base}/${encodeURIComponent(stripped)}`)),
+  );
+  for (const html of pages) {
     if (!html) continue;
     // Nitter renders <span class="profile-stat-num">12,345</span> with
     // a sibling <span class="profile-stat-header">Followers</span>.

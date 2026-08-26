@@ -1,20 +1,21 @@
 import type { Metadata } from "next";
+import { XEmbedSettings } from "@/components/legal/XEmbedSettings";
 import { LegalLayout } from "@/components/legal/LegalLayout";
 import { CookieSettingsLink } from "@/components/legal/CookieSettingsLink";
 
 export const metadata: Metadata = {
   title: "Cookie policy",
-  description: "Which cookies corecrew.org sets and how to manage them.",
+  description: "Which cookies thecoreboys.com sets and how to manage them.",
   alternates: { canonical: "/legal/cookies" },
   robots: { index: true, follow: true },
 };
 
 export default function CookiesPage() {
   return (
-    <LegalLayout title="Cookie policy" effectiveDate="2026-01-01">
+    <LegalLayout title="Cookie policy" effectiveDate="2026-01-01" kind="cookies">
       <p>
         Cookies are small files that websites place on your device. This
-        page lists every cookie corecrew.org may set and explains how
+        page lists every cookie thecoreboys.com may set and explains how
         to control them.
       </p>
 
@@ -46,14 +47,25 @@ export default function CookiesPage() {
       <h3>Embeds</h3>
       <p>
         When you load a page that embeds a Twitch player, YouTube video,
-        TikTok post, or X post, the embedded content sets its own cookies
-        on its own subdomain. We have no control over what those services
-        store. Their cookie policies apply.
+        or TikTok post, the embedded content may set its own cookies on its
+        own subdomain. X is different here: an X post stays a local link-only
+        placeholder until you select <strong>Load X post</strong> or explicitly
+        choose <strong>Always load X posts</strong>. Loading then contacts X and
+        may let X set cookies. Their cookie policies apply.
       </p>
+
+      <h3>X embed storage (not a cookie)</h3>
+      <p>
+        <strong>coreboys-x-embeds</strong> is a first-party localStorage setting
+        with either &quot;ask&quot; or &quot;always&quot;. Official X embeds request Do Not Track.
+        Global Privacy Control or Data Saver keeps posts click-to-load even after
+        an &quot;always&quot; choice. Reset the choice below or clear this site&apos;s storage.
+      </p>
+      <XEmbedSettings />
 
       <h2>Managing cookies</h2>
       <p>
-        Two ways to control cookies on corecrew.org:
+        Two ways to control cookies on thecoreboys.com:
       </p>
       <ul>
         <li>
@@ -61,7 +73,7 @@ export default function CookiesPage() {
           footer to re-open the consent banner.
         </li>
         <li>
-          Clear cookies for corecrew.org via your browser&apos;s site-
+          Clear cookies for thecoreboys.com via your browser&apos;s site-
           settings menu. The banner will reappear on your next visit.
         </li>
       </ul>
@@ -73,7 +85,7 @@ export default function CookiesPage() {
       <h2>Contact</h2>
       <p>
         Questions? Write to{" "}
-        <a href="mailto:privacy@corecrew.org">privacy@corecrew.org</a>.
+        <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>.
       </p>
     </LegalLayout>
   );

@@ -4,13 +4,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
+import { getCrewRoleLabel } from "@/lib/crew";
 import { getCrewPhotos, getCrewPortrait } from "@/lib/asset-index";
 import { fetchUsersByLogin } from "@/lib/twitch";
+import { getProfileSocialMetrics } from "@/lib/profile-social-metrics";
+import { crewMetricSlug } from "@/lib/social-metric-format";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { PlatformLink, type PlatformKey } from "@/components/ui/PlatformLink";
 import { AutoScrollGallery } from "@/components/ui/AutoScrollGallery";
 
 type Params = { params: Promise<{ slug: string }> };
+
+// Counts are DB-backed with cached third-party fallbacks. Render dynamically
+// so a successful nightly snapshot appears without requiring a deployment.
+export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
   return CREW.map((c) => ({ slug: c.slug }));
@@ -22,17 +29,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!c) return {};
   return {
     title: `${c.name} · Crew`,
-    description: `${c.name}, ${c.role}, working with ${c.worksWith.map((s) => MEMBERS_BY_SLUG[s]?.stageName).filter(Boolean).join(", ")}.`,
+    description: `${c.name}, ${getCrewRoleLabel(c)}, working with ${c.worksWith.map((s) => MEMBERS_BY_SLUG[s]?.stageName).filter(Boolean).join(", ")}.`,
     alternates: { canonical: `/crew/${c.slug}` },
   };
 }
-
-const ROLE_COPY: Record<string, string> = {
-  cameraman: "Cameraman",
-  management: "Management",
-  editor: "Editor",
-  producer: "Producer",
-};
 
 /**
  * Comm logo PNGs ship with different amounts of internal padding;
@@ -66,7 +66,11 @@ export default async function CrewMemberPage({ params }: Params) {
     .map((s) => MEMBERS_BY_SLUG[s])
     .filter((m): m is NonNullable<typeof m> => !!m);
   const accent = works[0]?.accent ?? "#a1a1aa";
-  const roleLabel = ROLE_COPY[c.role] ?? c.role;
+  const roleLabel = getCrewRoleLabel(c);
+  const socialMetricsPromise = getProfileSocialMetrics({
+    snapshotSlug: crewMetricSlug(c.slug),
+    socials: c.socials,
+  });
 
   // Twitch profile pictures for the linked-member mention chips.
   let avatars: Record<string, string> = {};
@@ -78,19 +82,20 @@ export default async function CrewMemberPage({ params }: Params) {
   } catch {
     avatars = {};
   }
+  const metricByUrl = await socialMetricsPromise;
 
   // Other crew (excluding this one), for the bottom rail.
   const otherCrew = CREW.filter((x) => x.slug !== c.slug);
 
   return (
     <main className="relative pt-20 md:pt-24">
-      {/* HERO — mirrors /m/[slug]: layered blooms + lens flares + isolation. */}
+      {/* HERO — mirrors /about/[slug]: layered blooms + lens flares + isolation. */}
       <section className="relative overflow-hidden border-b border-[color:var(--rule)] bg-dot-grid">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
-            background: `radial-gradient(50% 40% at 22% 30%, ${accent}33, transparent 60%), radial-gradient(40% 35% at 80% 12%, rgba(99,102,241,0.16), transparent 70%), radial-gradient(45% 30% at 50% 100%, ${accent}22, transparent 75%)`,
+            background: `radial-gradient(50% 40% at 22% 30%, ${accent}33, transparent 60%), radial-gradient(40% 35% at 80% 12%, rgba(118,2,153,0.16), transparent 70%), radial-gradient(45% 30% at 50% 100%, ${accent}22, transparent 75%)`,
           }}
         />
         <div
@@ -108,18 +113,18 @@ export default async function CrewMemberPage({ params }: Params) {
           style={{
             right: "-4%",
             top: "0%",
-            ["--flare" as string]: "rgba(99,102,241,0.55)",
+            ["--flare" as string]: "rgba(118,2,153,0.55)",
           }}
         />
         <div
-          className="relative z-10 mx-auto max-w-[1440px] px-6 py-12 md:px-8 md:py-16"
+          className="relative z-10 mx-auto max-w-container px-6 py-12 md:px-8 md:py-16"
           style={{ isolation: "isolate" }}
         >
           <Link
             href="/#crew"
-            className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)] transition-colors hover:text-[color:var(--ink)]"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-tertiary transition-colors hover:text-primary"
           >
-            <ArrowLeft size={12} /> Crew
+            <ArrowLeft size={14} /> Crew
           </Link>
 
           <div className="mt-8 grid grid-cols-12 gap-8 md:gap-12">
@@ -160,21 +165,21 @@ export default async function CrewMemberPage({ params }: Params) {
               >
                 {c.name}
               </h1>
-              <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
+              <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium uppercase tracking-[0.14em] text-tertiary">
                 <div className="inline-flex items-center gap-2">
-                  <dt className="text-[color:var(--ink-faint)]">Role</dt>
-                  <dd className="text-[color:var(--ink)]">{roleLabel}</dd>
+                  <dt className="text-quaternary">Role</dt>
+                  <dd className="text-primary">{roleLabel}</dd>
                 </div>
                 {works.length > 0 ? (
                   <div className="inline-flex items-center gap-2">
-                    <dt className="text-[color:var(--ink-faint)]">Rides with</dt>
+                    <dt className="text-quaternary">Rides with</dt>
                     <dd className="inline-flex items-center gap-1.5">
                       {works.map((m) => {
                         const avatar = m.portrait ?? avatars[m.twitchLogin.toLowerCase()];
                         return (
                           <Link
                             key={m.slug}
-                            href={`/m/${m.slug}` as `/m/${string}`}
+                            href={`/about/${m.slug}` as never}
                             className="group/avatar relative inline-flex"
                             title={m.stageName}
                           >
@@ -188,7 +193,7 @@ export default async function CrewMemberPage({ params }: Params) {
                             />
                             <span
                               role="tooltip"
-                              className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-[10px] font-semibold text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity group-hover/avatar:opacity-100"
+                              className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-xs font-semibold text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity group-hover/avatar:opacity-100"
                             >
                               {m.stageName}
                             </span>
@@ -230,10 +235,10 @@ export default async function CrewMemberPage({ params }: Params) {
                         />
                       </span>
                       <span className="flex flex-col leading-tight">
-                        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-quaternary">
                           Comm
                         </span>
-                        <span className="text-[18px] font-bold tracking-tight">
+                        <span className="text-lg font-semibold tracking-tight">
                           {m.comm.name}
                         </span>
                       </span>
@@ -242,7 +247,7 @@ export default async function CrewMemberPage({ params }: Params) {
                 </div>
               ) : null}
 
-              <p className="mt-6 max-w-[60ch] text-[15px] leading-relaxed text-[color:var(--ink-dim)] md:text-[16px]">
+              <p className="mt-6 max-w-[60ch] text-md leading-relaxed text-tertiary md:text-lg">
                 {c.name} is on the {roleLabel.toLowerCase()} crew at CORE
                 {works.length > 0
                   ? `, working with ${works.map((w) => w.stageName).join(", ")}.`
@@ -254,8 +259,8 @@ export default async function CrewMemberPage({ params }: Params) {
               {c.socials.length > 0 ? (
                 <div className="mt-7">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="eyebrow">Socials</p>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+                    <p className="text-sm font-semibold text-brand-secondary">Socials</p>
+                    <span className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
                       {c.socials.length} channels
                     </span>
                   </div>
@@ -266,6 +271,7 @@ export default async function CrewMemberPage({ params }: Params) {
                           platform={s.platform as PlatformKey}
                           url={s.url}
                           handle={s.handle ?? s.label}
+                          metric={metricByUrl[s.url]}
                           variant="secondary"
                         />
                       </li>
@@ -281,11 +287,11 @@ export default async function CrewMemberPage({ params }: Params) {
       {/* GALLERY — auto-scrolling marquee, same component as the member page. */}
       {photos.length > 0 ? (
         <section className="border-t border-[color:var(--rule)] bg-[color:var(--bg)]">
-          <div className="mx-auto max-w-[1440px] px-6 pt-12 md:px-8 md:pt-16">
+          <div className="mx-auto max-w-container px-6 pt-12 md:px-8 md:pt-16">
             <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <p className="eyebrow">Gallery · {photos.length} photos</p>
-                <h2 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-bold text-[color:var(--ink)]">
+                <p className="text-sm font-semibold text-brand-secondary">Gallery · {photos.length} photos</p>
+                <h2 className="mt-2 text-display-sm font-semibold tracking-tight text-primary md:text-display-md">
                   Behind the lens.
                 </h2>
               </div>
@@ -309,7 +315,7 @@ export default async function CrewMemberPage({ params }: Params) {
                   name: m.stageName,
                   accent: m.accent,
                   avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
-                  href: `/m/${m.slug}`,
+                  href: `/about/${m.slug}`,
                 })),
               ]}
             />
@@ -320,11 +326,11 @@ export default async function CrewMemberPage({ params }: Params) {
       {/* WHO THEY RIDE WITH — same chrome as the member-page Team section. */}
       {works.length > 0 ? (
         <section className="border-t border-[color:var(--rule)] bg-[color:var(--bg)]">
-          <div className="mx-auto max-w-[1440px] px-6 py-12 md:px-8 md:py-16">
+          <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
             <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <p className="eyebrow">Linked roster</p>
-                <h2 className="mt-2 text-display text-[clamp(24px,3vw,36px)] font-bold text-[color:var(--ink)]">
+                <p className="text-sm font-semibold text-brand-secondary">Linked roster</p>
+                <h2 className="mt-2 text-display-sm font-semibold tracking-tight text-primary md:text-display-md">
                   Who they ride with.
                 </h2>
               </div>
@@ -335,7 +341,7 @@ export default async function CrewMemberPage({ params }: Params) {
                 return (
                   <li key={m.slug}>
                     <Link
-                      href={`/m/${m.slug}` as `/m/${string}`}
+                      href={`/about/${m.slug}` as never}
                       className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] transition-all duration-300"
                       style={{ ["--card-accent" as string]: m.accent }}
                     >
@@ -357,17 +363,17 @@ export default async function CrewMemberPage({ params }: Params) {
                           }}
                         />
                         <div className="absolute inset-x-3 bottom-3">
-                          <h3 className="text-display text-[20px] font-bold leading-tight tracking-tight text-on-image">
+                          <h3 className="text-md font-semibold leading-tight tracking-tight text-on-image">
                             {m.stageName}
                           </h3>
-                          <p className="mt-0.5 text-[11px] font-medium text-on-image-dim">
+                          <p className="mt-0.5 text-xs font-medium text-on-image-dim">
                             {m.realName}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-end gap-2 border-t border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2.5">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--ink-dim)]">
-                          Open profile <ArrowUpRight size={11} />
+                      <div className="flex items-center justify-end gap-2 border-t border-secondary bg-secondary px-3 py-2.5">
+                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-brand-secondary">
+                          Open profile <ArrowUpRight size={13} />
                         </span>
                       </div>
                     </Link>
@@ -381,17 +387,17 @@ export default async function CrewMemberPage({ params }: Params) {
 
       {/* OTHER CREW — parallel to "Check out the other members". */}
       <section className="border-t border-[color:var(--rule)] bg-[color:var(--bg)] bg-dot-grid">
-        <div className="mx-auto max-w-[1440px] px-6 py-12 md:px-8 md:py-16">
+        <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
           <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="eyebrow">More crew</p>
-              <h2 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-bold text-[color:var(--ink)]">
-                Check out the other crew.
+              <p className="text-sm font-semibold text-brand-secondary">More crew</p>
+              <h2 className="mt-2 text-display-sm font-semibold tracking-tight text-primary md:text-display-md">
+                The rest of the crew.
               </h2>
             </div>
             <Link
               href="/#crew"
-              className="inline-flex items-center gap-1 text-[13px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
+              className="inline-flex items-center gap-1 text-sm font-medium text-tertiary hover:text-primary"
             >
               Full crew <ArrowUpRight size={14} />
             </Link>
@@ -441,11 +447,11 @@ export default async function CrewMemberPage({ params }: Params) {
                         }}
                       />
                       <span className="absolute inset-x-3 bottom-3">
-                        <p className="member-name font-display text-[18px] font-bold leading-tight text-on-image">
+                        <p className="member-name font-display text-md font-semibold leading-tight text-on-image">
                           {other.name}
                         </p>
-                        <p className="mt-0.5 truncate text-[11px] font-medium text-on-image-dim">
-                          {ROLE_COPY[other.role] ?? other.role}
+                        <p className="mt-0.5 truncate text-xs font-medium text-on-image-dim">
+                          {getCrewRoleLabel(other)}
                         </p>
                       </span>
                     </span>

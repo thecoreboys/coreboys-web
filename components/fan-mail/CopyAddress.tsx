@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Clipboard } from "lucide-react";
+import { Check, Copy01 } from "@untitledui/icons";
 
 /**
  * Copy-to-clipboard button styled as a typewriter pill on the paper card.
@@ -60,7 +60,7 @@ export function CopyAddress({
       data-copied={copied ? "1" : "0"}
       className="paper-button inline-flex items-center gap-2"
     >
-      {copied ? <Check size={12} aria-hidden /> : <Clipboard size={12} aria-hidden />}
+      {copied ? <Check className="size-3" aria-hidden /> : <Copy01 className="size-3" aria-hidden />}
       {copied ? "Copied" : label}
     </button>
   );

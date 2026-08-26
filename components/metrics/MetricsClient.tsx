@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
 import { HeatmapYear, type HeatmapDay } from "@/components/metrics/HeatmapYear";
 import { TrendLine, type TrendPoint } from "@/components/metrics/TrendLine";
+import { MetricCard } from "@/components/metrics/MetricCard";
+import { RangeToggle } from "@/components/metrics/RangeToggle";
 import { SocialIcon } from "@/components/ui/SocialIcon";
 import { GROUP } from "@/lib/group";
 
@@ -52,6 +53,13 @@ const PLATFORM_COLOR: Record<string, string> = {
   x: "#a1a1aa",
 };
 
+function browserDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function MetricsClient({ rows, members }: MetricsClientProps) {
   const [range, setRange] = useState<Range>("31d");
   const [metricKey, setMetricKey] = useState<Metric>("twitch-combined");
@@ -66,7 +74,7 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
     const days = range === "1d" ? 1 : range === "7d" ? 7 : 31;
     const c = new Date(now);
     c.setDate(c.getDate() - days);
-    return c.toISOString().slice(0, 10);
+    return browserDateKey(c);
   }, [range]);
 
   const ranged = useMemo(
@@ -138,30 +146,23 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
           range filters always live in the same spot top-right. */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+          <p className="text-sm font-semibold text-brand-secondary">
             Group totals · followers / subs
           </p>
-          <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
-            Snapshot of every public account.
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-primary md:text-display-xs">
+            <span className="gradient-text">Snapshot</span> of every public account.
           </h2>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(["1d", "7d", "31d", "all"] as Range[]).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              aria-pressed={range === r}
-              className={`inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
-                range === r
-                  ? "border-[color:var(--core)] bg-[color:var(--core)]/12 text-[color:var(--core)]"
-                  : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
-              }`}
-            >
-              {r === "all" ? "All time" : r === "1d" ? "24h" : r === "7d" ? "7d" : "31d"}
-            </button>
-          ))}
-        </div>
+        <RangeToggle
+          value={range}
+          onChange={setRange}
+          options={[
+            { key: "1d", label: "24h" },
+            { key: "7d", label: "7d" },
+            { key: "31d", label: "31d" },
+            { key: "all", label: "All time" },
+          ]}
+        />
       </header>
 
       {/* KPI grid — group-level (each linkable to its social) + Twitch combined */}
@@ -209,14 +210,14 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
 
       {/* Trend chart — single platform pill row, brand-colored, with the
           chart for the active selection underneath. */}
-      <section className="rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 md:p-6">
+      <section className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary shadow-xs-skeuomorphic md:p-6">
         <header className="mb-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+          <p className="text-sm font-semibold text-brand-secondary">
             Growth trend
           </p>
-          <h2 className="mt-1 text-[18px] font-bold tracking-tight text-[color:var(--ink)] md:text-[22px]">
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-primary md:text-xl">
             <span style={{ color: metric.brand }}>{metric.label}</span>
-            <span className="ml-2 text-[color:var(--ink-dim)]">· {metric.subtitle}</span>
+            <span className="ml-2 text-tertiary">· {metric.subtitle}</span>
           </h2>
         </header>
 
@@ -232,7 +233,7 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
                 type="button"
                 onClick={() => setMetricKey(m.key)}
                 aria-pressed={active}
-                className="group/pill inline-flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold tracking-tight transition-all hover:-translate-y-px"
+                className="group/pill inline-flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold tracking-tight transition-all hover:-translate-y-px"
                 style={
                   active
                     ? {
@@ -258,18 +259,23 @@ export function MetricsClient({ rows, members }: MetricsClientProps) {
         <TrendLine data={trend} accent={accent} unit={metric.unit} />
       </section>
 
-      {/* GitHub-style heatmap of daily deltas */}
-      <section className="rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 md:p-6">
+      {trend.length === 0 ? (
+        <p className="text-sm text-tertiary">
+          Follower snapshots appear after the first collector run. Stream airtime above is independent.
+        </p>
+      ) : (
+      <section className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary shadow-xs-skeuomorphic md:p-6">
         <header className="mb-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-            Daily growth · 2026
+          <p className="text-sm font-semibold text-brand-secondary">
+            Daily growth · {new Date().getFullYear()}
           </p>
-          <h2 className="mt-1 text-[18px] font-bold tracking-tight text-[color:var(--ink)] md:text-[22px]">
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-primary md:text-xl">
             One square per day.
           </h2>
         </header>
-        <HeatmapYear byDate={heatmap} accent={accent} colorBy="delta" year={2026} />
+        <HeatmapYear byDate={heatmap} accent={accent} colorBy="delta" year={new Date().getFullYear()} />
       </section>
+      )}
     </div>
   );
 }
@@ -289,51 +295,14 @@ function KpiCard({
   platform: "twitch" | "youtube" | "tiktok" | "instagram" | "x";
   href?: string;
 }) {
-  const inner = (
-    <>
-      <span
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
-        style={{ background: `${accent}18`, color: accent }}
-      >
-        <SocialIcon platform={platform} size={13} />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: accent }}>
-          {label}
-        </span>
-        <span className="mt-1.5 text-[24px] font-bold tabular-nums leading-none text-[color:var(--ink)] md:text-[28px]">
-          {value == null ? "—" : value.toLocaleString("en-US")}
-        </span>
-        <span className="mt-1 text-[11px] text-[color:var(--ink-dim)]">{unit}</span>
-      </span>
-      {href ? (
-        <ArrowUpRight
-          size={14}
-          className="shrink-0 self-start text-[color:var(--ink-faint)] transition-colors group-hover:text-[color:var(--ink)]"
-        />
-      ) : null}
-    </>
-  );
-  const className =
-    "group relative flex items-start gap-3 overflow-hidden rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 transition-all";
-  const style = { boxShadow: `inset 0 0 0 1px ${accent}1f` } as React.CSSProperties;
-  if (href) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${className} hover:-translate-y-px`}
-        style={style}
-      >
-        {inner}
-      </a>
-    );
-  }
   return (
-    <div className={className} style={style}>
-      {inner}
-    </div>
+    <MetricCard
+      icon={<SocialIcon platform={platform} size={18} />}
+      label={label}
+      value={value == null ? "—" : value.toLocaleString("en-US")}
+      unit={unit}
+      accent={accent}
+      href={href}
+    />
   );
 }
-

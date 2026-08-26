@@ -1,4 +1,7 @@
+import { Users01, Signal01, Eye, Tv01 } from "@untitledui/icons";
 import { getOrgStats, formatCount, platformLabel } from "@/lib/stats";
+import { MetricCard } from "@/components/metrics/MetricCard";
+import type { FC } from "react";
 
 /**
  * Quiet, in-flow stats row. Renders between the hero and the LiveNow
@@ -12,26 +15,30 @@ import { getOrgStats, formatCount, platformLabel } from "@/lib/stats";
  */
 export async function StatsStrip() {
   const org = await getOrgStats();
-  const cells: Array<{ label: string; value: string; sub: string }> = [
+  const cells: Array<{ label: string; value: string; sub: string; icon: FC<{ className?: string }> }> = [
     {
       label: "Total subs",
       value: formatCount(org.totals.followersCumulative),
       sub: "across YouTube + Twitch",
+      icon: Users01,
     },
     {
       label: "Live now",
       value: org.totals.membersLive.toString(),
       sub: `of ${org.members.length} members`,
+      icon: Signal01,
     },
     {
       label: "Lifetime views",
       value: formatCount(org.totals.viewsCumulative),
       sub: "YouTube — refreshed hourly",
+      icon: Eye,
     },
     {
       label: "Members",
       value: org.members.length.toString(),
       sub: "creators · 1 org",
+      icon: Tv01,
     },
   ];
 
@@ -40,26 +47,23 @@ export async function StatsStrip() {
       aria-label="CORE at a glance"
       className="relative w-full bg-[color:var(--bg-elev)]/40 py-8 md:py-10 backdrop-blur-sm"
     >
-      <div className="mx-auto max-w-[1280px] px-6 md:px-16">
-        <div className="-mx-2 flex snap-x snap-mandatory gap-px overflow-x-auto md:mx-0 md:grid md:grid-cols-4 md:gap-px md:overflow-visible md:rounded-[10px] md:border md:border-[color:var(--rule)] md:bg-[color:var(--rule)]">
+      <div className="mx-auto max-w-container px-6 md:px-8">
+        <div className="-mx-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
           {cells.map((c) => (
-            <div
+            <MetricCard
               key={c.label}
-              className="snap-start shrink-0 basis-[220px] bg-[color:var(--bg-elev)] px-4 py-4 md:basis-auto md:shrink"
-            >
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-                {c.label}
-              </p>
-              <p className="mt-1.5 font-display text-[28px] font-black leading-none tracking-[-0.03em] text-[color:var(--ink)] md:text-[36px]">
-                {c.value}
-              </p>
-              <p className="mt-1 text-[11px] text-[color:var(--ink-dim)]">{c.sub}</p>
-            </div>
+              icon={c.icon}
+              label={c.label}
+              value={c.value}
+              delta={c.sub}
+              trend="neutral"
+              className="snap-start shrink-0 basis-[220px] md:basis-auto md:shrink"
+            />
           ))}
         </div>
 
         {/* Per-platform mini-roll — single line, glassy, restrained */}
-        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[color:var(--ink-faint)]">
+        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs uppercase tracking-[0.16em] text-[color:var(--ink-faint)]">
           {(["youtube", "twitch", "tiktok", "instagram", "x"] as const).map((p) => {
             const total = org.members
               .flatMap((m) => m.platforms)

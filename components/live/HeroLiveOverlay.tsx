@@ -8,6 +8,7 @@ import { LiveDot } from "@/components/ui/LiveDot";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { MEMBERS_BY_LOGIN } from "@/lib/members-helpers";
 import { formatViewerCount } from "@/lib/utils";
+import { formatHandleDisplay } from "@/lib/watch/display-label";
 
 /**
  * Pinned-to-the-corner live hero overlay. Fades in over the existing
@@ -50,16 +51,16 @@ export function HeroLiveOverlay() {
               href={`https://twitch.tv/${entry.login}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative flex items-center gap-3 overflow-hidden rounded-[12px] border bg-black/55 p-3 backdrop-blur-md transition-all hover:bg-black/75"
+              className="group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-black/55 p-3 backdrop-blur-md transition-all hover:bg-black/75"
               style={{
                 borderColor: `${accent}66`,
                 boxShadow: `0 0 32px -16px ${accent}aa, inset 0 0 0 1px ${accent}22`,
               }}
-              aria-label={`Watch ${member?.stageName ?? entry.login} on Twitch`}
+              aria-label={`Watch ${member?.stageName ?? formatHandleDisplay(entry.login)} on Twitch`}
             >
               {member ? (
                 <span
-                  className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border"
+                  className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border"
                   style={{ borderColor: accent }}
                 >
                   <Image
@@ -75,16 +76,16 @@ export function HeroLiveOverlay() {
                 <div className="flex items-center gap-1.5">
                   <LiveDot live className="!h-1.5 !w-1.5" />
                   <span
-                    className="font-mono text-[9px] uppercase tracking-[0.22em]"
+                    className="text-xs font-semibold uppercase tracking-[0.16em]"
                     style={{ color: accent }}
                   >
                     Live now
                   </span>
                 </div>
-                <p className="mt-0.5 truncate font-display text-[18px] font-bold leading-tight tracking-[-0.01em] text-white">
-                  {member?.stageName ?? entry.login}
+                <p className="mt-0.5 truncate font-display text-lg font-semibold leading-tight tracking-tight text-white">
+                  {member?.stageName ?? formatHandleDisplay(entry.login)}
                 </p>
-                <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.14em] text-white/70">
+                <p className="mt-0.5 truncate text-xs uppercase tracking-[0.12em] text-white/70">
                   {entry.game ?? "Streaming"}
                   {entry.viewerCount != null ? (
                     <>
@@ -100,16 +101,16 @@ export function HeroLiveOverlay() {
                 </p>
               </div>
               <span
-                className="ml-1 hidden items-center gap-1 rounded-[6px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] sm:inline-flex"
+                className="ml-1 hidden items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium uppercase tracking-[0.12em] sm:inline-flex"
                 style={{ borderColor: accent, color: accent }}
               >
-                <Tv size={10} /> Watch <ExternalLink size={9} />
+                <Tv size={12} /> Watch <ExternalLink size={11} />
               </span>
             </a>
           );
         })}
         {liveEntries.length > 3 ? (
-          <p className="text-right font-mono text-[10px] uppercase tracking-[0.18em] text-white/60">
+          <p className="text-right text-xs font-medium uppercase tracking-[0.14em] text-white/60">
             +{liveEntries.length - 3} more in the live bar above
           </p>
         ) : null}

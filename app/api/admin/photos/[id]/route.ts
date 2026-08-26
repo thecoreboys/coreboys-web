@@ -54,12 +54,26 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
   const { id } = await params;
   // Look up the s3_key so we can clean Spaces too.
-  const r = await query<{ s3_key: string }>(
-    "SELECT s3_key FROM media_assets WHERE id = $1",
+  const r = await query<{ s3_key: string; cdn_url: string }>(
+    "SELECT s3_key, cdn_url FROM media_assets WHERE id = $1",
     [id],
   );
-  const key = r.rows[0]?.s3_key;
+  const asset = r.rows[0];
+  const key = asset?.s3_key;
   await query("DELETE FROM media_assets WHERE id = $1", [id]);
+  if (asset?.cdn_url) {
+    // An upload may have been featured in one or more creator galleries.
+    // Remove the dead URL but leave the rest of each curator's ordering intact.
+    await query(
+      `UPDATE member_gallery_overrides
+          SET photo_urls = array_remove(photo_urls, $1),
+              updated_at = NOW()
+        WHERE $1 = ANY(photo_urls)`,
+      [asset.cdn_url],
+    ).catch(() => {
+      // Safe during rollout before the additive gallery migration exists.
+    });
+  }
   if (key) {
     deleteFromSpaces(key).catch(() => {
       /* DB row already gone — best-effort cleanup of the object */

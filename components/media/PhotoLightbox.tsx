@@ -112,7 +112,7 @@ export function PhotoLightbox({
       onClick={onClose}
     >
       <div
-        className="relative grid w-full max-w-[1200px] grid-cols-1 overflow-hidden rounded-2xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8)] md:grid-cols-[1.5fr_1fr]"
+        className="relative grid w-full max-w-[1200px] grid-cols-1 overflow-hidden rounded-2xl bg-secondary ring-1 ring-inset ring-secondary shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8)] md:grid-cols-[1.5fr_1fr]"
         onClick={(e) => e.stopPropagation()}
         style={{ maxHeight: "90vh" }}
       >
@@ -136,12 +136,12 @@ export function PhotoLightbox({
           </button>
 
           <div className="pr-12">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
               In this photo
             </p>
             <ul className="mt-3 flex flex-wrap items-center gap-2">
               {people.length === 0 ? (
-                <li className="text-[12px] text-[color:var(--ink-dim)]">No one tagged</li>
+                <li className="text-sm text-tertiary">No one tagged</li>
               ) : null}
               {people.map((p) => (
                 <li key={p.id}>
@@ -160,7 +160,7 @@ export function PhotoLightbox({
                       />
                     ) : (
                       <span
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold uppercase ring-1 ring-inset"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold uppercase ring-1 ring-inset"
                         style={{
                           ["--tw-ring-color" as string]: `${p.accent}66`,
                           background: "rgba(8,8,10,0.5)",
@@ -169,7 +169,7 @@ export function PhotoLightbox({
                         {p.name[0]}
                       </span>
                     )}
-                    <span className="text-[12px] font-semibold tracking-tight">{p.name}</span>
+                    <span className="text-sm font-semibold tracking-tight">{p.name}</span>
                   </Link>
                 </li>
               ))}
@@ -177,10 +177,10 @@ export function PhotoLightbox({
           </div>
 
           <div>
-            <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-              <Camera size={11} /> Metadata
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
+              <Camera size={13} /> Metadata
             </p>
-            <dl className="mt-2 grid grid-cols-[110px_1fr] gap-x-4 gap-y-1.5 text-[12px]">
+            <dl className="mt-2 grid grid-cols-[110px_1fr] gap-x-4 gap-y-1.5 text-sm">
               <Row label="Taken" value={formatLongDate(meta?.takenAt)} />
               <Row
                 label="Resolution"
@@ -199,29 +199,29 @@ export function PhotoLightbox({
                 href={`https://www.google.com/maps?q=${meta.gps.latitude},${meta.gps.longitude}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-tertiary hover:text-primary"
               >
-                <MapPin size={12} />
+                <MapPin size={14} />
                 {meta.gps.latitude.toFixed(4)}, {meta.gps.longitude.toFixed(4)}
               </a>
             ) : null}
           </div>
 
           <div>
-            <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-              <ImageIcon size={11} /> Download
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
+              <ImageIcon size={13} /> Download
             </p>
-            <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--rule)]">
-              <table className="w-full text-[12px]">
+            <div className="mt-2 overflow-hidden rounded-xl ring-1 ring-inset ring-secondary">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[color:var(--rule)] bg-[color:var(--bg)] text-left">
-                    <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+                  <tr className="border-b border-secondary bg-secondary text-left">
+                    <th className="px-2.5 py-2 text-xs font-medium uppercase tracking-[0.14em] text-tertiary">
                       Format
                     </th>
-                    <th className="px-2.5 py-1.5 text-right text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+                    <th className="px-2.5 py-2 text-right text-xs font-medium uppercase tracking-[0.14em] text-tertiary">
                       Size
                     </th>
-                    <th className="px-2.5 py-1.5"></th>
+                    <th className="px-2.5 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -234,33 +234,33 @@ export function PhotoLightbox({
                     return (
                       <tr
                         key={f.key}
-                        className="border-t border-[color:var(--rule)] first:border-t-0 transition-colors hover:bg-[color:var(--bg)]"
+                        className="border-t border-secondary first:border-t-0 transition-colors hover:bg-secondary"
                       >
                         <td className="px-2.5 py-2">
                           <span className="inline-flex items-center gap-2">
-                            <span className="inline-flex items-center rounded border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-1.5 py-0.5 text-[10px] font-bold tracking-tight text-[color:var(--ink)]">
+                            <span className="inline-flex items-center rounded-md bg-primary px-1.5 py-0.5 text-xs font-semibold tracking-tight text-primary ring-1 ring-inset ring-secondary">
                               {f.ext}
                             </span>
                             <span className="flex flex-col leading-tight">
-                              <span className="text-[12px] font-semibold text-[color:var(--ink)]">
+                              <span className="text-sm font-semibold text-primary">
                                 {f.label}
                               </span>
-                              <span className="text-[10px] text-[color:var(--ink-faint)]">
+                              <span className="text-xs text-quaternary">
                                 {f.note}
                               </span>
                             </span>
                           </span>
                         </td>
-                        <td className="px-2.5 py-2 text-right tabular-nums text-[color:var(--ink-dim)]">
+                        <td className="px-2.5 py-2 text-right tabular-nums text-tertiary">
                           {sizeLabel}
                         </td>
                         <td className="px-2.5 py-2 text-right">
                           <a
                             href={href}
                             download
-                            className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-2 text-[11px] font-medium text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--core)] hover:text-[color:var(--ink)]"
+                            className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md bg-primary px-2 text-xs font-medium text-tertiary ring-1 ring-inset ring-secondary transition-colors hover:text-primary"
                           >
-                            <Download size={11} /> Save
+                            <Download size={12} /> Save
                           </a>
                         </td>
                       </tr>
@@ -270,7 +270,7 @@ export function PhotoLightbox({
               </table>
             </div>
             {meta?.width && meta?.height ? (
-              <p className="mt-2 text-[10px] text-[color:var(--ink-faint)]">
+              <p className="mt-2 text-xs text-quaternary">
                 {meta.width} × {meta.height}
               </p>
             ) : null}
@@ -284,8 +284,8 @@ export function PhotoLightbox({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <>
-      <dt className="text-[color:var(--ink-faint)]">{label}</dt>
-      <dd className="text-[color:var(--ink)]">{value}</dd>
+      <dt className="text-quaternary">{label}</dt>
+      <dd className="text-primary">{value}</dd>
     </>
   );
 }

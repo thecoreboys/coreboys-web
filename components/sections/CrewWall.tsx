@@ -1,14 +1,8 @@
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
 import { getCrewPortrait } from "@/lib/asset-index";
 import { fetchUsersByLogin } from "@/lib/twitch";
+import { getCrewRoleLabel } from "@/lib/crew";
 import { CrewWallClient, type CrewWallItem } from "@/components/sections/CrewWallClient";
-
-const ROLE_COPY: Record<string, string> = {
-  cameraman: "Cameraman",
-  management: "Management",
-  editor: "Editor",
-  producer: "Producer",
-};
 
 /**
  * Server-side data shaper for the crew wall — looks up portraits +
@@ -45,7 +39,7 @@ export async function CrewWall() {
     return {
       slug: c.slug,
       name: c.name,
-      roleLabel: ROLE_COPY[c.role] ?? c.role,
+      roleLabel: getCrewRoleLabel(c),
       portrait: getCrewPortrait(c.slug) ?? null,
       accent,
       works: works.map((m) => ({

@@ -16,7 +16,7 @@ export function Container({
     {
       ...rest,
       "data-grid": true,
-      className: cn("mx-auto w-full max-w-[1440px] px-6 md:px-16", className),
+      className: cn("mx-auto w-full max-w-container px-6 md:px-16", className),
     },
     children,
   );

@@ -5,14 +5,17 @@ import Link from "next/link";
 import {
   Camera,
   Download,
-  Grid3x3,
   Image as ImageIcon,
   MapPin,
   Sparkles,
-  Table as TableIcon,
   Users,
   X,
 } from "lucide-react";
+import { SearchLg, Stars02, Grid01, Rows01, SearchRefraction } from "@untitledui/icons";
+import { Input } from "@/components/base/input/input";
+import { ButtonGroup, ButtonGroupItem } from "@/components/base/button-group/button-group";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 
 const STORAGE_KEY = "coreboys-media:v1";
 
@@ -247,51 +250,37 @@ export function MediaGallery({ members, taggablePeople, items }: MediaGalleryPro
 
   return (
     <div>
-      {/* Toolbar */}
+      {/* Toolbar — UUI search input + view button group */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[260px]">
-          <Sparkles
-            size={14}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--core)]"
-          />
-          <input
-            type="text"
+        <div className="min-w-[280px] flex-1">
+          <Input
+            icon={SearchLg}
+            size="md"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(v) => setQuery(v)}
             placeholder="AI search — describe the shot, e.g. 'marlon laughing on the couch'"
-            className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] py-2.5 pl-9 pr-3 text-[14px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
+            aria-label="Search photos"
           />
         </div>
 
         {/* View toggle */}
-        <div className="inline-flex rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-0.5">
-          <button
-            type="button"
-            onClick={() => setView("grid")}
-            aria-pressed={view === "grid"}
-            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
-              view === "grid"
-                ? "bg-[color:var(--surface)] text-[color:var(--ink)]"
-                : "text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-            }`}
-          >
-            <Grid3x3 size={12} /> Grid
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("table")}
-            aria-pressed={view === "table"}
-            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
-              view === "table"
-                ? "bg-[color:var(--surface)] text-[color:var(--ink)]"
-                : "text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-            }`}
-          >
-            <TableIcon size={12} /> Table
-          </button>
-        </div>
+        <ButtonGroup
+          size="md"
+          selectedKeys={new Set([view])}
+          onSelectionChange={(keys) => {
+            const next = Array.from(keys)[0] as "grid" | "table" | undefined;
+            if (next) setView(next);
+          }}
+        >
+          <ButtonGroupItem id="grid" iconLeading={Grid01}>
+            Grid
+          </ButtonGroupItem>
+          <ButtonGroupItem id="table" iconLeading={Rows01}>
+            Table
+          </ButtonGroupItem>
+        </ButtonGroup>
 
-        <span className="ml-auto text-[12px] text-[color:var(--ink-faint)]">
+        <span className="ml-auto text-sm font-medium text-quaternary">
           {filteredItems.length} of {items.length}
         </span>
       </div>
@@ -300,8 +289,11 @@ export function MediaGallery({ members, taggablePeople, items }: MediaGalleryPro
           search box just falls back to substring filtering. Tell users so
           they don't expect natural-language matching yet. */}
       {aiSearch ? (
-        <div className="mb-4 rounded-md border border-[color:var(--core)]/40 bg-[color:var(--core)]/10 px-4 py-3 text-[13px] text-[color:var(--ink)]">
-          AI search abilty backend is not set up yet sorry guys! &lt;3
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-secondary bg-secondary p-4 shadow-xs-skeuomorphic">
+          <FeaturedIcon icon={Stars02} size="md" color="brand" theme="light" />
+          <p className="text-sm font-medium text-secondary">
+            AI search abilty backend is not set up yet sorry guys! &lt;3
+          </p>
         </div>
       ) : null}
 
@@ -338,8 +330,12 @@ export function MediaGallery({ members, taggablePeople, items }: MediaGalleryPro
 
       {/* Body */}
       {filteredItems.length === 0 ? (
-        <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center">
-          <p className="text-[12px] text-[color:var(--ink-faint)]">No photos match</p>
+        <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-secondary bg-secondary p-10 text-center shadow-xs-skeuomorphic">
+          <FeaturedIcon icon={SearchRefraction} size="xl" color="gray" theme="modern" />
+          <p className="mt-4 text-lg font-semibold text-primary">No photos match</p>
+          <p className="mt-1 max-w-[44ch] text-sm text-tertiary">
+            Try clearing a filter or a different search.
+          </p>
         </div>
       ) : view === "grid" ? (
         <GridView
@@ -390,7 +386,7 @@ function GridView({
             key={item.src}
             type="button"
             onClick={() => onClick(item)}
-            className="group relative mb-3 block w-full break-inside-avoid rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-left transition-all duration-300 hover:border-[color:var(--rule-strong)] hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_rgba(0,0,0,0.6)] cursor-pointer"
+            className="group relative mb-4 block w-full break-inside-avoid rounded-xl border border-secondary bg-secondary p-1.5 text-left shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl cursor-pointer"
           >
             {/* Photo is clipped here so the scale-on-hover stays inside,
                 but the chip overlay below can render its tooltip outside.
@@ -431,7 +427,7 @@ function GridView({
                 <PersonAvatarChip key={p.id} person={p} size={26} />
               ))}
               {peopleHere.length > 6 ? (
-                <span className="inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-full border border-white/20 bg-[rgba(8,8,10,0.85)] px-1.5 text-[10px] font-bold text-on-image backdrop-blur-md">
+                <span className="inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-full border border-white/20 bg-[rgba(8,8,10,0.85)] px-1.5 text-xs font-semibold text-on-image backdrop-blur-md">
                   +{peopleHere.length - 6}
                 </span>
               ) : null}
@@ -453,10 +449,10 @@ function TableView({
   onClick: (item: MediaItem) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-[color:var(--rule)]">
-      <table className="w-full text-[13px]">
+    <div className="overflow-x-auto rounded-xl bg-primary ring-1 ring-inset ring-secondary shadow-xs-skeuomorphic">
+      <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[color:var(--rule)] bg-[color:var(--surface)] text-left">
+          <tr className="border-b border-secondary bg-secondary text-left">
             <Th>Photo</Th>
             <Th>People</Th>
             <Th align="right">Taken</Th>
@@ -472,8 +468,8 @@ function TableView({
             return (
               <tr
                 key={item.src}
-                className={`group cursor-pointer transition-colors hover:bg-[color:var(--bg-elev)] ${
-                  i === 0 ? "" : "border-t border-[color:var(--rule)]"
+                className={`group cursor-pointer transition-colors hover:bg-secondary ${
+                  i === 0 ? "" : "border-t border-secondary"
                 }`}
               >
                 <td className="px-3 py-2">
@@ -489,7 +485,7 @@ function TableView({
                       className="h-12 w-12 rounded-md object-cover"
                       loading="lazy"
                     />
-                    <span className="text-[12px] text-[color:var(--ink-dim)] group-hover:text-[color:var(--ink)]">
+                    <span className="text-sm text-tertiary group-hover:text-primary">
                       {item.src.split("/").pop()}
                     </span>
                   </button>
@@ -500,33 +496,33 @@ function TableView({
                       <PersonAvatarChip key={p.id} person={p} size={22} />
                     ))}
                     {peopleHere.length > 5 ? (
-                      <span className="ml-1 text-[10px] text-[color:var(--ink-faint)]">
+                      <span className="ml-1 text-xs text-quaternary">
                         +{peopleHere.length - 5}
                       </span>
                     ) : null}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-right text-[color:var(--ink-dim)]">
+                <td className="px-3 py-2 text-right text-tertiary">
                   {item.meta?.takenAt ? formatShortDate(item.meta.takenAt) : "—"}
                 </td>
-                <td className="px-3 py-2 text-right text-[color:var(--ink-dim)] tabular-nums">
+                <td className="px-3 py-2 text-right text-tertiary tabular-nums">
                   {item.meta?.width && item.meta?.height
                     ? `${item.meta.width}×${item.meta.height}`
                     : "—"}
                 </td>
-                <td className="px-3 py-2 text-right text-[color:var(--ink-dim)] tabular-nums">
+                <td className="px-3 py-2 text-right text-tertiary tabular-nums">
                   {formatBytes(item.meta?.size)}
                 </td>
-                <td className="px-3 py-2 truncate text-[color:var(--ink-dim)]">
+                <td className="px-3 py-2 truncate text-tertiary">
                   {item.meta?.camera ?? "—"}
                 </td>
                 <td className="px-3 py-2 text-right">
                   <a
                     href={item.src}
                     download
-                    className="inline-flex items-center gap-1 text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--core)]"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-tertiary hover:text-[color:var(--core)]"
                   >
-                    <Download size={11} /> Original
+                    <Download size={12} /> Original
                   </a>
                 </td>
               </tr>
@@ -567,7 +563,7 @@ function PhotoModal({
       onClick={onClose}
     >
       <div
-        className="relative grid w-full max-w-[1200px] grid-cols-1 overflow-hidden rounded-2xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8)] md:grid-cols-[1.5fr_1fr]"
+        className="relative grid w-full max-w-[1200px] grid-cols-1 overflow-hidden rounded-2xl bg-secondary ring-1 ring-inset ring-secondary shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8)] md:grid-cols-[1.5fr_1fr]"
         onClick={(e) => e.stopPropagation()}
         style={{ maxHeight: "90vh" }}
       >
@@ -594,12 +590,12 @@ function PhotoModal({
           </button>
 
           <div className="pr-12">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
               In this photo
             </p>
             <ul className="mt-3 flex flex-wrap items-center gap-2">
               {people.length === 0 ? (
-                <li className="text-[12px] text-[color:var(--ink-dim)]">No one tagged</li>
+                <li className="text-sm text-tertiary">No one tagged</li>
               ) : null}
               {people.map((p) => (
                 <li key={p.id}>
@@ -618,7 +614,7 @@ function PhotoModal({
                       />
                     ) : (
                       <span
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold uppercase ring-1 ring-inset"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold uppercase ring-1 ring-inset"
                         style={{
                           ["--tw-ring-color" as string]: `${p.accent}66`,
                           background: "rgba(8,8,10,0.5)",
@@ -627,7 +623,7 @@ function PhotoModal({
                         {p.name[0]}
                       </span>
                     )}
-                    <span className="text-[12px] font-semibold tracking-tight">
+                    <span className="text-sm font-semibold tracking-tight">
                       {p.name}
                     </span>
                   </Link>
@@ -636,30 +632,30 @@ function PhotoModal({
             </ul>
             {authed ? (
               <details className="mt-3">
-                <summary className="cursor-pointer text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]">
+                <summary className="cursor-pointer text-sm font-medium text-tertiary hover:text-primary">
                   Edit tags
                 </summary>
-                <ul className="mt-2 max-h-[220px] overflow-y-auto rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] p-1">
+                <ul className="mt-2 max-h-[220px] overflow-y-auto rounded-lg bg-primary p-1 ring-1 ring-inset ring-secondary">
                   {allTaggable.map((p) => {
                     const checked = tags.includes(p.id);
                     return (
                       <li key={p.id}>
-                        <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] hover:bg-[color:var(--bg-elev)]">
-                          <input
-                            type="checkbox"
-                            checked={checked}
+                        <div className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-secondary">
+                          <Checkbox
+                            isSelected={checked}
                             onChange={() => onToggleTag(p.id)}
-                            className="h-3.5 w-3.5 accent-[color:var(--core)]"
+                            aria-label={`Tag ${p.name}`}
+                            size="sm"
                           />
                           <span
                             className="h-1.5 w-1.5 rounded-full"
                             style={{ background: p.accent }}
                           />
-                          <span className="text-[color:var(--ink)]">{p.name}</span>
-                          <span className="ml-auto text-[10px] text-[color:var(--ink-faint)]">
+                          <span className="text-primary">{p.name}</span>
+                          <span className="ml-auto text-xs text-quaternary">
                             {p.kind}
                           </span>
-                        </label>
+                        </div>
                       </li>
                     );
                   })}
@@ -670,12 +666,12 @@ function PhotoModal({
 
           {credits.length > 0 ? (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
                 Credits
               </p>
               <ul className="mt-2 flex flex-col gap-1">
                 {credits.map((c) => (
-                  <li key={c} className="text-[13px] text-[color:var(--ink)]">
+                  <li key={c} className="text-sm text-primary">
                     {c}
                   </li>
                 ))}
@@ -685,20 +681,20 @@ function PhotoModal({
 
           {item.aiDescription ? (
             <div>
-              <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-                <Sparkles size={11} /> AI description
+              <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
+                <Sparkles size={13} /> AI description
               </p>
-              <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
+              <p className="mt-2 text-sm leading-relaxed text-tertiary">
                 {item.aiDescription}
               </p>
             </div>
           ) : null}
 
           <div>
-            <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-              <Camera size={11} /> Metadata
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
+              <Camera size={13} /> Metadata
             </p>
-            <dl className="mt-2 grid grid-cols-[110px_1fr] gap-x-4 gap-y-1.5 text-[12px]">
+            <dl className="mt-2 grid grid-cols-[110px_1fr] gap-x-4 gap-y-1.5 text-sm">
               <Row label="Taken" value={formatLongDate(meta?.takenAt)} />
               <Row
                 label="Resolution"
@@ -717,29 +713,29 @@ function PhotoModal({
                 href={`https://www.google.com/maps?q=${meta.gps.latitude},${meta.gps.longitude}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-tertiary hover:text-primary"
               >
-                <MapPin size={12} />
+                <MapPin size={14} />
                 {meta.gps.latitude.toFixed(4)}, {meta.gps.longitude.toFixed(4)}
               </a>
             ) : null}
           </div>
 
           <div>
-            <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-              <ImageIcon size={11} /> Download
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
+              <ImageIcon size={13} /> Download
             </p>
-            <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--rule)]">
-              <table className="w-full text-[12px]">
+            <div className="mt-2 overflow-hidden rounded-xl ring-1 ring-inset ring-secondary">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[color:var(--rule)] bg-[color:var(--bg)] text-left">
-                    <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+                  <tr className="border-b border-secondary bg-secondary text-left">
+                    <th className="px-2.5 py-2 text-xs font-medium uppercase tracking-[0.14em] text-tertiary">
                       Format
                     </th>
-                    <th className="px-2.5 py-1.5 text-right text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+                    <th className="px-2.5 py-2 text-right text-xs font-medium uppercase tracking-[0.14em] text-tertiary">
                       Size
                     </th>
-                    <th className="px-2.5 py-1.5"></th>
+                    <th className="px-2.5 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -754,35 +750,35 @@ function PhotoModal({
                     return (
                       <tr
                         key={f.key}
-                        className="border-t border-[color:var(--rule)] first:border-t-0 transition-colors hover:bg-[color:var(--bg)]"
+                        className="border-t border-secondary first:border-t-0 transition-colors hover:bg-secondary"
                       >
                         <td className="px-2.5 py-2">
                           <span className="inline-flex items-center gap-2">
                             <span
-                              className="inline-flex items-center rounded border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-1.5 py-0.5 text-[10px] font-bold tracking-tight text-[color:var(--ink)]"
+                              className="inline-flex items-center rounded-md bg-primary px-1.5 py-0.5 text-xs font-semibold tracking-tight text-primary ring-1 ring-inset ring-secondary"
                             >
                               {f.ext}
                             </span>
                             <span className="flex flex-col leading-tight">
-                              <span className="text-[12px] font-semibold text-[color:var(--ink)]">
+                              <span className="text-sm font-semibold text-primary">
                                 {f.label}
                               </span>
-                              <span className="text-[10px] text-[color:var(--ink-faint)]">
+                              <span className="text-xs text-quaternary">
                                 {f.note}
                               </span>
                             </span>
                           </span>
                         </td>
-                        <td className="px-2.5 py-2 text-right tabular-nums text-[color:var(--ink-dim)]">
+                        <td className="px-2.5 py-2 text-right tabular-nums text-tertiary">
                           {sizeLabel}
                         </td>
                         <td className="px-2.5 py-2 text-right">
                           <a
                             href={href}
                             download
-                            className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-2 text-[11px] font-medium text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--core)] hover:text-[color:var(--ink)]"
+                            className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md bg-primary px-2 text-xs font-medium text-tertiary ring-1 ring-inset ring-secondary transition-colors hover:text-primary"
                           >
-                            <Download size={11} /> Save
+                            <Download size={12} /> Save
                           </a>
                         </td>
                       </tr>
@@ -792,7 +788,7 @@ function PhotoModal({
               </table>
             </div>
             {meta?.width && meta?.height ? (
-              <p className="mt-2 text-[10px] text-[color:var(--ink-faint)]">
+              <p className="mt-2 text-xs text-quaternary">
                 {meta.width} × {meta.height}
               </p>
             ) : null}
@@ -826,10 +822,10 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-full border py-1 ${hasAvatarSlot ? "pl-1 pr-3" : "px-3"} text-[12px] font-medium transition-all cursor-pointer ${
+      className={`inline-flex items-center gap-2 rounded-full border py-1 ${hasAvatarSlot ? "pl-1 pr-3" : "px-3"} text-sm font-medium transition-all cursor-pointer ${
         active
-          ? "text-[color:var(--ink)]"
-          : "border-[color:var(--rule)] text-[color:var(--ink-dim)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]"
+          ? "text-primary"
+          : "border-secondary text-tertiary hover:bg-secondary hover:text-primary"
       }`}
       style={
         active
@@ -876,10 +872,10 @@ function ToggleChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
         active
-          ? "border-[color:var(--ink)]/40 bg-[color:var(--bg-elev)] text-[color:var(--ink)]"
-          : "border-dashed border-[color:var(--rule-strong)] bg-transparent text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
+          ? "border-secondary bg-secondary text-primary"
+          : "border-dashed border-secondary bg-transparent text-tertiary hover:text-primary"
       }`}
     >
       {label}
@@ -890,7 +886,7 @@ function ToggleChip({
 function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
   return (
     <th
-      className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)] ${align === "right" ? "text-right" : ""}`}
+      className={`px-3 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-tertiary ${align === "right" ? "text-right" : ""}`}
     >
       {children}
     </th>
@@ -900,8 +896,8 @@ function Th({ children, align }: { children: React.ReactNode; align?: "right" })
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <>
-      <dt className="text-[color:var(--ink-faint)]">{label}</dt>
-      <dd className="text-[color:var(--ink)]">{value}</dd>
+      <dt className="text-quaternary">{label}</dt>
+      <dd className="text-primary">{value}</dd>
     </>
   );
 }
@@ -957,7 +953,7 @@ function PersonAvatarChip({
           />
         ) : (
           <span
-            className="flex h-full w-full items-center justify-center rounded-full ring-2 ring-inset text-[10px] font-bold uppercase"
+            className="flex h-full w-full items-center justify-center rounded-full ring-2 ring-inset text-xs font-bold uppercase"
             style={{
               ["--tw-ring-color" as string]: person.accent,
               color: person.accent,
@@ -980,7 +976,7 @@ function PersonAvatarChip({
       {/* Tooltip on hover */}
       <span
         role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-3 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-[10px] font-semibold text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity duration-150 group-hover/chip:opacity-100"
+        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-3 -translate-x-1/2 whitespace-nowrap rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary opacity-0 shadow-lg ring-1 ring-inset ring-secondary transition-opacity duration-150 group-hover/chip:opacity-100"
       >
         {person.name}
       </span>
@@ -1045,8 +1041,8 @@ function SetAsProfileButton({ src, people }: { src: string; people: Person[] }) 
   };
 
   return (
-    <div className="rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg)] p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+    <div className="rounded-xl border border-dashed border-secondary bg-primary p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
         Admin · Set as profile image
       </p>
       <ul className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -1055,8 +1051,8 @@ function SetAsProfileButton({ src, people }: { src: string; people: Person[] }) 
             <button
               type="button"
               onClick={() => setProfile(p.slug)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-2.5 py-1.5 text-[12px] font-medium text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--ink)] cursor-pointer"
-              style={{ borderColor: savedFor === p.slug ? "var(--success)" : undefined }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1.5 text-sm font-medium text-tertiary ring-1 ring-inset ring-secondary hover:text-primary cursor-pointer"
+              style={{ boxShadow: savedFor === p.slug ? "inset 0 0 0 1px var(--success)" : undefined }}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.accent }} />
               {savedFor === p.slug ? `Saved for ${p.name}` : `Set for ${p.name}`}
@@ -1064,7 +1060,7 @@ function SetAsProfileButton({ src, people }: { src: string; people: Person[] }) 
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[10px] text-[color:var(--ink-faint)]">
+      <p className="mt-2 text-xs text-quaternary">
         Phase 4: writes <code className="font-mono">editable_member_overrides.portrait_asset_id</code>.
       </p>
     </div>

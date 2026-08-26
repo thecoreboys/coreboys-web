@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, PlayCircle } from "lucide-react";
+import { LinkExternal01, PlayCircle } from "@untitledui/icons";
 import type { Clip } from "@/lib/clips";
 import { PlatformLogo, PLATFORM_BRAND } from "@/components/clips/PlatformLogo";
 
@@ -25,7 +25,7 @@ export function ClipEmbed({ clip }: { clip: Clip }) {
   const aspectClass =
     clip.aspect === "vertical" ? "aspect-[9/16]" : "aspect-video";
   return (
-    <div className={`relative ${aspectClass} w-full overflow-hidden rounded-lg border border-[color:var(--rule)] bg-black media-tone`}>
+    <div className={`relative ${aspectClass} w-full overflow-hidden rounded-xl bg-black ring-1 ring-inset ring-secondary media-tone`}>
       {!loaded ? (
         <button
           type="button"
@@ -58,8 +58,7 @@ export function ClipEmbed({ clip }: { clip: Clip }) {
             }}
           />
           <PlayCircle
-            size={64}
-            className="absolute text-white opacity-90 transition-transform group-hover:scale-110"
+            className="absolute size-16 text-white opacity-90 transition-transform group-hover:scale-110"
             style={{ filter: `drop-shadow(0 8px 24px ${brand}88)` }}
           />
           {/* Platform watermark — logo only, accent-tinted, in a glass plate. */}
@@ -79,7 +78,7 @@ export function ClipEmbed({ clip }: { clip: Clip }) {
 }
 
 function ClipIframe({ clip }: { clip: Clip }) {
-  const parent = typeof window !== "undefined" ? window.location.hostname : "corecrew.org";
+  const parent = typeof window !== "undefined" ? window.location.hostname : "thecoreboys.com";
   switch (clip.source) {
     case "twitch":
       return (
@@ -94,7 +93,7 @@ function ClipIframe({ clip }: { clip: Clip }) {
       return (
         <iframe
           title={clip.title}
-          src={`https://www.youtube.com/embed/${encodeURIComponent(clip.externalId)}?autoplay=1&rel=0`}
+          src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(clip.externalId)}?autoplay=1&rel=0&modestbranding=1&playsinline=1&origin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
           className="absolute inset-0 h-full w-full"
@@ -144,9 +143,9 @@ export function ExternalClipLink({ clip }: { clip: Clip }) {
       href={clip.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
+      className="inline-flex items-center gap-1 text-xs font-medium text-tertiary hover:text-primary"
     >
-      Open <ExternalLink size={11} />
+      Open <LinkExternal01 className="size-3" />
     </a>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Server-only stats aggregation. Powers `/press` and `/m/[slug]/numbers`.
+ * Server-only stats aggregation. Powers `/press` and `/about/[slug]/numbers`.
  *
  * See `docs/STATS.md` for the contract — every cell on those pages
  * traces back to one of the exported functions in this file.

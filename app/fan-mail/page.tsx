@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MailCard } from "@/components/fan-mail/MailCard";
+import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { MAIL_MEMBERS } from "@/lib/fan-mail";
 
 export const metadata: Metadata = {
@@ -22,19 +23,20 @@ export const metadata: Metadata = {
  */
 export default function FanMailPage() {
   return (
+    <>
     <div className="fan-mail-shell relative min-h-screen pb-32">
       {/* Hero */}
       <header className="relative px-6 pb-10 pt-24 md:px-16 md:pb-16 md:pt-32">
         <div className="mx-auto max-w-[1080px]">
-          <p className="font-mono text-[12px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
             Mail · 5 boys · 0 DMs
           </p>
-          <h1 className="mt-3 font-editorial-serif text-[44px] font-semibold leading-[0.92] tracking-[-0.02em] text-[color:var(--ink)] md:text-[96px]">
-            <span className="italic">Send letters,</span>
+          <h1 className="mt-3 font-display text-[44px] font-semibold leading-[0.92] tracking-[-0.03em] text-[color:var(--ink)] md:text-[96px]">
+            Send letters,
             <br />
             not DMs.
           </h1>
-          <p className="mt-5 max-w-2xl text-[15px] leading-[1.6] text-[color:var(--ink-dim)] md:text-[17px]">
+          <p className="mt-5 max-w-2xl text-md leading-relaxed text-[color:var(--ink-dim)] md:text-lg">
             Old-school mail still hits different. Stickers, art, weird trinkets,
             handwritten letters — all welcome. No perishables. No hazards. Every
             piece gets seen, even if a personal reply isn&apos;t guaranteed.
@@ -46,7 +48,7 @@ export default function FanMailPage() {
           rotations feel like a real stack. */}
       <section
         aria-label="Mailing addresses"
-        className="px-6 md:px-16"
+        className="px-6 pt-14 md:px-16 md:pt-20"
       >
         <div className="mx-auto grid max-w-[1080px] grid-cols-1 gap-10 md:gap-14 lg:grid-cols-2 lg:gap-16">
           {MAIL_MEMBERS.map((m) => (
@@ -63,6 +65,8 @@ export default function FanMailPage() {
         </div>
       </section>
     </div>
+    <SiteFooter />
+    </>
   );
 }
 
@@ -91,7 +95,7 @@ function HowToSend() {
   ];
   return (
     <div>
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+      <p className="font-mono text-xs uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
         How to send
       </p>
       <h2 className="mt-2 font-editorial-serif text-[28px] font-semibold tracking-[-0.01em] text-[color:var(--ink)] md:text-[36px]">
@@ -101,16 +105,16 @@ function HowToSend() {
         {steps.map((s) => (
           <li
             key={s.n}
-            className="flex items-start gap-4 rounded-[8px] border border-[color:var(--rule)] bg-[color:var(--bg-elev)]/50 p-4 backdrop-blur-sm"
+            className="flex items-start gap-4 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)]/50 p-4 backdrop-blur-sm"
           >
-            <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-[color:var(--core)]">
+            <span className="font-mono text-xs uppercase tracking-[0.22em] text-[color:var(--core)]">
               {s.n}
             </span>
             <div>
               <p className="font-editorial-serif text-[18px] font-semibold tracking-[-0.01em] text-[color:var(--ink)]">
                 {s.title}
               </p>
-              <p className="mt-1 text-[13px] leading-[1.55] text-[color:var(--ink-dim)]">
+              <p className="mt-1 text-sm leading-[1.55] text-[color:var(--ink-dim)]">
                 {s.body}
               </p>
             </div>
@@ -123,11 +127,11 @@ function HowToSend() {
 
 function HeadsUp() {
   return (
-    <aside className="self-start rounded-[10px] border border-[color:var(--rule)] bg-[color:var(--bg-elev)]/40 p-5 backdrop-blur-sm">
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[color:var(--core)]">
+    <aside className="self-start rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)]/40 p-5 backdrop-blur-sm">
+      <p className="font-mono text-xs uppercase tracking-[0.22em] text-[color:var(--core)]">
         Heads up
       </p>
-      <ul className="mt-3 space-y-2 text-[13px] leading-[1.55] text-[color:var(--ink-dim)]">
+      <ul className="mt-3 space-y-2 text-sm leading-[1.55] text-[color:var(--ink-dim)]">
         <li>
           <strong className="text-[color:var(--ink)]">No perishables, no hazards.</strong>{" "}
           Anything that spoils, leaks, melts, or smells goes in the trash before

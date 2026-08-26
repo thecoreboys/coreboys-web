@@ -1,0 +1,37 @@
+.git
+.github
+.next
+.next-*
+node_modules
+coverage
+dist
+out
+.cache
+.vercel
+.clerk
+certificates
+
+.env
+.env.*
+!.env.example
+*.log
+*.exe
+doctl-*
+
+# These development copies are redirected to media.thecoreboys.com in
+# production and should not bloat the application image.
+public/members
+public/crew
+public/group
+public/comms
+public/house-reveal.mp4
+
+# Local face-analysis data is private and never belongs in a web image.
+workers/face-analyzer/.venv
+workers/face-analyzer/models
+workers/face-analyzer/authorized-media
+workers/face-analyzer/authorized-enrollment
+workers/face-analyzer/.local-data
+workers/face-analyzer/config.local.json
+**/__pycache__
+**/*.pyc

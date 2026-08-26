@@ -1,11 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { Bar, BarChart, Cell, ResponsiveContainer } from "recharts";
 
 export type SparkbarsProps = {
   /** Up to ~12 datapoints. */
   values: number[];
-  /** Optional per-bar accent (CSS color). Defaults to var(--core). */
+  /** Optional per-bar accent (CSS color). Defaults to brand red. */
   colors?: string[];
   /** Bar height ceiling in px. */
   height?: number;
@@ -13,35 +13,28 @@ export type SparkbarsProps = {
 };
 
 /**
- * Tiny bar chart for boast-numbers. Animates each bar's height in on
- * first paint. Designed to sit *under* a counter / metric, not as a
- * standalone chart. No axes, no ticks — just the shape.
+ * Tiny bar chart for boast-numbers, rendered with recharts so it matches
+ * the rest of the Untitled UI chart surface. Designed to sit *under* a
+ * counter / metric, not as a standalone chart — no axes, no ticks, just
+ * the shape. Respects prefers-reduced-motion via recharts' built-in
+ * animation (kept short and disabled at the container level).
  */
-export function Sparkbars({ values, colors, height = 32, className = "" }: SparkbarsProps) {
+export function Sparkbars({ values, colors, height = 36, className = "" }: SparkbarsProps) {
   if (values.length === 0) return null;
-  const max = Math.max(...values, 1);
+  const data = values.map((v, i) => ({ i, v: Math.max(0, v) }));
+  const fallback = "var(--core)";
+
   return (
-    <div className={`flex items-end gap-[3px] ${className}`} style={{ height }}>
-      {values.map((v, i) => {
-        const pct = Math.max(0.04, v / max);
-        const color = colors?.[i] ?? "var(--core)";
-        return (
-          <motion.span
-            // eslint-disable-next-line react/no-array-index-key
-            key={i}
-            initial={{ scaleY: 0 }}
-            whileInView={{ scaleY: pct }}
-            viewport={{ once: true, margin: "-40px" }}
-            transition={{
-              duration: 0.7,
-              delay: i * 0.04,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-            className="block w-[6px] origin-bottom rounded-[2px]"
-            style={{ height: "100%", background: color, opacity: 0.65 + pct * 0.35 }}
-          />
-        );
-      })}
+    <div className={className} style={{ height }} aria-hidden>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }} barCategoryGap={3}>
+          <Bar dataKey="v" radius={[2, 2, 0, 0]} isAnimationActive={false}>
+            {data.map((d) => (
+              <Cell key={d.i} fill={colors?.[d.i] ?? fallback} fillOpacity={0.85} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

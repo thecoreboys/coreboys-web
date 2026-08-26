@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { MemberPulse } from "@/components/watch/MemberPulse";
 
 export type MemberCardData = {
   slug: string;
@@ -34,20 +35,20 @@ export function MembersGridClient({ cards }: { cards: MemberCardData[] }) {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(50% 40% at 50% 0%, rgba(239,68,68,0.08), transparent 70%)",
+            "radial-gradient(50% 40% at 50% 0%, rgba(219,3,104,0.08), transparent 70%)",
         }}
       />
 
-      <div className="relative mx-auto max-w-[1440px] px-6 py-20 md:px-8 md:py-32">
+      <div className="relative mx-auto max-w-container px-6 py-20 md:px-8 md:py-32">
         <header className="mb-12 grid grid-cols-12 items-end gap-6">
           <div className="col-span-12 md:col-span-7">
             <p className="eyebrow">Roster · 6</p>
-            <h2 className="mt-3 text-display text-[clamp(48px,7vw,96px)] font-black leading-[0.9] tracking-[-0.04em] text-[color:var(--ink)]">
-              Meet the boys.
+            <h2 className="mt-3 text-display-sm font-semibold tracking-tight text-[color:var(--ink)] md:text-display-md">
+              Meet <span className="gradient-text">the boys.</span>
             </h2>
           </div>
           <div className="col-span-12 md:col-span-5 md:text-right">
-            <p className="text-[16px] leading-relaxed text-[color:var(--ink-dim)] md:text-[17px]">
+            <p className="text-lg text-[color:var(--ink-dim)]">
               Six creators, six communities.
             </p>
           </div>
@@ -74,8 +75,8 @@ export function MembersGridClient({ cards }: { cards: MemberCardData[] }) {
 function MemberCard({ card }: { card: MemberCardData }) {
   return (
     <Link
-      href={`/m/${card.slug}` as `/m/${string}`}
-      className="group relative block aspect-square w-full overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black transition-all duration-500"
+      href={`/about/${card.slug}` as never}
+      className="group relative block aspect-square w-full overflow-hidden rounded-2xl bg-black ring-1 ring-inset ring-[color:var(--rule)] shadow-xs-skeuomorphic transition-all duration-500"
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = card.accent;
         e.currentTarget.style.boxShadow = `0 24px 60px -24px ${card.accent}99, inset 0 0 0 1px ${card.accent}66`;
@@ -144,7 +145,8 @@ function MemberCard({ card }: { card: MemberCardData }) {
         <h3 className="text-display text-[clamp(28px,3vw,42px)] font-black leading-[0.94] tracking-[-0.02em] text-on-image">
           {card.stageName}
         </h3>
-        <p className="mt-1 text-[13px] font-medium text-on-image-dim">{card.realName}</p>
+        <p className="mt-1 text-sm font-medium text-on-image-dim">{card.realName}</p>
+        <MemberPulse slug={card.slug} className="mt-1.5 text-on-image-dim" />
       </div>
     </Link>
   );
@@ -173,5 +175,3 @@ function commScaleFor(name: string): number {
       return 1;
   }
 }
-
-

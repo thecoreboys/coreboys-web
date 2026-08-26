@@ -29,7 +29,7 @@ export function VideoEmbed({
       : embedUrl;
 
   return (
-    <figure className="overflow-hidden rounded-[8px] border border-[color:var(--rule)] bg-black">
+    <figure className="overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black">
       {!played && thumbnailUrl ? (
         <button
           type="button"
@@ -50,7 +50,7 @@ export function VideoEmbed({
               <Play size={20} fill="black" />
             </span>
           </span>
-          <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white backdrop-blur-sm">
+          <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-1 font-mono text-xs uppercase tracking-[0.16em] text-white backdrop-blur-sm">
             {platform}
           </span>
         </button>

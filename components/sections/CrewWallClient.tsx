@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@untitledui/icons";
 
 export type CrewWallItem = {
   slug: string;
@@ -28,19 +28,19 @@ export function CrewWallClient({ items }: { items: CrewWallItem[] }) {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(50% 35% at 80% 0%, rgba(99,102,241,0.06), transparent 70%)",
+            "radial-gradient(50% 35% at 80% 0%, rgba(118,2,153,0.06), transparent 70%)",
         }}
       />
-      <div className="relative mx-auto max-w-[1440px] px-6 py-20 md:px-8 md:py-28">
+      <div className="relative mx-auto max-w-container px-6 py-20 md:px-8 md:py-28">
         <header className="mb-10 grid grid-cols-12 items-end gap-6">
           <div className="col-span-12 md:col-span-7">
             <p className="eyebrow">Behind the scenes</p>
-            <h2 className="mt-3 text-display text-[clamp(36px,5vw,64px)] font-black leading-[0.95] tracking-[-0.04em] text-[color:var(--ink)]">
-              The crew.
+            <h2 className="mt-3 text-display-sm font-semibold tracking-tight text-[color:var(--ink)] md:text-display-md">
+              The <span className="gradient-text">crew.</span>
             </h2>
           </div>
           <div className="col-span-12 md:col-span-5 md:text-right">
-            <p className="text-[15px] leading-relaxed text-[color:var(--ink-dim)] md:text-[16px]">
+            <p className="text-lg text-[color:var(--ink-dim)]">
               Camera ops, editors and managers.
               <br />
               The entertainment exists because they show up.
@@ -53,7 +53,7 @@ export function CrewWallClient({ items }: { items: CrewWallItem[] }) {
             <li key={c.slug}>
               <Link
                 href={`/crew/${c.slug}` as `/crew/${string}`}
-                className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] transition-all duration-500"
+                className="group relative flex h-full flex-col overflow-hidden rounded-xl bg-[color:var(--bg-elev)] ring-1 ring-inset ring-[color:var(--rule)] shadow-xs-skeuomorphic transition-all duration-500"
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = c.accent;
                   e.currentTarget.style.boxShadow = `0 24px 60px -24px ${c.accent}99, inset 0 0 0 1px ${c.accent}66`;
@@ -100,20 +100,20 @@ export function CrewWallClient({ items }: { items: CrewWallItem[] }) {
                     style={{ background: c.accent, color: "#fff" }}
                     aria-hidden
                   >
-                    <ArrowUpRight size={12} />
+                    <ArrowUpRight className="size-3" />
                   </span>
                   <div className="absolute inset-x-3 bottom-3">
-                    <h3 className="text-display text-[20px] font-bold leading-tight tracking-tight text-on-image">
+                    <h3 className="text-display text-md font-bold leading-tight tracking-tight text-on-image">
                       {c.name}
                     </h3>
-                    <p className="mt-0.5 text-[11px] font-medium text-on-image-dim">
+                    <p className="mt-0.5 text-xs font-medium text-on-image-dim">
                       {c.roleLabel}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-2 border-t border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2.5">
                   {c.works.length > 0 ? (
-                    <span className="inline-flex items-center gap-2 text-[11px] text-[color:var(--ink-dim)]">
+                    <span className="inline-flex items-center gap-2 text-xs text-[color:var(--ink-dim)]">
                       Rides with
                       <span className="inline-flex items-center gap-1">
                         {c.works.map((m) => (
@@ -128,7 +128,7 @@ export function CrewWallClient({ items }: { items: CrewWallItem[] }) {
                               />
                             ) : (
                               <span
-                                className="inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-inset text-[10px] font-bold"
+                                className="inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-inset text-xs font-bold"
                                 style={{
                                   ["--tw-ring-color" as string]: m.accent,
                                   color: m.accent,
@@ -140,7 +140,7 @@ export function CrewWallClient({ items }: { items: CrewWallItem[] }) {
                             )}
                             <span
                               role="tooltip"
-                              className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-[10px] font-semibold text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity group-hover/avatar:opacity-100"
+                              className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-xs font-semibold text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity group-hover/avatar:opacity-100"
                             >
                               {m.stageName}
                             </span>
@@ -149,11 +149,11 @@ export function CrewWallClient({ items }: { items: CrewWallItem[] }) {
                       </span>
                     </span>
                   ) : (
-                    <span className="text-[11px] text-[color:var(--ink-dim)]">Crew</span>
+                    <span className="text-xs text-[color:var(--ink-dim)]">Crew</span>
                   )}
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--ink-dim)]">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--ink-dim)] group-hover:text-[color:var(--core)]">
                     Open profile
-                    <ArrowUpRight size={11} />
+                    <ArrowUpRight className="size-3" />
                   </span>
                 </div>
               </Link>

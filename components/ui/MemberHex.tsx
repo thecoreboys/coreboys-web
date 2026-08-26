@@ -87,7 +87,7 @@ export function MemberHex({
 
       <span className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center text-center">
         <span className="text-base md:text-lg font-semibold tracking-tight">{member.stageName}</span>
-        <span className="kicker mt-1 text-[10px]">{member.realName}</span>
+        <span className="kicker mt-1 text-xs">{member.realName}</span>
       </span>
     </motion.button>
   );

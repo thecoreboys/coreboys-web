@@ -1,7 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, FileText, Heart, Image as ImageIcon, UserPlus, Users, Video } from "lucide-react";
+import {
+  ArrowUpRight,
+  Announcement02,
+  Heart,
+  Image01,
+  UserPlus01,
+  Users01,
+  Film01,
+  BarChart01,
+  Link01,
+  Mail01,
+  Trophy01,
+} from "@untitledui/icons";
 import { AuthGate, SignOutButton } from "@/components/admin/AuthGate";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -10,34 +23,82 @@ export const metadata: Metadata = {
 
 const TILES = [
   {
+    href: "/admin/ai-usage",
+    title: "AI usage controls",
+    desc: "Set hard provider limits, monthly spend caps, per-user safeguards, and emergency AI kill switches.",
+    Icon: BarChart01,
+  },
+  {
+    href: "/admin/originals",
+    title: "CORE Originals",
+    desc: "Control events, series, challenges, home posters, and the approval-only recommendation queue.",
+    Icon: Film01,
+  },
+  {
+    href: "/admin/programming",
+    title: "Watch programming",
+    desc: "Add community channels, route content into network lanes, curate homepage rails, and feature hero videos.",
+    Icon: Film01,
+  },
+  {
+    href: "/admin/radio",
+    title: "DJ Cora control room",
+    desc: "Approve recorded station IDs, rotate tune-ins, and manage 24/7 live-takeover cues without per-listener generation.",
+    Icon: Announcement02,
+  },
+  {
+    href: "/admin/passport",
+    title: "CORE Passport control room",
+    desc: "Run channel roles, live events, polls, verified scores, Moment Cards, rewards, and appeals.",
+    Icon: Trophy01,
+  },
+  {
+    href: "/admin/accounts",
+    title: "Staff accounts",
+    desc: "Create admins and assign member managers to one community Studio.",
+    Icon: Users01,
+  },
+  {
     href: "/admin/photos",
     title: "Photos",
     desc: "Upload, manually tag people, edit metadata, set credits.",
-    Icon: ImageIcon,
+    Icon: Image01,
   },
   {
     href: "/admin/clips",
     title: "Clips",
     desc: "Add a Twitch / YouTube / TikTok / IG clip directly, or review and publish fan submissions.",
-    Icon: Video,
+    Icon: Film01,
+  },
+  {
+    href: "/admin/polls",
+    title: "Polls",
+    desc: "Create community polls, open or close voting, and watch live results roll in.",
+    Icon: BarChart01,
   },
   {
     href: "/admin/articles",
     title: "Articles",
     desc: "Write, edit, and publish editorial — rich text, embeds, image gallery, callouts, drafts.",
-    Icon: FileText,
+    Icon: Announcement02,
   },
   {
     href: "/admin/people",
     title: "Members & crew",
     desc: "Names, aliases, DOB, comms, heights, bios, dynamic social links, gallery picks.",
-    Icon: Users,
+    Icon: Users01,
   },
   {
     href: "/admin/talents",
     title: "Talents",
     desc: "Tag external creators by Twitch handle so they're linkable in articles + clips.",
-    Icon: UserPlus,
+    Icon: UserPlus01,
+  },
+  {
+    href: "/admin/faces",
+    title: "On-screen people",
+    desc: "Manage adult consent, protected enrollment, authorized video sources, review, publishing, and deletion.",
+    Icon: UserPlus01,
   },
   {
     href: "/admin/fanzone",
@@ -45,29 +106,40 @@ const TILES = [
     desc: "Approve / deny photos submitted to the fan wall.",
     Icon: Heart,
   },
+  {
+    href: "/admin/postcards",
+    title: "Postcard review",
+    desc: "Inspect paid custom artwork before mailing, or decline and refund it.",
+    Icon: Mail01,
+  },
+  {
+    href: "/admin/fans",
+    title: "Connected fans",
+    desc: "Signups vs linked Twitch / YouTube / X, overlap, dark fans. Org-level only.",
+    Icon: Link01,
+  },
+  {
+    href: "/admin/x",
+    title: "X curation & usage",
+    desc: "Review nominated posts and monitor official embeds, cache health, API credits, and the monthly safety gate.",
+    Icon: Link01,
+  },
 ];
 
 export default function AdminHome() {
   return (
     <AuthGate>
-      <main className="relative pt-20 md:pt-24">
+      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
         <section className="relative overflow-hidden">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background: "radial-gradient(60% 50% at 25% 30%, rgba(239,68,68,0.10), transparent 60%)",
-            }}
-          />
-          <div className="relative mx-auto max-w-[1440px] px-6 py-12 md:px-8 md:py-16">
-            <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="relative mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="eyebrow">CORE · Admin</p>
-                <h1 className="mt-2 text-display text-[clamp(36px,5vw,56px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-                  Admin console.
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">CORE · Desk</p>
+                <h1 className="mt-2 font-display text-[32px] font-semibold tracking-[-0.03em] text-[color:var(--ink)] md:text-[48px]">
+                  Today.
                 </h1>
-                <p className="mt-3 max-w-[60ch] text-[14px] text-[color:var(--ink-dim)]">
-                  Photos, clips, articles, members, and fanzone review.
+                <p className="mt-3 max-w-[60ch] text-base text-[color:var(--ink-dim)]">
+                  Photos, cuts, copy, people, mail.
                 </p>
               </div>
               <SignOutButton />
@@ -75,28 +147,22 @@ export default function AdminHome() {
           </div>
         </section>
 
-        <section className="border-t border-[color:var(--rule)]">
-          <div className="mx-auto max-w-[1440px] px-6 py-10 md:px-8 md:py-14">
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="border-t border-secondary">
+          <div className="mx-auto max-w-container px-6 py-10 md:px-8 md:py-14">
+            <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {TILES.map(({ href, title, desc, Icon }) => (
                 <li key={href}>
                   <Link
                     href={href as never}
-                    className="group flex h-full flex-col gap-3 rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-5 transition-colors hover:border-[color:var(--rule-strong)] hover:bg-[color:var(--surface)]"
+                    className="group flex h-full flex-col gap-4 rounded-xl bg-primary p-6 ring-1 ring-inset ring-secondary shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-lg"
                   >
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-[color:var(--core)]/14 text-[color:var(--core)]">
-                      <Icon size={18} />
-                    </span>
+                    <FeaturedIcon icon={Icon} size="lg" color="brand" theme="modern" />
                     <div>
-                      <p className="text-[15px] font-semibold tracking-tight text-[color:var(--ink)]">
-                        {title}
-                      </p>
-                      <p className="mt-1 text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
-                        {desc}
-                      </p>
+                      <p className="text-lg font-semibold tracking-tight text-primary">{title}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-tertiary">{desc}</p>
                     </div>
-                    <span className="mt-auto inline-flex items-center gap-1 text-[12px] font-medium text-[color:var(--ink-dim)] group-hover:text-[color:var(--core)]">
-                      Open <ArrowUpRight size={12} />
+                    <span className="mt-auto inline-flex items-center gap-1 text-sm font-semibold text-brand-secondary group-hover:text-brand-secondary_hover">
+                      Open <ArrowUpRight className="size-4" />
                     </span>
                   </Link>
                 </li>

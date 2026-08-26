@@ -7,12 +7,12 @@ import { MEMBERS } from "@/lib/members";
  * hover; the member's stage name flips to their accent. The card outline
  * also picks up the accent so the whole tile feels "on" when targeted.
  *
- * Each cell links to /m/{slug}. The grid is single-row at xl, 3-up at
+ * Each cell links to /about/{slug}. The grid is single-row at xl, 3-up at
  * md, 2-up at small viewports.
  */
 export function RosterEditorial() {
   return (
-    <section id="roster" className="relative mx-auto max-w-[1440px] px-6 py-24 md:px-12 md:py-32">
+    <section id="roster" className="relative mx-auto max-w-container px-6 py-24 md:px-12 md:py-32">
       <header className="mb-10 grid grid-cols-12 items-end gap-6">
         <div className="col-span-12 md:col-span-7">
           <p className="eyebrow">Roll Call · 01</p>
@@ -41,7 +41,7 @@ export function RosterEditorial() {
             style={{ ["--card-accent" as string]: m.accent }}
           >
             <Link
-              href={`/m/${m.slug}` as `/m/${string}`}
+              href={`/about/${m.slug}` as never}
               className="block h-full"
               aria-label={`Open ${m.stageName} (${m.realName})`}
             >
@@ -72,7 +72,7 @@ export function RosterEditorial() {
                   />
 
                   <div className="absolute left-3 top-3 flex items-center gap-2">
-                    <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
+                    <span className="font-mono text-xs tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
                       {m.index}
                     </span>
                   </div>
@@ -95,18 +95,18 @@ export function RosterEditorial() {
                     <h3 className="roster-name text-display text-[clamp(28px,3vw,44px)] leading-[0.88] text-[color:var(--ink)]">
                       {m.stageName}
                     </h3>
-                    <p className="mt-1 font-mono text-[10px] tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
+                    <p className="mt-1 font-mono text-xs tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
                       {m.realName}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 px-3 py-3">
-                  <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
+                  <span className="font-mono text-xs tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
                     Comm · {m.comm.name}
                   </span>
                   <span
-                    className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-dim)] transition-opacity group-hover:opacity-100"
+                    className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-[0.22em] text-[color:var(--ink-dim)] transition-opacity group-hover:opacity-100"
                     style={{ color: m.accent }}
                   >
                     Open

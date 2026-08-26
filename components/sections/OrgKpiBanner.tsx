@@ -1,10 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Tv, TrendingUp, Users } from "lucide-react";
+import type { FC } from "react";
+import { ArrowUpRight } from "@untitledui/icons";
+import { Tv01, TrendUp01, Users01, Clock } from "@untitledui/icons";
 import { MEMBERS } from "@/lib/members";
 import { fetchMemberSnapshots } from "@/lib/twitch";
 import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
 import { Sparkbars } from "@/components/ui/Sparkbars";
+import { MetricCard } from "@/components/metrics/MetricCard";
 
 /**
  * Live KPI banner — combined org metrics pulled in real time from Twitch
@@ -37,22 +40,22 @@ export async function OrgKpiBanner() {
 
   return (
     <section className="border-t border-[color:var(--rule)] bg-[color:var(--bg)]">
-      <div className="mx-auto max-w-[1440px] px-6 py-10 md:px-8 md:py-14">
+      <div className="mx-auto max-w-container px-6 py-10 md:px-8 md:py-14">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="eyebrow inline-flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--success)] core-pulse" />
               Live · pulled from Twitch · refreshed every 60s
             </p>
-            <h2 className="mt-2 text-display text-[clamp(24px,3vw,36px)] font-bold text-[color:var(--ink)]">
-              The org, right now.
+            <h2 className="mt-2 text-display-sm font-semibold tracking-tight text-[color:var(--ink)] md:text-display-md">
+              The org, <span className="gradient-text">right now.</span>
             </h2>
           </div>
         </div>
 
         <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Kpi
-            icon={<Users size={11} />}
+            icon={Users01}
             label="Combined followers"
             value={totalFollowers}
             sub="across all 6 channels"
@@ -63,19 +66,20 @@ export async function OrgKpiBanner() {
             }
           />
           <KpiStatic
-            icon={<Tv size={11} />}
+            icon={Tv01}
             label="Live now"
             value={`${liveCount} / 6`}
             sub={liveCount > 0 ? "streaming" : "all offline"}
             active={liveCount > 0}
           />
           <Kpi
-            icon={<TrendingUp size={11} />}
+            icon={TrendUp01}
             label="Live viewers"
             value={totalViewers}
             sub="aggregate concurrent"
           />
           <Kpi
+            icon={Clock}
             label="Hours / wk"
             value={210}
             sub="rolling 7-day org total"
@@ -88,7 +92,7 @@ export async function OrgKpiBanner() {
             {liveMembers.map(({ member, snap }) => (
               <li key={member.slug}>
                 <Link
-                  href={`/m/${member.slug}` as `/m/${string}`}
+                  href={`/about/${member.slug}` as never}
                   className="group inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/40 bg-[color:var(--core)]/8 px-3 py-2 transition-colors hover:bg-[color:var(--core)]/14"
                 >
                   <span className="relative h-6 w-6 overflow-hidden rounded-full">
@@ -100,16 +104,16 @@ export async function OrgKpiBanner() {
                       className="object-cover"
                     />
                   </span>
-                  <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--core)]">
+                  <span className="inline-flex items-center gap-1 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--core)]">
                     <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--core)] core-pulse" />
                     {member.stageName} live
                   </span>
                   {snap.viewerCount != null ? (
-                    <span className="font-mono text-[11px] tabular-nums text-[color:var(--ink-dim)]">
+                    <span className="font-mono text-xs tabular-nums text-[color:var(--ink-dim)]">
                       {formatCompact(snap.viewerCount)} watching
                     </span>
                   ) : null}
-                  <ArrowUpRight size={11} className="text-[color:var(--ink-dim)] group-hover:text-[color:var(--ink)]" />
+                  <ArrowUpRight className="size-3 text-[color:var(--ink-dim)] group-hover:text-[color:var(--ink)]" />
                 </Link>
               </li>
             ))}
@@ -128,7 +132,7 @@ function Kpi({
   chart,
   kind = "compact",
 }: {
-  icon?: React.ReactNode;
+  icon?: FC<{ className?: string }>;
   label: string;
   value: number;
   sub: string;
@@ -138,18 +142,16 @@ function Kpi({
   kind?: "compact" | "round";
 }) {
   return (
-    <li className="rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 transition-colors hover:border-[color:var(--rule-strong)]">
-      <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-        {icon}
-        {label}
-      </p>
-      <p className="mt-2 text-[26px] font-bold tracking-tight text-[color:var(--ink)] md:text-[30px]">
-        {value > 0 ? <AnimatedCounter value={value} kind={kind} /> : "—"}
-      </p>
-      <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
-        {sub}
-      </p>
-      {chart ? <div className="mt-3">{chart}</div> : null}
+    <li>
+      <MetricCard
+        icon={icon}
+        label={label}
+        value={value > 0 ? <AnimatedCounter value={value} kind={kind} /> : "—"}
+        delta={sub}
+        trend="neutral"
+        chart={chart ?? undefined}
+        className="h-full"
+      />
     </li>
   );
 }
@@ -161,30 +163,23 @@ function KpiStatic({
   sub,
   active,
 }: {
-  icon?: React.ReactNode;
+  icon?: FC<{ className?: string }>;
   label: string;
   value: string;
   sub: string;
   active?: boolean;
 }) {
   return (
-    <li
-      className={`rounded-lg border bg-[color:var(--bg-elev)] p-4 transition-colors ${
-        active
-          ? "border-[color:var(--core)]/50"
-          : "border-[color:var(--rule)] hover:border-[color:var(--rule-strong)]"
-      }`}
-    >
-      <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-        {icon}
-        {label}
-      </p>
-      <p className="mt-2 text-[26px] font-bold tracking-tight tabular-nums text-[color:var(--ink)] md:text-[30px]">
-        {value}
-      </p>
-      <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
-        {sub}
-      </p>
+    <li>
+      <MetricCard
+        icon={icon}
+        label={label}
+        value={value}
+        delta={sub}
+        trend={active ? "up" : "neutral"}
+        accent={active ? "var(--core)" : undefined}
+        className="h-full"
+      />
     </li>
   );
 }

@@ -26,7 +26,7 @@ export function ConsoleEgg() {
     // eslint-disable-next-line no-console
     console.log(
       `%c${ASCII}`,
-      "color:#FF6A00;font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.2;",
+      "color:#FF6A00;font-family:Inter,Arial,sans-serif;font-size:11px;line-height:1.2;",
     );
   }, []);
   return null;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { loadAirtimeDailyArchive } from "@/lib/watch/airtime-archive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ type SessionRow = {
   sample_count: number;
   title: string | null;
   game: string | null;
+  twitch_stream_id: string | null;
 };
 
 /**
@@ -57,12 +59,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    const sessions = await query<SessionRow>(
+    const sessionsPromise = query<SessionRow>(
       `SELECT id::text, member_slug,
               started_at::text, ended_at::text,
               total_minutes, peak_viewers,
               sum_viewers::text, sample_count,
-              title, game
+              title, game, twitch_stream_id
        FROM stream_sessions
        WHERE ${conds.join(" AND ")}
        ORDER BY started_at DESC`,
@@ -71,7 +73,7 @@ export async function GET(req: Request) {
 
     // Per-day per-member airtime totals — drives the consistency grid.
     // We use 365 days regardless of `range` so the heatmap stays full.
-    const daily = await query<{
+    const observedDailyPromise = query<{
       member_slug: string;
       day: string;
       minutes: string;
@@ -89,6 +91,41 @@ export async function GET(req: Request) {
        ORDER BY day ASC`,
     );
 
+    // The durable archive holds on to days that may no longer be retained in
+    // `stream_sessions`. It returns [] safely on deployments awaiting its
+    // migration, leaving the direct session rollup as the fallback.
+    const [sessions, observedDaily, archivedDaily] = await Promise.all([
+      sessionsPromise,
+      observedDailyPromise,
+      loadAirtimeDailyArchive({ days: 370 }),
+    ]);
+    const dailyByKey = new Map<string, {
+      slug: string;
+      date: string;
+      minutes: number;
+      sessions: number;
+      peakViewers: number;
+    }>();
+    for (const row of observedDaily.rows) {
+      const date = row.day.slice(0, 10);
+      dailyByKey.set(`${row.member_slug}:${date}`, {
+        slug: row.member_slug,
+        date,
+        minutes: Number(row.minutes),
+        sessions: Number(row.sessions),
+        peakViewers: Number(row.peak_viewers),
+      });
+    }
+    for (const row of archivedDaily) {
+      dailyByKey.set(`${row.slug}:${row.date}`, {
+        slug: row.slug,
+        date: row.date,
+        minutes: row.minutes,
+        sessions: row.sessions,
+        peakViewers: row.peakViewers,
+      });
+    }
+
     return NextResponse.json({
       range,
       sessions: sessions.rows.map((r) => ({
@@ -102,19 +139,23 @@ export async function GET(req: Request) {
           r.sample_count > 0 ? Math.round(Number(r.sum_viewers) / r.sample_count) : 0,
         title: r.title,
         game: r.game,
+        twitchStreamId: r.twitch_stream_id,
+        source: "observed",
       })),
-      daily: daily.rows.map((r) => ({
-        slug: r.member_slug,
-        date: r.day,
-        minutes: Number(r.minutes),
-        sessions: Number(r.sessions),
-        peakViewers: Number(r.peak_viewers),
-      })),
+      daily: [...dailyByKey.values()].sort((a, b) => a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug)),
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: "query failed", detail: e instanceof Error ? e.message : String(e) },
-      { status: 500 },
-    );
+    // Airtime history is enrichment, not a prerequisite for Watch or Guide.
+    // Keep those surfaces usable while a fresh deployment is awaiting its
+    // analytics table/database, and expose an explicit diagnostic flag.
+    return NextResponse.json({
+      range,
+      sessions: [],
+      daily: [],
+      unavailable: true,
+      ...(process.env.NODE_ENV === "development"
+        ? { detail: e instanceof Error ? e.message : String(e) }
+        : {}),
+    });
   }
 }

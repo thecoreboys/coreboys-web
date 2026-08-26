@@ -1,0 +1,23 @@
+.preview { position:fixed; z-index:80; display:flex; max-height:calc(100vh - 24px); flex-direction:column; gap:.9rem; overflow:auto; border:1px solid color-mix(in srgb,var(--ink) 16%,transparent); border-radius:1rem; background:var(--bg); color:var(--ink); padding:1rem; box-shadow:0 30px 90px rgba(0,0,0,.52); overscroll-behavior:contain; animation:appear 150ms ease-out both; }
+.preview a { color:inherit; text-decoration:none; }
+.preview a:focus-visible { border-radius:.22rem; outline:2px solid #1d9bf0; outline-offset:3px; }
+.header { display:flex; min-width:0; align-items:center; gap:.65rem; }
+.avatar { display:grid; width:2.5rem; height:2.5rem; flex:0 0 auto; overflow:hidden; place-items:center; border:1px solid color-mix(in srgb,var(--ink) 14%,transparent); border-radius:50%; background:color-mix(in srgb,var(--ink) 6%,var(--bg)); }
+.avatar img { width:100%; height:100%; object-fit:cover; }
+.identity { display:flex; min-width:0; flex:1; flex-direction:column; line-height:1.22; }
+.identity a { width:fit-content; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.identity strong { font-size:.78rem; font-weight:780; }
+.identity a:last-child { margin-top:.12rem; color:var(--ink-dim); font-size:.63rem; }
+.mark { display:grid; width:2rem; height:2rem; flex:0 0 auto; place-items:center; border-radius:50%; color:var(--ink-dim) !important; }
+.mark:hover { background:color-mix(in srgb,var(--ink) 7%,transparent); color:var(--ink) !important; }
+.text { overflow-wrap:anywhere; font-size:.82rem; font-weight:540; line-height:1.5; white-space:pre-wrap; }
+.media { position:relative; display:block; height:min(20rem,42vh); overflow:hidden; border:1px solid color-mix(in srgb,var(--ink) 12%,transparent); border-radius:.72rem; background:color-mix(in srgb,var(--ink) 5%,var(--bg)); }
+.media img { width:100%; height:100%; object-fit:cover; }
+.media > span { position:absolute; left:.6rem; bottom:.6rem; border-radius:999px; background:rgba(0,0,0,.72); color:#fff; padding:.32rem .5rem; font-size:.56rem; font-weight:760; letter-spacing:.04em; text-transform:uppercase; }
+.footer { display:flex; align-items:center; justify-content:space-between; gap:.75rem; border-top:1px solid color-mix(in srgb,var(--ink) 10%,transparent); padding-top:.72rem; color:var(--ink-dim); font-size:.62rem; font-weight:650; }
+.viewLink { display:inline-flex; align-items:center; gap:.3rem; color:var(--ink) !important; font-weight:760; }
+.viewLink svg { width:.7rem; height:.7rem; }
+.footer a:hover { text-decoration:underline; text-underline-offset:.17em; }
+@keyframes appear { from { opacity:0; transform:scale(.985); } to { opacity:1; transform:scale(1); } }
+@media (prefers-reduced-motion:reduce) { .preview { animation:none; } }
+@media (forced-colors:active) { .preview,.avatar,.media { border-color:CanvasText; } }

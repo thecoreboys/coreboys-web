@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Edit01, Plus, Trash01, X, Eye, EyeOff } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
+import { Input } from "@/components/base/input/input";
+import { TextArea } from "@/components/base/textarea/textarea";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Badge } from "@/components/base/badges/badges";
 
 export type MemberRow = {
   slug: string;
@@ -42,7 +48,7 @@ type MemberOverride = Partial<{
   /** S3 / public path to the override profile image. */
   profileImage: string;
   /** Hex accent color (#rrggbb) — drives blooms, name glow, and the
-   * comm chip tint on /m/[slug]. */
+   * comm chip tint on /about/[slug]. */
   accent: string;
 }>;
 
@@ -57,6 +63,9 @@ type CrewOverride = Partial<{
  * "add" forms at the bottom of each list. State persists to localStorage
  * keyed by slug. Phase 4 swaps for /v1/members and /v1/crew endpoints
  * writing to the `editable_*_overrides` tables.
+ *
+ * UUI controls throughout: Input / TextArea / NativeSelect / Button /
+ * ButtonUtility / Badge on consistent card surfaces.
  */
 export function PeopleEditorClient({
   memberRows,
@@ -184,15 +193,15 @@ export function PeopleEditorClient({
     <div className="flex flex-col gap-10">
       {/* Members */}
       <div>
-        <header className="mb-4 flex items-end justify-between gap-3">
-          <h2 className="text-[16px] font-semibold tracking-tight text-[color:var(--ink)]">
+        <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-primary">
             Members · {memberRows.length}
           </h2>
-          <p className="text-[11px] text-[color:var(--ink-faint)]">
-            Edits saved to localStorage · Phase 4 wires <code className="font-mono">PUT /v1/members/:slug</code>
+          <p className="text-xs text-quaternary">
+            Edits saved via <code className="font-mono">PATCH /v1/members/:slug</code>
           </p>
         </header>
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {memberRows.map((m) => {
             const o = memberOverrides[m.slug];
             const isEditing = editingMember === m.slug;
@@ -217,69 +226,81 @@ export function PeopleEditorClient({
             return (
               <li
                 key={m.slug}
-                className={`overflow-hidden rounded-lg border bg-[color:var(--bg-elev)] transition-colors ${
-                  display.hidden
-                    ? "border-dashed border-[color:var(--rule)] opacity-60"
-                    : "border-[color:var(--rule)]"
+                className={`overflow-hidden rounded-xl bg-primary ring-1 ring-inset ring-secondary shadow-xs transition-all ${
+                  display.hidden ? "opacity-60" : "hover:-translate-y-0.5 hover:shadow-lg"
                 }`}
               >
                 {isEditing ? (
-                  <MemberEditForm row={m} value={display} onSave={(patch) => saveMember(m.slug, patch)} onCancel={() => setEditingMember(null)} />
+                  <MemberEditForm
+                    row={m}
+                    value={display}
+                    onSave={(patch) => saveMember(m.slug, patch)}
+                    onCancel={() => setEditingMember(null)}
+                  />
                 ) : (
-                  <div className="flex items-center gap-4 p-3">
+                  <div className="flex items-center gap-4 p-4">
                     <Image
                       src={m.avatarUrl}
                       alt=""
                       width={56}
                       height={56}
-                      className="h-14 w-14 shrink-0 rounded-md object-cover"
+                      className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-inset ring-secondary"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-semibold text-[color:var(--ink)]">
-                        {display.stageName}
-                      </p>
-                      <p className="text-[12px] text-[color:var(--ink-dim)]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-primary">{display.stageName}</p>
+                        {display.hidden ? (
+                          <Badge type="pill-color" size="sm" color="gray">
+                            Hidden
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-0.5 text-sm text-tertiary">
                         {display.realName}
                         {display.birthDate ? ` · b. ${display.birthDate}` : ""}
                       </p>
-                      <p className="mt-1 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-                        <Image src={m.commLogo} alt="" width={12} height={12} className="h-3 w-3 object-contain" />
+                      <p className="mt-1 inline-flex items-center gap-2 text-xs text-quaternary">
+                        <Image
+                          src={m.commLogo}
+                          alt=""
+                          width={12}
+                          height={12}
+                          className="h-3 w-3 object-contain"
+                        />
                         {display.commName} · twitch.tv/{display.twitchLogin}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex shrink-0 items-center gap-2">
                       {savedSlug === m.slug ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--success)]">
-                          <Check size={12} /> Saved
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-success-primary">
+                          <Check className="size-3.5" /> Saved
                         </span>
                       ) : null}
-                      <button
-                        type="button"
+                      <ButtonUtility
+                        size="sm"
+                        color="tertiary"
+                        tooltip={display.hidden ? "Show on site" : "Hide from site"}
+                        icon={display.hidden ? EyeOff : Eye}
                         onClick={() => toggleMemberHidden(m.slug)}
-                        title={display.hidden ? "Show on site" : "Hide from site"}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
-                      >
-                        {display.hidden ? "○" : "●"}
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <ButtonUtility
+                        size="sm"
+                        color="tertiary"
+                        tooltip="Edit"
+                        icon={Edit01}
                         onClick={() => setEditingMember(m.slug)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--core)]"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <ButtonUtility
+                        size="sm"
+                        color="tertiary"
+                        tooltip="Remove (soft delete)"
+                        icon={Trash01}
                         onClick={() => {
                           if (confirm(`Remove ${m.stageName} from the site?`)) {
                             toggleMemberHidden(m.slug);
                           }
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--core)]"
-                        title="Remove (soft delete)"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      />
                     </div>
                   </div>
                 )}
@@ -287,24 +308,25 @@ export function PeopleEditorClient({
             );
           })}
         </ul>
-        <button
-          type="button"
-          disabled
-          title="Phase 4 — POST /v1/members"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] px-3 py-2 text-[12px] font-medium text-[color:var(--ink-faint)] cursor-not-allowed"
+        <Button
+          size="md"
+          color="secondary"
+          iconLeading={Plus}
+          isDisabled
+          className="mt-4"
         >
-          <Plus size={12} /> Add member (Phase 4)
-        </button>
+          Add member (Phase 4)
+        </Button>
       </div>
 
       {/* Crew */}
       <div>
         <header className="mb-4 flex items-end justify-between gap-3">
-          <h2 className="text-[16px] font-semibold tracking-tight text-[color:var(--ink)]">
+          <h2 className="text-lg font-semibold tracking-tight text-primary">
             Crew · {crewRows.length}
           </h2>
         </header>
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {crewRows.map((c) => {
             const o = crewOverrides[c.slug];
             const isEditing = editingCrew === c.slug;
@@ -316,10 +338,8 @@ export function PeopleEditorClient({
             return (
               <li
                 key={c.slug}
-                className={`overflow-hidden rounded-lg border bg-[color:var(--bg-elev)] ${
-                  display.hidden
-                    ? "border-dashed border-[color:var(--rule)] opacity-60"
-                    : "border-[color:var(--rule)]"
+                className={`overflow-hidden rounded-xl bg-primary ring-1 ring-inset ring-secondary shadow-xs transition-all ${
+                  display.hidden ? "opacity-60" : "hover:-translate-y-0.5 hover:shadow-lg"
                 }`}
               >
                 {isEditing ? (
@@ -330,10 +350,8 @@ export function PeopleEditorClient({
                     onCancel={() => setEditingCrew(null)}
                   />
                 ) : (
-                  <div className="flex items-center gap-4 p-3">
-                    <span
-                      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[color:var(--bg)] text-[14px] font-bold text-[color:var(--ink-faint)]"
-                    >
+                  <div className="flex items-center gap-4 p-4">
+                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary text-sm font-bold text-quaternary ring-1 ring-inset ring-secondary">
                       {c.name
                         .split(" ")
                         .map((n) => n[0])
@@ -342,43 +360,48 @@ export function PeopleEditorClient({
                         .join("")}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-semibold text-[color:var(--ink)]">
-                        {display.name}
-                      </p>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
-                        {display.role} · works with {c.worksWith.join(", ") || "—"}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-primary">{display.name}</p>
+                        {display.hidden ? (
+                          <Badge type="pill-color" size="sm" color="gray">
+                            Hidden
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-0.5 text-xs text-tertiary">
+                        <span className="capitalize">{display.role}</span> · works with{" "}
+                        {c.worksWith.join(", ") || "—"}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex shrink-0 items-center gap-2">
                       {savedSlug === c.slug ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--success)]">
-                          <Check size={12} /> Saved
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-success-primary">
+                          <Check className="size-3.5" /> Saved
                         </span>
                       ) : null}
-                      <button
-                        type="button"
+                      <ButtonUtility
+                        size="sm"
+                        color="tertiary"
+                        tooltip={display.hidden ? "Show on site" : "Hide from site"}
+                        icon={display.hidden ? EyeOff : Eye}
                         onClick={() => toggleCrewHidden(c.slug)}
-                        title={display.hidden ? "Show on site" : "Hide from site"}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
-                      >
-                        {display.hidden ? "○" : "●"}
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <ButtonUtility
+                        size="sm"
+                        color="tertiary"
+                        tooltip="Edit"
+                        icon={Edit01}
                         onClick={() => setEditingCrew(c.slug)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--core)]"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <ButtonUtility
+                        size="sm"
+                        color="tertiary"
+                        tooltip="Remove (soft delete)"
+                        icon={Trash01}
                         onClick={() => {
                           if (confirm(`Remove ${c.name} from the site?`)) toggleCrewHidden(c.slug);
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--core)]"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      />
                     </div>
                   </div>
                 )}
@@ -386,14 +409,9 @@ export function PeopleEditorClient({
             );
           })}
         </ul>
-        <button
-          type="button"
-          disabled
-          title="Phase 4 — POST /v1/crew"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] px-3 py-2 text-[12px] font-medium text-[color:var(--ink-faint)] cursor-not-allowed"
-        >
-          <Plus size={12} /> Add crew (Phase 4)
-        </button>
+        <Button size="md" color="secondary" iconLeading={Plus} isDisabled className="mt-4">
+          Add crew (Phase 4)
+        </Button>
       </div>
     </div>
   );
@@ -453,161 +471,150 @@ function MemberEditForm({
           accent: draft.accent === row.accent ? undefined : draft.accent,
         });
       }}
-      className="flex flex-col gap-4 p-4"
+      className="flex flex-col gap-6 p-5 md:p-6"
     >
       <fieldset>
-        <legend className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-          Identity
-        </legend>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field label="Stage name">
-            <input
-              value={draft.stageName}
-              onChange={(e) => setDraft({ ...draft, stageName: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Alias">
-            <input
-              value={draft.alias}
-              onChange={(e) => setDraft({ ...draft, alias: e.target.value })}
-              placeholder="Marlon3lg"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Real name">
-            <input
-              value={draft.realName}
-              onChange={(e) => setDraft({ ...draft, realName: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Nickname">
-            <input
-              value={draft.nickname}
-              onChange={(e) => setDraft({ ...draft, nickname: e.target.value })}
-              placeholder="Big M"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Birth date (YYYY-MM-DD)">
-            <input
-              type="date"
-              value={draft.birthDate}
-              onChange={(e) => setDraft({ ...draft, birthDate: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Twitch login">
-            <input
-              value={draft.twitchLogin}
-              onChange={(e) => setDraft({ ...draft, twitchLogin: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
+        <legend className="mb-3 text-sm font-semibold text-secondary">Identity</legend>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Input
+            label="Stage name"
+            size="md"
+            value={draft.stageName}
+            onChange={(v) => setDraft({ ...draft, stageName: v })}
+          />
+          <Input
+            label="Alias"
+            size="md"
+            value={draft.alias}
+            onChange={(v) => setDraft({ ...draft, alias: v })}
+            placeholder="Marlon3lg"
+          />
+          <Input
+            label="Real name"
+            size="md"
+            value={draft.realName}
+            onChange={(v) => setDraft({ ...draft, realName: v })}
+          />
+          <Input
+            label="Nickname"
+            size="md"
+            value={draft.nickname}
+            onChange={(v) => setDraft({ ...draft, nickname: v })}
+            placeholder="Big M"
+          />
+          <Input
+            label="Birth date"
+            type="date"
+            size="md"
+            value={draft.birthDate}
+            onChange={(v) => setDraft({ ...draft, birthDate: v })}
+          />
+          <Input
+            label="Twitch login"
+            size="md"
+            value={draft.twitchLogin}
+            onChange={(v) => setDraft({ ...draft, twitchLogin: v })}
+          />
         </div>
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-          Profile
-        </legend>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field label="Roles" hint="Comma-separated. E.g. Streamer, Producer.">
-            <input
-              value={rolesText}
-              onChange={(e) => setRolesText(e.target.value)}
-              placeholder="Streamer, Producer"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Comm name">
-            <input
-              value={draft.commName}
-              onChange={(e) => setDraft({ ...draft, commName: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Height">
-            <input
-              value={draft.height}
-              onChange={(e) => setDraft({ ...draft, height: e.target.value })}
-              placeholder={`6'1"`}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Weight">
-            <input
-              value={draft.weight}
-              onChange={(e) => setDraft({ ...draft, weight: e.target.value })}
-              placeholder="175 lb"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Favorite game">
-            <input
-              value={draft.favoriteGame}
-              onChange={(e) => setDraft({ ...draft, favoriteGame: e.target.value })}
-              placeholder="Fortnite"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Profile image URL" hint="Leave blank to use the synced portrait.">
-            <input
-              value={draft.profileImage}
-              onChange={(e) => setDraft({ ...draft, profileImage: e.target.value })}
-              placeholder="/members/marlon/your-photo.jpg"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Accent color" hint="Drives blooms, name glow, comm chip on /m/[slug].">
-            <div className="flex items-center gap-2">
+        <legend className="mb-3 text-sm font-semibold text-secondary">Profile</legend>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Input
+            label="Roles"
+            hint="Comma-separated. E.g. Streamer, Producer."
+            size="md"
+            value={rolesText}
+            onChange={(v) => setRolesText(v)}
+            placeholder="Streamer, Producer"
+          />
+          <Input
+            label="Comm name"
+            size="md"
+            value={draft.commName}
+            onChange={(v) => setDraft({ ...draft, commName: v })}
+          />
+          <Input
+            label="Height"
+            size="md"
+            value={draft.height}
+            onChange={(v) => setDraft({ ...draft, height: v })}
+            placeholder={`6'1"`}
+          />
+          <Input
+            label="Weight"
+            size="md"
+            value={draft.weight}
+            onChange={(v) => setDraft({ ...draft, weight: v })}
+            placeholder="175 lb"
+          />
+          <Input
+            label="Favorite game"
+            size="md"
+            value={draft.favoriteGame}
+            onChange={(v) => setDraft({ ...draft, favoriteGame: v })}
+            placeholder="Fortnite"
+          />
+          <Input
+            label="Profile image URL"
+            hint="Leave blank to use the synced portrait."
+            size="md"
+            value={draft.profileImage}
+            onChange={(v) => setDraft({ ...draft, profileImage: v })}
+            placeholder="/members/marlon/your-photo.jpg"
+          />
+          <div className="md:col-span-2">
+            <span className="mb-1.5 block text-sm font-medium text-secondary">Accent color</span>
+            <span className="-mt-1 mb-2 block text-xs text-tertiary">
+              Drives blooms, name glow, and comm chip on /about/[slug].
+            </span>
+            <div className="flex items-center gap-2.5">
               <input
                 type="color"
                 value={draft.accent}
                 onChange={(e) => setDraft({ ...draft, accent: e.target.value })}
-                className="h-10 w-14 cursor-pointer rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)]"
+                className="h-10 w-14 cursor-pointer rounded-lg bg-primary ring-1 ring-inset ring-primary"
+                aria-label="Accent color picker"
               />
-              <input
-                type="text"
-                value={draft.accent}
-                onChange={(e) => setDraft({ ...draft, accent: e.target.value })}
-                placeholder="#ff5a3c"
-                className={`${inputClass} font-mono`}
-              />
+              <div className="max-w-[200px] flex-1">
+                <Input
+                  size="md"
+                  value={draft.accent}
+                  onChange={(v) => setDraft({ ...draft, accent: v })}
+                  placeholder="#ff5a3c"
+                  inputClassName="font-mono"
+                  aria-label="Accent color hex"
+                />
+              </div>
             </div>
-          </Field>
+          </div>
         </div>
       </fieldset>
 
-      <Field label="Bio (one-liner)" hint="Used in card previews and meta descriptions.">
-        <textarea
-          rows={2}
-          value={draft.bio}
-          onChange={(e) => setDraft({ ...draft, bio: e.target.value })}
-          className={inputClass}
-        />
-      </Field>
+      <TextArea
+        label="Bio (one-liner)"
+        hint="Used in card previews and meta descriptions."
+        rows={2}
+        value={draft.bio}
+        onChange={(v) => setDraft({ ...draft, bio: v })}
+      />
 
-      <Field
+      <TextArea
         label="Description (long form)"
-        hint={`Markdown links supported: [text](https://url)`}
-      >
-        <textarea
-          rows={4}
-          value={draft.description}
-          onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-          className={inputClass}
-        />
-      </Field>
+        hint="Markdown links supported: [text](https://url)"
+        rows={4}
+        value={draft.description}
+        onChange={(v) => setDraft({ ...draft, description: v })}
+      />
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--rule)] pt-3">
-        <button type="submit" className="btn btn-primary">
-          <Check size={14} /> Save
-        </button>
-        <button type="button" onClick={onCancel} className="btn btn-secondary">
-          <X size={14} /> Cancel
-        </button>
+      <div className="flex flex-wrap items-center gap-3 border-t border-secondary pt-5">
+        <Button type="submit" color="primary" size="md" iconLeading={Check}>
+          Save changes
+        </Button>
+        <Button type="button" color="secondary" size="md" onClick={onCancel} iconLeading={X}>
+          Cancel
+        </Button>
       </div>
     </form>
   );
@@ -634,64 +641,36 @@ function CrewEditForm({
           role: draft.role === row.role ? undefined : draft.role,
         });
       }}
-      className="flex flex-col gap-3 p-4"
+      className="flex flex-col gap-4 p-5 md:p-6"
     >
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <Field label="Name">
-          <input
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Role">
-          <select
-            value={draft.role}
-            onChange={(e) => setDraft({ ...draft, role: e.target.value })}
-            className={inputClass}
-          >
-            <option value="cameraman">Cameraman</option>
-            <option value="management">Management</option>
-            <option value="editor">Editor</option>
-            <option value="producer">Producer</option>
-          </select>
-        </Field>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Input
+          label="Name"
+          size="md"
+          value={draft.name}
+          onChange={(v) => setDraft({ ...draft, name: v })}
+        />
+        <NativeSelect
+          label="Role"
+          size="md"
+          value={draft.role}
+          onChange={(e) => setDraft({ ...draft, role: e.target.value })}
+          options={[
+            { label: "Cameraman", value: "cameraman" },
+            { label: "Management", value: "management" },
+            { label: "Editor", value: "editor" },
+            { label: "Technical productions", value: "producer" },
+          ]}
+        />
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" className="btn btn-primary">
-          <Check size={14} /> Save
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="btn btn-secondary"
-        >
-          <X size={14} /> Cancel
-        </button>
+      <div className="flex flex-wrap items-center gap-3 border-t border-secondary pt-4">
+        <Button type="submit" color="primary" size="md" iconLeading={Check}>
+          Save changes
+        </Button>
+        <Button type="button" color="secondary" size="md" onClick={onCancel} iconLeading={X}>
+          Cancel
+        </Button>
       </div>
     </form>
-  );
-}
-
-const inputClass =
-  "w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-3 py-2 text-[13px] text-[color:var(--ink)] focus:border-[color:var(--core)] focus:outline-none";
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-medium tracking-tight text-[color:var(--ink-dim)]">
-        {label}
-      </span>
-      {hint ? <span className="-mt-0.5 text-[10px] text-[color:var(--ink-faint)]">{hint}</span> : null}
-      {children}
-    </label>
   );
 }

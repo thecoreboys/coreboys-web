@@ -4,8 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, Flame } from "lucide-react";
+import { Signal01, Users01, Clock, Eye } from "@untitledui/icons";
 import { HeatmapYear, type HeatmapDay } from "@/components/metrics/HeatmapYear";
+import { MetricCard } from "@/components/metrics/MetricCard";
+import { RangeToggle } from "@/components/metrics/RangeToggle";
+import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
+import { useNow } from "@/hooks/useNow";
+import { networkLabel } from "@/lib/members-helpers";
+import { SessionStamp } from "@/components/watch/LiveAirtime";
 
 export type StreamSession = {
   id: string;
@@ -21,7 +28,7 @@ export type StreamSession = {
 
 export type DailyAirtime = {
   slug: string;
-  /** YYYY-MM-DD (already bucketed in PST by the server query) */
+  /** Plain calendar date (`YYYY-MM-DD`). */
   date: string;
   minutes: number;
   sessions: number;
@@ -34,18 +41,21 @@ export type MemberLite = {
   accent: string;
   portrait: string;
   twitchLogin: string;
+  commName?: string;
+  commLogo?: string;
 };
 
 export type StreamStatsClientProps = {
   sessions: StreamSession[];
-  daily: DailyAirtime[];
   members: MemberLite[];
 };
 
 type Range = "1d" | "7d" | "31d" | "all";
 
-export function StreamStatsClient({ sessions, daily, members }: StreamStatsClientProps) {
+export function StreamStatsClient({ sessions, members }: StreamStatsClientProps) {
   const [range, setRange] = useState<Range>("31d");
+  const viewer = useBrowserTimeZone();
+  const now = useNow(60_000);
 
   // Live viewer counts — used for the per-member tile "LIVE" badge.
   // SWR refreshes every 60s.
@@ -122,10 +132,22 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
     };
   }, [perMember]);
 
+  // The server's legacy daily rollup has a fixed house timezone. Rebuild the
+  // visible calendar from raw session instants so every viewer gets the same
+  // sessions assigned to dates in their own browser timezone.
+  const viewerDaily = useMemo(
+    () => viewer.ready ? bucketSessionsByDate(sessions, viewer.timeZone) : [],
+    [sessions, viewer.ready, viewer.timeZone],
+  );
+  const viewerToday = useMemo(
+    () => viewer.ready ? dateKeyInTimeZone(now, viewer.timeZone) : null,
+    [now, viewer.ready, viewer.timeZone],
+  );
+
   const dailyByMember = useMemo(() => {
     const map = new Map<string, Map<string, HeatmapDay>>();
     for (const m of members) map.set(m.slug, new Map());
-    for (const d of daily) {
+    for (const d of viewerDaily) {
       const inner = map.get(d.slug);
       if (!inner) continue;
       const memberName = members.find((mm) => mm.slug === d.slug)?.name ?? d.slug;
@@ -149,13 +171,14 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
       });
     }
     return map;
-  }, [members, daily]);
+  }, [members, viewerDaily]);
 
-  // Streaks (PST, since `daily.date` is already bucketed in PST server-side).
+  // Streaks use the viewer's calendar days, including their local "today."
   const streaksBySlug = useMemo(() => {
     const out = new Map<string, { current: number; longest: number; lastDate: string | null }>();
+    if (!viewerToday) return out;
     for (const m of members) {
-      const days = new Set(daily.filter((d) => d.slug === m.slug && d.minutes > 0).map((d) => d.date));
+      const days = new Set(viewerDaily.filter((d) => d.slug === m.slug && d.minutes > 0).map((d) => d.date));
       // Longest run
       let longest = 0;
       let run = 0;
@@ -171,9 +194,9 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
       // hasn't accrued any minutes yet, so the streak doesn't break
       // mid-stream of "they haven't gone live yet today").
       let current = 0;
-      let cursor = pstToday();
+      let cursor = viewerToday;
       // If today isn't in the set, allow yesterday as the latest.
-      if (!days.has(cursor)) cursor = pstYesterday();
+      if (!days.has(cursor)) cursor = previousDay(viewerToday);
       while (days.has(cursor)) {
         current += 1;
         cursor = previousDay(cursor);
@@ -185,73 +208,66 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
       });
     }
     return out;
-  }, [members, daily]);
+  }, [members, viewerDaily, viewerToday]);
 
   const empty = sessions.length === 0;
-  // Locked to 2026 per spec — consistency grid renders the current
-  // calendar year only, no rolling 365-day window.
-  const currentYear = 2026;
+  const currentYear = viewerToday ? Number(viewerToday.slice(0, 4)) : new Date(now).getUTCFullYear();
+  const latestSession = (slug: string) => sessions.find((s) => s.slug === slug);
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-            Twitch · Stream stats
+          <p className="text-sm font-semibold text-brand-secondary">
+            Twitch · Observed stream history
           </p>
-          <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[color:var(--ink)] md:text-[26px]">
-            Live time, peak watchers, daily streaks.
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-primary md:text-display-xs">
+            <span className="gradient-text">Dated sessions</span>, streaks, and consistency.
           </h2>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(["1d", "7d", "31d", "all"] as Range[]).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              aria-pressed={range === r}
-              className={`inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
-                range === r
-                  ? "border-[color:var(--core)] bg-[color:var(--core)]/12 text-[color:var(--core)]"
-                  : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
-              }`}
-            >
-              {r === "all" ? "All time" : r === "1d" ? "24h" : r === "7d" ? "7d" : "31d"}
-            </button>
-          ))}
-        </div>
+        <RangeToggle
+          value={range}
+          onChange={setRange}
+          options={[
+            { key: "1d", label: "24h" },
+            { key: "7d", label: "7d" },
+            { key: "31d", label: "31d" },
+            { key: "all", label: "All time" },
+          ]}
+        />
       </header>
 
       {empty ? (
-        <div className="rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/60 p-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+        <div className="rounded-xl bg-secondary p-6 ring-1 ring-inset ring-secondary shadow-xs-skeuomorphic">
+          <p className="text-sm font-semibold text-brand-secondary">
             No sessions recorded yet
           </p>
-          <p className="mt-2 max-w-[60ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)]">
-            Poller is live and watching every five minutes — this section
-            fills the moment a member goes on-stream.
+          <p className="mt-2 max-w-[60ch] text-sm leading-relaxed text-tertiary">
+            Sessions write the moment someone is live on the site. Historical
+            airtime fills in from there.
           </p>
         </div>
       ) : null}
 
       {/* Combined KPIs */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard label="Peak viewers · combined" value={combined.peak.toLocaleString("en-US")} />
-        <KpiCard label="Average viewers · combined" value={combined.avg.toLocaleString("en-US")} />
-        <KpiCard label="Hours watched · combined" value={combined.hoursWatched.toLocaleString("en-US")} />
-        <KpiCard label="Airtime · combined" value={formatMinutes(combined.airtimeMinutes)} />
+        <MetricCard icon={Signal01} label="Highest observed peak" value={combined.peak.toLocaleString("en-US")} />
+        <MetricCard icon={Users01} label="Observed weighted average" value={combined.avg.toLocaleString("en-US")} />
+        <MetricCard icon={Eye} label="Estimated observed watchtime" value={combined.hoursWatched.toLocaleString("en-US")} />
+        <MetricCard icon={Clock} label="Observed airtime" value={formatMinutes(combined.airtimeMinutes)} />
       </section>
 
-      {/* Per-member tile grid — image-rich, click-through to /m/[slug]. */}
+      {/* Per-member tile grid — image-rich, click-through to /about/[slug]. */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {perMember.map((m) => {
           const streak = streaksBySlug.get(m.slug);
           const live = liveByLogin.get(m.twitchLogin.toLowerCase());
           const isLive = live?.isLive ?? false;
+          const last = latestSession(m.slug);
           return (
             <Link
               key={m.slug}
-              href={`/m/${m.slug}` as `/m/${string}`}
+              href={`/watch/network/${m.slug}` as never}
               className="group flex items-stretch gap-3 overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-3 transition-all hover:-translate-y-px hover:border-[color:var(--rule-strong)]"
               style={{ ["--card-accent" as string]: m.accent }}
             >
@@ -268,7 +284,7 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
                   className="object-cover transition-transform duration-500 group-hover:scale-[1.05]"
                 />
                 {isLive ? (
-                  <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-md bg-[color:var(--core)] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.12em] text-white shadow-[0_2px_6px_rgba(239,68,68,0.6)]">
+                  <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-md bg-[color:var(--core)] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-[0.1em] text-white shadow-[0_2px_6px_rgba(219,3,104,0.6)]">
                     <span
                       aria-hidden
                       className="h-1 w-1 rounded-full bg-white"
@@ -280,12 +296,12 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p
-                    className="truncate text-[18px] font-bold tracking-tight text-[color:var(--ink)] md:text-[20px]"
-                    style={{ textShadow: `0 0 18px ${m.accent}55, 0 0 4px rgba(255,255,255,0.45)` }}
-                  >
-                    {m.name}
-                  </p>
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-semibold tracking-tight text-primary md:text-xl">
+                      {m.commName ? networkLabel(m.commName) : m.name}
+                    </p>
+                    <p className="truncate text-[11px] text-tertiary">{m.name}</p>
+                  </div>
                   <a
                     href={`https://twitch.tv/${m.twitchLogin}`}
                     target="_blank"
@@ -297,13 +313,31 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
                     <ArrowUpRight size={11} />
                   </a>
                 </div>
+                <SessionStamp
+                  live={isLive ? { startedAt: liveData?.live.find((e) => e.login.toLowerCase() === m.twitchLogin.toLowerCase())?.startedAt } : undefined}
+                  session={
+                    last
+                      ? {
+                          id: last.id,
+                          slug: last.slug,
+                          startedAt: last.startedAt,
+                          endedAt: last.endedAt,
+                          totalMinutes: last.totalMinutes,
+                          peakViewers: last.peakViewers,
+                          title: last.title,
+                          game: last.game,
+                        }
+                      : null
+                  }
+                  className="text-[11px] tabular-nums text-tertiary"
+                />
                 {isLive && (live?.viewerCount ?? 0) > 0 ? (
-                  <p className="-mt-0.5 inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold text-[color:var(--core)]">
+                  <p className="-mt-0.5 inline-flex items-center gap-1.5 text-xs font-semibold text-[color:var(--core)]">
                     <span className="tabular-nums">{(live!.viewerCount ?? 0).toLocaleString("en-US")}</span>
-                    <span className="font-normal text-[color:var(--ink-dim)]">watching now</span>
+                    <span className="font-normal text-tertiary">watching now</span>
                   </p>
                 ) : null}
-                <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[10px] text-[color:var(--ink-dim)]">
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs tabular-nums text-tertiary">
                   <Datum label="Peak" value={m.peak.toLocaleString("en-US")} />
                   <Datum label="Avg" value={m.avg.toLocaleString("en-US")} />
                   <Datum label="Hrs" value={m.hoursWatched.toLocaleString("en-US")} />
@@ -311,11 +345,11 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
                 </dl>
                 {streak ? (
                   <div className="mt-auto flex items-center gap-2 pt-1">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--core)]/12 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[color:var(--core)]">
-                      <Flame size={10} />
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--core)]/12 px-2 py-0.5 text-xs font-medium uppercase tracking-[0.12em] text-[color:var(--core)]">
+                      <Flame size={11} />
                       {streak.current}d streak
                     </span>
-                    <span className="font-mono text-[10px] text-[color:var(--ink-faint)]">
+                    <span className="text-xs text-quaternary">
                       best · {streak.longest}d
                     </span>
                   </div>
@@ -327,25 +361,28 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
       </section>
 
       {/* Per-member consistency grids — calendar year, Sun-Sat, hover details. */}
-      <section className="rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4 md:p-6">
+      <section className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary shadow-xs-skeuomorphic md:p-6">
         <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-              Consistency · {currentYear} (PST)
+            <p
+              className="text-sm font-semibold text-brand-secondary"
+              title={viewer.ready ? `Dates use ${viewer.timeZone}` : undefined}
+            >
+              {viewer.ready ? `Consistency · ${currentYear}` : "Consistency · Your local calendar"}
             </p>
-            <h3 className="mt-1 text-[16px] font-bold tracking-tight text-[color:var(--ink)] md:text-[20px]">
+            <h3 className="mt-1 text-md font-semibold tracking-tight text-primary md:text-lg">
               One square per day.
             </h3>
           </div>
         </header>
         <div className="flex flex-col gap-5">
-          {members.map((m) => {
+          {viewer.ready ? members.map((m) => {
             const streak = streaksBySlug.get(m.slug);
             return (
               <div key={m.slug} className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <Link
-                    href={`/m/${m.slug}` as `/m/${string}`}
+                    href={`/about/${m.slug}` as never}
                     className="group inline-flex items-center gap-2"
                   >
                     <span className="relative h-7 w-7 overflow-hidden rounded-full ring-1 ring-inset"
@@ -354,14 +391,14 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
                       <Image src={m.portrait} alt={m.name} fill unoptimized sizes="28px" className="object-cover" />
                     </span>
                     <span
-                      className="text-[13px] font-semibold tracking-tight text-[color:var(--ink)] transition-colors group-hover:underline"
+                      className="text-sm font-semibold tracking-tight text-primary transition-colors group-hover:underline"
                       style={{ textShadow: `0 0 14px ${m.accent}66, 0 0 3px rgba(255,255,255,0.4)` }}
                     >
                       {m.name}
                     </span>
                   </Link>
                   {streak ? (
-                    <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-[0.14em] text-tertiary">
                       <Flame size={11} className="text-[color:var(--core)]" />
                       {streak.current}d current · {streak.longest}d best
                     </span>
@@ -375,23 +412,12 @@ export function StreamStatsClient({ sessions, daily, members }: StreamStatsClien
                 />
               </div>
             );
-          })}
+          }) : (
+            <div className="h-32 animate-pulse rounded-lg bg-secondary" aria-label="Loading your local calendar" />
+          )}
         </div>
       </section>
 
-    </div>
-  );
-}
-
-function KpiCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4">
-      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
-        {label}
-      </p>
-      <p className="mt-2 text-[24px] font-bold tabular-nums leading-none text-[color:var(--ink)]">
-        {value}
-      </p>
     </div>
   );
 }
@@ -415,16 +441,45 @@ function formatMinutes(total: number): string {
   return `${d}d ${rh}h`;
 }
 
-// Date helpers — daily.date is already in PST (server-side cast). To
-// avoid timezone drift on the browser, we work with raw YYYY-MM-DD
-// strings instead of `Date` arithmetic.
-function pstToday(): string {
-  const now = new Date();
-  return now.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" }); // YYYY-MM-DD
+function dateKeyInTimeZone(value: number, timeZone: string): string | null {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  return year && month && day ? `${year}-${month}-${day}` : null;
 }
-function pstYesterday(): string {
-  return previousDay(pstToday());
+
+function bucketSessionsByDate(sessions: StreamSession[], timeZone: string): DailyAirtime[] {
+  const buckets = new Map<string, DailyAirtime>();
+  for (const session of sessions) {
+    const startedAt = Date.parse(session.startedAt.replace(" ", "T"));
+    if (!Number.isFinite(startedAt)) continue;
+    const date = dateKeyInTimeZone(startedAt, timeZone);
+    if (!date) continue;
+    const key = `${session.slug}:${date}`;
+    const current = buckets.get(key) ?? {
+      slug: session.slug,
+      date,
+      minutes: 0,
+      sessions: 0,
+      peakViewers: 0,
+    };
+    current.minutes += Math.max(0, Number(session.totalMinutes) || 0);
+    current.sessions += 1;
+    current.peakViewers = Math.max(current.peakViewers, Math.max(0, Number(session.peakViewers) || 0));
+    buckets.set(key, current);
+  }
+  return [...buckets.values()].sort((left, right) => (
+    left.date.localeCompare(right.date) || left.slug.localeCompare(right.slug)
+  ));
 }
+
 function previousDay(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1));

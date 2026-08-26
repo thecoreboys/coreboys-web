@@ -1,19 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ExternalLink } from "lucide-react";
+import { Activity, ArrowDown, LinkExternal01, XClose } from "@untitledui/icons";
 import {
   loadEmoteMap,
   startChatClient,
   type ChatMessage,
+  type ChatConnectionStatus,
   type EmoteMap,
+  type RaidEvent,
 } from "@/lib/twitch-chat-client";
+import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import { useTheme } from "@/components/providers/ThemeProvider";
+import { useTwitchBadges } from "@/hooks/useTwitchBadges";
+import { formatHandleDisplay } from "@/lib/watch/display-label";
 
 const MESSAGE_LIMIT = 200;
-
-type Status = "connecting" | "open" | "closed";
 
 export type TwitchChatProps = {
   /** Twitch login (username) for the channel to join. */
@@ -43,6 +47,8 @@ export type TwitchChatProps = {
    *  page to derive a chat-per-minute rate without running a second
    *  IRC connection. */
   onMessage?: (message: ChatMessage) => void;
+  onReply?: (message: ChatMessage, channelLogin: string) => void;
+  onRaid?: (raid: RaidEvent) => void;
   className?: string;
 };
 
@@ -63,6 +69,8 @@ export function TwitchChat({
   onClose,
   textScale = 1,
   onMessage,
+  onReply,
+  onRaid,
   monitorSlug,
   className = "",
 }: TwitchChatProps) {
@@ -77,7 +85,7 @@ export function TwitchChat({
   const fontPx = baseFontPx * textScale;
   const emotePx = baseEmotePx * textScale;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [status, setStatus] = useState<Status>("connecting");
+  const [status, setStatus] = useState<ChatConnectionStatus>("connecting");
   const [autoScroll, setAutoScroll] = useState(true);
   const [emoteMap, setEmoteMap] = useState<EmoteMap | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -85,7 +93,8 @@ export function TwitchChat({
   // act of pinning to bottom doesn't accidentally flip autoScroll off
   // when subpixel rounding leaves us > threshold from the floor.
   const programmaticScrollRef = useRef(false);
-  const { theme } = useTheme();
+  const { resolvedTheme: theme } = useTheme();
+  const { urlFor } = useTwitchBadges(userId);
 
   // Load emote sets once per (login, userId).
   useEffect(() => {
@@ -105,7 +114,9 @@ export function TwitchChat({
       channel: login,
       emoteMap,
       onStatus: setStatus,
+      onRaid,
       onMessage: (msg) => {
+        onMessageRef.current?.(msg);
         setMessages((prev) => {
           const next = prev.length >= MESSAGE_LIMIT ? prev.slice(-MESSAGE_LIMIT + 1) : prev.slice();
           next.push(msg);
@@ -114,7 +125,7 @@ export function TwitchChat({
       },
     });
     return dispose;
-  }, [login, emoteMap]);
+  }, [login, emoteMap, onRaid]);
 
   // Auto-scroll to newest unless the user has scrolled up.
   // Wraps in a programmatic-scroll guard so the resulting `scroll`
@@ -150,13 +161,14 @@ export function TwitchChat({
     [login],
   );
 
-  const statusLabel = status === "open" ? "Connected" : status === "connecting" ? "Connecting…" : "Reconnecting…";
-  const statusDot =
-    status === "open" ? "bg-emerald-400" : status === "connecting" ? "bg-amber-400" : "bg-rose-400";
+  const statusLabel = status === "open" ? "Connected" : status === "paused" ? "Paused" : status === "connecting" ? "Connecting…" : "Reconnecting…";
+  const statusColor: "success" | "warning" | "error" | "gray" =
+    status === "open" ? "success" : status === "paused" ? "gray" : status === "connecting" ? "warning" : "error";
+  const channelName = displayName ?? formatHandleDisplay(login);
 
   return (
     <section
-      aria-label={`${displayName ?? login} live Twitch chat`}
+      aria-label={`${channelName} live Twitch chat`}
       className={`flex h-full flex-col overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] ${className}`}
       style={{ boxShadow: `inset 0 0 0 1px ${accent}1a` }}
     >
@@ -170,7 +182,7 @@ export function TwitchChat({
           target="_blank"
           rel="noopener noreferrer"
           draggable={false}
-          aria-label={`Watch ${displayName ?? login} on Twitch`}
+          aria-label={`Watch ${channelName} on Twitch`}
           className="group/header -mx-1 -my-0.5 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-[color:var(--bg)]/40 cursor-pointer"
         >
           {avatarUrl ? (
@@ -184,62 +196,63 @@ export function TwitchChat({
             />
           ) : (
             <span
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--bg)] text-[10px] font-bold uppercase"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--bg)] text-xs font-bold uppercase"
               style={{ color: accent }}
             >
-              {(displayName ?? login)[0]}
+              {channelName[0]}
             </span>
           )}
           <span className="flex min-w-0 flex-col leading-tight">
             <span
-              className={`truncate font-bold tracking-tight text-[color:var(--ink)] transition-colors group-hover/header:text-[color:var(--core)] ${compact ? "text-[12px]" : "text-[13px]"}`}
+              className={`truncate font-bold tracking-tight text-[color:var(--ink)] transition-colors group-hover/header:text-[color:var(--core)] ${compact ? "text-xs" : "text-sm"}`}
             >
-              {displayName ?? login}
+              {channelName}
             </span>
-            <span className="inline-flex items-center gap-1.5 truncate text-[10px] font-medium tracking-tight text-[color:var(--ink-dim)] transition-colors group-hover/header:text-[color:var(--ink)]">
-              <span className={`inline-block h-1 w-1 rounded-full ${statusDot}`} aria-hidden />
+            <BadgeWithDot type="pill-color" size="sm" color={statusColor} className="-ml-0.5 mt-0.5 w-max">
               {statusLabel}
-            </span>
+            </BadgeWithDot>
           </span>
         </a>
         <div className="flex shrink-0 items-center gap-1.5">
           {!isCore ? (
-            <span className="rounded border border-[color:var(--rule)] bg-[color:var(--bg)] px-1.5 py-0.5 text-[10px] font-medium tracking-tight text-[color:var(--ink-dim)]">
+            <Badge type="pill-color" size="sm" color="gray">
               Guest
-            </span>
+            </Badge>
           ) : null}
           {monitorSlug ? (
             // Single Monitor pill — replaces the open-in-Twitch + close
             // buttons for CORE channels in the hub. Guests fall through
             // to the original buttons since they have no monitor route.
-            <Link
+            <Button
               href={`/monitor/${monitorSlug}` as `/monitor/${string}`}
-              aria-label={`Open monitor for ${displayName ?? login}`}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-2 py-1 text-[11px] font-semibold tracking-tight text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:bg-[color:var(--core)]/10 hover:text-[color:var(--core)] hover:shadow-[0_4px_12px_-4px_rgba(255,106,0,0.4)] active:translate-y-0"
+              size="xs"
+              color="secondary"
+              iconLeading={Activity}
+              aria-label={`Open monitor for ${channelName}`}
             >
-              <Activity size={11} />
               Monitor
-            </Link>
+            </Button>
           ) : (
             <>
-              <a
+              <ButtonUtility
                 href={popoutHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--ink)] hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.4)] active:translate-y-0"
+                size="xs"
+                color="secondary"
+                tooltip="Open in Twitch"
                 aria-label="Open in Twitch"
-              >
-                <ExternalLink size={12} />
-              </a>
+                icon={LinkExternal01}
+              />
               {onClose ? (
-                <button
-                  type="button"
+                <ButtonUtility
+                  size="xs"
+                  color="secondary"
                   onClick={onClose}
-                  aria-label={`Hide ${displayName ?? login}`}
-                  className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:bg-[color:var(--core)]/10 hover:text-[color:var(--core)] hover:shadow-[0_4px_12px_-4px_rgba(255,106,0,0.4)] active:translate-y-0"
-                >
-                  <span className="text-[15px] font-semibold leading-none">×</span>
-                </button>
+                  tooltip={`Hide ${channelName}`}
+                  aria-label={`Hide ${channelName}`}
+                  icon={XClose}
+                />
               ) : null}
             </>
           )}
@@ -258,7 +271,7 @@ export function TwitchChat({
         aria-live="polite"
       >
         {messages.length === 0 ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+          <p className="text-xs text-quaternary">
             {emoteMap ? "Waiting for chat…" : "Loading emotes…"}
           </p>
         ) : (
@@ -271,6 +284,8 @@ export function TwitchChat({
                 theme={theme}
                 fontPx={fontPx}
                 emotePx={emotePx}
+                badgeUrl={urlFor}
+                onReply={onReply ? () => onReply(m, login) : undefined}
               />
             ))}
           </ul>
@@ -280,23 +295,19 @@ export function TwitchChat({
       {/* Resume auto-scroll prompt */}
       {!autoScroll ? (
         <div className="shrink-0 border-t border-[color:var(--rule)] bg-[color:var(--bg)] p-2">
-          <button
-            type="button"
-            onClick={() => {
+          <Button
+            size="sm"
+            color="primary"
+            className="w-full"
+            iconTrailing={ArrowDown}
+            onPress={() => {
               setAutoScroll(true);
               const el = scrollerRef.current;
               if (el) el.scrollTop = el.scrollHeight;
             }}
-            className="group/jump inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[color:var(--core)]/45 bg-[color:var(--core)]/12 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[color:var(--core)] shadow-[0_4px_12px_-6px_rgba(239,68,68,0.6),inset_0_0_0_1px_rgba(239,68,68,0.2)] transition-all hover:-translate-y-px hover:bg-[color:var(--core)]/20 hover:shadow-[0_8px_18px_-8px_rgba(239,68,68,0.7)] active:translate-y-0"
           >
-            <span>Jump to latest</span>
-            <span
-              aria-hidden
-              className="inline-block transition-transform group-hover/jump:translate-y-0.5"
-            >
-              ↓
-            </span>
-          </button>
+            Jump to latest
+          </Button>
         </div>
       ) : null}
     </section>
@@ -309,33 +320,55 @@ function Message({
   theme,
   fontPx,
   emotePx,
+  badgeUrl,
+  onReply,
 }: {
   message: ChatMessage;
   accent: string;
   theme: "dark" | "light";
   fontPx: number;
   emotePx: number;
+  badgeUrl: (setId: string, version: string) => string | null;
+  onReply?: () => void;
 }) {
   const color = readableColor(message.color || accent, theme);
+  const time = new Date(message.receivedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const mention = message.raw.includes("@");
   return (
     <li
-      className="leading-snug text-[color:var(--ink)]"
+      className={`rounded-xl px-1.5 py-1 leading-snug text-[color:var(--ink)] ${onReply ? "cursor-pointer hover:bg-[color:var(--bg)]/60" : ""} ${mention ? "bg-[color:var(--bg)]/35" : ""}`}
+      onClick={onReply}
+      title={onReply ? `Reply to ${message.displayName}` : undefined}
       style={{
         fontSize: `${fontPx}px`,
-        // overflow-wrap:anywhere is stricter than break-words — it'll
-        // break inside long unbreakable tokens (URLs, mashed-emote
-        // strings) so nothing overflows the horizontal axis.
         overflowWrap: "anywhere",
         wordBreak: "break-word",
       }}
     >
-      <span
-        className="font-semibold"
-        style={{ color }}
-      >
+      <span className="mr-1.5 font-mono text-[0.85em] tabular-nums text-[color:var(--ink-faint)]">{time}</span>
+      {message.badges.length > 0 ? (
+        <span className="mr-1 inline-flex items-center gap-0.5 align-middle">
+          {message.badges.slice(0, 4).map((b) => {
+            const src = badgeUrl(b.setId, b.version);
+            if (!src) return null;
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`${b.setId}-${b.version}`}
+                src={src}
+                alt={b.setId}
+                title={b.setId.replace(/-/g, " ")}
+                className="inline-block align-middle"
+                style={{ height: `${Math.round(fontPx * 1.05)}px`, width: `${Math.round(fontPx * 1.05)}px` }}
+              />
+            );
+          })}
+        </span>
+      ) : null}
+      <span className="font-semibold" style={{ color }}>
         {message.displayName}
       </span>
-      <span className="text-[color:var(--ink-faint)]">: </span>
+      <span className="text-[color:var(--ink-faint)]"> · </span>
       {message.tokens.map((t, i) => {
         if (t.kind === "text") {
           // eslint-disable-next-line react/no-array-index-key
@@ -356,7 +389,7 @@ function Message({
 
             <span
               role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-[10px] font-medium text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity duration-150 group-hover/emote:opacity-100"
+              className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-xs font-medium text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity duration-150 group-hover/emote:opacity-100"
             >
               {t.code}{" "}
               <span className="text-[color:var(--ink-faint)]">· {t.provider}</span>

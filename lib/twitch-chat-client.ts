@@ -14,6 +14,8 @@ export type ChatToken =
 
 export type ChatMessage = {
   id: string;
+  /** Channel this message came from. Required for merged/multiview chat. */
+  channelLogin: string;
   user: string;
   displayName: string;
   color?: string;
@@ -21,6 +23,13 @@ export type ChatMessage = {
   tokens: ChatToken[];
   raw: string;
   receivedAt: number;
+  messageType?: string;
+  reply?: {
+    parentMessageId: string;
+    parentUserLogin?: string;
+    parentDisplayName?: string;
+    parentBody?: string;
+  };
 };
 
 type ParsedTags = Record<string, string>;
@@ -144,7 +153,33 @@ function pickSevenTvFile(files: SevenTvFile[]): SevenTvFile | undefined {
  * win. Codes that already exist as Twitch native emotes will still be
  * displayed by the IRC `emotes` tag, so this only handles the rest.
  */
-export async function loadEmoteMap(twitchUserId: string): Promise<EmoteMap> {
+const EMOTE_CACHE_TTL_MS = 60 * 60 * 1000;
+const emoteCache = new Map<string, { expiresAt: number; value: Promise<EmoteMap> }>();
+
+/**
+ * Loads a channel's emotes with a small in-memory cache. The cache is shared
+ * by every feed and composer mounted on the page, which prevents duplicate
+ * BTTV/7TV requests when the same channel appears in columns and a merged dock.
+ */
+export function loadEmoteMap(twitchUserId: string): Promise<EmoteMap> {
+  const key = twitchUserId || "global";
+  const cached = emoteCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const value = loadEmoteMapUncached(twitchUserId).catch((error) => {
+    emoteCache.delete(key);
+    throw error;
+  });
+  emoteCache.set(key, { expiresAt: Date.now() + EMOTE_CACHE_TTL_MS, value });
+  return value;
+}
+
+export function clearEmoteMapCache(twitchUserId?: string): void {
+  if (twitchUserId === undefined) emoteCache.clear();
+  else emoteCache.delete(twitchUserId || "global");
+}
+
+async function loadEmoteMapUncached(twitchUserId: string): Promise<EmoteMap> {
   const map: EmoteMap = new Map();
 
   // Helpers
@@ -163,9 +198,13 @@ export async function loadEmoteMap(twitchUserId: string): Promise<EmoteMap> {
 
   const [bttvGlobal, bttvChannel, sevenGlobal, sevenChannel] = await Promise.all([
     fetchJson<BttvEmote[]>("https://api.betterttv.net/3/cached/emotes/global"),
-    fetchJson<BttvUser>(`https://api.betterttv.net/3/cached/users/twitch/${twitchUserId}`),
+    twitchUserId
+      ? fetchJson<BttvUser>(`https://api.betterttv.net/3/cached/users/twitch/${twitchUserId}`)
+      : Promise.resolve(null),
     fetchJson<SevenTvSet>("https://7tv.io/v3/emote-sets/global"),
-    fetchJson<SevenTvUser>(`https://7tv.io/v3/users/twitch/${twitchUserId}`),
+    twitchUserId
+      ? fetchJson<SevenTvUser>(`https://7tv.io/v3/users/twitch/${twitchUserId}`)
+      : Promise.resolve(null),
   ]);
 
   if (bttvGlobal) for (const e of bttvGlobal) addBttv(e);
@@ -266,11 +305,64 @@ function parseBadges(tag: string | undefined): ChatBadge[] {
   return out;
 }
 
+export type RaidEvent = {
+  fromLogin: string;
+  fromName: string;
+  toLogin: string;
+  viewers: number;
+};
+
+export type ChatConnectionStatus = "connecting" | "open" | "closed" | "paused";
+
+export type ChatRoomState = {
+  emoteOnly?: boolean;
+  followersOnlyMinutes?: number;
+  uniqueChat?: boolean;
+  slowSeconds?: number;
+  subscribersOnly?: boolean;
+};
+
+export type ChatModerationEvent =
+  | {
+      type: "message-delete";
+      channelLogin: string;
+      messageId: string;
+      targetUserLogin?: string;
+    }
+  | {
+      type: "chat-clear";
+      channelLogin: string;
+      targetUserLogin?: string;
+    }
+  | {
+      type: "room-state";
+      channelLogin: string;
+      state: ChatRoomState;
+    }
+  | {
+      type: "notice";
+      channelLogin: string;
+      noticeId?: string;
+      message: string;
+    };
+
+export type MultiChannelChatClientOptions = {
+  channels: Array<{ login: string; emoteMap?: EmoteMap }>;
+  /** Mutable map: callers may populate emotes after the socket opens. */
+  emoteMaps?: Map<string, EmoteMap>;
+  onMessage: (msg: ChatMessage) => void;
+  onStatus?: (channelLogin: string, status: ChatConnectionStatus) => void;
+  onRaid?: (raid: RaidEvent) => void;
+  onModeration?: (event: ChatModerationEvent) => void;
+};
+
 export type ChatClientOptions = {
   channel: string;
   emoteMap: EmoteMap;
   onMessage: (msg: ChatMessage) => void;
-  onStatus?: (status: "connecting" | "open" | "closed") => void;
+  onStatus?: (status: ChatConnectionStatus) => void;
+  onRaid?: (raid: RaidEvent) => void;
+  onModeration?: (event: ChatModerationEvent) => void;
 };
 
 /**
@@ -278,24 +370,56 @@ export type ChatClientOptions = {
  * every PRIVMSG in the joined channel. Returns a disposer.
  */
 export function startChatClient(opts: ChatClientOptions): () => void {
-  const { channel, emoteMap, onMessage, onStatus } = opts;
-  const ch = `#${channel.toLowerCase()}`;
+  const channel = opts.channel.toLowerCase();
+  return startMultiChannelChatClient({
+    channels: [{ login: channel, emoteMap: opts.emoteMap }],
+    onMessage: opts.onMessage,
+    onStatus: (_login, status) => opts.onStatus?.(status),
+    onRaid: opts.onRaid,
+    onModeration: opts.onModeration,
+  });
+}
+
+/**
+ * Opens one anonymous IRC WebSocket and joins every requested channel. Views
+ * subscribe to the resulting store instead of opening one socket per column.
+ */
+export function startMultiChannelChatClient(opts: MultiChannelChatClientOptions): () => void {
+  const channelLogins = [...new Set(opts.channels.map((channel) => channel.login.trim().toLowerCase()).filter(Boolean))];
+  const channelSet = new Set(channelLogins);
+  const initialEmotes = new Map(
+    opts.channels
+      .filter((channel): channel is { login: string; emoteMap: EmoteMap } => Boolean(channel.emoteMap))
+      .map((channel) => [channel.login.toLowerCase(), channel.emoteMap]),
+  );
+  const emoteMaps = opts.emoteMaps ?? initialEmotes;
   let ws: WebSocket | null = null;
   let disposed = false;
   let reconnectTimer: number | null = null;
   let attempt = 0;
 
+  const emitStatus = (status: ChatConnectionStatus) => {
+    for (const login of channelLogins) opts.onStatus?.(login, status);
+  };
+
+  const channelFromParam = (param: string | undefined): string => {
+    const login = (param ?? "").replace(/^#/, "").toLowerCase();
+    return channelSet.has(login) ? login : channelLogins[0] ?? login;
+  };
+
+  if (channelLogins.length === 0) return () => {};
+
   const connect = () => {
     if (disposed) return;
-    onStatus?.("connecting");
+    emitStatus("connecting");
     ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
     ws.onopen = () => {
       attempt = 0;
-      onStatus?.("open");
-      ws?.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
+      emitStatus("open");
+      ws?.send("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership");
       ws?.send("PASS SCHMOOPIIE");
       ws?.send(`NICK justinfan${Math.floor(10000 + Math.random() * 80000)}`);
-      ws?.send(`JOIN ${ch}`);
+      for (const login of channelLogins) ws?.send(`JOIN #${login}`);
     };
     ws.onmessage = (ev) => {
       const data = typeof ev.data === "string" ? ev.data : "";
@@ -307,26 +431,103 @@ export function startChatClient(opts: ChatClientOptions): () => void {
         }
         const parsed = parseLine(line);
         if (!parsed) continue;
+        if (parsed.command === "RECONNECT") {
+          ws?.close();
+          continue;
+        }
+        if (parsed.command === "USERNOTICE" && parsed.tags["msg-id"] === "raid") {
+          const channelLogin = channelFromParam(parsed.params[0]);
+          const fromLogin = (parsed.tags["msg-param-login"] || "").toLowerCase();
+          const fromName = parsed.tags["msg-param-displayName"] || fromLogin;
+          const viewers = Number(parsed.tags["msg-param-viewerCount"] || 0);
+          if (fromLogin) {
+            opts.onRaid?.({
+              fromLogin,
+              fromName,
+              toLogin: channelLogin,
+              viewers: Number.isFinite(viewers) ? viewers : 0,
+            });
+          }
+          continue;
+        }
+        if (parsed.command === "CLEARMSG") {
+          opts.onModeration?.({
+            type: "message-delete",
+            channelLogin: channelFromParam(parsed.params[0]),
+            messageId: parsed.tags["target-msg-id"] || "",
+            targetUserLogin: parsed.tags.login?.toLowerCase(),
+          });
+          continue;
+        }
+        if (parsed.command === "CLEARCHAT") {
+          opts.onModeration?.({
+            type: "chat-clear",
+            channelLogin: channelFromParam(parsed.params[0]),
+            targetUserLogin: parsed.params[1]?.toLowerCase(),
+          });
+          continue;
+        }
+        if (parsed.command === "ROOMSTATE") {
+          const numberTag = (name: string): number | undefined => {
+            const value = parsed.tags[name];
+            if (value === undefined || value === "-1") return undefined;
+            const parsedValue = Number(value);
+            return Number.isFinite(parsedValue) ? parsedValue : undefined;
+          };
+          opts.onModeration?.({
+            type: "room-state",
+            channelLogin: channelFromParam(parsed.params[0]),
+            state: {
+              emoteOnly: parsed.tags["emote-only"] === "1",
+              followersOnlyMinutes: numberTag("followers-only"),
+              uniqueChat: parsed.tags.r9k === "1",
+              slowSeconds: numberTag("slow"),
+              subscribersOnly: parsed.tags["subs-only"] === "1",
+            },
+          });
+          continue;
+        }
+        if (parsed.command === "NOTICE") {
+          opts.onModeration?.({
+            type: "notice",
+            channelLogin: channelFromParam(parsed.params[0]),
+            noticeId: parsed.tags["msg-id"] || undefined,
+            message: parsed.params.at(-1) ?? "Twitch chat notice",
+          });
+          continue;
+        }
         if (parsed.command !== "PRIVMSG") continue;
-        const [, body = ""] = parsed.params;
+        const [channelParam, body = ""] = parsed.params;
+        const channelLogin = channelFromParam(channelParam);
         const userMatch = parsed.prefix.match(/^([^!]+)!/);
         const user = userMatch?.[1] ?? "anon";
         const t = parsed.tags;
+        const parentMessageId = t["reply-parent-msg-id"];
         const msg: ChatMessage = {
           id: t["id"] || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          channelLogin,
           user,
           displayName: t["display-name"] || user,
           color: t["color"] || undefined,
           badges: parseBadges(t["badges"]),
-          tokens: tokenize(body, t["emotes"] || undefined, emoteMap),
+          tokens: tokenize(body, t["emotes"] || undefined, emoteMaps.get(channelLogin) ?? new Map()),
           raw: body,
           receivedAt: Date.now(),
+          messageType: t["message-type"] || undefined,
+          reply: parentMessageId
+            ? {
+                parentMessageId,
+                parentUserLogin: t["reply-parent-user-login"] || undefined,
+                parentDisplayName: t["reply-parent-display-name"] || undefined,
+                parentBody: t["reply-parent-msg-body"] || undefined,
+              }
+            : undefined,
         };
-        onMessage(msg);
+        opts.onMessage(msg);
       }
     };
     ws.onclose = () => {
-      onStatus?.("closed");
+      emitStatus("closed");
       if (disposed) return;
       attempt++;
       const delay = Math.min(15_000, 500 * 2 ** Math.min(attempt, 5));

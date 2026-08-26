@@ -5,6 +5,7 @@
  * means hash-of-prompt changes, which invalidates the cache, which is right).
  */
 import { MEMBERS, CREW, GROUP_SOCIALS } from "@coreboys/shared";
+import { getCrewRoleLabel } from "@/lib/crew";
 
 function memberSummary() {
   return MEMBERS.map((m) => {
@@ -17,7 +18,7 @@ function memberSummary() {
 
 function crewSummary() {
   return CREW.map(
-    (c) => `- ${c.name} (${c.role}, works with ${c.worksWith.join(", ")})`,
+    (c) => `- ${c.name} (${getCrewRoleLabel(c)}, works with ${c.worksWith.join(", ")})`,
   ).join("\n");
 }
 

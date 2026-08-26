@@ -1,4 +1,4 @@
-# Press kit — `/press` and `/m/[slug]/numbers`
+# Press kit — `/press` and `/about/[slug]/numbers`
 
 The Core Boys press surface. One public-facing page that sponsors,
 labels, and partners reach for when they ask "what's the audience?".
@@ -20,7 +20,7 @@ Three audiences read this page:
 | Route                  | For                                       |
 | ---------------------- | ----------------------------------------- |
 | `/press`               | Org-level media kit. The default share.   |
-| `/m/[slug]/numbers`    | Per-member media kit (Marlon, Ron, etc).  |
+| `/about/[slug]/numbers` | Per-member media kit (Marlon, Ron, etc). |
 | `/press/download.pdf`  | (Phase B) Static brand-asset PDF dump.    |
 
 Both pages render server-side, ISR-cache for 1h, and pull live numbers
@@ -54,7 +54,7 @@ that.
 
 ## Per-member page composition
 
-`/m/[slug]/numbers` reuses the org template tightened to one creator:
+`/about/[slug]/numbers` reuses the org template tightened to one creator:
 
 - Hero: portrait + stage name + accent rule + headline number.
 - Platform breakdown: one card per platform with handle, follower count,

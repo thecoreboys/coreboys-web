@@ -1,6 +1,7 @@
 import Image from "next/image";
-import Link from "next/link";
-import { PlayCircle } from "lucide-react";
+import { PlayCircle } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
+import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { getHeroGroupPhoto } from "@/lib/asset-index";
 import { getLatestPlatformTotalsForSlug } from "@/lib/metric-snapshots";
 import { GROUP } from "@/lib/group";
@@ -80,14 +81,14 @@ export async function HeroCorporate() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(70% 60% at 22% 30%, rgba(239,68,68,0.18), transparent 60%), radial-gradient(40% 35% at 78% 12%, rgba(99,102,241,0.10), transparent 70%), radial-gradient(50% 40% at 90% 110%, rgba(239,68,68,0.10), transparent 70%)",
+            "radial-gradient(70% 60% at 22% 30%, rgba(219,3,104,0.16), transparent 60%), radial-gradient(40% 35% at 78% 12%, rgba(168,10,143,0.12), transparent 70%), radial-gradient(50% 40% at 90% 110%, rgba(219,3,104,0.10), transparent 70%)",
         }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute -left-32 top-12 h-[420px] w-[420px] rounded-full"
         style={{
-          background: "radial-gradient(closest-side, rgba(239,68,68,0.55), transparent 70%)",
+          background: "radial-gradient(closest-side, rgba(219,3,104,0.50), transparent 70%)",
           filter: "blur(80px)",
           mixBlendMode: "screen",
         }}
@@ -96,7 +97,7 @@ export async function HeroCorporate() {
         aria-hidden
         className="pointer-events-none absolute -right-20 top-40 h-[300px] w-[300px] rounded-full"
         style={{
-          background: "radial-gradient(closest-side, rgba(255,180,140,0.35), transparent 70%)",
+          background: "radial-gradient(closest-side, rgba(118,2,153,0.35), transparent 70%)",
           filter: "blur(70px)",
           mixBlendMode: "screen",
         }}
@@ -106,57 +107,61 @@ export async function HeroCorporate() {
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
         style={{
           background:
-            "linear-gradient(to right, transparent 0%, rgba(239,68,68,0.6) 30%, rgba(99,102,241,0.4) 70%, transparent 100%)",
+            "linear-gradient(to right, transparent 0%, rgba(219,3,104,0.6) 30%, rgba(168,10,143,0.45) 70%, transparent 100%)",
         }}
       />
 
-      <div className="relative mx-auto max-w-[1440px] px-6 pt-20 pb-16 md:px-8 md:pt-32 md:pb-24">
+      <div className="relative mx-auto max-w-container px-6 pt-20 pb-16 md:px-8 md:pt-32 md:pb-24">
         <div className="grid grid-cols-12 items-center gap-8 lg:gap-12">
           <div className="col-span-12 corp-reveal flex flex-col justify-center lg:col-span-7">
             {/* Status row — "live now" indicator if anyone is streaming. */}
-            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-dim)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--success)] core-pulse" aria-hidden />
-              <span>Content Organization · Est. 2026</span>
+            <div>
+              <BadgeWithDot type="pill-color" color="success" size="md">
+                Content Organization · Est. 2026
+              </BadgeWithDot>
             </div>
 
-            {/* Wordmark — single-word "CORE" hero. */}
+            {/* Wordmark — single-word "CORE" hero. Filled with the animated
+                Ironbow gradient so it reads premium in BOTH themes (the old
+                white-glow textShadow only worked on the dark canvas). The
+                -webkit-text-stroke from .font-logo is cleared so the gradient
+                fills the glyph cleanly. */}
             <h1 className="mt-7">
               <span
-                className="block font-logo text-[clamp(72px,11vw,180px)] leading-[0.84] tracking-[-0.04em] text-[color:var(--ink)]"
-                style={{
-                  textShadow:
-                    "0 0 28px rgba(244,244,245,0.45), 0 0 8px rgba(244,244,245,0.35), 0 2px 30px rgba(0,0,0,0.6)",
-                }}
+                className="gradient-text-core block font-logo text-[clamp(72px,11vw,180px)] leading-[0.84] tracking-[-0.04em]"
+                style={{ WebkitTextStroke: "0" }}
               >
                 CORE
               </span>
             </h1>
 
             <p className="mt-3 max-w-[28ch] text-[clamp(18px,2vw,26px)] font-semibold leading-[1.25] tracking-[-0.01em] text-[color:var(--ink)]">
-              Create. Own. <span className="text-[color:var(--core)]">Run Everything.</span>
+              Create. Own.{" "}
+              <span className="gradient-text-core">Run. Everything.</span>
             </p>
 
             <div className="mt-5">
               <HeroFloatingCounts items={floatingCounts} />
             </div>
 
-            <p className="mt-6 max-w-[60ch] text-[16px] leading-relaxed text-[color:var(--ink-dim)] md:text-[17px]">
+            <p className="mt-6 max-w-[60ch] text-lg text-[color:var(--ink-dim)]">
               Built, owned and run by the people on screen.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="#members" className="btn btn-secondary">
+              <Button href="#members" color="primary" size="lg">
                 Meet the boys
-              </Link>
-              <a
+              </Button>
+              <Button
                 href="https://youtu.be/Wrc7pCsGKTI"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-2 text-[13px] font-medium text-[color:var(--ink-dim)] transition-colors hover:text-[color:var(--ink)] cursor-pointer"
+                color="link-gray"
+                size="lg"
+                iconLeading={<PlayCircle className="size-5" />}
               >
-                <PlayCircle size={14} />
                 House tour
-              </a>
+              </Button>
             </div>
 
           </div>
@@ -166,7 +171,7 @@ export async function HeroCorporate() {
             style={{ animationDelay: "200ms" }}
           >
             {/* Group photo — tall portrait card on the right. */}
-            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black media-tone image-grain">
+            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-black ring-1 ring-inset ring-[color:var(--rule)] shadow-lg media-tone image-grain">
               <Image
                 src={groupPhoto}
                 alt="The CORE house"
@@ -186,18 +191,18 @@ export async function HeroCorporate() {
                 }}
               />
               <div className="absolute inset-x-4 top-4 flex items-center justify-between">
-                <span className="rounded-md border border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold tracking-tight text-on-image-dim backdrop-blur">
+                <Badge type="modern" color="gray" size="sm">
                   CORE
-                </span>
-                <span className="rounded-md border border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold tracking-tight text-on-image-dim backdrop-blur">
+                </Badge>
+                <Badge type="modern" color="gray" size="sm">
                   6 / 6
-                </span>
+                </Badge>
               </div>
               <div className="absolute inset-x-4 bottom-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-on-image-dim">
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-on-image-dim">
                   House · Roll call
                 </p>
-                <p className="mt-1 text-[18px] font-bold leading-tight text-on-image">
+                <p className="mt-1 text-lg font-semibold leading-tight text-on-image">
                   Six creators. One house.
                 </p>
               </div>

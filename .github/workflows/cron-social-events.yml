@@ -1,0 +1,18 @@
+name: Reconcile social events
+on:
+  schedule:
+    # YouTube and Twitch arrive through signed webhooks. This lower-frequency
+    # reconciliation is the fallback for Instagram/TikTok, whose public-post
+    # webhook coverage is limited, and prevents overlapping provider reads.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: core-social-reconcile
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reconcile content and deliver notifications
+        run: curl --fail --silent --show-error -X POST "${{ secrets.CORE_SITE_URL }}/api/social/reconcile" -H "x-cron-secret: ${{ secrets.METRICS_CRON_SECRET }}"
