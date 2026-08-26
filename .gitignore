@@ -3,6 +3,12 @@ node_modules
 .next-*
 out
 dist
+# The web app vendors the built shared package so private-repository cloud
+# builds do not need a second GitHub checkout or a long-lived GitHub token.
+!vendor/
+!vendor/coreboys-shared/
+!vendor/coreboys-shared/dist/
+!vendor/coreboys-shared/dist/**
 .env
 .env.local
 .env.*.local
