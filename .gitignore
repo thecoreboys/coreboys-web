@@ -23,10 +23,6 @@ coverage
 # Stray local CLI installs — never commit
 doctl-*
 *.exe
-public/members
-public/group
-public/comms
-public/crew
 public/house-reveal.mp4
 
 # clerk configuration (can include secrets)

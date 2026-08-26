@@ -61,6 +61,8 @@ jobs:
           MEDIA_INTELLIGENCE_DATABASE_URL: ${{ secrets.MEDIA_INTELLIGENCE_DATABASE_URL }}
           MEDIA_INTELLIGENCE_PROVIDER: ${{ secrets.MEDIA_INTELLIGENCE_PROVIDER }}
           METRICS_CRON_SECRET: ${{ secrets.METRICS_CRON_SECRET }}
+          SITE_ACCESS_CODE: ${{ secrets.SITE_ACCESS_CODE }}
+          SITE_ACCESS_COOKIE_SECRET: ${{ secrets.SITE_ACCESS_COOKIE_SECRET }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           SOCIAL_FETCH_API_KEY: ${{ secrets.SOCIAL_FETCH_API_KEY }}
           SOCIAL_NOTIFICATIONS_DELIVERY_ENABLED: ${{ secrets.SOCIAL_NOTIFICATIONS_DELIVERY_ENABLED }}
@@ -120,6 +122,8 @@ jobs:
           add_secret media-intelligence-database-url MEDIA_INTELLIGENCE_DATABASE_URL "$MEDIA_INTELLIGENCE_DATABASE_URL"
           add_secret media-intelligence-provider MEDIA_INTELLIGENCE_PROVIDER "$MEDIA_INTELLIGENCE_PROVIDER"
           add_secret metrics-cron-secret METRICS_CRON_SECRET "$METRICS_CRON_SECRET"
+          add_secret site-access-code SITE_ACCESS_CODE "$SITE_ACCESS_CODE"
+          add_secret site-access-cookie-secret SITE_ACCESS_COOKIE_SECRET "$SITE_ACCESS_COOKIE_SECRET"
           add_secret next-public-clerk-publishable-key NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
           add_secret social-fetch-api-key SOCIAL_FETCH_API_KEY "$SOCIAL_FETCH_API_KEY"
           add_secret social-notifications-enabled SOCIAL_NOTIFICATIONS_DELIVERY_ENABLED "$SOCIAL_NOTIFICATIONS_DELIVERY_ENABLED"

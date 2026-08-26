@@ -7,8 +7,9 @@ const billboard = readFileSync(resolve(process.cwd(), "components/watch/Billboar
 const watchCss = readFileSync(resolve(process.cwd(), "app/watch/watch.css"), "utf8");
 const globalCss = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8");
 
-test("live carousel previews autoplay behind CORE-owned interaction controls", () => {
-  assert.match(billboard, /\{playable && !livePlayable \? \(\s*<button[\s\S]{0,180}watch-billboard-surface-action/);
+test("hero carousel previews autoplay behind CORE-owned interaction controls", () => {
+  assert.match(billboard, /\{playable && !heroPlayable \? \(\s*<button[\s\S]{0,180}watch-billboard-surface-action/);
+  assert.match(billboard, /item\.platform === "youtube" && !playable\.youtubeId/);
   assert.match(billboard, /autoplay: true,[\s\S]{0,80}muted: true/);
   assert.match(billboard, /api\.Player\.READY[\s\S]{0,180}providerReady = true[\s\S]{0,180}requestPlayback\(\)/);
   assert.match(billboard, /instance\.addEventListener\(api\.Player\.PLAYING/);
