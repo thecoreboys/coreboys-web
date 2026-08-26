@@ -61,7 +61,8 @@ export async function POST(request: Request) {
       maxAge: SITE_ACCESS_MAX_AGE_SECONDS,
     });
     return noStore(response);
-  } catch {
+  } catch (error) {
+    console.error("site_access_verification_failed", error);
     return noStore(NextResponse.json(
       { error: "Access verification is temporarily unavailable." },
       { status: 503 },
