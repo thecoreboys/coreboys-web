@@ -124,7 +124,7 @@ export function IntroSequence() {
             {!skip && (
               <div
                 aria-hidden="true"
-                className="font-display text-[120px] leading-none font-black tracking-[-0.04em] wordmark-fill"
+                className="font-logo wordmark-fill text-[120px] leading-none tracking-[-0.04em]"
                 style={{ minHeight: "120px", letterSpacing: "-0.04em" }}
               >
                 {typed}

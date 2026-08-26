@@ -1,5 +1,6 @@
-import { cookies } from "next/headers";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/admin-auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { getCurrentStaff } from "@/lib/admin-api";
 
 /**
  * Server-side gate for /admin/* pages, plus the layout chrome shared
@@ -7,23 +8,17 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/admin-auth";
  * visitors to /admin/sign-in; this layout double-checks server-side so
  * a misconfigured matcher can't ever leak admin content.
  *
- * /admin/sign-in shares this layout but skips the auth requirement —
- * since the layout can't see the current path directly, we let the
- * tree render whenever there's no cookie at all (the sign-in page
- * being the one expected unauthenticated stop). Anything with an
- * invalid cookie is bounced.
+ * Middleware supplies a trusted pathname header so the public sign-in page
+ * can share this layout while every other admin page is checked against the
+ * live database role in addition to the edge JWT check.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const c = await cookies();
-  const token = c.get(SESSION_COOKIE)?.value;
-  if (token) {
-    const session = await verifySessionToken(token);
-    // If the cookie exists but doesn't verify, clear & let the sign-in
-    // page render via the normal redirect path on the next request.
-    if (!session) {
-      // Can't set cookies in a layout, so we just render — middleware
-      // will redirect non-sign-in routes; sign-in page handles itself.
-    }
+  const requestHeaders = await headers();
+  if (requestHeaders.get("x-coreboys-pathname") === "/admin/sign-in") {
+    return <>{children}</>;
   }
+  const staff = await getCurrentStaff();
+  if (!staff) redirect("/admin/sign-in?next=/admin" as never);
+  if (staff.role !== "admin") redirect("/studio" as never);
   return <>{children}</>;
 }

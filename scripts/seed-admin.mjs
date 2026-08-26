@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * One-shot admin seed. Creates the admin_users table if missing,
- * upserts mdcranberry@gmail.com with a bcrypt-hashed password.
+ * One-shot admin seed. Upserts an admin with a bcrypt-hashed password.
  *
- * Run: pnpm db:seed-admin
+ * Run with environment variables:
+ *   ADMIN_SEED_EMAIL=... ADMIN_SEED_PASSWORD=... pnpm db:seed-admin
+ * Or explicit CLI values:
+ *   pnpm db:seed-admin -- --email ... --password ...
  *
- * Reads DATABASE_URL from .env.local. The password is intentionally
- * hard-coded here for now since we have exactly one admin and the
- * value is documented in chat history; rotate by re-running this
- * script with a new constant.
+ * Reads DATABASE_URL and optional ADMIN_SEED_* values from .env.local.
+ * Credentials are never printed or stored in this source file.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -39,8 +39,20 @@ function loadEnv() {
 }
 loadEnv();
 
-const ADMIN_EMAIL = "mdcranberry@gmail.com";
-const ADMIN_PASSWORD = "Password123!#1";
+function cliValue(flag) {
+  const index = process.argv.indexOf(flag);
+  return index >= 0 ? process.argv[index + 1]?.trim() : undefined;
+}
+
+const ADMIN_EMAIL = (cliValue("--email") ?? process.env.ADMIN_SEED_EMAIL ?? "").toLowerCase();
+const ADMIN_PASSWORD = cliValue("--password") ?? process.env.ADMIN_SEED_PASSWORD ?? "";
+
+if (!/^\S+@\S+\.\S+$/.test(ADMIN_EMAIL) || ADMIN_PASSWORD.length < 12) {
+  console.error(
+    "Set ADMIN_SEED_EMAIL and an ADMIN_SEED_PASSWORD of at least 12 characters, or pass --email and --password.",
+  );
+  process.exit(1);
+}
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -64,24 +76,31 @@ const pool = new Pool({
     const hash = await bcrypt.hash(ADMIN_PASSWORD, 12);
     const upd = await pool.query(
       `UPDATE admin_users
-         SET password_hash = $2, updated_at = NOW()
-       WHERE email = $1 AND deleted_at IS NULL`,
+         SET password_hash = $2,
+             roles = 'admin',
+             role = 'admin',
+             member_slug = NULL,
+             display_name = COALESCE(NULLIF(display_name, ''), $1),
+             deleted_at = NULL,
+             updated_at = NOW()
+       WHERE email = $1`,
       [ADMIN_EMAIL.toLowerCase(), hash],
     );
     if (upd.rowCount === 0) {
       await pool.query(
-        `INSERT INTO admin_users (email, password_hash, roles)
-         VALUES ($1, $2, 'admin')`,
+        `INSERT INTO admin_users
+           (email, password_hash, roles, role, member_slug, display_name)
+         VALUES ($1, $2, 'admin', 'admin', NULL, $1)`,
         [ADMIN_EMAIL.toLowerCase(), hash],
       );
     }
 
     const r = await pool.query(
-      `SELECT email, roles, created_at, updated_at
+      `SELECT email, role, member_slug, created_at, updated_at
        FROM admin_users WHERE deleted_at IS NULL
        ORDER BY created_at DESC`,
     );
-    console.log("admin_users:", r.rows);
+    console.log("active staff accounts:", r.rows);
     await pool.end();
     console.log("✓ admin seeded");
   } catch (e) {

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import {
   motion,
   useReducedMotion,
@@ -10,8 +9,9 @@ import {
   useSpring,
   useTransform,
 } from "framer-motion";
-import { ArrowUpRight, Play } from "lucide-react";
+import { ArrowUpRight, Play } from "@untitledui/icons";
 import { CREW, MEMBERS } from "@/lib/members";
+import { Button } from "@/components/base/buttons/button";
 
 // Static fallback shown behind the video if autoplay is blocked
 // (iOS Low Power Mode, slow first paint, etc.). Hardcoded here because
@@ -34,35 +34,17 @@ const EASE_OUT = [0.16, 1, 0.3, 1] as const;
  * play. Iframe is replaced with a still poster image so we don't load
  * the YouTube payload at all.
  */
-/** End of the loop window in seconds — restart from the start when the
- *  video plays past this. Trims to the first 0:36 of the reveal trailer. */
-const LOOP_END = 36;
-
 export function HouseTourParallax() {
   const reduced = useReducedMotion();
   const sectionRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Loop only the first LOOP_END seconds. We listen on `timeupdate` and
-  // seek back to 0 when the playhead crosses the marker. The native
-  // `loop` attribute is left on as a backstop in case the video ends
-  // naturally before we catch it.
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const onTime = () => {
-      if (v.currentTime >= LOOP_END) {
-        v.currentTime = 0;
-        // Some browsers pause briefly when seeking — kick playback back on.
-        const playPromise = v.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      }
-    };
-    v.addEventListener("timeupdate", onTime);
-    return () => v.removeEventListener("timeupdate", onTime);
-  }, []);
+  // The native `loop` attribute handles seamless restarts on every
+  // browser. We previously trimmed the loop to the first 0:36 with a
+  // `timeupdate`-driven seek-to-0, but that mid-playback seek caused a
+  // visible stutter / black frame on some browsers (the seek + re-play
+  // race) and is the reason the background "wasn't showing properly".
+  // Looping the full clip via the native attribute is seamless.
 
   // Mobile Safari ignores the `autoplay` attribute often enough that the
   // background video never starts on phones — the user just sees a black
@@ -143,7 +125,9 @@ export function HouseTourParallax() {
           playsInline
           preload="auto"
           poster={HOUSE_FALLBACK}
-          className="absolute left-1/2 top-1/2 h-full w-full min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover"
+          aria-hidden="true"
+          tabIndex={-1}
+          className="pointer-events-none absolute left-1/2 top-1/2 h-full w-full min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover"
           style={{ objectPosition: "center 40%" }}
         />
       </motion.div>
@@ -165,7 +149,7 @@ export function HouseTourParallax() {
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(60% 50% at 30% 50%, rgba(239,68,68,0.18), transparent 70%), radial-gradient(50% 40% at 90% 40%, rgba(99,102,241,0.18), transparent 70%)",
+              "radial-gradient(60% 50% at 30% 50%, rgba(219,3,104,0.18), transparent 70%), radial-gradient(50% 40% at 90% 40%, rgba(118,2,153,0.18), transparent 70%)",
           }}
         />
         <div
@@ -183,7 +167,7 @@ export function HouseTourParallax() {
           right under the title (no big gap) so the composition reads as
           one editorial block. */}
       <motion.div
-        className="relative z-10 mx-auto flex h-full w-full max-w-[1440px] flex-col items-center justify-center gap-7 px-6 pb-[18vh] pt-[6vh] text-center md:gap-8 md:px-8"
+        className="relative z-10 mx-auto flex h-full w-full max-w-container flex-col items-center justify-center gap-7 px-6 pb-[18vh] pt-[6vh] text-center md:gap-8 md:px-8"
         style={reduced ? undefined : { y: fgY }}
       >
         <motion.div
@@ -194,16 +178,16 @@ export function HouseTourParallax() {
           className="flex flex-col items-center"
         >
           <span
-            className="block font-mono text-[clamp(11px,1.3vw,16px)] uppercase tracking-[0.32em] text-white/75"
+            className="block font-mono text-[clamp(12px,1.3vw,16px)] uppercase tracking-[0.32em] text-white/75"
             style={{ textShadow: "0 2px 12px rgba(0,0,0,0.55)" }}
           >
             This is the
           </span>
           <h2
-            className="mt-3 text-display text-[clamp(56px,10vw,160px)] font-black leading-[0.9] tracking-[-0.04em] text-white"
+            className="mt-3 text-display text-[clamp(44px,8vw,120px)] font-black leading-[0.9] tracking-[-0.04em] text-white"
             style={{
               textShadow:
-                "0 0 6px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.55), 0 0 36px rgba(255,59,31,0.85), 0 0 80px rgba(255,59,31,0.55), 0 0 140px rgba(255,59,31,0.35)",
+                "0 0 6px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.55), 0 0 36px rgba(219,3,104,0.85), 0 0 80px rgba(219,3,104,0.55), 0 0 140px rgba(219,3,104,0.35)",
               animation: "core-glow 4.5s ease-in-out infinite",
             }}
           >
@@ -217,21 +201,17 @@ export function HouseTourParallax() {
           viewport={{ once: true, margin: "-15%" }}
           transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.16 }}
         >
-          <Link
-            href={youtubeHref as never}
+          <Button
+            href={youtubeHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="group/cta inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-5 py-2.5 text-[13px] font-semibold tracking-tight text-white backdrop-blur-md transition-all hover:-translate-y-px hover:border-white hover:bg-white/20"
+            color="primary"
+            size="lg"
+            iconLeading={<Play className="size-4" />}
+            iconTrailing={ArrowUpRight}
           >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FF0033] text-white shadow-[0_0_18px_rgba(255,0,51,0.5)]">
-              <Play size={11} fill="currentColor" />
-            </span>
             Watch on YouTube
-            <ArrowUpRight
-              size={14}
-              className="transition-transform group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5"
-            />
-          </Link>
+          </Button>
         </motion.div>
 
         <motion.ul
@@ -256,12 +236,12 @@ export function HouseTourParallax() {
                 hidden: { opacity: 0, y: 16 },
                 show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT } },
               }}
-              className="rounded-md border border-white/15 bg-black/40 px-4 py-3 text-center backdrop-blur-md"
+              className="rounded-xl bg-black/40 px-4 py-3 text-center ring-1 ring-inset ring-white/15 shadow-xs-skeuomorphic backdrop-blur-md"
             >
-              <p className="text-display text-[20px] font-black tabular-nums text-white md:text-[22px]">
+              <p className="text-display-xs font-semibold tabular-nums text-white">
                 {s.v}
               </p>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-white/60">
+              <p className="mt-1 font-mono text-xs uppercase tracking-[0.22em] text-white/60">
                 {s.l}
               </p>
             </motion.li>

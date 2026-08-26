@@ -1,0 +1,23 @@
+name: cron-face-retention
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge expired face-presence private data
+        env:
+          APP_URL: ${{ secrets.FACE_RETENTION_APP_URL }}
+          SECRET: ${{ secrets.FACE_RETENTION_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_URL"
+          test -n "$SECRET"
+          curl --fail --silent --show-error -X POST \
+            -H "x-face-retention-secret: $SECRET" \
+            -w "\nHTTP %{http_code}\n" \
+            "$APP_URL/api/admin/faces/maintenance"

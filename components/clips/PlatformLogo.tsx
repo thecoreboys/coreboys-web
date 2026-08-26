@@ -64,5 +64,8 @@ export const PLATFORM_BRAND: Record<Platform, string> = {
   youtube: "#FF0033",
   tiktok: "#FE2C55",
   instagram: "#E1306C",
-  x: "#FFFFFF",
+  // X's brand mark is monochrome — use the theme ink token so it reads
+  // black on light surfaces and white on dark (a literal #FFFFFF vanished
+  // on the light-mode card/badge backgrounds).
+  x: "var(--ink)",
 };

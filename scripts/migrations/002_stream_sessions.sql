@@ -23,11 +23,15 @@ CREATE TABLE IF NOT EXISTS stream_sessions (
   sample_count INTEGER NOT NULL DEFAULT 0,
   title TEXT,
   game TEXT,
+  thumbnail_url TEXT,
   last_polled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   -- A member can have at most one open session at a time. Enforced
   -- with a partial unique index below.
   is_open BOOLEAN GENERATED ALWAYS AS (ended_at IS NULL) STORED
 );
+
+-- Additive repair for deployments created before thumbnails were recorded.
+ALTER TABLE stream_sessions ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS stream_sessions_open_per_member
   ON stream_sessions (member_slug)

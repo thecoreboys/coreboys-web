@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
-import { Heart, Mail } from "lucide-react";
+import Link from "next/link";
+import { Mail01, ArrowRight } from "@untitledui/icons";
 import { MEMBERS } from "@/lib/members";
 import { fetchUsersByLogin } from "@/lib/twitch";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { FanWallClient } from "@/components/fanzone/FanWallClient";
-import { PoBoxCardClient } from "@/components/fanzone/PoBoxCardClient";
+import { FanMailDirectory } from "@/components/fanzone/FanMailDirectory";
+import { CommunityPolls } from "@/components/community/CommunityPolls";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { FanZonePulse } from "@/components/fanzone/FanZonePulse";
+import { FanZoneNav } from "@/components/fanzone/FanZoneNav";
+import { CommunitiesHub } from "@/components/fanzone/CommunitiesHub";
 
 export const metadata: Metadata = {
   title: "Fanzone",
-  description: "Send fan mail, submit fan photos, and see featured fan content from the CORE community.",
+  description: "Join CORE communities, follow live updates, share ideas, send fan mail, submit fan work, and vote in community polls.",
   alternates: { canonical: "/fanzone" },
 };
 
@@ -39,149 +45,116 @@ export default async function FanzonePage() {
   }));
 
   return (
-    <main className="relative pt-20 md:pt-24">
-      <section className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(50% 40% at 25% 30%, rgba(239,68,68,0.12), transparent 60%), radial-gradient(45% 35% at 80% 100%, rgba(99,102,241,0.10), transparent 70%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="lens-flare h-[420px] w-[420px]"
-          style={{ left: "12%", top: "15%", ["--flare" as string]: "rgba(239,68,68,0.45)" }}
-        />
-        <div className="relative mx-auto max-w-[1440px] px-6 py-16 md:px-8 md:py-20">
-          <p className="eyebrow inline-flex items-center gap-2">
-            <Heart size={11} />
-            Community · Fanzone
-          </p>
-          <h1 className="mt-3 text-display text-[clamp(48px,7vw,96px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-            <span className="gradient-text">For the fans.</span>
-          </h1>
-          <p className="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-[color:var(--ink-dim)] md:text-[17px]">
-            Mail in a postcard or package. Submit a picture you took with one of the members to possibly get featured on the fan wall!
-          </p>
+    <>
+      <PageHeader
+        eyebrow="Fanzone"
+        title="Write. Share. Belong."
+        supporting="Join a community, follow what is happening, share an idea, or send something to the house."
+      />
+
+      <FanZoneNav />
+      <FanZonePulse />
+
+      <section id="communities" className="scroll-mt-36 border-t border-secondary">
+        <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
+          <header className="mb-8">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">Find your people</p>
+            <h2 className="mt-3 font-display text-[24px] font-semibold tracking-[-0.02em] text-[color:var(--ink)] md:text-[32px]">
+              Communities.
+            </h2>
+            <p className="mt-2 max-w-[64ch] text-base leading-relaxed text-[color:var(--ink-dim)]">
+              CORE, Flock, Stable, Thugs, M3, NMS, and SLG — one calm place for live moments, official updates, fan work, questions, and ideas.
+            </p>
+          </header>
+          <CommunitiesHub />
         </div>
       </section>
 
       {/* PO box wall — top */}
-      <section className="border-t border-[color:var(--rule)]">
-        <div className="mx-auto max-w-[1440px] px-6 py-12 md:px-8 md:py-16">
-          <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow inline-flex items-center gap-2">
-                <Mail size={11} />
-                Mail in
-              </p>
-              <h2 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-bold text-[color:var(--ink)]">
-                PO box addresses.
-              </h2>
-              <p className="mt-2 max-w-[60ch] text-[14px] leading-relaxed text-[color:var(--ink-dim)]">
-                Letters, postcards, fan art, packages. First-class postage. Mail is opened
-                every Wednesday.
-              </p>
-            </div>
+      <section id="mail" className="scroll-mt-36 border-t border-secondary bg-secondary">
+        <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
+          <header className="mb-8">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">Mail in</p>
+            <h2 className="mt-3 font-display text-[24px] font-semibold tracking-[-0.02em] text-[color:var(--ink)] md:text-[32px]">
+              Addresses.
+            </h2>
+            <p className="mt-2 max-w-[60ch] text-base leading-relaxed text-[color:var(--ink-dim)]">
+              Letters, postcards, fan art, packages. First-class postage. Mail is opened every Wednesday.
+            </p>
+            <details className="mt-4 max-w-[680px] rounded-xl border border-secondary bg-primary px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+                Before you mail something
+              </summary>
+              <div className="mt-3 grid gap-2 border-t border-secondary pt-3 text-sm leading-relaxed text-tertiary sm:grid-cols-2">
+                <p>Write the member&apos;s full recipient line exactly as shown and include your return address.</p>
+                <p>Use tracked shipping for valuable packages. Never mail cash, perishables, or anything unsafe.</p>
+              </div>
+            </details>
           </header>
-          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {MEMBERS.map((m) => (
-              <li key={m.slug}>
-                <PoBoxCard
-                  slug={m.slug}
-                  stageName={m.stageName}
-                  realName={m.realName}
-                  accent={m.accent}
-                  avatarUrl={avatars[m.twitchLogin.toLowerCase()] ?? m.portrait}
-                  poBox={m.poBox ?? null}
-                  commLogo={m.comm.logo}
-                  commName={m.comm.name}
-                />
-              </li>
-            ))}
-          </ul>
+
+          {/* Buy-a-postcard entry — we print & mail it for you. */}
+          <Link
+            href="/fan-mail/postcard"
+            className="group mb-8 flex flex-col gap-4 rounded-2xl bg-primary p-5 ring-1 ring-inset ring-secondary transition-all hover:-translate-y-0.5 hover:ring-brand-solid/40 sm:flex-row sm:items-center sm:justify-between md:p-6"
+          >
+            <div className="flex items-start gap-4">
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-solid text-white">
+                <Mail01 className="size-5" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-secondary">
+                  No stamp? No problem.
+                </p>
+                <p className="mt-1 text-lg font-semibold tracking-tight text-primary">
+                  Design a postcard online — we print &amp; mail it.
+                </p>
+                <p className="mt-1 text-sm text-tertiary">
+                  Pick a member, write your message, add fan art. From $3.00, postage included.
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white sm:self-center">
+              Start <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+
+          <FanMailDirectory members={MEMBERS.map((m) => ({
+            slug: m.slug,
+            stageName: m.stageName,
+            realName: m.realName,
+            accent: m.accent,
+            avatarUrl: avatars[m.twitchLogin.toLowerCase()] ?? m.portrait,
+            poBox: m.poBox,
+            commLogo: m.comm.logo,
+            commName: m.comm.name,
+          }))} />
         </div>
       </section>
 
       {/* Fan wall + Have-a-photo trigger */}
-      <section className="border-t border-[color:var(--rule)]">
-        <div className="mx-auto max-w-[1440px] px-6 py-12 md:px-8 md:py-16">
+      <section id="wall" className="scroll-mt-36 border-t border-secondary">
+        <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
           <FanWallClient memberOptions={memberOptions} />
         </div>
       </section>
 
-      <SiteFooter />
-    </main>
-  );
-}
-
-function PoBoxCard({
-  slug,
-  stageName,
-  realName,
-  accent,
-  avatarUrl,
-  poBox,
-  commLogo,
-  commName,
-}: {
-  slug: string;
-  stageName: string;
-  realName?: string;
-  accent: string;
-  avatarUrl: string;
-  poBox:
-    | {
-        recipient: string;
-        lines: string[];
-        city: string;
-        region: string;
-        postalCode: string;
-        country: string;
-      }
-    | null;
-  commLogo?: string;
-  commName?: string;
-}) {
-  if (!poBox) {
-    return (
-      <div className="rounded-xl border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-5">
-        <div className="flex items-center gap-3">
-          <span
-            className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-inset"
-            style={{ ["--tw-ring-color" as string]: `${accent}66` }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold text-[color:var(--ink)]">{stageName}</p>
-            <p className="text-[11px] text-[color:var(--ink-faint)]">No public address yet</p>
-          </div>
+      {/* Community polls — merged in from the old /community page */}
+      <section id="polls" className="scroll-mt-36 border-t border-secondary bg-secondary">
+        <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
+          <header className="mb-8">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">Have your say</p>
+            <h2 className="mt-3 font-display text-[24px] font-semibold tracking-[-0.02em] text-[color:var(--ink)] md:text-[32px]">
+              Polls.
+            </h2>
+            <p className="mt-2 max-w-[60ch] text-base leading-relaxed text-[color:var(--ink-dim)]">
+              Vote on what the house does next. Results move live.
+            </p>
+          </header>
+          <CommunityPolls />
         </div>
-      </div>
-    );
-  }
-  const formatted = [
-    poBox.recipient,
-    ...poBox.lines,
-    `${poBox.city}, ${poBox.region} ${poBox.postalCode}`,
-    poBox.country,
-  ].join("\n");
+      </section>
 
-  return (
-    <PoBoxCardClient
-      slug={slug}
-      stageName={stageName}
-      realName={realName}
-      accent={accent}
-      avatarUrl={avatarUrl}
-      formatted={formatted}
-      commLogo={commLogo}
-      commName={commName}
-      poBox={poBox}
-    />
+      <SiteFooter />
+    </>
   );
 }

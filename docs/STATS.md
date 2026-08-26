@@ -1,6 +1,6 @@
 # Stats data layer
 
-Every number on `/press` and `/m/[slug]/numbers` resolves to a typed
+Every number on `/press` and `/about/[slug]/numbers` resolves to a typed
 function in `lib/stats.ts`. This document is the contract:
 
 > If a number is on the page, it traces to one of these fetchers.
@@ -124,6 +124,6 @@ and pull from both web + cms.
 - YouTube + Twitch return real data when keys present
 - TikTok / Instagram entries render `manual` freshness with values
   stored on the member's `WebExtras` (or null)
-- `/press` and `/m/[slug]/numbers` only call these two functions —
+- `/press` and `/about/[slug]/numbers` only call these two functions —
   never raw-fetch a platform
 - Failed source render as `—` with the freshness footer note

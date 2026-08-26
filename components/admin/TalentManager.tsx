@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Plus, Stars02, Trash01, X, Users01, LinkExternal01 } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
+import { ButtonGroup, ButtonGroupItem } from "@/components/base/button-group/button-group";
+import { Input } from "@/components/base/input/input";
+import { Badge } from "@/components/base/badges/badges";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 
 type SocialKey = "twitch" | "youtube" | "x" | "tiktok" | "instagram" | "snapchat";
 
@@ -37,6 +43,9 @@ type Mode = "twitch" | "manual";
  * Add path 1: lookup a Twitch login to seed name + avatar + twitch
  * social. Path 2: enter a name manually + AI-suggest socials, admin
  * approves each, save.
+ *
+ * UUI controls: ButtonGroup mode picker, Input fields, Badge platform
+ * pills, Button actions, FeaturedIcon empty state, card surfaces.
  */
 export function TalentManager() {
   const [mode, setMode] = useState<Mode>("twitch");
@@ -169,12 +178,7 @@ export function TalentManager() {
     // the result here for admin approve/deny.
     const slug = name.toLowerCase().replace(/[^a-z0-9_]+/g, "");
     const guesses: SocialSuggestion[] = [
-      {
-        platform: "x",
-        handle: `@${slug}`,
-        url: `https://x.com/${slug}`,
-        approved: false,
-      },
+      { platform: "x", handle: `@${slug}`, url: `https://x.com/${slug}`, approved: false },
       {
         platform: "youtube",
         handle: `@${slug}`,
@@ -241,257 +245,209 @@ export function TalentManager() {
   return (
     <div className="flex flex-col gap-8">
       {/* Mode picker */}
-      <div className="inline-flex w-fit rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-1">
-        <button
-          type="button"
-          onClick={() => setMode("twitch")}
-          aria-pressed={mode === "twitch"}
-          className={`rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
-            mode === "twitch"
-              ? "bg-[color:var(--surface)] text-[color:var(--ink)]"
-              : "text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-          }`}
-        >
-          Add by Twitch handle
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("manual")}
-          aria-pressed={mode === "manual"}
-          className={`rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
-            mode === "manual"
-              ? "bg-[color:var(--surface)] text-[color:var(--ink)]"
-              : "text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-          }`}
-        >
-          Create manually
-        </button>
-      </div>
+      <ButtonGroup
+        size="md"
+        selectedKeys={new Set([mode])}
+        onSelectionChange={(keys) => {
+          const next = Array.from(keys)[0] as Mode | undefined;
+          if (next) setMode(next);
+        }}
+      >
+        <ButtonGroupItem id="twitch">Add by Twitch handle</ButtonGroupItem>
+        <ButtonGroupItem id="manual">Create manually</ButtonGroupItem>
+      </ButtonGroup>
 
       {/* Twitch path */}
       {mode === "twitch" ? (
-        <form onSubmit={addByTwitch} className="flex flex-wrap items-end gap-3 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4">
-          <label className="flex flex-1 min-w-[260px] flex-col gap-1.5">
-            <span className="text-[12px] font-medium text-[color:var(--ink)]">
-              Twitch handle
-            </span>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[12px] text-[color:var(--ink-faint)]">
-                twitch.tv/
-              </span>
-              <input
-                value={login}
-                onChange={(e) => {
-                  setLogin(e.target.value);
-                  setTError(null);
-                }}
-                placeholder="username"
-                className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] py-2 pl-[88px] pr-3 text-[14px] text-[color:var(--ink)] focus:border-[color:var(--core)] focus:outline-none"
-              />
-            </div>
-          </label>
-          <button
+        <form
+          onSubmit={addByTwitch}
+          className="flex flex-wrap items-end gap-4 rounded-xl bg-primary p-5 ring-1 ring-inset ring-secondary shadow-xs md:p-6"
+        >
+          <div className="min-w-[260px] flex-1">
+            <Input
+              label="Twitch handle"
+              hint="Seeds name, avatar, and the Twitch social automatically."
+              size="md"
+              value={login}
+              onChange={(v) => {
+                setLogin(v);
+                setTError(null);
+              }}
+              placeholder="twitch.tv/username"
+              isInvalid={!!tError}
+            />
+          </div>
+          <Button
             type="submit"
-            disabled={tLooking || !login.trim()}
-            className="btn btn-primary disabled:opacity-50"
+            color="primary"
+            size="md"
+            isDisabled={tLooking || !login.trim()}
+            isLoading={tLooking}
+            iconLeading={Plus}
           >
-            {tLooking ? (
-              "Looking up…"
-            ) : (
-              <>
-                <Plus size={14} /> Add talent
-              </>
-            )}
-          </button>
+            Add talent
+          </Button>
           {tError ? (
-            <p className="basis-full text-[11px] text-[color:var(--core)]">{tError}</p>
+            <p className="basis-full text-sm font-medium text-error-primary">{tError}</p>
           ) : null}
         </form>
       ) : (
         // Manual path
         <form
           onSubmit={saveManual}
-          className="flex flex-col gap-4 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4"
+          className="flex flex-col gap-5 rounded-xl bg-primary p-5 ring-1 ring-inset ring-secondary shadow-xs md:p-6"
         >
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Field label="Name" required>
-              <input
-                value={manualName}
-                onChange={(e) => setManualName(e.target.value)}
-                placeholder="Some Streamer"
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Profile image URL" hint="Direct link to a hosted image. Phase 4: S3 upload.">
-              <input
-                value={manualImage}
-                onChange={(e) => setManualImage(e.target.value)}
-                placeholder="https://..."
-                className={inputClass}
-              />
-            </Field>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Input
+              isRequired
+              label="Name"
+              size="md"
+              value={manualName}
+              onChange={(v) => setManualName(v)}
+              placeholder="Some Streamer"
+            />
+            <Input
+              label="Profile image URL"
+              hint="Direct link to a hosted image. Phase 4: S3 upload."
+              size="md"
+              value={manualImage}
+              onChange={(v) => setManualImage(v)}
+              placeholder="https://..."
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-[color:var(--rule)] pt-3">
-            <button
+          <div className="flex flex-wrap items-center gap-3 border-t border-secondary pt-4">
+            <Button
               type="button"
+              color="secondary"
+              size="md"
               onClick={runAiSearch}
-              disabled={aiSearching || !manualName.trim()}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[color:var(--core)]/40 bg-[color:var(--core)]/10 px-3 py-2 text-[12px] font-medium text-[color:var(--core)] transition-colors hover:bg-[color:var(--core)]/16 disabled:opacity-50 cursor-pointer"
+              isDisabled={aiSearching || !manualName.trim()}
+              isLoading={aiSearching}
+              iconLeading={Stars02}
             >
-              {aiSearching ? (
-                <>
-                  <Sparkles size={13} className="animate-pulse" /> Searching…
-                </>
-              ) : (
-                <>
-                  <Sparkles size={13} /> Find socials with AI
-                </>
-              )}
-            </button>
-            <p className="text-[11px] text-[color:var(--ink-faint)]">
-              <Search size={10} className="inline" /> Phase 1 returns heuristic guesses; Phase 4
-              calls Claude with a grounded prompt.
+              Find socials with AI
+            </Button>
+            <p className="text-xs text-tertiary">
+              Phase 1 returns heuristic guesses; Phase 4 calls Claude with a grounded prompt.
             </p>
           </div>
 
           {aiSuggestions.length > 0 ? (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-                Approve / deny per platform
-              </p>
-              <ul className="mt-2 flex flex-col gap-1.5">
+              <p className="text-sm font-semibold text-secondary">Approve / deny per platform</p>
+              <ul className="mt-3 flex flex-col gap-2">
                 {aiSuggestions.map((s, i) => (
                   <li
                     key={`${s.platform}-${i}`}
-                    className="flex items-center justify-between gap-3 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-lg bg-secondary px-3.5 py-2.5 ring-1 ring-inset ring-secondary"
                   >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="rounded border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-tight text-[color:var(--ink-dim)]">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Badge type="pill-color" size="sm" color="gray">
                         {s.platform}
-                      </span>
+                      </Badge>
                       <a
                         href={s.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="truncate text-[12px] text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
+                        className="truncate text-sm text-tertiary transition-colors hover:text-primary"
                       >
                         {s.url}
                       </a>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
+                      color={s.approved ? "primary" : "secondary"}
+                      iconLeading={s.approved ? Check : X}
                       onClick={() => toggleSuggestion(i)}
-                      aria-pressed={s.approved}
-                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
-                        s.approved
-                          ? "border-[color:var(--success)]/50 bg-[color:var(--success)]/12 text-[color:var(--success)]"
-                          : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-                      }`}
                     >
-                      {s.approved ? (
-                        <>
-                          <Check size={12} /> Approved
-                        </>
-                      ) : (
-                        <>
-                          <X size={12} /> Pending
-                        </>
-                      )}
-                    </button>
+                      {s.approved ? "Approved" : "Pending"}
+                    </Button>
                   </li>
                 ))}
               </ul>
             </div>
           ) : null}
 
-          <div>
-            <button
+          <div className="border-t border-secondary pt-4">
+            <Button
               type="submit"
-              disabled={savingManual || !manualName.trim()}
-              className="btn btn-primary disabled:opacity-50"
+              color="primary"
+              size="md"
+              isDisabled={savingManual || !manualName.trim()}
+              isLoading={savingManual}
+              iconLeading={Plus}
             >
-              <Plus size={14} /> Save talent
-            </button>
+              Save talent
+            </Button>
           </div>
         </form>
       )}
 
       {/* Talent list */}
       <div>
-        <h2 className="text-[14px] font-semibold tracking-tight text-[color:var(--ink)]">
+        <h2 className="text-lg font-semibold tracking-tight text-primary">
           Saved talents · {talents.length}
         </h2>
         {talents.length === 0 ? (
-          <p className="mt-3 rounded-md border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-6 text-center text-[12px] text-[color:var(--ink-faint)]">
-            No talents yet. Add via Twitch handle or create manually above — they&apos;ll be
-            available for tagging in <code className="font-mono">/media</code> +{" "}
-            <code className="font-mono">/clips</code>.
-          </p>
+          <div className="mt-4 flex min-h-[200px] flex-col items-center justify-center rounded-xl bg-secondary p-10 text-center ring-1 ring-inset ring-secondary shadow-xs">
+            <FeaturedIcon icon={Users01} size="xl" color="gray" theme="modern" />
+            <p className="mt-4 text-md font-semibold text-primary">No talents yet</p>
+            <p className="mt-1 max-w-[44ch] text-sm text-tertiary">
+              Add via Twitch handle or create manually above — they&apos;ll be available for
+              tagging in <code className="font-mono">/media</code> and{" "}
+              <code className="font-mono">/clips</code>.
+            </p>
+          </div>
         ) : (
           <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             {talents.map((t) => (
               <li
                 key={t.id}
-                className="flex items-center gap-3 rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-3"
+                className="flex items-center gap-3.5 rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-lg"
               >
-                <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-inset ring-[color:var(--rule-strong)]">
+                <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-secondary ring-1 ring-inset ring-secondary">
                   {t.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={t.avatarUrl} alt={t.name} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-[color:var(--bg)] text-[14px] font-bold text-[color:var(--ink-faint)]">
+                    <span className="flex h-full w-full items-center justify-center text-sm font-bold text-quaternary">
                       {t.name[0]}
                     </span>
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-semibold text-[color:var(--ink)]">{t.name}</p>
-                  <p className="truncate text-[11px] text-[color:var(--ink-dim)]">
-                    {t.twitchLogin ? `twitch.tv/${t.twitchLogin}` : "Manual entry"}
-                    {t.socials.filter((s) => s.approved).length > 0
-                      ? ` · ${t.socials.filter((s) => s.approved).length} socials`
-                      : ""}
+                  <p className="text-sm font-semibold text-primary">{t.name}</p>
+                  <p className="mt-0.5 inline-flex items-center gap-1.5 truncate text-xs text-tertiary">
+                    {t.twitchLogin ? (
+                      <>
+                        <LinkExternal01 className="size-3" /> twitch.tv/{t.twitchLogin}
+                      </>
+                    ) : (
+                      "Manual entry"
+                    )}
                   </p>
+                  {t.socials.filter((s) => s.approved).length > 0 ? (
+                    <span className="mt-1.5 inline-block">
+                      <Badge type="pill-color" size="sm" color="brand">
+                        {t.socials.filter((s) => s.approved).length} socials
+                      </Badge>
+                    </span>
+                  ) : null}
                 </div>
-                <button
-                  type="button"
+                <ButtonUtility
+                  size="sm"
+                  color="tertiary"
+                  tooltip="Remove"
+                  icon={Trash01}
                   onClick={() => remove(t.id)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--core)]"
-                >
-                  <Trash2 size={13} />
-                </button>
+                />
               </li>
             ))}
           </ul>
         )}
       </div>
     </div>
-  );
-}
-
-const inputClass =
-  "w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-3 py-2 text-[13px] text-[color:var(--ink)] focus:border-[color:var(--core)] focus:outline-none";
-
-function Field({
-  label,
-  hint,
-  required,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[12px] font-medium tracking-tight text-[color:var(--ink)]">
-        {label}
-        {required ? <span className="ml-1 text-[color:var(--core)]">*</span> : null}
-      </span>
-      {hint ? <span className="-mt-0.5 text-[11px] text-[color:var(--ink-dim)]">{hint}</span> : null}
-      {children}
-    </label>
   );
 }

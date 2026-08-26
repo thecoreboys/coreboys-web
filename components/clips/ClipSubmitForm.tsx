@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Send, X } from "lucide-react";
+import { CheckCircle, Check, Send01, XClose } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
+import { Input } from "@/components/base/input/input";
+import { TextArea } from "@/components/base/textarea/textarea";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { Badge } from "@/components/base/badges/badges";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
+import { cx } from "@/utils/cx";
+import { useAuth } from "@/components/providers/AuthProvider";
+import Link from "next/link";
 
 const STORAGE_KEY = "coreboys-clip-submissions:v1";
 
@@ -33,8 +43,8 @@ type MemberOption = {
 
 /**
  * Public clip submission form. Mirrors the fanzone photo submit UX —
- * modal frame with a scrollable body, avatar-chip member tagging,
- * polished hover/focus inputs, terms gate. Phase 4 swaps the
+ * modal frame with a scrollable body, avatar-chip member tagging, UUI
+ * inputs / textarea / checkbox, terms gate. Phase 4 swaps the
  * localStorage write for `POST /v1/clip-submissions`.
  */
 export function ClipSubmitForm({
@@ -53,6 +63,32 @@ export function ClipSubmitForm({
   const [picked, setPicked] = useState<string[]>([]);
   const [done, setDone] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [hasSocial, setHasSocial] = useState<boolean | null>(null);
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!user) {
+      setHasSocial(null);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/account/connections", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((d: { connections?: Array<{ provider: string; status: string }> }) => {
+        if (cancelled) return;
+        setHasSocial(
+          (d.connections ?? []).some(
+            (c) => (c.provider === "twitch" || c.provider === "youtube") && c.status === "active",
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setHasSocial(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const detection = useMemo(() => detectPlatform(url), [url]);
 
@@ -97,25 +133,54 @@ export function ClipSubmitForm({
     setDone(true);
   };
 
+  if (!authLoading && !user) {
+    return (
+      <div className="flex flex-col items-center p-8 text-center">
+        <h3 className="text-lg font-semibold text-primary">Sign in to submit</h3>
+        <p className="mt-2 max-w-sm text-sm text-tertiary">
+          Clip submissions are attributed to a CORE account so we can credit you.
+        </p>
+        <Button href={"/login?next=/clips/submit" as never} size="md" color="primary" className="mt-5">
+          Sign in
+        </Button>
+      </div>
+    );
+  }
+
+  if (user && hasSocial === false) {
+    return (
+      <div className="flex flex-col items-center p-8 text-center">
+        <h3 className="text-lg font-semibold text-primary">Connect Twitch or YouTube</h3>
+        <p className="mt-2 max-w-sm text-sm text-tertiary">
+          We need a connected platform so the clip is tied to a real creator account, not just an email.
+        </p>
+        <Link
+          href="/account"
+          className="mt-5 inline-flex rounded-lg bg-brand-solid px-4 py-2 text-sm font-semibold text-white"
+        >
+          Connect an account
+        </Link>
+      </div>
+    );
+  }
+
   if (done) {
     return (
-      <div className="p-8 text-center">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--core)]/20 text-[color:var(--core)]">
-          <Check size={18} />
-        </span>
-        <h3 className="mt-3 text-[18px] font-bold text-[color:var(--ink)]">
+      <div className="flex flex-col items-center p-8 text-center">
+        <FeaturedIcon icon={CheckCircle} size="lg" color="success" theme="modern" />
+        <h3 className="mt-4 text-lg font-semibold text-primary">
           Got it. We&apos;ll take a look.
         </h3>
-        <p className="mt-2 text-[13px] text-[color:var(--ink-dim)]">
+        <p className="mt-1 text-sm text-tertiary">
           Approved clips appear in the library with credit to{" "}
-          <strong>
+          <strong className="font-semibold text-secondary">
             {firstName} {lastName ? `${lastName[0]}.` : ""}
           </strong>
         </p>
         {onClose ? (
-          <button type="button" onClick={onClose} className="btn btn-secondary mt-5">
+          <Button size="md" color="secondary" onClick={onClose} className="mt-5">
             Close
-          </button>
+          </Button>
         ) : null}
       </div>
     );
@@ -124,19 +189,12 @@ export function ClipSubmitForm({
   return (
     <>
       {/* Modal header */}
-      <div className="flex items-center justify-between border-b border-[color:var(--rule)] bg-[color:var(--surface)] px-5 py-3">
-        <h3 className="text-[14px] font-bold tracking-tight text-[color:var(--ink)]">
+      <div className="flex items-center justify-between border-b border-secondary bg-secondary px-5 py-4">
+        <h3 className="text-md font-semibold tracking-tight text-primary">
           Submit a clip
         </h3>
         {onClose ? (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[color:var(--ink-dim)] hover:bg-[color:var(--bg)] hover:text-[color:var(--ink)]"
-          >
-            <X size={14} />
-          </button>
+          <ButtonUtility size="sm" color="tertiary" icon={XClose} aria-label="Close" onClick={onClose} />
         ) : null}
       </div>
 
@@ -144,39 +202,42 @@ export function ClipSubmitForm({
         onSubmit={onSubmit}
         className="flex max-h-[80vh] flex-col gap-5 overflow-y-auto p-5 md:p-6"
       >
-        <Field label="Clip URL" required hint="Twitch clip, YouTube short, TikTok, Instagram reel.">
-          <input
+        <div>
+          <Input
+            isRequired
             type="url"
-            required
+            label="Clip URL"
+            hint="Twitch clip, YouTube short, TikTok, Instagram reel."
+            size="md"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(v) => setUrl(v)}
             placeholder="https://clips.twitch.tv/... or https://youtube.com/shorts/..."
-            className={inputClass}
           />
           {url ? (
             detection.source ? (
-              <p className="mt-2 text-[12px] text-[color:var(--ink-dim)]">
-                Detected:{" "}
-                <strong className="text-[color:var(--ink)]">{detection.source}</strong>
+              <p className="mt-2 inline-flex items-center gap-2 text-xs text-tertiary">
+                Detected:
+                <Badge type="pill-color" color="brand" size="sm">
+                  {detection.source}
+                </Badge>
               </p>
             ) : (
-              <p className="mt-2 text-[12px] text-[color:var(--core)]">
+              <p className="mt-2 text-xs font-medium text-error-primary">
                 We can&apos;t detect this URL — supported: clips.twitch.tv, youtube.com/shorts,
                 youtu.be, tiktok.com, instagram.com/reel.
               </p>
             )
           ) : null}
-        </Field>
+        </div>
 
-        <Field label="Why is it worth posting?" hint="One sentence. Optional.">
-          <textarea
-            rows={3}
-            value={why}
-            onChange={(e) => setWhy(e.target.value)}
-            placeholder="The 1v3 in the final round at 2:14"
-            className={inputClass}
-          />
-        </Field>
+        <TextArea
+          label="Why is it worth posting?"
+          hint="One sentence. Optional."
+          rows={3}
+          value={why}
+          onChange={(v) => setWhy(v)}
+          placeholder="The 1v3 in the final round at 2:14"
+        />
 
         <Field
           label="Who's in the clip?"
@@ -193,7 +254,7 @@ export function ClipSubmitForm({
                     onClick={() => togglePick(m.slug)}
                     aria-pressed={active}
                     aria-label={m.stageName}
-                    className="relative inline-flex h-12 w-12 items-center justify-center rounded-full transition-all cursor-pointer hover:-translate-y-0.5"
+                    className="relative inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full transition-all motion-safe:hover:-translate-y-0.5"
                   >
                     {m.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -214,7 +275,7 @@ export function ClipSubmitForm({
                       />
                     ) : (
                       <span
-                        className="inline-flex h-12 w-12 items-center justify-center rounded-full ring-2 ring-inset text-[14px] font-bold"
+                        className="inline-flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold ring-2 ring-inset"
                         style={{
                           ["--tw-ring-color" as string]: active
                             ? m.accent
@@ -232,13 +293,13 @@ export function ClipSubmitForm({
                         style={{ background: m.accent, color: "#fff" }}
                         aria-hidden
                       >
-                        <Check size={11} />
+                        <Check className="size-3" />
                       </span>
                     ) : null}
                   </button>
                   <span
                     role="tooltip"
-                    className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2 py-1 text-[10px] font-semibold text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity group-hover/chip:opacity-100"
+                    className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary opacity-0 shadow-lg ring-1 ring-inset ring-secondary transition-opacity group-hover/chip:opacity-100"
                   >
                     {m.stageName}
                   </span>
@@ -248,53 +309,56 @@ export function ClipSubmitForm({
           </ul>
         </Field>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field label="First name" required>
-            <input
-              type="text"
-              required
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Alex"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Last name" required hint="Only the initial is shown publicly.">
-            <input
-              type="text"
-              required
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Smith"
-              className={inputClass}
-            />
-          </Field>
-        </div>
-        <Field label="Email" required hint="Admin-only. Never shown publicly.">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@email.com"
-            className={inputClass}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Input
+            isRequired
+            label="First name"
+            size="md"
+            value={firstName}
+            onChange={(v) => setFirstName(v)}
+            placeholder="Alex"
           />
-        </Field>
+          <Input
+            isRequired
+            label="Last name"
+            hint="Only the initial is shown publicly."
+            size="md"
+            value={lastName}
+            onChange={(v) => setLastName(v)}
+            placeholder="Smith"
+          />
+        </div>
+        <Input
+          isRequired
+          type="email"
+          label="Email"
+          hint="Admin-only. Never shown publicly."
+          size="md"
+          value={email}
+          onChange={(v) => setEmail(v)}
+          placeholder="you@email.com"
+        />
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg)] p-4 text-[12px] leading-relaxed text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--rule-strong)] hover:bg-[color:var(--bg-elev)] has-[:checked]:border-[color:var(--core)]/60 has-[:checked]:bg-[color:var(--core)]/5">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 cursor-pointer accent-[color:var(--core)]"
+        <label
+          className={cx(
+            "flex cursor-pointer items-start gap-3 rounded-xl bg-primary p-4 text-sm leading-relaxed text-tertiary shadow-xs ring-1 ring-inset transition-colors",
+            consent ? "ring-brand bg-brand-primary" : "ring-secondary hover:bg-secondary",
+          )}
+        >
+          <Checkbox
+            size="sm"
+            isSelected={consent}
+            onChange={(v) => setConsent(v)}
+            className="mt-0.5"
+            aria-label="Consent to public display"
           />
           <span>
-            I confirm I&apos;m okay with this clip being shown publicly on corecrew.org with
+            I confirm I&apos;m okay with this clip being shown publicly on thecoreboys.com with
             credit to my first name and last initial, and I&apos;ve read and accept the{" "}
             <button
               type="button"
               onClick={() => setTermsOpen(true)}
-              className="font-semibold text-[color:var(--core)] underline decoration-[color:var(--core)]/40 underline-offset-4 hover:decoration-[color:var(--core)]"
+              className="cursor-pointer font-semibold text-brand-secondary underline underline-offset-2 hover:text-brand-secondary_hover"
             >
               submission terms
             </button>
@@ -302,22 +366,20 @@ export function ClipSubmitForm({
           </span>
         </label>
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-[color:var(--rule)] pt-4">
-          <button
+        <div className="flex flex-wrap items-center gap-3 border-t border-secondary pt-4">
+          <Button
             type="submit"
-            disabled={!ready}
-            className="btn btn-primary cursor-pointer transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-[0_8px_20px_-8px_rgba(255,59,31,0.6)] enabled:active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+            size="lg"
+            color="primary"
+            isDisabled={!ready}
+            iconLeading={Send01}
           >
-            <Send size={14} /> Submit clip
-          </button>
+            Submit clip
+          </Button>
           {onClose ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="cursor-pointer text-[12px] font-medium text-[color:var(--ink-dim)] transition-colors hover:text-[color:var(--ink)]"
-            >
+            <Button type="button" size="lg" color="link-gray" onClick={onClose}>
               Cancel
-            </button>
+            </Button>
           ) : null}
         </div>
       </form>
@@ -345,58 +407,51 @@ function TermsModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-[640px] overflow-hidden rounded-2xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)]"
+        className="relative w-full max-w-[640px] overflow-hidden rounded-2xl bg-primary shadow-xl ring-1 ring-inset ring-secondary"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[color:var(--rule)] bg-[color:var(--surface)] px-5 py-3">
+        <div className="flex items-center justify-between border-b border-secondary bg-secondary px-5 py-4">
           <h3
             id="clip-terms"
-            className="text-[14px] font-bold tracking-tight text-[color:var(--ink)]"
+            className="text-md font-semibold tracking-tight text-primary"
           >
             Clip submission terms
           </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[color:var(--ink-dim)] hover:bg-[color:var(--bg)] hover:text-[color:var(--ink)]"
-          >
-            <X size={14} />
-          </button>
+          <ButtonUtility size="sm" color="tertiary" icon={XClose} aria-label="Close" onClick={onClose} />
         </div>
-        <div className="max-h-[70vh] overflow-y-auto p-6 text-[13px] leading-relaxed text-[color:var(--ink-dim)]">
+        <div className="max-h-[70vh] overflow-y-auto p-6 text-sm leading-relaxed text-tertiary">
           <p>By submitting a clip to CORE you confirm the following:</p>
           <ul className="mt-4 flex flex-col gap-3">
             <li>
-              <strong className="text-[color:var(--ink)]">The clip is appropriate</strong> — no
+              <strong className="font-semibold text-primary">The clip is appropriate</strong> — no
               explicit, hateful, harassing, or non-consensual content. Admins reject anything
               that crosses that line.
             </li>
             <li>
-              <strong className="text-[color:var(--ink)]">You consent to public display</strong>{" "}
-              of the clip embed on corecrew.org with attribution to your{" "}
+              <strong className="font-semibold text-primary">You consent to public display</strong>{" "}
+              of the clip embed on thecoreboys.com with attribution to your{" "}
               <em>first name + last initial</em>. Your full last name and email are admin-only
               and never shown publicly.
             </li>
             <li>
-              <strong className="text-[color:var(--ink)]">Source ownership</strong> — clips are
+              <strong className="font-semibold text-primary">Source ownership</strong> — clips are
               embedded from the original platform (Twitch / YouTube / TikTok / Instagram). We
               don&apos;t re-host the video.
             </li>
             <li>
-              <strong className="text-[color:var(--ink)]">Removal requests</strong> at{" "}
-              <code className="font-mono">press@corecrew.org</code>. We act on verified
+              <strong className="font-semibold text-primary">Removal requests</strong> at{" "}
+              <code className="font-mono">press@thecoreboys.com</code>. We act on verified
               requests within 72 hours.
             </li>
           </ul>
-          <p className="mt-5 text-[11px] text-[color:var(--ink-faint)]">
+          <p className="mt-5 text-xs text-quaternary">
             By checking the consent box you agree to all of the above.
           </p>
         </div>
-        <div className="flex items-center justify-end border-t border-[color:var(--rule)] bg-[color:var(--bg)] px-5 py-3">
-          <button type="button" onClick={onClose} className="btn btn-secondary">
+        <div className="flex items-center justify-end border-t border-secondary bg-secondary px-5 py-4">
+          <Button size="md" color="secondary" onClick={onClose}>
             Got it
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -415,21 +470,16 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold tracking-tight text-[color:var(--ink)]">
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium text-secondary">
         {label}
-        {required ? <span className="ml-1 text-[color:var(--core)]">*</span> : null}
+        {required ? <span className="ml-0.5 text-brand-secondary">*</span> : null}
       </span>
       {children}
-      {hint ? (
-        <span className="text-[11px] text-[color:var(--ink-dim)]">{hint}</span>
-      ) : null}
-    </label>
+      {hint ? <span className="text-xs text-tertiary">{hint}</span> : null}
+    </div>
   );
 }
-
-const inputClass =
-  "w-full cursor-text rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] px-3 py-2.5 text-[13px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] transition-colors hover:border-[color:var(--rule-strong)] hover:bg-[color:var(--bg-elev)] focus:border-[color:var(--core)] focus:bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--core)]/20";
 
 function detectPlatform(url: string): {
   source: "twitch" | "youtube" | "tiktok" | "instagram" | null;

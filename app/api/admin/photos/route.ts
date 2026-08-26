@@ -29,11 +29,21 @@ export async function GET() {
     taken_at: string | null;
     camera_make: string | null; camera_model: string | null;
     created_at: string; size_bytes: string;
+    member_refs: string[];
   }>(
     `SELECT id::text, cdn_url, mime, width, height,
             taken_at::text, camera_make, camera_model,
-            created_at::text, size_bytes::text
-     FROM media_assets
+            created_at::text, size_bytes::text,
+            COALESCE(
+              ARRAY(
+                SELECT DISTINCT tag.person_id
+                  FROM media_face_tags tag
+                 WHERE tag.asset_id = media_assets.id
+                   AND tag.person_kind = 'member'
+              ),
+              ARRAY[]::text[]
+            ) AS member_refs
+       FROM media_assets
      ORDER BY COALESCE(taken_at, created_at) DESC
      LIMIT 500`,
   );

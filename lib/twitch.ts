@@ -22,6 +22,22 @@ const FollowResponseSchema = z.object({
   total: z.number().int().nonnegative(),
 });
 
+const ChatBadgeResponseSchema = z.object({
+  data: z.array(z.object({
+    set_id: z.string(),
+    versions: z.array(z.object({
+      id: z.string(),
+      image_url_1x: z.string().url().optional(),
+      image_url_2x: z.string().url().optional(),
+      image_url_4x: z.string().url().optional(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      click_action: z.string().nullable().optional(),
+      click_url: z.string().nullable().optional(),
+    })),
+  })),
+});
+
 const StreamSchema = z.object({
   id: z.string(),
   user_id: z.string(),
@@ -35,8 +51,8 @@ const StreamSchema = z.object({
   started_at: z.string(),
   language: z.string().optional(),
   thumbnail_url: z.string(),
-  tag_ids: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
+  tag_ids: z.array(z.string()).nullable().optional(),
+  tags: z.array(z.string()).nullable().optional(),
   is_mature: z.boolean().optional(),
 });
 
@@ -49,7 +65,7 @@ export type TwitchStream = z.infer<typeof StreamSchema>;
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
-async function getAppAccessToken(): Promise<string> {
+export async function getAppAccessToken(): Promise<string> {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt - 60_000 > now) {
     return cachedToken.value;
@@ -110,6 +126,8 @@ export async function fetchLiveStreams(logins: readonly string[]): Promise<Twitc
 export type LiveEntry = {
   login: string;
   isLive: boolean;
+  /** Twitch's immutable stream id for this exact live session. */
+  streamId?: string;
   title?: string;
   viewerCount?: number;
   thumbnailUrl?: string;
@@ -153,12 +171,152 @@ export async function fetchUserIdsByLogin(
   return Object.fromEntries(parsed.data.map((u) => [u.login.toLowerCase(), u.id]));
 }
 
+// ---------------------------------------------------------------------------
+// VOD archive — past broadcasts via Helix /videos (app token, no user OAuth).
+// ---------------------------------------------------------------------------
+
+const VideoSchema = z.object({
+  id: z.string(),
+  stream_id: z.string().optional().default(""),
+  title: z.string(),
+  url: z.string(),
+  thumbnail_url: z.string(),
+  duration: z.string(),
+  created_at: z.string(),
+  view_count: z.number(),
+});
+const VideosResponseSchema = z.object({ data: z.array(VideoSchema) });
+
+export type TwitchVod = {
+  id: string;
+  /** The originating live stream id; empty for uploads/highlights. */
+  streamId: string;
+  title: string;
+  url: string;
+  /** Sized thumbnail URL (template placeholders already substituted). */
+  thumbnailUrl: string;
+  /** Raw Twitch duration, e.g. "3h21m4s". */
+  duration: string;
+  createdAt: string;
+  viewCount: number;
+};
+
+/**
+ * Latest past broadcasts (VODs) for a channel. Uses the app access token —
+ * `type=archive` past broadcasts are public, no user OAuth needed. Twitch
+ * only retains VODs for ~14–60 days depending on the channel tier, so an
+ * empty result is normal. Never throws — returns [] on any failure so a
+ * member page can't break on a bad Twitch response.
+ */
+export async function fetchChannelVideos(
+  userId: string,
+  limit = 12,
+  revalidateSeconds = 1800,
+): Promise<TwitchVod[]> {
+  if (!userId) return [];
+  try {
+    const env = serverEnv();
+    const token = await getAppAccessToken();
+    const url = new URL("https://api.twitch.tv/helix/videos");
+    url.searchParams.set("user_id", userId);
+    url.searchParams.set("type", "archive");
+    url.searchParams.set("sort", "time");
+    url.searchParams.set("first", String(Math.min(Math.max(limit, 1), 100)));
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Client-Id": env.TWITCH_CLIENT_ID,
+      },
+      next: { revalidate: revalidateSeconds },
+    });
+    if (!res.ok) return [];
+    const parsed = VideosResponseSchema.safeParse(await res.json());
+    if (!parsed.success) return [];
+    return parsed.data.data.map((v) => ({
+      id: v.id,
+      streamId: v.stream_id,
+      title: v.title,
+      url: v.url,
+      thumbnailUrl: v.thumbnail_url
+        .replace("%{width}", "640")
+        .replace("%{height}", "360"),
+      duration: v.duration,
+      createdAt: v.created_at,
+      viewCount: v.view_count,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Resolves Twitch logins → full user records (id, display name, profile image).
  * Used by the roster + nav avatar paths so we render the canonical Twitch
  * profile picture rather than a static asset. Cached at the edge for an hour.
  */
 export type TwitchUser = z.infer<typeof UserSchema>;
+
+export type TwitchChatBadgeDetail = {
+  url: string;
+  title: string;
+  description: string;
+  clickUrl?: string | null;
+};
+
+export type TwitchChatBadgeIndex = Record<string, TwitchChatBadgeDetail>;
+
+/**
+ * Loads Twitch's global badge catalog or one broadcaster's custom catalog.
+ * The app token stays server-side; clients receive only the public CDN URLs.
+ */
+export async function fetchTwitchChatBadges(
+  broadcasterId?: string,
+): Promise<TwitchChatBadgeIndex> {
+  try {
+    const env = serverEnv();
+    const token = await getAppAccessToken();
+    const url = new URL(
+      broadcasterId
+        ? "https://api.twitch.tv/helix/chat/badges"
+        : "https://api.twitch.tv/helix/chat/badges/global",
+    );
+    if (broadcasterId) url.searchParams.set("broadcaster_id", broadcasterId);
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Client-Id": env.TWITCH_CLIENT_ID,
+      },
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) return {};
+
+    const parsed = ChatBadgeResponseSchema.safeParse(await response.json());
+    if (!parsed.success) return {};
+
+    const badges: TwitchChatBadgeIndex = {};
+    for (const set of parsed.data.data) {
+      for (const version of set.versions) {
+        const image = version.image_url_2x || version.image_url_1x || version.image_url_4x;
+        if (!image) continue;
+        const setId = set.set_id.toLowerCase();
+        const fallbackTitle = setId.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+        const detail: TwitchChatBadgeDetail = {
+          url: image,
+          title: version.title?.trim() || fallbackTitle,
+          description: version.description?.trim() || `${fallbackTitle} Twitch badge`,
+          clickUrl: version.click_url || null,
+        };
+        badges[`${setId}/${version.id}`] = detail;
+        if (!badges[setId]) badges[setId] = detail;
+      }
+    }
+    return badges;
+  } catch {
+    return {};
+  }
+}
 
 export async function fetchUsersByLogin(
   logins: readonly string[],
@@ -219,6 +377,7 @@ export async function fetchFollowerCount(userId: string): Promise<number | null>
 
 export type MemberLiveSnapshot = {
   login: string;
+  streamId?: string;
   userId: string;
   displayName: string;
   profileImageUrl?: string;
@@ -260,6 +419,7 @@ export async function fetchMemberSnapshots(
       const live = liveByLogin.get(login.toLowerCase());
       return {
         login,
+        streamId: live?.id,
         userId: u.id,
         displayName: u.display_name,
         profileImageUrl: u.profile_image_url,
@@ -284,6 +444,7 @@ export async function buildLiveResponse(logins: readonly string[]): Promise<Live
     return {
       login,
       isLive: true,
+      streamId: stream.id,
       title: stream.title,
       viewerCount: stream.viewer_count,
       thumbnailUrl: buildThumbnailUrl(stream.thumbnail_url),

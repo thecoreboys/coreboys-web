@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { MEMBERS } from "@/lib/members";
 import { fetchUsersByLogin } from "@/lib/twitch";
-import { SEED_CLIPS } from "@/lib/clips";
+import { getPublicClips } from "@/lib/clips-server";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { ClipsPageClient, type MemberLite } from "@/components/clips/ClipsPageClient";
 import { ClipsHeader } from "@/components/clips/ClipsHeader";
@@ -15,6 +15,13 @@ export const metadata: Metadata = {
 export const revalidate = 600;
 
 export default async function ClipsPage() {
+  let clips: Awaited<ReturnType<typeof getPublicClips>> = [];
+  try {
+    clips = await getPublicClips();
+  } catch {
+    clips = [];
+  }
+
   let avatars: Record<string, string> = {};
   try {
     const users = await fetchUsersByLogin(MEMBERS.map((m) => m.twitchLogin));
@@ -33,16 +40,16 @@ export default async function ClipsPage() {
   }));
 
   return (
-    <main className="relative pt-20 md:pt-24">
-      <ClipsHeader total={SEED_CLIPS.length} members={memberLites} />
+    <>
+      <ClipsHeader total={clips.length} members={memberLites} />
 
-      <section className="border-t border-[color:var(--rule)]">
-        <div className="mx-auto max-w-[1440px] px-6 py-10 md:px-8 md:py-14">
-          <ClipsPageClient clips={SEED_CLIPS} members={memberLites} />
+      <section>
+        <div className="mx-auto max-w-container px-6 py-10 md:px-16 md:py-14">
+          <ClipsPageClient clips={clips} members={memberLites} />
         </div>
       </section>
 
       <SiteFooter />
-    </main>
+    </>
   );
 }

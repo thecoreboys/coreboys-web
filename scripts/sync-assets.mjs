@@ -50,6 +50,8 @@ const crewFolders = {
   "john-ngo": "john",
   wojito: "wojito",
   said: "said",
+  bepsy: "bepsy",
+  sixty: "sixty",
 };
 
 // Comm logo files in /assets are named `{twitchLogin}_comm.png`. We expose

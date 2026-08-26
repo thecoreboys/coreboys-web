@@ -30,8 +30,8 @@ export function ToC({ items }: { items: TocItem[] }) {
   if (items.length === 0) return null;
   return (
     <nav aria-label="Table of contents">
-      <p className="kicker mb-2 text-[10px] text-[color:var(--ink-faint)]">In this post</p>
-      <ul className="space-y-1.5 text-[12px]">
+      <p className="kicker mb-2 text-xs text-[color:var(--ink-faint)]">In this post</p>
+      <ul className="space-y-1.5 text-sm">
         {items.map((it) => (
           <li key={it.id} className={it.level === 3 ? "pl-3" : ""}>
             <a

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.local-data/
+models/
+config.local.json
+requirements.lock
+requirements-db.lock

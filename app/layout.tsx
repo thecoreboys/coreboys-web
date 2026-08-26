@@ -1,64 +1,60 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Special_Elite, Fraunces } from "next/font/google";
+import { Inter, Inter_Tight } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { LenisProvider } from "@/components/providers/LenisProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { AuthProvider } from "@/components/providers/AuthProvider";
+import { PlayerProvider } from "@/components/providers/PlayerProvider";
+import { PersistentPlayer } from "@/components/watch/PersistentPlayer";
+import { RadioAudioSystem } from "@/components/watch/RadioAudioSystem";
+import { WatchPalette } from "@/components/watch/WatchPalette";
+import { PlayerChatCompanion } from "@/components/watch/PlayerChatCompanion";
+import { WatchAlertsBridge } from "@/components/watch/WatchAlertsBridge";
+import { WatchTogetherBridge } from "@/components/watch/WatchTogetherBridge";
+import { WatchContextMenuProvider } from "@/components/watch/WatchContextMenu";
+import { PassportPresenceBridge } from "@/components/passport/PassportPresenceBridge";
 import { Grain, Scanlines } from "@/components/editorial/Grain";
-import { TopNav } from "@/components/chrome/TopNav";
 import { Cursor } from "@/components/editorial/Cursor";
+import { TopNav } from "@/components/chrome/TopNav";
+import { LiveRibbon } from "@/components/live/LiveRibbon";
+
 import { GridOverlay } from "@/components/editorial/GridOverlay";
 import { ConsoleEgg } from "@/components/editorial/ConsoleEgg";
 import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { FeedbackButton } from "@/components/chrome/FeedbackButton";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { CinematicRouteTransition } from "@/components/watch/CinematicRouteTransition";
 import "./globals.css";
+import "./watch/watch.css";
 
-// Inter does the heavy lifting: tight in display sizes, calm at body.
-// Variable font, all weights covered.
-const sans = Inter({
+// One typeface across the entire product. Inter's variable font covers every
+// weight used by the streaming UI without introducing mismatched display,
+// mono, or editorial faces.
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-inter",
   display: "swap",
 });
 
-const display = Inter({
+// A more editorial, compact cut reserved for dense product labels such as the
+// floating membership benefits. Body copy remains Inter for consistency.
+const interTight = Inter_Tight({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["600", "700", "800", "900"],
-  display: "swap",
-});
-
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-});
-
-// Postal-editorial faces — only used on /fan-mail and /send-to-* pages.
-const typewriter = Special_Elite({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-typewriter",
-  display: "swap",
-});
-
-const editorialSerif = Fraunces({
-  subsets: ["latin"],
-  axes: ["SOFT", "WONK"],
-  variable: "--font-editorial-serif",
+  variable: "--font-inter-tight",
   display: "swap",
 });
 
 export const viewport: Viewport = {
-  themeColor: "#06070a",
+  themeColor: "#08080a",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://corecrew.org";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
 
 // Resolved against `metadataBase` below so Twitter / Discord / Slack
 // always see a fully-qualified URL. Dimensions match the file under
@@ -123,7 +119,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      className={`${sans.variable} ${mono.variable} ${display.variable} ${typewriter.variable} ${editorialSerif.variable}`}
+      data-theme="dark"
+      className={`dark-mode ${inter.variable} ${interTight.variable} ${inter.className}`}
     >
       <body>
         <a href="#main" className="skip-link">
@@ -132,27 +129,48 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <NuqsAdapter>
           <ThemeProvider>
+            <AuthProvider>
+            <PlayerProvider>
+            <WatchContextMenuProvider>
             <LenisProvider>
               <div className="fixed inset-x-0 top-0 z-50">
-                <TopNav initialAvatars={avatars} />
+                <Suspense fallback={null}>
+                  <TopNav initialAvatars={avatars} />
+                </Suspense>
+                <LiveRibbon />
               </div>
-              {/* Reserve space for the fixed navbar (h-14 on mobile,
-                  h-16 on md+). Pages with hero sections pad further on
-                  their own; this baseline guarantees no page renders
-                  underneath the navbar regardless of its own layout. */}
-              <main id="main" className="pt-14 md:pt-16">
+              {/* Nav is h-14 / md:h-16. --live-ribbon-h is set by LiveRibbon
+                  when someone is on air (0px otherwise). */}
+              <main
+                id="main"
+                className="pt-[calc(3.5rem+var(--live-ribbon-h,0px))] pb-[var(--now-playing-h,0px)] md:pt-[calc(4rem+var(--live-ribbon-h,0px))]"
+              >
                 {children}
               </main>
+               <PersistentPlayer />
+               <RadioAudioSystem />
+               <WatchTogetherBridge />
+               <CinematicRouteTransition />
+              <Suspense fallback={null}>
+                <AuthModal />
+              </Suspense>
+              <WatchPalette />
+              <PassportPresenceBridge />
+              <PlayerChatCompanion />
+              <WatchAlertsBridge />
             </LenisProvider>
+            </WatchContextMenuProvider>
+            </PlayerProvider>
+            </AuthProvider>
           </ThemeProvider>
         </NuqsAdapter>
 
-        <Cursor />
         <Suspense fallback={null}>
           <GridOverlay />
         </Suspense>
         <Grain />
         <Scanlines />
+        <Cursor />
         <ConsoleEgg />
         <OrganizationJsonLd />
         <CookieBanner />

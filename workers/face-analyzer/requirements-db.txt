@@ -1,0 +1,4 @@
+# Optional proposal-import bridge. Generate a platform-specific, hash-checked
+# requirements-db.lock as documented in README.md before deployment.
+-r requirements.txt
+psycopg[binary]==3.2.10

@@ -10,7 +10,7 @@ const ROLE_LABEL: Record<string, string> = {
   cameraman: "Camera",
   management: "Management",
   editor: "Editor",
-  producer: "Producer",
+  producer: "Technical Productions",
 };
 
 export function Crew() {
@@ -31,12 +31,12 @@ export function Crew() {
   return (
     <section id="crew" className="relative w-full bg-[color:var(--bg)] py-28 md:py-36 rule">
       <SectionNumber index={6} label="Crew" />
-      <div className="mx-auto max-w-[1440px] px-6 md:px-16">
+      <div className="mx-auto max-w-container px-6 md:px-16">
         <Eyebrow className="mb-3">Behind the lens</Eyebrow>
         <Display as="h2" size={48} className="md:text-[72px]">
           The crew.
         </Display>
-        <p className="mt-4 max-w-xl text-[color:var(--ink-dim)]">
+        <p className="mt-4 max-w-xl text-lg text-[color:var(--ink-dim)]">
           The people who make sure the footage exists at all.
         </p>
 
@@ -52,12 +52,12 @@ export function Crew() {
                   return (
                     <li
                       key={c.slug}
-                      className="border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-5 transition hover:border-[color:var(--ink)]/40"
+                      className="rounded-xl bg-[color:var(--bg-elev)] p-5 ring-1 ring-inset ring-[color:var(--rule)] shadow-xs-skeuomorphic transition hover:ring-[color:var(--ink)]/40"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <div className="text-base font-medium tracking-tight">{c.name}</div>
-                          <div className="kicker mt-1 text-[10px]">
+                          <div className="text-md font-semibold tracking-tight text-[color:var(--ink)]">{c.name}</div>
+                          <div className="kicker mt-1 text-xs">
                             {works.map((m, i) => (
                               <button
                                 key={m.slug}
@@ -79,7 +79,7 @@ export function Crew() {
                               target="_blank"
                               rel="noopener noreferrer"
                               aria-label={`${c.name} on ${PLATFORM_LABEL[s.platform as "x" | "instagram"]}`}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--rule)] text-[color:var(--ink-dim)] transition hover:text-[color:var(--ink)]"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--rule)] transition hover:text-[color:var(--ink)] hover:ring-[color:var(--ink)]/40"
                             >
                               <SocialIcon platform={s.platform as "x" | "instagram"} size={14} />
                             </a>

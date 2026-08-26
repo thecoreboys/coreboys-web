@@ -47,7 +47,6 @@ if (!TOKEN || !CLUSTER_ID) {
   console.warn(
     "[db-firewall] DIGITALOCEAN_ACCESS_TOKEN or DO_DB_CLUSTER_ID not set; skipping sync.",
   );
-  process.exit(0);
 }
 
 const API = "https://api.digitalocean.com/v2";
@@ -91,7 +90,7 @@ async function putRules(rules) {
   }
 }
 
-(async () => {
+async function syncFirewall() {
   try {
     const ip = await getPublicIp();
     const existing = await listRules();
@@ -116,6 +115,10 @@ async function putRules(rules) {
   } catch (e) {
     console.warn(`[db-firewall] sync failed: ${e instanceof Error ? e.message : e}`);
     console.warn("[db-firewall] continuing — local Postgres may not connect until firewall is fixed.");
-    process.exit(0);
   }
-})();
+}
+
+// Let undici close its own async handles on Windows. Calling process.exit()
+// immediately after a failed fetch can trip libuv's closing-handle assertion
+// and prevent the dev server from starting even though this hook is fail-soft.
+if (TOKEN && CLUSTER_ID) await syncFirewall();

@@ -2,88 +2,57 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import type { Route } from "next";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Instagram, Menu, Moon, Sun, X, Youtube } from "lucide-react";
-
-function TikTokGlyph({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-    </svg>
-  );
-}
-
-function XGlyph({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
-  );
-}
+import { usePathname, useSearchParams } from "next/navigation";
+import {
+  Award,
+  Bookmark,
+  ChevronDown,
+  Gem,
+  LogOut,
+  Menu,
+  Moon,
+  Search,
+  Settings,
+  Sun,
+  UserRound,
+  X,
+} from "lucide-react";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
+import { Button } from "@/components/base/buttons/button";
+import { LiveNowModal } from "@/components/live/LiveNowModal";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { openAuthModal } from "@/lib/auth/modal";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
-import { useTwitchProfiles } from "@/hooks/useTwitchProfiles";
 import { useTheme } from "@/components/providers/ThemeProvider";
-import { MEMBERS } from "@/lib/members";
-import { GROUP } from "@/lib/group";
+import { MEMBERS_BY_SLUG } from "@/lib/members";
+import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
-
-const GROUP_SOCIAL_LINKS: Array<{
-  href: string;
-  Icon: React.ComponentType<{ size?: number }>;
-  label: string;
-  handle: string;
-  /** Brand color used on hover in dark mode. */
-  brand: string;
-  /** Brand color used on hover in light mode (defaults to brand). */
-  brandLight?: string;
-}> = [
-  {
-    href: GROUP.socials.youtube.url,
-    Icon: Youtube,
-    label: "YouTube",
-    handle: GROUP.socials.youtube.handle,
-    brand: "#FF0033",
-  },
-  {
-    href: GROUP.socials.tiktok.url,
-    Icon: TikTokGlyph,
-    label: "TikTok",
-    handle: GROUP.socials.tiktok.handle,
-    brand: "#FE2C55",
-  },
-  {
-    href: GROUP.socials.instagram.url,
-    Icon: Instagram,
-    label: "Instagram",
-    handle: GROUP.socials.instagram.handle,
-    brand: "#E1306C",
-  },
-  {
-    href: GROUP.socials.x.url,
-    Icon: XGlyph,
-    label: "X",
-    handle: GROUP.socials.x.handle,
-    brand: "#FFFFFF",
-    brandLight: "#0a0a0a",
-  },
-];
 
 /**
  * Global top navigation. Sticky, glass-blurred at scroll > 8px.
  *
- * The Members dropdown is **click-driven** (not hover-driven) so the
- * gap between trigger and panel doesn't kill the interaction. Closes
- * on outside click, Escape, or selecting a route.
+ * The Networks dropdown opens on hover (and remains keyboard/click
+ * accessible). It closes on pointer exit, outside click, Escape, or route
+ * selection.
  */
 export function TopNav({
-  initialAvatars,
+  initialAvatars: _initialAvatars,
 }: {
   initialAvatars?: Record<string, string>;
 } = {}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const watchSearchAvailable = !pathname.startsWith("/admin")
+    && pathname !== "/login"
+    && pathname !== "/signup";
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const solidChrome = pathname === "/" || scrolled;
   const [membersOpen, setMembersOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [liveModalOpen, setLiveModalOpen] = useState(false);
   // Mount flag so the portal target (`document.body`) is only consulted
   // after hydration. `typeof window` checks at render time are subtle —
@@ -93,6 +62,8 @@ export function TopNav({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const accountDropdownRef = useRef<HTMLDivElement | null>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { data } = useLiveStatus();
   const liveEntries = (data?.live ?? []).filter((l) => l.isLive);
   const liveCount = liveEntries.length;
@@ -100,10 +71,12 @@ export function TopNav({
     (sum, e) => sum + (e.viewerCount ?? 0),
     0,
   );
-  const liveProfiles = useTwitchProfiles();
-  // Server pre-fetch first; client SWR fills in if it has fresher data.
-  const profiles = { ...(initialAvatars ?? {}), ...liveProfiles };
   const { theme, toggle: toggleTheme } = useTheme();
+  const { user, loading: authLoading, logout } = useAuth();
+
+  const openAuth = (mode: "login" | "signup" = "login") => {
+    openAuthModal({ mode, next: `${pathname}${searchParams.size ? `?${searchParams}` : ""}` });
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -145,47 +118,92 @@ export function TopNav({
     };
   }, [membersOpen]);
 
+  useEffect(() => {
+    if (!accountOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      setAccountOpen(false);
+      accountTriggerRef.current?.focus();
+    }
+    function onClick(e: MouseEvent) {
+      if (!accountDropdownRef.current) return;
+      if (!accountDropdownRef.current.contains(e.target as Node)) setAccountOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [accountOpen]);
+
+  // The media player is a dedicated screen with its own exit controls.
+  if (pathname.startsWith("/theater")) return null;
+
   return (
     <header
       className={cn(
         "relative z-40 transition-colors duration-300",
-        scrolled
+        solidChrome
           ? "border-b border-[color:var(--rule)] bg-[color:var(--bg)]/85 backdrop-blur-md"
           : "border-b border-transparent bg-transparent",
       )}
     >
-      <div className="mx-auto grid h-14 max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 md:h-16 md:px-8">
+      <div className="mx-auto grid h-14 max-w-container grid-cols-[auto_1fr_auto] items-center gap-2 px-4 sm:gap-4 sm:px-6 md:h-16 md:px-8">
         <Link
           href="/"
-          aria-label="CORE — home"
-          className="group inline-flex w-fit items-center gap-2 cursor-pointer"
+          aria-label="CORE — watch"
+          className="group inline-flex w-fit min-w-0 shrink-0 items-center gap-2 cursor-pointer"
         >
-          <span className="font-logo text-[24px] leading-none text-[color:var(--ink)] transition-transform group-hover:-translate-y-px md:text-[26px]">
+          <span className="font-logo text-[22px] leading-none text-[color:var(--ink)] transition-transform group-hover:-translate-y-px sm:text-[24px] md:text-[26px]">
             CORE
           </span>
         </Link>
 
-        <nav className="hidden items-center justify-center gap-1 md:flex">
-          <NavLink href="/">Home</NavLink>
+        <nav className="hidden items-center justify-center gap-0.5 lg:flex">
+          <NavLink
+            href="/"
+            primary
+            active={pathname === "/" || pathname.startsWith("/watch") || pathname.startsWith("/theater")}
+          >
+            Watch
+          </NavLink>
+          <span aria-hidden className="mx-1 h-4 w-px bg-[color:var(--rule)]" />
+          <NavLink
+            href={"/channels/core?mode=continuous" as never}
+            primary
+            active={pathname === "/channels/core" && (searchParams.get("mode") === "continuous" || !searchParams.get("mode"))}
+          >
+            24/7
+          </NavLink>
+          <NavLink href="/shorts" primary active={pathname.startsWith("/shorts")}>
+            Shorts
+          </NavLink>
+          <NavLink href="/guide" primary active={pathname === "/guide"}>
+            Guide
+          </NavLink>
+          <span aria-hidden className="mx-1 h-4 w-px bg-[color:var(--rule)]" />
           <div
             className="relative"
             ref={dropdownRef}
             onMouseEnter={() => setMembersOpen(true)}
             onMouseLeave={() => setMembersOpen(false)}
+            onFocusCapture={() => setMembersOpen(true)}
           >
             <button
               type="button"
+              data-cursor-hint="Browse communities"
               onClick={() => setMembersOpen((v) => !v)}
               aria-expanded={membersOpen}
               aria-haspopup="menu"
               className={cn(
-                "inline-flex items-center gap-1 rounded-md px-3 py-2 text-[13px] font-medium transition-colors cursor-pointer",
+                "inline-flex items-center gap-1 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors cursor-pointer xl:px-3",
                 membersOpen
                   ? "bg-[color:var(--bg-elev)] text-[color:var(--ink)]"
                   : "text-[color:var(--ink-dim)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]",
               )}
             >
-              Members
+              Networks
               <ChevronDown
                 size={14}
                 className={cn("transition-transform", membersOpen && "rotate-180")}
@@ -194,39 +212,34 @@ export function TopNav({
             {membersOpen ? (
               <div
                 role="menu"
-                className="absolute left-1/2 top-full w-[760px] max-w-[calc(100vw-3rem)] -translate-x-1/2 pt-2"
+                className="absolute left-1/2 top-full w-[1080px] max-w-[calc(100vw-3rem)] -translate-x-1/2 pt-2"
               >
                 <div
-                  className="overflow-hidden rounded-2xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-[0_24px_60px_-24px_rgba(0,0,0,0.6)] backdrop-blur"
+                  className="overflow-hidden rounded-2xl border border-secondary bg-primary shadow-xl ring-1 ring-black/5 backdrop-blur"
                 >
-                <div className="flex items-center justify-between border-b border-[color:var(--rule)] bg-[color:var(--surface)] px-4 py-2.5">
-                  <span className="text-[11px] font-semibold tracking-tight text-[color:var(--ink)]">
-                    Roster · 6 members
+                <div className="flex items-center justify-between border-b border-secondary bg-secondary px-4 py-3">
+                  <span className="text-xs font-semibold tracking-tight text-primary">
+                    Networks · 7 communities
                   </span>
-                  <Link
-                    href="/chat"
-                    onClick={() => setMembersOpen(false)}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--core)]"
-                  >
-                    Watch all chats →
+                  <Link href="/guide" onClick={() => setMembersOpen(false)} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-secondary hover:text-brand-secondary_hover">
+                    Open guide →
                   </Link>
                 </div>
-                <ul className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-6">
-                  {MEMBERS.map((m) => {
-                    // Prefer the live Twitch profile pic so the dropdown
-                    // tracks whatever the member is currently using on
-                    // Twitch. Fall back to the local portrait if the
-                    // API hasn't returned yet (SSR cold path).
-                    const avatar = profiles[m.twitchLogin.toLowerCase()] ?? m.portrait;
+                <ul className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 lg:grid-cols-7">
+                  {NETWORK_CHANNELS.map((network) => {
+                    const member = network.memberSlug ? MEMBERS_BY_SLUG[network.memberSlug] : null;
+                    const username = member ? `@${member.twitchLogin}` : "All CORE";
                     return (
-                      <li key={m.slug}>
+                      <li key={network.slug}>
                         <Link
-                          href={`/m/${m.slug}` as `/m/${string}`}
+                          href={`/channels/${network.slug}` as `/channels/${string}`}
+                          data-accent={network.accent}
+                          data-cursor-community={network.slug}
                           onClick={() => setMembersOpen(false)}
-                          className="group relative block aspect-square w-full overflow-hidden rounded-lg border border-[color:var(--rule)] bg-black transition-all duration-300 cursor-pointer"
+                          className="group relative block aspect-[1.03] w-full overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black transition-all duration-300 cursor-pointer"
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = m.accent;
-                            e.currentTarget.style.boxShadow = `0 8px 24px -12px ${m.accent}99, inset 0 0 0 1px ${m.accent}55`;
+                            e.currentTarget.style.borderColor = network.accent;
+                            e.currentTarget.style.boxShadow = `0 8px 24px -12px ${network.accent}99, inset 0 0 0 1px ${network.accent}55`;
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.borderColor = "";
@@ -234,26 +247,36 @@ export function TopNav({
                           }}
                         >
                           <Image
-                            src={avatar}
-                            alt={m.stageName}
+                            src={network.backdrop}
+                            alt=""
                             fill
-                            sizes="120px"
-                            className="object-cover grayscale-[0.35] transition duration-500 group-hover:grayscale-0 group-hover:scale-[1.05]"
+                            sizes="(min-width: 1024px) 148px, 25vw"
+                            className="object-cover opacity-80 transition duration-500 group-hover:scale-[1.05] group-hover:opacity-100"
                           />
                           <span
                             aria-hidden
                             className="pointer-events-none absolute inset-0"
                             style={{
                               background:
-                                "linear-gradient(180deg, transparent 45%, rgba(8,8,10,0.92) 100%)",
+                                "linear-gradient(180deg, rgba(8,8,10,0.14) 8%, rgba(8,8,10,0.14) 38%, rgba(8,8,10,0.96) 100%)",
                             }}
                           />
-                          <span className="absolute inset-x-2 bottom-2 flex flex-col leading-tight">
-                            <span className="text-[12px] font-bold tracking-tight text-on-image">
-                              {m.stageName}
+                          <Image
+                            src={network.artwork}
+                            alt=""
+                            width={150}
+                            height={64}
+                            className={cn(
+                              "absolute left-1/2 top-[35%] h-12 w-[88%] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_3px_10px_rgba(0,0,0,0.8)] transition duration-300 group-hover:scale-105",
+                              network.slug === "marlon" && "scale-[1.32] group-hover:scale-[1.39]",
+                            )}
+                          />
+                          <span className="absolute inset-x-3 bottom-3 flex flex-col leading-snug">
+                            <span className="text-sm font-bold tracking-tight text-on-image">
+                              {network.name}
                             </span>
-                            <span className="mt-0.5 truncate text-[10px] font-medium text-on-image-dim">
-                              {m.realName}
+                            <span className="mt-1 break-words text-[10px] font-medium text-on-image-dim">
+                              {username}
                             </span>
                           </span>
                         </Link>
@@ -265,47 +288,36 @@ export function TopNav({
               </div>
             ) : null}
           </div>
-          <NavLink href="/fanzone">Fanzone</NavLink>
-          <NavLink href="/media">Photos</NavLink>
-          <NavLink href="/clips">Clips</NavLink>
-          <NavLink href="/chat">Chat</NavLink>
         </nav>
 
-        <div className="hidden items-center justify-end gap-2 md:flex">
-          {/* Group socials */}
-          <ul className="flex items-center gap-1 border-r border-[color:var(--rule)] pr-2">
-            {GROUP_SOCIAL_LINKS.map((s) => {
-              const brand = theme === "light" ? (s.brandLight ?? s.brand) : s.brand;
-              return (
-              <li key={s.href} className="relative group">
-                <a
-                  href={s.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`CORE on ${s.label} (${s.handle})`}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] transition-all hover:-translate-y-px"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = brand;
-                    e.currentTarget.style.borderColor = brand;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = "";
-                    e.currentTarget.style.borderColor = "";
-                  }}
-                >
-                  <s.Icon size={13} />
-                </a>
-                {/* Tooltip */}
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-2.5 py-1.5 font-mono text-[12px] text-[color:var(--ink)] opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
-                >
-                  {s.handle}
-                </span>
-              </li>
-              );
-            })}
-          </ul>
+        <div className="hidden items-center justify-end gap-2 lg:flex">
+          {watchSearchAvailable ? (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("core-watch-search"))}
+              onPointerEnter={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
+              onFocus={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
+              className="group inline-flex min-h-10 w-10 cursor-pointer items-center justify-start gap-2 rounded-lg bg-[color:var(--bg-elev)] px-2.5 text-sm font-semibold text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--rule)] transition-[color,background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] hover:ring-[color:var(--ink-faint)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.28)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)] lg:w-36 xl:w-56 2xl:w-72"
+              aria-label="Search CORE Watch"
+              aria-keyshortcuts="Control+K Meta+K /"
+            >
+              <Search size={16} aria-hidden className="shrink-0 transition-transform duration-150 group-hover:scale-110" />
+              <span className="hidden whitespace-nowrap lg:inline">Search</span>
+            </button>
+          ) : null}
+
+          <Link
+            href="/upgrade"
+            data-cursor-hint="Explore member benefits"
+            aria-label="Support the CORE website from three dollars per month"
+            className="nav-membership-cta group relative isolate hidden min-h-10 items-center gap-2 overflow-hidden rounded-lg px-3 text-xs font-bold text-white transition-[transform,box-shadow] duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-200 lg:inline-flex"
+          >
+            <span className="grid size-5 place-items-center rounded-md bg-white/15 ring-1 ring-inset ring-white/20">
+              <Gem size={13} aria-hidden />
+            </span>
+            <span className="whitespace-nowrap">Support the site</span>
+            <span className="hidden text-[10px] font-semibold text-white/70 xl:inline">$3+</span>
+          </Link>
 
           {/* LIVE / OFFLINE pill — opens member-picker modal when live.
               When live, the whole pill blinks red (live-pill-blink) and
@@ -314,141 +326,293 @@ export function TopNav({
             <button
               type="button"
               onClick={() => setLiveModalOpen(true)}
-              className="live-pill-blink group relative inline-flex items-center gap-2 rounded-md border px-3 py-1.5 cursor-pointer"
-              aria-label={`Live${combinedViewers > 0 ? ` — ${combinedViewers.toLocaleString("en-US")} watching` : ""} — open member picker`}
+              className="live-pill-blink group relative inline-flex items-center gap-2 rounded-lg border px-3 py-2 shadow-xs-skeuomorphic cursor-pointer"
+              aria-label={`Live — ${liveCount} ${liveCount === 1 ? "person" : "people"} — open picker`}
             >
               <span
                 aria-hidden
-                className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(239,68,68,0.7)]"
+                className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(219,3,104,0.7)]"
                 style={{ animation: "live-blink 1s ease-in-out infinite" }}
               />
-              <span className="text-[11px] font-bold tracking-tight text-[color:var(--core)]">
+              <span className="text-xs font-bold tracking-tight text-[color:var(--core)]">
                 LIVE
-                {combinedViewers > 0 ? (
-                  <>
-                    <span className="mx-1.5 text-[color:var(--core)]/50">·</span>
-                    <span className="tabular-nums">{formatCompactCount(combinedViewers)}</span>
-                  </>
-                ) : null}
+                <span className="mx-1.5 text-[color:var(--core)]/50">·</span>
+                <span className="tabular-nums">{liveCount}</span>
               </span>
             </button>
           ) : (
             <span
-              className="inline-flex items-center gap-2 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-1.5"
+              className="inline-flex items-center gap-1.5 px-1 text-[11px] font-semibold text-[color:var(--ink-faint)]"
               aria-label="No one is live"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--ink-faint)]" aria-hidden />
-              <span className="text-[11px] font-medium tracking-tight text-[color:var(--ink-dim)]">
-                OFFLINE
-              </span>
+              <span className="size-1.5 rounded-full bg-[color:var(--ink-faint)]" aria-hidden />
+              Offline
             </span>
           )}
 
-          {/* Theme toggle */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)] cursor-pointer"
-          >
-            {theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
-          </button>
+          {/* Theme stays in account / mobile — not identity chrome. */}
+
+          {/* Fan account — signed-in destinations live in this menu instead
+              of competing with the primary entertainment navigation. */}
+          {authLoading ? (
+            <span
+              aria-label="Loading account"
+              className="inline-flex h-9 w-[4.75rem] animate-pulse rounded-full bg-[color:var(--bg-elev)] ring-1 ring-inset ring-[color:var(--rule)]"
+            />
+          ) : user ? (
+            <div className="relative" ref={accountDropdownRef}>
+              <button
+                ref={accountTriggerRef}
+                type="button"
+                aria-label={`Open account menu for ${user.displayName}`}
+                aria-expanded={accountOpen}
+                aria-haspopup="menu"
+                aria-controls="fan-account-menu"
+                onClick={() => setAccountOpen((value) => !value)}
+                className={cn(
+                  "inline-flex min-h-9 items-center gap-1.5 rounded-full p-0.5 pr-2 text-[color:var(--ink-dim)] shadow-xs-skeuomorphic ring-1 ring-inset transition-colors",
+                  accountOpen
+                    ? "bg-[color:var(--bg-elev)] text-[color:var(--ink)] ring-[color:var(--rule-strong)]"
+                    : "ring-[color:var(--rule)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]",
+                )}
+              >
+                <span className="relative inline-flex size-8 items-center justify-center rounded-full bg-brand-solid text-xs font-semibold text-white ring-1 ring-inset ring-white/10">
+                  {user.displayName
+                    .split(" ")
+                    .map((word) => word[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase()}
+                </span>
+                <ChevronDown
+                  size={13}
+                  aria-hidden
+                  className={cn("transition-transform", accountOpen && "rotate-180")}
+                />
+              </button>
+
+              {accountOpen ? (
+                <div
+                  id="fan-account-menu"
+                  role="menu"
+                  aria-label="Your account"
+                  className="absolute right-0 top-full z-50 w-64 pt-2"
+                >
+                  <div className="overflow-hidden rounded-2xl border border-secondary bg-primary shadow-xl ring-1 ring-black/5">
+                    <div className="border-b border-secondary bg-secondary px-4 py-3">
+                      <p className="truncate text-sm font-semibold text-primary">{user.displayName}</p>
+                      <p className="mt-0.5 truncate text-xs text-tertiary">{user.email}</p>
+                    </div>
+                    <div className="p-1.5">
+                      <AccountMenuLink
+                        href="/passport"
+                        icon={Award}
+                        label="CORE Passport"
+                        active={pathname.startsWith("/passport")}
+                        onSelect={() => setAccountOpen(false)}
+                      />
+                      <AccountMenuLink
+                        href="/dvr"
+                        icon={Bookmark}
+                        label="DVR"
+                        active={pathname.startsWith("/dvr") || pathname.startsWith("/my-list")}
+                        onSelect={() => setAccountOpen(false)}
+                      />
+                      <AccountMenuLink
+                        href="/account"
+                        icon={UserRound}
+                        label="Account"
+                        active={pathname === "/account"}
+                        onSelect={() => setAccountOpen(false)}
+                      />
+                      <AccountMenuLink
+                        href="/account/settings"
+                        icon={Settings}
+                        label="Settings"
+                        active={pathname.startsWith("/account/settings")}
+                        onSelect={() => setAccountOpen(false)}
+                      />
+                      <AccountMenuLink
+                        href="/account/plan"
+                        icon={Gem}
+                        label="Plans"
+                        active={pathname.startsWith("/account/plan")}
+                        onSelect={() => setAccountOpen(false)}
+                      />
+                    </div>
+                    <div className="border-t border-secondary p-1.5">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setAccountOpen(false);
+                          void logout();
+                        }}
+                        className="flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)]"
+                      >
+                        <LogOut size={16} aria-hidden />
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <Button onPress={() => openAuth()} color="secondary" size="sm">
+              Sign in
+            </Button>
+          )}
         </div>
 
-        <button
-          type="button"
-          // On mobile the desktop nav + right rail collapse out of the
-          // grid, so an auto-placed hamburger lands in column 2 (an
-          // `auto`-sized track) and appears centered. Force it into
-          // column 3 (a `1fr` track) and right-align inside it so the
-          // button always hugs the right edge of the navbar.
-          className="col-start-3 inline-flex h-9 w-9 items-center justify-center justify-self-end rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] cursor-pointer transition-colors hover:bg-[color:var(--surface)] md:hidden"
-          aria-label={open ? "Close menu" : "Open menu"}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X size={16} /> : <Menu size={16} />}
-        </button>
+        {/* Mobile / tablet menu — Untitled UI utility button. Lives in
+            grid column 3 + right-aligned so it hugs the navbar's right
+            edge. 44px touch target. */}
+        <div className="col-start-3 flex items-center gap-1 justify-self-end lg:hidden">
+          {watchSearchAvailable ? (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("core-watch-search"))}
+              onPointerEnter={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
+              onFocus={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
+              className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--rule)] transition-[color,background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)] hover:ring-[color:var(--ink-faint)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.24)] active:translate-y-0 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]"
+              aria-label="Search CORE Watch"
+            >
+              <Search size={18} aria-hidden />
+            </button>
+          ) : null}
+          <ButtonUtility
+            size="sm"
+            color="secondary"
+            aria-label={open ? "Close menu" : "Open menu"}
+            onClick={() => setOpen((v) => !v)}
+            icon={open ? X : Menu}
+            className="min-h-11 min-w-11 shrink-0"
+          />
+        </div>
       </div>
 
       {open ? (
-        <div className="border-t border-[color:var(--rule)] bg-[color:var(--bg)] md:hidden">
-          <nav className="mx-auto max-w-[1440px] px-6 py-4">
-            <p className="eyebrow">Members</p>
-            <ul className="mt-3 grid grid-cols-3 gap-2">
-              {MEMBERS.map((m) => {
-                // Prefer the live Twitch profile pic so the mobile menu
-                // stays in sync with whatever the member is using on
-                // their channel today. Fall back to the local portrait.
-                const avatar = profiles[m.twitchLogin.toLowerCase()] ?? m.portrait;
+        <div className="max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-t border-[color:var(--rule)] bg-[color:var(--bg)] lg:hidden">
+          <nav className="mx-auto max-w-container px-4 py-4 sm:px-6">
+            <p className="eyebrow">Networks</p>
+            <ul className="mt-3 grid grid-cols-2 gap-2 min-[400px]:grid-cols-3">
+              {NETWORK_CHANNELS.map((network) => {
+                const member = network.memberSlug ? MEMBERS_BY_SLUG[network.memberSlug] : null;
                 return (
-                  <li key={m.slug}>
+                  <li key={network.slug}>
                     <Link
-                      href={`/m/${m.slug}` as `/m/${string}`}
+                      href={`/channels/${network.slug}` as `/channels/${string}`}
+                      data-cursor-community={network.slug}
                       onClick={() => setOpen(false)}
-                      className="flex items-center gap-2 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-2 cursor-pointer transition-colors hover:bg-[color:var(--surface)]"
+                      className="group relative flex min-h-[6.5rem] items-end overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black p-2.5 cursor-pointer transition-colors hover:border-[color:var(--rule-strong)]"
                     >
-                      <span className="relative h-7 w-7 overflow-hidden rounded-full">
-                        <Image src={avatar} alt="" fill sizes="28px" className="object-cover" />
+                      <Image src={network.backdrop} alt="" fill sizes="50vw" className="object-cover opacity-75 transition duration-300 group-hover:scale-105 group-hover:opacity-100" />
+                      <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+                      <Image src={network.artwork} alt="" width={112} height={48} className={cn("absolute left-1/2 top-3 h-10 w-[78%] -translate-x-1/2 object-contain drop-shadow-[0_3px_8px_rgba(0,0,0,0.8)]", network.slug === "marlon" && "scale-[1.3]")} />
+                      <span className="relative min-w-0">
+                        <span className="block text-xs font-semibold text-white">{network.name}</span>
+                        <span className="mt-0.5 block break-words text-[10px] leading-snug text-white/65">{member ? `@${member.twitchLogin}` : "All CORE"}</span>
                       </span>
-                      <span className="truncate text-[12px] font-medium">{m.stageName}</span>
                     </Link>
                   </li>
                 );
               })}
             </ul>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
+            <p className="eyebrow mt-6">Watch</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
               {(
                 [
-                  ["/", "Home"],
-                  ["/fanzone", "Fanzone"],
-                  ["/media", "Photos"],
-                  ["/clips", "Clips"],
+                  ["/", "Watch"],
+                  ["/channels/core?mode=continuous", "24/7"],
+                  ["/shorts", "Shorts"],
+                  ["/guide", "Guide"],
                 ] as Array<[string, string]>
               ).map(([href, label]) => (
                 <Link
                   key={href}
                   href={href as never}
                   onClick={() => setOpen(false)}
-                  className="rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-[13px] font-medium text-[color:var(--ink)] cursor-pointer transition-colors hover:bg-[color:var(--surface)]"
+                  className="flex min-h-11 items-center rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3.5 py-2 text-sm font-medium text-[color:var(--ink)] cursor-pointer transition-colors hover:bg-[color:var(--surface)]"
                 >
                   {label}
                 </Link>
               ))}
-              {/* /chat tile — matches the desktop LIVE pill: count of
-                  live members + combined viewer total when applicable.
-                  Spans both columns so the LIVE · N · X watching string
-                  has room to breathe on mobile. */}
-              <Link
-                href="/chat"
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "col-span-2 inline-flex items-center justify-center rounded-md border px-3 py-2 text-[13px] font-medium cursor-pointer transition-colors",
-                  liveCount > 0
-                    ? "border-[color:var(--core)]/60 bg-[color:var(--core)]/12 text-[color:var(--core)] hover:bg-[color:var(--core)]/18"
-                    : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink)] hover:bg-[color:var(--surface)]",
-                )}
-              >
-                {liveCount > 0 ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span
-                      aria-hidden
-                      className="h-1.5 w-1.5 rounded-full bg-[color:var(--core)]"
-                      style={{ animation: "live-blink 1s ease-in-out infinite" }}
-                    />
-                    <span className="font-bold tracking-tight">LIVE · {liveCount}</span>
-                    {combinedViewers > 0 ? (
-                      <>
-                        <span className="text-[color:var(--core)]/50">·</span>
-                        <span className="tabular-nums">{formatCompactCount(combinedViewers)} watching</span>
-                      </>
-                    ) : null}
-                  </span>
-                ) : (
-                  "Chat · offline"
-                )}
-              </Link>
             </div>
+
+            <Link
+              href="/upgrade"
+              onClick={() => setOpen(false)}
+              className="relative mt-5 flex min-h-12 items-center justify-between overflow-hidden rounded-xl border border-pink-300/35 px-3.5 text-sm font-bold text-white shadow-[0_10px_26px_rgba(190,8,109,0.25)]"
+            >
+              <span aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_120%,rgba(255,89,177,0.74),transparent_48%),linear-gradient(135deg,rgba(124,17,83,0.96),rgba(55,17,82,0.96))]" />
+              <span className="inline-flex items-center gap-2"><Gem size={16} aria-hidden /> Support the site</span>
+              <span className="text-xs font-medium text-white/75">$3+</span>
+            </Link>
+
+            {/* Account + theme controls — mirror the desktop right rail so
+                everything reachable on desktop is reachable here too. */}
+            <p className="eyebrow mt-6">Account</p>
+            <div className="mt-3 flex items-center gap-2">
+              {authLoading ? (
+                <span
+                  aria-label="Loading account"
+                  className="inline-flex min-h-11 flex-1 animate-pulse items-center justify-center rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-sm text-[color:var(--ink-faint)]"
+                >
+                  Account
+                </span>
+              ) : user ? (
+                <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Link
+                    href={"/passport" as Route}
+                    onClick={() => setOpen(false)}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
+                  >
+                    <Award size={16} aria-hidden />
+                    CORE Passport
+                  </Link>
+                  <Link
+                    href={"/dvr" as never}
+                    onClick={() => setOpen(false)}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
+                  >
+                    <Bookmark size={16} aria-hidden />
+                    DVR
+                  </Link>
+                  <Link
+                    href="/account"
+                    onClick={() => setOpen(false)}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
+                  >
+                    <UserRound size={16} aria-hidden />
+                    Account
+                  </Link>
+                  <Link
+                    href="/account/plan"
+                    onClick={() => setOpen(false)}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
+                  >
+                    <Gem size={16} aria-hidden />
+                    Plans
+                  </Link>
+                </div>
+              ) : (
+                <Button color="secondary" size="lg" className="flex-1" onPress={() => { setOpen(false); openAuth(); }}>
+                  Sign in
+                </Button>
+              )}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] shadow-xs-skeuomorphic transition-colors hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)]"
+              >
+                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+            </div>
+
           </nav>
         </div>
       ) : null}
@@ -459,141 +623,73 @@ export function TopNav({
           break centering once the navbar gains its scrolled blur. */}
       {mounted && liveModalOpen && liveCount > 0
         ? createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Live members"
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          onClick={() => setLiveModalOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-[480px] overflow-hidden rounded-xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[color:var(--rule)] bg-[color:var(--surface)] px-4 py-3">
-              <div className="inline-flex items-center gap-2.5">
-                <span
-                  aria-hidden
-                  className="h-2 w-2 rounded-full bg-white"
-                  style={{ animation: "live-blink 1s ease-in-out infinite" }}
-                />
-                <span className="text-[12px] font-bold uppercase tracking-tight text-[color:var(--core)]">
-                  LIVE · {liveCount}
-                </span>
-                {combinedViewers > 0 ? (
-                  <>
-                    <span className="text-[color:var(--ink-faint)]" aria-hidden>
-                      ·
-                    </span>
-                    <span className="text-[12px] font-semibold tabular-nums text-[color:var(--ink)]">
-                      {combinedViewers.toLocaleString("en-US")}{" "}
-                      <span className="font-normal text-[color:var(--ink-dim)]">watching</span>
-                    </span>
-                  </>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => setLiveModalOpen(false)}
-                aria-label="Close"
-                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--bg)] hover:text-[color:var(--ink)]"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <ul className="flex flex-col p-2">
-              {liveEntries.map((e) => {
-                const member = MEMBERS.find(
-                  (m) => m.twitchLogin.toLowerCase() === e.login.toLowerCase(),
-                );
-                if (!member) return null;
-                // Prefer the live Twitch profile pic so the modal stays
-                // in sync with whatever the member is using on their
-                // channel right now. Fall back to the local portrait if
-                // the API lookup hasn't returned yet.
-                const avatar = profiles[e.login.toLowerCase()] ?? member.portrait;
-                return (
-                  <li key={e.login}>
-                    <a
-                      href={`https://twitch.tv/${e.login}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setLiveModalOpen(false)}
-                      className="group flex items-center gap-3 rounded-md px-3 py-3 transition-colors cursor-pointer hover:bg-[color:var(--surface)]"
-                    >
-                      <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-inset"
-                        style={{ ["--tw-ring-color" as string]: `${member.accent}88` }}
-                      >
-                        <Image src={avatar} alt="" fill sizes="40px" className="object-cover" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[14px] font-semibold text-[color:var(--ink)]">
-                          {member.stageName}
-                        </p>
-                        <p className="truncate text-[11px] text-[color:var(--ink-dim)]">
-                          {e.title ?? "Streaming"}
-                        </p>
-                        {e.viewerCount != null ? (
-                          <p className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--core)]">
-                            <span
-                              aria-hidden
-                              className="h-1.5 w-1.5 rounded-full bg-[color:var(--core)]"
-                              style={{ animation: "live-blink 1s ease-in-out infinite" }}
-                            />
-                            {e.viewerCount.toLocaleString("en-US")} watching
-                          </p>
-                        ) : null}
-                      </div>
-                      <span
-                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-tight"
-                        style={{
-                          borderColor: "rgba(145,70,255,0.5)",
-                          background: "rgba(145,70,255,0.12)",
-                          color: "#9146FF",
-                        }}
-                      >
-                        Watch ↗
-                      </span>
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="border-t border-[color:var(--rule)] bg-[color:var(--bg)] p-3">
-              <Link
-                href="/chat"
-                onClick={() => setLiveModalOpen(false)}
-                className="group/cta inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[color:var(--core)] bg-[color:var(--core)] px-4 py-2.5 text-[13px] font-bold uppercase tracking-tight text-white transition-all hover:-translate-y-px hover:shadow-[0_8px_20px_-6px_rgba(239,68,68,0.55)] active:translate-y-0"
-              >
-                Open all chats
-                <span className="transition-transform group-hover/cta:translate-x-0.5" aria-hidden>
-                  →
-                </span>
-              </Link>
-            </div>
-          </div>
-        </div>,
-        document.body,
-        )
+            <LiveNowModal
+              entries={liveEntries}
+              combinedViewers={combinedViewers}
+              onClose={() => setLiveModalOpen(false)}
+            />,
+            document.body,
+          )
         : null}
     </header>
   );
 }
 
-/** Compact viewer-count format: 12 → 12, 2300 → 2.3K, 1.5M → 1.5M. */
-function formatCompactCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString("en-US");
-}
-
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+  primary = false,
+  active = false,
+}: {
+  href: string;
+  children: React.ReactNode;
+  primary?: boolean;
+  active?: boolean;
+}) {
   return (
     <Link
       href={href as never}
-      className="rounded-md px-3 py-2 text-[13px] font-medium text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)] cursor-pointer"
+      className={cn(
+        "cursor-pointer rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors xl:px-3",
+        active
+          ? "bg-[color:var(--bg-elev)] text-[color:var(--ink)]"
+          : primary
+            ? "font-semibold text-[color:var(--ink)] hover:bg-[color:var(--bg-elev)]"
+            : "text-[color:var(--ink-dim)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]",
+      )}
     >
       {children}
+    </Link>
+  );
+}
+
+function AccountMenuLink({
+  href,
+  icon: Icon,
+  label,
+  active = false,
+  onSelect,
+}: {
+  href: string;
+  icon: React.ComponentType<{ size?: number; "aria-hidden"?: boolean }>;
+  label: string;
+  active?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <Link
+      href={href as never}
+      role="menuitem"
+      onClick={onSelect}
+      className={cn(
+        "flex min-h-10 items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "bg-[color:var(--surface)] text-[color:var(--ink)]"
+          : "text-[color:var(--ink-dim)] hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)]",
+      )}
+    >
+      <Icon size={16} aria-hidden />
+      {label}
     </Link>
   );
 }

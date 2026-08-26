@@ -37,7 +37,7 @@ export function Roster() {
       className="relative w-full bg-[color:var(--bg)] py-28 md:py-40 rule"
     >
       <SectionNumber index={2} label="The Boys" />
-      <div className="mx-auto max-w-[1440px] px-6 md:px-16">
+      <div className="mx-auto max-w-container px-6 md:px-16">
         <Eyebrow className="mb-3">The boys</Eyebrow>
         <Display as="h2" size={72} className="md:text-[120px]">
           The names on the wall.

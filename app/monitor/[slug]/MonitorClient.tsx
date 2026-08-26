@@ -3,7 +3,9 @@
 import Script from "next/script";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, Eye, Gauge, MessageSquare, Radio, RotateCcw, Wifi, WifiOff } from "lucide-react";
+import { MessageChatCircle as MessageSquareIcon } from "@untitledui/icons";
 import { TwitchChat } from "@/components/live/TwitchChat";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 
 /**
@@ -379,11 +381,11 @@ export function MonitorClient({
       />
       <div className="bg-[color:var(--bg)]">
         <div className="mx-auto max-w-[1800px] px-4 pt-4 md:px-8 md:pt-6">
-          <p className="rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-[12px] leading-snug text-[color:var(--ink-dim)] md:text-[13px]">
-            <span className="font-semibold text-[color:var(--ink)]">Heads up</span>{" "}
-            <span aria-hidden className="text-[color:var(--ink-faint)]">·</span>{" "}
-            This is tailored for the streamer to open on their phone to
-            monitor connection, and read chat with 7tv, bttv, &amp; ttv emotes.
+          <p className="rounded-lg bg-secondary px-3 py-2 text-sm leading-snug text-tertiary ring-1 ring-inset ring-secondary shadow-xs-skeuomorphic">
+            <span className="font-semibold text-primary">Heads up</span>{" "}
+            <span aria-hidden className="text-quaternary">·</span>{" "}
+            Open this page on the streamer&apos;s phone to check the connection and
+            read chat with 7TV, BTTV, and Twitch emotes.
           </p>
         </div>
         <div className="mx-auto grid max-w-[1800px] gap-4 px-4 py-4 md:px-8 md:py-6 lg:grid-cols-[minmax(0,1fr)_400px]">
@@ -411,7 +413,7 @@ export function MonitorClient({
                 <RotateCcw size={13} />
               </button>
               {error ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center text-[12px] text-[color:var(--ink-dim)]">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center text-sm text-tertiary">
                   {error}
                 </div>
               ) : null}
@@ -447,10 +449,18 @@ export function MonitorClient({
                 onMessage={handleChatMessage}
               />
             ) : (
-              <div className="flex h-full min-h-[440px] items-center justify-center rounded-xl border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center lg:min-h-[520px]">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-                  Twitch credentials missing — chat unavailable
-                </p>
+              <div className="flex h-full min-h-[440px] items-center justify-center rounded-xl bg-secondary p-8 text-center ring-1 ring-inset ring-secondary shadow-xs-skeuomorphic lg:min-h-[520px]">
+                <EmptyState size="sm">
+                  <EmptyState.Header>
+                    <EmptyState.FeaturedIcon icon={MessageSquareIcon} color="gray" />
+                  </EmptyState.Header>
+                  <EmptyState.Content>
+                    <EmptyState.Title>Chat unavailable</EmptyState.Title>
+                    <EmptyState.Description>
+                      Twitch credentials are missing, so chat can&apos;t connect for this channel.
+                    </EmptyState.Description>
+                  </EmptyState.Content>
+                </EmptyState>
               </div>
             )}
           </div>
@@ -484,7 +494,7 @@ function HealthPill({
     <span
       role="status"
       title={live === false ? "Channel is offline" : health.explain}
-      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.18em] backdrop-blur-sm"
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] backdrop-blur-sm"
       style={{ background: c.bg, color: c.text, borderColor: c.border }}
     >
       {live === false ? <WifiOff size={10} /> : <Wifi size={10} />}
@@ -618,12 +628,12 @@ function StatCard({
   accent?: string;
 }) {
   return (
-    <div className="relative flex h-full min-h-[108px] flex-col overflow-hidden rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-3">
+    <div className="relative flex h-full min-h-[108px] flex-col overflow-hidden rounded-xl bg-secondary p-3 ring-1 ring-inset ring-secondary shadow-xs-skeuomorphic">
       {background && background.length > 1 && accent ? (
         <BackgroundChart points={background} accent={accent} />
       ) : null}
       <div
-        className="relative z-10 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[color:var(--ink)]"
+        className="relative z-10 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-primary"
         style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.65)" }}
       >
         {icon ?? null}
@@ -631,14 +641,14 @@ function StatCard({
       </div>
       <div className="relative z-10 mt-auto flex items-baseline gap-1.5">
         <p
-          className="text-[24px] font-bold tabular-nums leading-none text-[color:var(--ink)]"
+          className="text-display-xs font-semibold tabular-nums leading-none text-primary"
           style={{ textShadow: "0 1px 6px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.65)" }}
         >
           {value}
         </p>
         {unit ? (
           <span
-            className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink)]"
+            className="text-xs font-semibold uppercase tracking-[0.14em] text-primary"
             style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}
           >
             {unit}
@@ -647,7 +657,7 @@ function StatCard({
       </div>
       {sub ? (
         <p
-          className="relative z-10 mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]"
+          className="relative z-10 mt-1 text-xs uppercase tracking-[0.14em] text-tertiary"
           style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}
         >
           {sub}

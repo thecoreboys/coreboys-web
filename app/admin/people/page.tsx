@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowUpRight, Plus, Users } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
 import { MEMBERS, CREW } from "@/lib/members";
 import { fetchUsersByLogin } from "@/lib/twitch";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { PeopleEditorClient } from "@/components/admin/PeopleEditor";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 export const metadata: Metadata = {
   title: "Admin · People",
@@ -53,43 +54,25 @@ export default async function AdminPeoplePage() {
 
   return (
     <AuthGate>
-      <main className="relative pt-20 md:pt-24">
-        <section className="relative mx-auto max-w-[1440px] px-6 py-10 md:px-8 md:py-14">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-              >
-                ← Admin
-              </Link>
-              <p className="mt-2 eyebrow inline-flex items-center gap-2">
-                <Users size={11} />
-                Admin · People
-              </p>
-              <h1 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-                Members & crew.
-              </h1>
-              <p className="mt-2 max-w-[60ch] text-[14px] text-[color:var(--ink-dim)]">
-                Edit name, real name, DOB, comm, socials. Add or remove members and crew. Edits
-                persist to localStorage in this Phase-1 stub; Phase 4 wires the override tables.
-              </p>
-            </div>
-          </div>
-        </section>
+      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+        <AdminPageHeader
+          eyebrow="Admin · People"
+          title="Members & crew."
+          supporting="Edit name, real name, DOB, comm, socials. Add or remove members and crew. Edits persist to localStorage in this Phase-1 stub; Phase 4 wires the override tables."
+        />
 
-        <section className="border-t border-[color:var(--rule)]">
-          <div className="mx-auto max-w-[1440px] px-6 py-8 md:px-8 md:py-12">
+        <section className="border-t border-secondary">
+          <div className="mx-auto max-w-container px-6 py-8 md:px-8 md:py-12">
             <PeopleEditorClient memberRows={memberRows} crewRows={crewRows} />
           </div>
         </section>
 
-        <section className="border-t border-[color:var(--rule)]">
-          <div className="mx-auto max-w-[1440px] px-6 py-8 md:px-8 md:py-12">
-            <div className="flex flex-wrap items-end justify-between gap-3">
+        <section className="border-t border-secondary">
+          <div className="mx-auto max-w-container px-6 py-8 md:px-8 md:py-12">
+            <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl bg-primary p-6 ring-1 ring-inset ring-secondary shadow-xs">
               <div>
-                <p className="eyebrow">Quick links</p>
-                <p className="mt-2 text-[14px] text-[color:var(--ink-dim)]">
+                <p className="text-sm font-semibold text-brand-secondary">Quick links</p>
+                <p className="mt-1 text-md text-tertiary">
                   Jump to a public profile to verify your edits before publishing.
                 </p>
               </div>
@@ -97,12 +80,12 @@ export default async function AdminPeoplePage() {
                 {memberRows.slice(0, 3).map((m) => (
                   <Link
                     key={m.slug}
-                    href={`/m/${m.slug}` as `/m/${string}`}
-                    className="inline-flex items-center gap-2 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-1.5 text-[12px] text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
+                    href={`/about/${m.slug}` as never}
+                    className="inline-flex items-center gap-2 rounded-lg border border-secondary bg-primary px-3 py-2 text-sm font-semibold text-secondary shadow-xs-skeuomorphic transition-all hover:-translate-y-px hover:text-primary"
                   >
-                    <Image src={m.avatarUrl} alt="" width={18} height={18} className="h-4 w-4 rounded-full" />
+                    <Image src={m.avatarUrl} alt="" width={20} height={20} className="h-5 w-5 rounded-full" />
                     {m.stageName}
-                    <ArrowUpRight size={12} />
+                    <ArrowUpRight size={14} />
                   </Link>
                 ))}
               </div>

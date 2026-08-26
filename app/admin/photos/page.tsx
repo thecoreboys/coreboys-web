@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Database, FileImage, HardDrive, Layers } from "lucide-react";
+import { Database01, HardDrive, Folder, Image01 } from "@untitledui/icons";
 import { MEMBERS, CREW } from "@/lib/members";
 import {
   getMemberPhotos,
@@ -11,6 +10,10 @@ import {
 } from "@/lib/asset-index";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { PhotoManager, type PersonOption } from "@/components/admin/PhotoManager";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
+import { Badge } from "@/components/base/badges/badges";
+import { BrowserDateTime } from "@/components/ui/BrowserDateTime";
 
 export const metadata: Metadata = {
   title: "Admin · Photos",
@@ -54,55 +57,39 @@ export default async function AdminPhotosPage() {
 
   return (
     <AuthGate>
-      <main className="relative pt-20 md:pt-24">
-        <section className="relative mx-auto max-w-[1440px] px-6 py-10 md:px-8 md:py-14">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-              >
-                ← Admin
-              </Link>
-              <p className="mt-2 eyebrow">Admin · Photos</p>
-              <h1 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-                Photo storage
-              </h1>
-              <p className="mt-2 max-w-[60ch] text-[14px] text-[color:var(--ink-dim)]">
-                Upload new photos to DigitalOcean Spaces (rows land in
-                <code className="font-mono"> media_assets</code>) or browse the
-                synced static gallery in <code className="font-mono">/public</code>.
-              </p>
-            </div>
-          </div>
-        </section>
+      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+        <AdminPageHeader
+          eyebrow="Admin · Photos"
+          title="Photo storage."
+          supporting="Upload new photos to DigitalOcean Spaces (rows land in media_assets) or browse the synced static gallery in /public."
+        />
 
         {/* Admin upload + gallery */}
-        <section className="border-t border-[color:var(--rule)]">
-          <div className="mx-auto max-w-[1440px] px-6 py-8 md:px-8 md:py-10">
+        <section className="border-t border-secondary">
+          <div className="mx-auto max-w-container px-6 py-8 md:px-8 md:py-10">
             <PhotoManager people={peopleOptions()} />
           </div>
         </section>
 
         {/* KPIs */}
-        <section className="border-t border-[color:var(--rule)]">
-          <div className="mx-auto max-w-[1440px] px-6 py-8 md:px-8 md:py-10">
-            <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Stat icon={<FileImage size={11} />} label="Total photos" value={`${metas.length}`} />
+        <section className="border-t border-secondary">
+          <div className="mx-auto max-w-container px-6 py-8 md:px-8 md:py-10">
+            <ul className="grid grid-cols-2 gap-5 md:grid-cols-4">
+              <Stat icon={Image01} label="Total photos" value={`${metas.length}`} />
               <Stat
-                icon={<HardDrive size={11} />}
+                icon={HardDrive}
                 label="Storage"
                 value={formatBytes(totalBytes)}
                 sub="across all sources"
               />
               <Stat
-                icon={<Layers size={11} />}
+                icon={Folder}
                 label="Buckets"
                 value={`${byBucket.size}`}
                 sub="member · crew · group"
               />
               <Stat
-                icon={<Database size={11} />}
+                icon={Database01}
                 label="Versions"
                 value="1"
                 sub="Phase 4 will surface 5 per photo"
@@ -112,23 +99,21 @@ export default async function AdminPhotosPage() {
         </section>
 
         {/* Per-bucket breakdown */}
-        <section className="border-t border-[color:var(--rule)]">
-          <div className="mx-auto max-w-[1440px] px-6 py-8 md:px-8 md:py-10">
-            <h2 className="text-[14px] font-semibold tracking-tight text-[color:var(--ink)]">
-              By source
-            </h2>
-            <ul className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <section className="border-t border-secondary">
+          <div className="mx-auto max-w-container px-6 py-8 md:px-8 md:py-10">
+            <h2 className="text-lg font-semibold tracking-tight text-primary">By source</h2>
+            <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {[...byBucket.entries()]
                 .sort((a, b) => b[1] - a[1])
                 .map(([bucket, bytes]) => (
                   <li
                     key={bucket}
-                    className="flex items-center justify-between gap-3 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2.5"
+                    className="flex items-center justify-between gap-3 rounded-xl bg-primary px-4 py-3 ring-1 ring-inset ring-secondary shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-lg"
                   >
-                    <span className="font-mono text-[12px] text-[color:var(--ink)]">{bucket}</span>
-                    <span className="font-mono text-[12px] tabular-nums text-[color:var(--ink-dim)]">
+                    <span className="font-mono text-sm text-primary">{bucket}</span>
+                    <Badge type="pill-color" size="sm" color="gray">
                       {formatBytes(bytes)}
-                    </span>
+                    </Badge>
                   </li>
                 ))}
             </ul>
@@ -136,15 +121,15 @@ export default async function AdminPhotosPage() {
         </section>
 
         {/* Photo table */}
-        <section className="border-t border-[color:var(--rule)]">
-          <div className="mx-auto max-w-[1440px] px-6 py-8 md:px-8 md:py-12">
-            <h2 className="text-[14px] font-semibold tracking-tight text-[color:var(--ink)]">
+        <section className="border-t border-secondary">
+          <div className="mx-auto max-w-container px-6 py-8 md:px-8 md:py-12">
+            <h2 className="text-lg font-semibold tracking-tight text-primary">
               All photos · {metas.length}
             </h2>
-            <div className="mt-4 overflow-x-auto rounded-lg border border-[color:var(--rule)]">
-              <table className="w-full text-[12px]">
+            <div className="mt-4 overflow-x-auto rounded-xl bg-primary ring-1 ring-inset ring-secondary shadow-xs">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[color:var(--rule)] bg-[color:var(--surface)] text-left">
+                  <tr className="border-b border-secondary bg-secondary text-left">
                     <Th>File</Th>
                     <Th>Bucket</Th>
                     <Th align="right">Taken</Th>
@@ -160,42 +145,50 @@ export default async function AdminPhotosPage() {
                     return (
                       <tr
                         key={m.src}
-                        className={`transition-colors hover:bg-[color:var(--bg-elev)] ${
-                          i === 0 ? "" : "border-t border-[color:var(--rule)]"
+                        className={`transition-colors hover:bg-secondary ${
+                          i === 0 ? "" : "border-t border-secondary"
                         }`}
                       >
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3">
                           <a
                             href={m.src}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-3 hover:text-[color:var(--ink)]"
+                            className="flex items-center gap-3 hover:text-primary"
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={m.src}
                               alt=""
-                              className="h-9 w-9 rounded object-cover"
+                              className="h-10 w-10 rounded-lg object-cover"
                               loading="lazy"
                             />
-                            <span className="font-mono text-[11px] text-[color:var(--ink-dim)]">
+                            <span className="font-mono text-sm text-tertiary">
                               {m.src.split("/").pop()}
                             </span>
                           </a>
                         </td>
-                        <td className="px-3 py-2 font-mono text-[11px] text-[color:var(--ink-dim)]">
-                          {bucket}
+                        <td className="px-4 py-3">
+                          <Badge type="pill-color" size="sm" color="gray">
+                            {bucket}
+                          </Badge>
                         </td>
-                        <td className="px-3 py-2 text-right text-[color:var(--ink-dim)]">
-                          {m.takenAt ? formatShort(m.takenAt) : "—"}
+                        <td className="px-4 py-3 text-right text-tertiary">
+                          {m.takenAt ? (
+                            <BrowserDateTime
+                              value={m.takenAt}
+                              options={{ month: "short", day: "numeric", year: "2-digit" }}
+                              fallback="—"
+                            />
+                          ) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-[color:var(--ink-dim)]">
+                        <td className="px-4 py-3 text-right tabular-nums text-tertiary">
                           {m.width && m.height ? `${m.width}×${m.height}` : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-[color:var(--ink-dim)]">
+                        <td className="px-4 py-3 text-right tabular-nums text-tertiary">
                           {formatBytes(m.size)}
                         </td>
-                        <td className="px-3 py-2 truncate text-[color:var(--ink-dim)]">
+                        <td className="px-4 py-3 truncate text-tertiary">
                           {m.camera ?? "—"}
                         </td>
                       </tr>
@@ -212,30 +205,26 @@ export default async function AdminPhotosPage() {
 }
 
 function Stat({
-  icon,
+  icon: Icon,
   label,
   value,
   sub,
 }: {
-  icon?: React.ReactNode;
+  icon?: React.FC<{ className?: string }>;
   label: string;
   value: string;
   sub?: string;
 }) {
   return (
-    <li className="rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-4">
-      <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-        {icon}
-        {label}
-      </p>
-      <p className="mt-2 text-[24px] font-bold tracking-tight text-[color:var(--ink)] tabular-nums">
+    <li className="rounded-xl bg-primary p-5 ring-1 ring-inset ring-secondary shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="flex items-center gap-3">
+        {Icon ? <FeaturedIcon icon={Icon} size="md" color="brand" theme="modern" /> : null}
+        <p className="text-sm font-medium text-tertiary">{label}</p>
+      </div>
+      <p className="mt-3 text-display-xs font-semibold tracking-tight text-primary tabular-nums">
         {value}
       </p>
-      {sub ? (
-        <p className="mt-1.5 text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
-          {sub}
-        </p>
-      ) : null}
+      {sub ? <p className="mt-1 text-sm text-quaternary">{sub}</p> : null}
     </li>
   );
 }
@@ -243,7 +232,7 @@ function Stat({
 function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
   return (
     <th
-      className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)] ${align === "right" ? "text-right" : ""}`}
+      className={`px-4 py-3 text-xs font-semibold text-quaternary ${align === "right" ? "text-right" : ""}`}
     >
       {children}
     </th>
@@ -256,14 +245,6 @@ function formatBytes(n: number): string {
   if (n >= 1_048_576) return `${(n / 1_048_576).toFixed(1)} MB`;
   if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${n} B`;
-}
-
-function formatShort(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
-  } catch {
-    return iso;
-  }
 }
 
 function peopleOptions(): PersonOption[] {

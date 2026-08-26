@@ -1,14 +1,8 @@
 import Image from "next/image";
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
 import { getCrewPortrait } from "@/lib/asset-index";
+import { getCrewRoleLabel } from "@/lib/crew";
 import { SocialIcon, PLATFORM_LABEL } from "@/components/ui/SocialIcon";
-
-const ROLE_COPY: Record<string, string> = {
-  cameraman: "Camera",
-  management: "Management",
-  editor: "Editor",
-  producer: "Producer",
-};
 
 /**
  * Behind-the-lens crew section. Each crew member gets a 3:4 portrait,
@@ -33,7 +27,7 @@ export function CrewEditorial() {
       id="crew"
       className="relative border-t border-[color:var(--rule)] bg-[color:var(--bg)] py-24 md:py-32"
     >
-      <div className="mx-auto max-w-[1440px] px-6 md:px-12">
+      <div className="mx-auto max-w-container px-6 md:px-12">
         <header className="mb-12 grid grid-cols-12 items-end gap-6">
           <div className="col-span-12 md:col-span-7">
             <p className="eyebrow">Behind The Lens · 02</p>
@@ -57,6 +51,7 @@ export function CrewEditorial() {
         <ul className="grid grid-cols-2 gap-px overflow-hidden border border-[color:var(--rule)] bg-[color:var(--rule)] sm:grid-cols-3 lg:grid-cols-4">
           {sorted.map((c) => {
             const portrait = getCrewPortrait(c.slug);
+            const roleLabel = getCrewRoleLabel(c);
             const works = c.worksWith
               .map((slug) => MEMBERS_BY_SLUG[slug])
               .filter((m): m is NonNullable<typeof m> => !!m);
@@ -72,7 +67,7 @@ export function CrewEditorial() {
                   {portrait ? (
                     <Image
                       src={portrait}
-                      alt={`${c.name} — ${ROLE_COPY[c.role] ?? c.role}`}
+                      alt={`${c.name} — ${roleLabel}`}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                       className="object-cover grayscale-[0.55] transition-[filter,transform] duration-700 group-hover:scale-[1.025] group-hover:grayscale-0"
@@ -107,8 +102,8 @@ export function CrewEditorial() {
                   />
 
                   <div className="absolute left-3 top-3 flex items-center gap-2">
-                    <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
-                      {ROLE_COPY[c.role] ?? c.role}
+                    <span className="font-mono text-xs tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
+                      {roleLabel}
                     </span>
                   </div>
 
@@ -120,7 +115,7 @@ export function CrewEditorial() {
                       {c.name}
                     </h3>
                     {works.length > 0 ? (
-                      <p className="mt-1 font-mono text-[10px] tracking-[0.22em] uppercase">
+                      <p className="mt-1 font-mono text-xs tracking-[0.22em] uppercase">
                         <span className="text-[color:var(--ink-dim)]">Rides with </span>
                         {works.map((m, i) => (
                           <span key={m.slug} style={{ color: m.accent }}>
@@ -134,7 +129,7 @@ export function CrewEditorial() {
                 </div>
 
                 <div className="flex items-center justify-between gap-3 border-t border-[color:var(--rule)] px-3 py-3">
-                  <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
+                  <span className="font-mono text-xs tracking-[0.22em] uppercase text-[color:var(--ink-dim)]">
                     {c.socials.length} {c.socials.length === 1 ? "link" : "links"}
                   </span>
                   <ul className="flex items-center gap-1.5">
@@ -145,7 +140,7 @@ export function CrewEditorial() {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`${c.name} on ${PLATFORM_LABEL[s.platform as "x" | "instagram"]}`}
-                          className="inline-flex h-7 w-7 items-center justify-center border border-[color:var(--rule)] text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--ink)] hover:text-[color:var(--ink)]"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--rule)] transition-colors hover:text-[color:var(--ink)] hover:ring-[color:var(--ink)]"
                         >
                           <SocialIcon platform={s.platform as "x" | "instagram"} size={12} />
                         </a>

@@ -126,7 +126,7 @@ function Row({
               loading="lazy"
               decoding="async"
             />
-            <span className="pointer-events-none absolute inset-x-3 bottom-3 inline-flex items-center justify-end gap-1 font-mono text-[10px] uppercase tracking-[0.18em] text-on-image opacity-0 transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute inset-x-3 bottom-3 inline-flex items-center justify-end gap-1 font-mono text-xs uppercase tracking-[0.18em] text-on-image opacity-0 transition group-hover:opacity-100">
               <Maximize2 size={11} /> Expand
             </span>
           </button>

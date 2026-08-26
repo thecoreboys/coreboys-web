@@ -1,22 +1,29 @@
 import { NextResponse } from "next/server";
-import { MEMBERS } from "@/lib/members";
+import { CREW, MEMBERS } from "@/lib/members";
 import { GROUP } from "@/lib/group";
 import { fetchUsersByLogin, fetchFollowerCount } from "@/lib/twitch";
 import { fetchSocialCount } from "@/lib/social-fetch";
+import { crewMetricSlug, socialHandle } from "@/lib/social-metric-format";
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type SnapshotSocialPlatform = "youtube" | "tiktok" | "instagram" | "x";
+
+function isSnapshotSocialPlatform(platform: string): platform is SnapshotSocialPlatform {
+  return platform === "youtube" || platform === "tiktok" || platform === "instagram" || platform === "x";
+}
+
 /**
  * Daily metrics snapshot writer. Fetches:
- *   • Twitch follower count for every member
+ *   • Twitch follower count for every member and crew account
  *   • Group YouTube subscribers, TikTok / IG / X followers
- *   • Per-member YouTube / TikTok / IG / X via Social Fetch
- * and upserts one row per (member_slug, platform, today) into Postgres.
+ *   • Per-member and per-crew YouTube / TikTok / IG / X via Social Fetch
+ * and upserts one row per (member_slug, platform, handle, today) into Postgres.
  *
- * Reserved slug `__group__` is the umbrella CORE accounts. Any other
- * `member_slug` matches lib/members.ts.
+ * Reserved slug `__group__` is the umbrella CORE accounts; crew accounts use
+ * `__crew__:<slug>`. Unprefixed `member_slug` values match lib/members.ts.
  *
  * Auth: shared secret in `x-cron-secret: <METRICS_CRON_SECRET>` so only
  * the DO App Platform cron job can write. We deliberately don't use
@@ -46,81 +53,125 @@ export async function POST(req: Request) {
     count: number;
   }> = [];
 
-  // ── Per-member Twitch follower count ────────────────────────────────
-  try {
-    const users = await fetchUsersByLogin(MEMBERS.map((m) => m.twitchLogin));
-    await Promise.all(
-      MEMBERS.map(async (m) => {
-        const u = users[m.twitchLogin.toLowerCase()];
-        if (!u) return;
-        const followers = await fetchFollowerCount(u.id);
-        if (followers != null && followers > 0) {
-          writes.push({
-            slug: m.slug,
-            platform: "twitch",
-            handle: m.twitchLogin.toLowerCase(),
-            count: followers,
-          });
+  const memberTwitchTargets = MEMBERS.map((member) => ({
+    slug: member.slug,
+    login: member.twitchLogin.toLowerCase(),
+    // Preserve the existing member snapshot key for backwards compatibility.
+    handle: member.twitchLogin.toLowerCase(),
+  }));
+  const crewTwitchTargets = CREW.flatMap((crew) =>
+    crew.socials
+      .filter((social) => social.platform === "twitch")
+      .flatMap((social) => {
+        const fromHandle = social.handle?.trim().replace(/^@+/, "");
+        let fromUrl = "";
+        try {
+          fromUrl = new URL(social.url).pathname.split("/").filter(Boolean)[0] ?? "";
+        } catch {
+          /* malformed public URL: skip this social below */
         }
+        const login = (fromHandle || fromUrl).toLowerCase();
+        return login
+          ? [{ slug: crewMetricSlug(crew.slug), login, handle: social.url }]
+          : [];
       }),
-    );
-  } catch {
-    /* ignore — partial snapshot is better than none */
-  }
+  );
+  const twitchTargets = [...memberTwitchTargets, ...crewTwitchTargets];
 
-  // ── Per-member YouTube / TikTok / IG / X via Social Fetch ────────────
-  await Promise.all(
-    MEMBERS.flatMap((m) =>
-      m.socials
-        .filter((s): s is typeof s & { platform: "youtube" | "tiktok" | "instagram" | "x" } =>
-          s.platform === "youtube" ||
-          s.platform === "tiktok" ||
-          s.platform === "instagram" ||
-          s.platform === "x",
-        )
-        .map(async (s) => {
-          const count = await fetchSocialCount(s.platform, s.handle ?? "", s.url);
+  const collectTwitch = async () => {
+    try {
+      const users = await fetchUsersByLogin([
+        ...new Set(twitchTargets.map((target) => target.login)),
+      ]);
+      await Promise.all(
+        twitchTargets.map(async (target) => {
+          try {
+            const user = users[target.login];
+            if (!user) return;
+            const followers = await fetchFollowerCount(user.id);
+            if (followers != null && followers > 0) {
+              writes.push({
+                slug: target.slug,
+                platform: "twitch",
+                handle: target.handle,
+                count: followers,
+              });
+            }
+          } catch {
+            /* ignore this account; other snapshot rows can still succeed */
+          }
+        }),
+      );
+    } catch {
+      /* ignore — partial snapshot is better than none */
+    }
+  };
+
+  const socialTargets: Array<{
+    slug: string;
+    platform: SnapshotSocialPlatform;
+    handle: string;
+    url: string;
+  }> = [
+    ...MEMBERS.flatMap((member) =>
+      member.socials
+        .filter((social) => isSnapshotSocialPlatform(social.platform))
+        .map((social) => ({
+          slug: member.slug,
+          platform: social.platform as SnapshotSocialPlatform,
+          handle: socialHandle(social),
+          url: social.url,
+        })),
+    ),
+    ...CREW.flatMap((crew) =>
+      crew.socials
+        .filter((social) => isSnapshotSocialPlatform(social.platform))
+        .map((social) => ({
+          slug: crewMetricSlug(crew.slug),
+          platform: social.platform as SnapshotSocialPlatform,
+          handle: socialHandle(social),
+          url: social.url,
+        })),
+    ),
+    ...Object.entries(GROUP.socials)
+      .filter(([platform]) => isSnapshotSocialPlatform(platform))
+      .map(([platform, social]) => ({
+        slug: "__group__",
+        platform: platform as SnapshotSocialPlatform,
+        handle: socialHandle({ platform, ...social }),
+        url: social.url,
+      })),
+  ];
+
+  // Start every independent upstream together. Public scrapers remain a
+  // cron-only fallback, but one slow platform can no longer delay later
+  // member, crew, or group phases before the single durable write.
+  await Promise.all([
+    collectTwitch(),
+    Promise.all(
+      socialTargets.map(async (target) => {
+        try {
+          const count = await fetchSocialCount(
+            target.platform,
+            target.handle,
+            target.url,
+          );
           if (count != null && count > 0) {
             writes.push({
-              slug: m.slug,
-              platform: s.platform,
-              // The URL is the canonical per-channel identifier (handles
-              // can collide across YouTube vanity names; URLs cannot).
-              handle: s.url,
+              slug: target.slug,
+              platform: target.platform,
+              // URLs are canonical for Social Fetch platforms; handles can
+              // collide across renamed or vanity channels.
+              handle: target.url,
               count,
             });
           }
-        }),
+        } catch {
+          /* ignore this account; other snapshot rows can still succeed */
+        }
+      }),
     ),
-  );
-
-  // ── Group accounts (the umbrella CORE socials in lib/group.ts) ──────
-  const [ytSubs, ttFollowers, igFollowers, xFollowers] = await Promise.all([
-    fetchSocialCount(
-      "youtube",
-      GROUP.socials.youtube.handle,
-      GROUP.socials.youtube.url,
-    ),
-    fetchSocialCount("tiktok", GROUP.socials.tiktok.handle),
-    fetchSocialCount("instagram", GROUP.socials.instagram.handle),
-    fetchSocialCount("x", GROUP.socials.x.handle),
   ]);
-  const groupRows: Array<{ platform: string; handle: string; count: number | null }> = [
-    { platform: "youtube", handle: GROUP.socials.youtube.url, count: ytSubs },
-    { platform: "tiktok", handle: GROUP.socials.tiktok.url, count: ttFollowers },
-    { platform: "instagram", handle: GROUP.socials.instagram.url, count: igFollowers },
-    { platform: "x", handle: GROUP.socials.x.url, count: xFollowers },
-  ];
-  for (const r of groupRows) {
-    if (r.count != null && r.count > 0) {
-      writes.push({
-        slug: "__group__",
-        platform: r.platform,
-        handle: r.handle,
-        count: r.count,
-      });
-    }
-  }
 
   // Dedupe by (slug, platform, handle) — guards against duplicate
   // entries within the same run (e.g. retry quirks). We do NOT sum

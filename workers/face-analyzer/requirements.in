@@ -1,0 +1,4 @@
+# Keep these equal to pyproject.toml. Generate the platform lock described in README.md.
+av==15.1.0
+numpy==2.2.6
+opencv-python-headless==4.12.0.88

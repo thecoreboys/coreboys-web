@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { FileX02 } from "@untitledui/icons";
 import { listPublishedPosts, getPublishedPost } from "@/lib/blog";
 import { PostCard } from "@/components/blog/PostCard";
+import { Badge } from "@/components/base/badges/badges";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
 
 type Params = { params: Promise<{ id: string }> };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://corecrew.org";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;
@@ -47,21 +50,43 @@ export default async function AuthorArchive({ params }: Params) {
   };
 
   return (
-    <div className="mx-auto max-w-[1280px] px-6 py-16 md:px-10 md:py-24">
+    <div className="mx-auto max-w-container px-6 py-16 md:px-10 md:py-24">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }}
       />
-      <header className="mb-10">
-        <p className="font-mono text-[12px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-          Author
+      <header className="mb-10 max-w-3xl">
+        <p className="text-sm font-semibold text-brand-secondary">
+          Author archive
         </p>
-        <h1 className="mt-2 font-display text-[40px] font-bold leading-[0.95] tracking-[-0.04em] text-[color:var(--ink)] md:text-[72px]">
+        <h1 className="mt-2 font-display text-display-sm font-semibold leading-tight tracking-tight text-primary md:text-display-md">
           Selected works
         </h1>
+        <p className="mt-3 text-md text-tertiary">
+          Every published piece credited to this author across the CORE journal.
+        </p>
+        {matches.length > 0 ? (
+          <div className="mt-4">
+            <Badge type="pill-color" color="brand" size="lg">
+              {matches.length} {matches.length === 1 ? "post" : "posts"}
+            </Badge>
+          </div>
+        ) : null}
       </header>
       {matches.length === 0 ? (
-        <p className="text-[14px] text-[color:var(--ink-dim)]">No posts yet.</p>
+        <div className="flex min-h-[320px] items-center justify-center rounded-2xl bg-secondary p-8 ring-1 ring-inset ring-secondary shadow-xs">
+          <EmptyState size="sm">
+            <EmptyState.Header>
+              <EmptyState.FeaturedIcon icon={FileX02} color="gray" />
+            </EmptyState.Header>
+            <EmptyState.Content>
+              <EmptyState.Title>No posts yet</EmptyState.Title>
+              <EmptyState.Description>
+                There&apos;s nothing published under this author right now. Check back soon.
+              </EmptyState.Description>
+            </EmptyState.Content>
+          </EmptyState>
+        </div>
       ) : (
         <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {matches.map(({ post, cover }) => (

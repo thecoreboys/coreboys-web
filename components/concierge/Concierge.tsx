@@ -113,7 +113,7 @@ export function Concierge() {
         data-cursor="hover"
         className={cn(
           "fixed bottom-6 right-6 z-[55] inline-flex h-14 w-14 items-center justify-center rounded-full text-[color:var(--bg)]",
-          "shadow-[0_18px_48px_rgba(255,106,0,0.35)] transition-transform [transition-timing-function:var(--ease-out)] duration-300",
+          "shadow-[0_18px_48px_rgba(219,3,104,0.35)] transition-transform [transition-timing-function:var(--ease-out)] duration-300",
           "hover:-translate-y-0.5",
         )}
         style={{ backgroundImage: "var(--core-glow)" }}
@@ -150,7 +150,7 @@ export function Concierge() {
                   className="h-2 w-2 rounded-full"
                   style={{ backgroundImage: "var(--core-glow)" }}
                 />
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
+                <span className="font-mono text-xs uppercase tracking-[0.18em]">
                   CORE Concierge
                 </span>
               </div>

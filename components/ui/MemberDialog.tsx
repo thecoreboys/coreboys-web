@@ -112,7 +112,7 @@ export function MemberDialog({
                               <span className="text-[color:var(--ink-dim)] text-xs">{s.handle}</span>
                             ) : null}
                           </span>
-                          <span className="kicker text-[10px] opacity-60 group-hover:opacity-100">Open ↗</span>
+                          <span className="kicker text-xs opacity-60 group-hover:opacity-100">Open ↗</span>
                         </a>
                       </li>
                     ))}
@@ -127,7 +127,7 @@ export function MemberDialog({
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="text-sm font-medium">{cameraman.name}</div>
-                    <div className="kicker text-[10px]">Cameraman</div>
+                    <div className="kicker text-xs">Cameraman</div>
                   </div>
                   <div className="flex items-center gap-2">
                     {cameraman.socials.map((s) => (

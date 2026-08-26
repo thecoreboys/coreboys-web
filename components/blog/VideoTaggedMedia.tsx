@@ -178,7 +178,7 @@ export function VideoTaggedMedia({
     <figure className={cn("video-tagged-media group relative", className)}>
       <div
         ref={containerRef}
-        className="relative overflow-hidden rounded-[8px] border border-[color:var(--rule)] bg-black"
+        className="relative overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black"
       >
         <video
           ref={videoRef}
@@ -203,7 +203,7 @@ export function VideoTaggedMedia({
 
         {tracks.length > 0 && !isFullscreen ? (
           <span
-            className="pointer-events-none absolute bottom-2 right-2 z-10 inline-flex h-5 items-center gap-1 rounded-full bg-black/70 px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white backdrop-blur-sm"
+            className="pointer-events-none absolute bottom-2 right-2 z-10 inline-flex h-5 items-center gap-1 rounded-full bg-black/70 px-2 font-mono text-xs uppercase tracking-[0.14em] text-white backdrop-blur-sm"
             aria-hidden="true"
           >
             <Info size={10} />
@@ -217,7 +217,7 @@ export function VideoTaggedMedia({
         <button
           type="button"
           onClick={handleShowTags}
-          className="mt-2 inline-flex items-center gap-1 rounded-[6px] border border-[color:var(--rule)] px-2 py-1 text-[11px] uppercase tracking-[0.08em] text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] md:hidden"
+          className="mt-2 inline-flex items-center gap-1 rounded-lg border border-[color:var(--rule)] px-2 py-1 text-xs uppercase tracking-[0.08em] text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] md:hidden"
         >
           <TagIcon size={10} />
           {revealed ? "Tags showing…" : "Show tags"}
@@ -225,25 +225,25 @@ export function VideoTaggedMedia({
       ) : null}
 
       {caption ? (
-        <figcaption className="mt-2 text-center text-[12px] italic text-[color:var(--ink-dim)]">
+        <figcaption className="mt-2 text-center text-xs italic text-[color:var(--ink-dim)]">
           {caption}
         </figcaption>
       ) : null}
 
       {/* Reduced-motion fallback: list of "{Person} appears at 0:12 - 0:24". */}
       {reducedMotion && tracks.length > 0 ? (
-        <details className="mt-3 rounded-[6px] border border-[color:var(--rule)] bg-[color:var(--surface)] p-3">
-          <summary className="cursor-pointer text-[12px] text-[color:var(--ink-dim)]">
+        <details className="mt-3 rounded-lg border border-[color:var(--rule)] bg-[color:var(--surface)] p-3">
+          <summary className="cursor-pointer text-xs text-[color:var(--ink-dim)]">
             Tags by timestamp ({totalAppearances})
           </summary>
-          <ul className="mt-2 space-y-1 text-[12px]">
+          <ul className="mt-2 space-y-1 text-xs">
             {tracks.flatMap((t) =>
               t.segments.map((s) => (
                 <li key={s.id} className="flex items-center justify-between gap-2">
                   <span className="text-[color:var(--ink)]">
                     {t.person?.name ?? "Unidentified"}
                   </span>
-                  <span className="font-mono text-[10px] text-[color:var(--ink-faint)]">
+                  <span className="font-mono text-xs text-[color:var(--ink-faint)]">
                     {fmtTime(s.tStart)} → {fmtTime(s.tEnd)}
                   </span>
                 </li>
@@ -301,12 +301,12 @@ function FaceBox({
         <Popover.Content
           side="bottom"
           sideOffset={4}
-          className="z-50 w-[260px] rounded-[8px] border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-3 text-[13px] shadow-2xl outline-none"
+          className="z-50 w-[260px] rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-3 text-sm shadow-2xl outline-none"
         >
           {box.track.person ? (
             <PersonCard person={box.track.person} accent={accent} />
           ) : (
-            <p className="text-[12px] text-[color:var(--ink-faint)]">Unidentified face.</p>
+            <p className="text-xs text-[color:var(--ink-faint)]">Unidentified face.</p>
           )}
           <Popover.Arrow className="fill-[color:var(--bg-elev)]" />
         </Popover.Content>
@@ -318,7 +318,7 @@ function FaceBox({
 function PersonCard({ person, accent }: { person: ResolvedPerson; accent: string }) {
   const Wrapper = ({ children }: { children: React.ReactNode }) =>
     person.kind === "member" ? (
-      <Link href={person.href as `/m/${string}`} className="block hover:opacity-90">
+      <Link href={person.href.replace(/^\/m\//, "/about/") as never} className="block hover:opacity-90">
         {children}
       </Link>
     ) : person.kind === "external" && person.socials[0] ? (
@@ -344,7 +344,7 @@ function PersonCard({ person, accent }: { person: ResolvedPerson; accent: string
             // eslint-disable-next-line @next/next/no-img-element
             <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
           ) : (
-            <span className="flex h-full w-full items-center justify-center font-mono text-[10px] uppercase tracking-[0.14em] text-[color:var(--ink-faint)]">
+            <span className="flex h-full w-full items-center justify-center font-mono text-xs uppercase tracking-[0.14em] text-[color:var(--ink-faint)]">
               {person.name.slice(0, 2)}
             </span>
           )}
@@ -352,12 +352,12 @@ function PersonCard({ person, accent }: { person: ResolvedPerson; accent: string
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <span className="font-semibold text-[color:var(--ink)]">{person.name}</span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[color:var(--ink-faint)]">
+            <span className="font-mono text-xs uppercase tracking-[0.16em] text-[color:var(--ink-faint)]">
               {person.kind}
             </span>
           </div>
           {person.socials[0] ? (
-            <p className="mt-0.5 truncate text-[12px] text-[color:var(--ink-dim)]">
+            <p className="mt-0.5 truncate text-xs text-[color:var(--ink-dim)]">
               {person.socials[0].platform} {person.socials[0].handle ?? ""}
             </p>
           ) : null}
@@ -441,7 +441,7 @@ function fmtTime(ms: number): string {
 function accentFor(person: ResolvedPerson | null): string {
   if (!person) return "var(--ink-dim)";
   if (person.kind === "member") {
-    const slug = person.href.replace(/^\/m\//, "");
+    const slug = person.href.replace(/^\/(?:m|about)\//, "");
     const m = MEMBERS_BY_SLUG[slug];
     if (m) return m.accent;
   }

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft as ArrowLeftIcon } from "@untitledui/icons";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { fetchUsersByLogin } from "@/lib/twitch";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
+import { Button } from "@/components/base/buttons/button";
 import { MonitorClient } from "./MonitorClient";
 
 // Live stats are pulled directly from the Twitch Player JS API on the
@@ -60,13 +60,9 @@ export default async function MonitorPage({ params }: Params) {
       <section className="border-b border-[color:var(--rule)] bg-[color:var(--bg)]">
         <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-8">
           <div className="flex items-center gap-3">
-            <Link
-              href="/chat"
-              className="inline-flex items-center gap-1.5 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
-            >
-              <ArrowLeft size={12} />
+            <Button href="/chat" size="sm" color="secondary" iconLeading={<ArrowLeftIcon data-icon />}>
               Chat
-            </Link>
+            </Button>
             <span
               className="relative h-9 w-9 overflow-hidden rounded-full ring-2 ring-inset"
               style={{ ["--tw-ring-color" as string]: `${member.accent}88` }}
@@ -74,11 +70,11 @@ export default async function MonitorPage({ params }: Params) {
               <Image src={avatar} alt="" fill sizes="36px" className="object-cover" />
             </span>
             <div className="leading-tight">
-              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-quaternary">
                 Live monitor
               </p>
               <p
-                className="text-[16px] font-bold tracking-tight text-[color:var(--ink)]"
+                className="text-lg font-semibold tracking-tight text-primary"
                 style={{ textShadow: `0 0 14px ${member.accent}66, 0 0 3px rgba(255,255,255,0.4)` }}
               >
                 {member.stageName}
@@ -89,7 +85,7 @@ export default async function MonitorPage({ params }: Params) {
             href={`https://twitch.tv/${member.twitchLogin}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)] hover:text-[#9146FF]"
+            className="text-sm font-medium text-tertiary hover:text-[#9146FF]"
           >
             twitch.tv/{member.twitchLogin} ↗
           </a>

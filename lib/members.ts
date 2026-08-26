@@ -34,6 +34,8 @@ export type PoBox = {
   region: string;
   postalCode: string;
   country: string;
+  /** ISO date of the most recent owner/admin address confirmation. */
+  verifiedAt?: string;
 };
 
 type WebExtras = {
@@ -47,10 +49,10 @@ type WebExtras = {
   index: string;
   /** Primary YouTube channel ID (UCxxxx) — used by lib/social-feed for RSS. */
   youtubeChannelId?: string;
-  /** Optional public PO box — drives the fan-mail postcard on /m/[slug]. */
+  /** Optional public PO box — drives the fan-mail postcard on /about/[slug]. */
   poBox?: PoBox;
 
-  // Extended optional fields — surfaced on /m/[slug] when present and
+  // Extended optional fields — surfaced on /about/[slug] when present and
   // editable from /admin/people. Phase 4: persisted in
   // editable_member_overrides.
   alias?: string;
@@ -68,7 +70,7 @@ type WebExtras = {
   /** Public business / management contact email. */
   managementEmail?: string;
   /** Manual follower / subscriber counts for platforms without a free
-   *  public stats API. Rendered as the metric on /m/[slug] socials.
+   *  public stats API. Rendered as the metric on /about/[slug] socials.
    *  YouTube subs come from the YouTube API and don't need this; Twitch
    *  comes from Helix. Use this for tiktok / instagram / x / snapchat. */
   manualCounts?: Partial<Record<"tiktok" | "instagram" | "x" | "snapchat", number>>;
@@ -130,7 +132,7 @@ const EXTRAS: Record<string, WebExtras> = {
       postalCode: "91610",
       country: "USA",
     },
-    bio: "Built one of the original FaZe channels—the ultimate OG, the Unc. Some might say he’s old, some might say he’s chopped, but one thing’s undeniable: he knows how to entertain the flock. A leading voice at Core, driving the shift and making this transition happen.",
+    bio: "The ultimate OG — the Unc. Some might say he’s old, some might say he’s chopped, but one thing’s undeniable: he knows how to entertain the flock. A leading voice at CORE who keeps the whole house moving.",
     managementEmail: "ahdaptingbusiness@gmail.com",
     manualCounts: { ...TODO_COUNTS },
   },
@@ -184,12 +186,22 @@ const EXTRAS: Record<string, WebExtras> = {
 
 export type Member = SharedMember & WebExtras;
 
+function activeSocials(member: SharedMember): SharedMember["socials"] {
+  // @LacyIRLs is a retired/dead channel URL. Keep it out of every web
+  // surface (catalog ingestion, member pages, link menus, and search) rather
+  // than leaving a broken source that can be mistaken for an active account.
+  return member.socials.filter((social) => !(
+    social.platform === "youtube" &&
+    /(?:^@?lacyirls$|youtube\.com\/@lacyirls)/i.test(`${social.handle ?? ""} ${social.url ?? ""}`)
+  ));
+}
+
 export const MEMBERS: readonly Member[] = DISPLAY_ORDER.map((slug) => {
   const base = SHARED_MEMBERS.find((m) => m.slug === slug);
   if (!base) throw new Error(`@coreboys/shared MEMBERS missing slug "${slug}"`);
   const extras = EXTRAS[slug];
   if (!extras) throw new Error(`No web extras configured for "${slug}"`);
-  return { ...base, ...extras } satisfies Member;
+  return { ...base, socials: activeSocials(base), ...extras } satisfies Member;
 });
 
 export const MEMBERS_BY_SLUG: Readonly<Record<string, Member>> = Object.freeze(

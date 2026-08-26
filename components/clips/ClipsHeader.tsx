@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
 import { ClipSubmitForm } from "@/components/clips/ClipSubmitForm";
+import { PageHeader } from "@/components/ui/PageHeader";
 import type { MemberLite } from "@/components/clips/ClipsPageClient";
 
 export function ClipsHeader({
@@ -15,40 +15,25 @@ export function ClipsHeader({
   const [open, setOpen] = useState(false);
 
   return (
-    <section className="relative overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(60% 50% at 25% 30%, rgba(239,68,68,0.10), transparent 60%), radial-gradient(45% 40% at 80% 100%, rgba(99,102,241,0.08), transparent 70%)",
-        }}
-      />
-      <div className="relative mx-auto max-w-[1440px] px-6 py-16 md:px-8 md:py-20">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow">Library · Clips</p>
-            <h1 className="mt-2 text-display text-[clamp(40px,6vw,72px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-              Viral clips. <span className="gradient-text">Across every platform.</span>
-            </h1>
-            <p className="mt-4 text-[12px] text-[color:var(--ink-faint)]">
-              {total} clip{total === 1 ? "" : "s"} in the library
-            </p>
-          </div>
+    <>
+      <PageHeader
+        eyebrow="Cuts"
+        title="Cuts."
+        supporting="Recaps and moments from across the house."
+        meta={`${total} ${total === 1 ? "cut" : "cuts"}`}
+        actions={
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="btn btn-primary btn-pulse-glow"
+            className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink)] underline-offset-4 hover:underline"
           >
-            <Plus size={14} /> Found a clip?
+            Submit a cut
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      {open ? (
-        <ClipSubmitModal members={members} onClose={() => setOpen(false)} />
-      ) : null}
-    </section>
+      {open ? <ClipSubmitModal members={members} onClose={() => setOpen(false)} /> : null}
+    </>
   );
 }
 
@@ -72,11 +57,11 @@ function ClipSubmitModal({
       role="dialog"
       aria-modal="true"
       aria-label="Submit a clip"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-[680px] overflow-hidden rounded-2xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)]"
+        className="relative w-full max-w-[680px] overflow-hidden border border-[color:var(--rule)] bg-[color:var(--bg)]"
         onClick={(e) => e.stopPropagation()}
       >
         <ClipSubmitForm members={members} onClose={onClose} />

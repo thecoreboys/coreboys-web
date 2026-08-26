@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown } from "@untitledui/icons";
 import { ease, durations } from "@/lib/motion";
 import { Display, Eyebrow } from "@/components/typography";
 import { HeroLiveOverlay } from "@/components/live/HeroLiveOverlay";
@@ -138,12 +138,12 @@ export function HeroCore() {
         <Eyebrow>House · undisclosed</Eyebrow>
         <button
           onClick={() => smoothScrollTo("manifesto")}
-          className="group inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.18em] text-[color:var(--ink)] transition-colors hover:text-[color:var(--core)]"
+          className="group inline-flex min-h-11 items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink)] transition-colors hover:text-[color:var(--core)]"
           data-cursor="hover"
         >
           <span className="block h-px w-12 bg-current transition-[width] duration-300 [transition-timing-function:var(--ease-out)] group-hover:w-20" />
           Begin
-          <ArrowDown size={12} />
+          <ArrowDown className="size-3" />
         </button>
       </div>
     </section>

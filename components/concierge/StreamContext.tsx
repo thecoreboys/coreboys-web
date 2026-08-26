@@ -36,7 +36,7 @@ export function StreamContext({ login }: { login: string }) {
       {data.source === "ai" ? (
         <span
           aria-label="AI summary"
-          className="mt-0.5 inline-flex h-4 items-center gap-1 rounded-full border border-[color:var(--core)]/40 bg-[color:var(--core)]/10 px-1.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--core)]"
+          className="mt-0.5 inline-flex h-4 items-center gap-1 rounded-full border border-[color:var(--core)]/40 bg-[color:var(--core)]/10 px-1.5 text-xs uppercase tracking-[0.18em] text-[color:var(--core)]"
         >
           <Sparkles size={9} />
           AI

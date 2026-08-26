@@ -43,7 +43,7 @@ export function TopChrome() {
             anyLive ? "bg-[color:var(--live)] live-pulse" : "bg-[color:var(--ink-faint)]",
           )}
         />
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
+        <span className="font-mono text-xs uppercase tracking-[0.18em]">
           {anyLive ? `${liveCount} live now` : "Quiet"}
         </span>
       </a>

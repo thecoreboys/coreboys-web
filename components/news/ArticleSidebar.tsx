@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { SearchLg } from "@untitledui/icons";
+import { Input } from "@/components/base/input/input";
 
 export type Heading = { id: string; text: string; level: 2 | 3 };
 
@@ -54,21 +55,17 @@ export function ArticleSidebar({ headings }: { headings: Heading[] }) {
 
   return (
     <aside className="sticky top-24 flex max-h-[calc(100vh-7rem)] flex-col gap-3 overflow-hidden">
-      <div className="relative">
-        <Search
-          size={13}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-faint)]"
-        />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find in article…"
-          className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] py-2 pl-9 pr-3 text-[12px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
-        />
-      </div>
+      <Input
+        size="sm"
+        type="text"
+        aria-label="Find in article"
+        icon={SearchLg}
+        value={query}
+        onChange={setQuery}
+        placeholder="Find in article…"
+      />
       <div className="overflow-y-auto pr-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
           On this page
         </p>
         <ol className="mt-3 flex flex-col gap-1">
@@ -77,7 +74,7 @@ export function ArticleSidebar({ headings }: { headings: Heading[] }) {
               <button
                 type="button"
                 onClick={() => onJump(h.id)}
-                className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-[12px] transition-colors cursor-pointer ${
+                className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors cursor-pointer ${
                   active === h.id
                     ? "bg-[color:var(--bg-elev)] text-[color:var(--core)]"
                     : "text-[color:var(--ink-dim)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]"
@@ -91,7 +88,7 @@ export function ArticleSidebar({ headings }: { headings: Heading[] }) {
             </li>
           ))}
           {filtered.length === 0 ? (
-            <li className="px-2 py-1.5 text-[11px] text-[color:var(--ink-faint)]">
+            <li className="px-2 py-1.5 text-xs text-[color:var(--ink-faint)]">
               No headings match
             </li>
           ) : null}

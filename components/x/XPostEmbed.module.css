@@ -1,0 +1,218 @@
+.shell {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--ink) 13%, transparent);
+  border-radius: 1rem;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--core) 5%, var(--bg)) 0%, color-mix(in srgb, var(--ink) 3%, var(--bg)) 72%);
+  box-shadow: 0 0.55rem 1.5rem rgba(0, 0, 0, 0.08);
+}
+
+.shell::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 1rem;
+  width: 2.8rem;
+  height: 2px;
+  border-radius: 0 0 999px 999px;
+  background: var(--core);
+  content: "";
+  pointer-events: none;
+}
+
+.featured {
+  border-color: color-mix(in srgb, var(--core) 44%, var(--ink) 12%);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--core) 11%, transparent);
+}
+
+.featuredLabel {
+  position: absolute;
+  z-index: 2;
+  top: -0.62rem;
+  left: 1rem;
+  border: 1px solid color-mix(in srgb, var(--core) 48%, transparent);
+  border-radius: 999px;
+  background: var(--bg-elev, var(--bg));
+  color: var(--ink);
+  padding: 0.3rem 0.62rem;
+  font-size: 0.61rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.newBadge {
+  position:absolute;
+  z-index:3;
+  top:.72rem;
+  right:.78rem;
+  border:1px solid color-mix(in srgb,var(--core) 58%,#fff 24%);
+  border-radius:999px;
+  background:var(--core);
+  color:#fff;
+  padding:.23rem .43rem;
+  font-size:.54rem;
+  font-weight:820;
+  letter-spacing:.09em;
+  line-height:1;
+  text-transform:uppercase;
+}
+
+.embedMount {
+  width: 100%;
+  min-height: 0;
+  padding-inline: 0.55rem;
+}
+
+.embedMount > div,
+.embedMount iframe {
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: auto !important;
+}
+
+.fallback {
+  display: grid;
+  min-height: 15rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  gap: 0.8rem 1rem;
+  padding: 1.15rem;
+  background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--ink) 7%, transparent), transparent 52%);
+}
+
+.xMark {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  place-items: center;
+  border-radius: 0.85rem;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 1.3rem;
+  font-weight: 760;
+}
+
+.fallback strong { color: var(--ink); font-size: 0.86rem; }
+.fallback p { margin-top: 0.24rem; color: var(--ink-dim); font-size: 0.73rem; line-height: 1.45; }
+.fallback .privacyCopy { grid-column: 2; margin: -0.15rem 0 0; font-size: 0.6rem; }
+.fallback > button,
+.fallback > a,
+.stepUp {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  border: 1px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+  padding: 0.58rem 0.75rem;
+  font-size: 0.67rem;
+  font-weight: 700;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.fallback > button { grid-column: 2; cursor: pointer; }
+.fallback > button.alwaysButton { background: transparent; color: var(--ink-dim); }
+.fallback > a { grid-column: 2; }
+.fallback svg { width: 0.8rem; height: 0.8rem; }
+.fallback > button:hover,
+.fallback > a:hover,
+.stepUp:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--ink) 42%, transparent); }
+
+.spinner { width: 1.5rem; height: 1.5rem; color: var(--ink-dim); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.footer {
+  position: relative;
+  display: flex;
+  min-height: 2.65rem;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  padding: 0.48rem 0.72rem;
+  color: var(--ink-dim);
+  font-size: 0.61rem;
+  font-weight: 650;
+}
+
+.permalink { margin-left: auto; color: var(--ink); padding: 0.38rem 0.48rem; }
+
+.actions { position: relative; margin-left: 0.15rem; }
+.actionsToggle {
+  cursor: pointer;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--ink);
+  padding: 0.42rem 0.58rem;
+  font: inherit;
+}
+.actionsToggle:hover,
+.actionsToggle:focus-visible { background: color-mix(in srgb, var(--ink) 8%, transparent); outline: none; }
+
+.actionPopover {
+  position: absolute;
+  z-index: 12;
+  right: 0;
+  bottom: calc(100% + 0.52rem);
+  width: min(20rem, 82vw);
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--bg-elev, var(--bg)) 96%, transparent);
+  box-shadow: 0 22px 62px rgba(0,0,0,.34);
+  padding: 0.7rem;
+  backdrop-filter: blur(18px);
+}
+.intentRow { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.4rem; }
+.intentRow a,
+.nativeRow button,
+.confirmButton {
+  display: inline-flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--ink) 13%, transparent);
+  border-radius: 0.62rem;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink);
+  padding: 0.52rem;
+  font-size: 0.64rem;
+  font-weight: 680;
+}
+.intentRow a:hover,
+.nativeRow button:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.intentRow svg { width: 0.76rem; height: 0.76rem; }
+.intentHint { display: block; margin-top: 0.45rem; color: var(--ink-dim); font-size: 0.57rem; text-align: center; }
+.nativeRow { margin-top: 0.68rem; border-top: 1px solid color-mix(in srgb,var(--ink) 10%,transparent); padding-top: 0.62rem; }
+.nativeRow > span { display: block; margin-bottom: 0.38rem; color: var(--ink-dim); }
+.nativeRow > div { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.36rem; }
+.stepUp { margin-top: 0.65rem; }
+
+.confirmation { position: relative; margin-top: 0.65rem; border-radius: 0.72rem; background: color-mix(in srgb,var(--ink) 5%,transparent); padding: 0.72rem; }
+.confirmation strong { color: var(--ink); font-size: 0.72rem; }
+.confirmation p { margin-top: 0.3rem; padding-right: 1.2rem; color: var(--ink-dim); font-size: 0.61rem; line-height: 1.45; }
+.confirmation p a { color: var(--ink); text-decoration: underline; }
+.confirmation textarea { width: 100%; min-height: 5rem; margin-top: 0.6rem; resize: vertical; border: 1px solid color-mix(in srgb,var(--ink) 15%,transparent); border-radius: 0.58rem; background: var(--bg); color: var(--ink); padding: 0.58rem; font-size: 0.68rem; }
+.confirmClose { position: absolute; top: 0.5rem; right: 0.5rem; cursor: pointer; border: 0; background: transparent; color: var(--ink-dim); }
+.confirmClose svg { width: 0.8rem; height: 0.8rem; }
+.confirmButton { width: 100%; margin-top: 0.55rem; border-color: transparent; background: white; color: black; }
+.confirmButton:disabled { cursor: not-allowed; opacity: 0.48; }
+.actionMessage { margin-top: 0.55rem; color: var(--ink-dim); font-size: 0.61rem; line-height: 1.4; }
+
+@media (max-width: 520px) {
+  .fallback { min-height: 12rem; }
+  .actionPopover { position: fixed; right: 1rem; bottom: 1rem; left: 1rem; width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+  .fallback > button,
+  .fallback > a,
+  .stepUp { transition: none; }
+}

@@ -49,16 +49,78 @@ export type HeatmapYearProps = {
 
 const SQUARE = 12;
 const GAP = 2;
+const DAY_MS = 86_400_000;
+
+type PlainDate = {
+  year: number;
+  month: number;
+  day: number;
+};
+
+function plainDateKey(date: PlainDate): string {
+  return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+}
+
+function parsePlainDate(value: string): PlainDate | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() + 1 !== month ||
+    probe.getUTCDate() !== day
+  ) return null;
+  return { year, month, day };
+}
+
+function epochDay(date: PlainDate): number {
+  return Math.floor(Date.UTC(date.year, date.month - 1, date.day) / DAY_MS);
+}
+
+function plainDateFromEpochDay(value: number): PlainDate {
+  const date = new Date(value * DAY_MS);
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+}
+
+function plainDayOfWeek(date: PlainDate): number {
+  return new Date(Date.UTC(date.year, date.month - 1, date.day)).getUTCDay();
+}
+
+function browserDateKey(date: Date): string {
+  return plainDateKey({
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+  });
+}
+
+function formatPlainDate(value: string, options: Intl.DateTimeFormatOptions): string {
+  const date = parsePlainDate(value);
+  if (!date) return value;
+  // Noon UTC plus an explicit UTC formatter preserves the plain calendar date
+  // in every browser timezone. This is presentation only, not an instant.
+  return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(
+    new Date(Date.UTC(date.year, date.month - 1, date.day, 12)),
+  );
+}
 
 export function HeatmapYear({
   byDate,
   year,
   colorBy = "delta",
-  accent = "#ef4444",
+  accent = "#db0368",
   deltaThresholds,
 }: HeatmapYearProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const todayKey = mounted ? browserDateKey(new Date()) : null;
   const [hover, setHover] = useState<{
     date: string;
     /** viewport coords (px) — paired with `position: fixed` */
@@ -84,18 +146,14 @@ export function HeatmapYear({
       data: HeatmapDay | undefined;
     }> = [];
 
-    const yr = year ?? new Date().getFullYear();
+    const yr = year ?? (todayKey ? Number(todayKey.slice(0, 4)) : new Date().getUTCFullYear());
     // Anchor to Jan 1 of the calendar year, snap back to previous Sunday
     // so all 7 rows are filled. End at Dec 31 (or today, if `yr` is the
     // current year and we want the future days dimmed).
-    const yearStart = new Date(yr, 0, 1);
-    const yearEnd = new Date(yr, 11, 31);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const start = new Date(yearStart);
-    start.setDate(start.getDate() - start.getDay());
-    const totalCells =
-      Math.ceil(((yearEnd.getTime() - start.getTime()) / 86_400_000) + 1);
+    const yearStart: PlainDate = { year: yr, month: 1, day: 1 };
+    const yearEnd: PlainDate = { year: yr, month: 12, day: 31 };
+    const startEpochDay = epochDay(yearStart) - plainDayOfWeek(yearStart);
+    const totalCells = epochDay(yearEnd) - startEpochDay + 1;
 
     // Bucketize coloring against the visible window only.
     const values: number[] = [];
@@ -110,10 +168,9 @@ export function HeatmapYear({
       deltaThresholds ?? [q(0.25), q(0.5), q(0.75), q(0.9)];
 
     for (let i = 0; i < totalCells; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const iso = d.toISOString().slice(0, 10);
-      const inYear = d.getFullYear() === yr;
+      const date = plainDateFromEpochDay(startEpochDay + i);
+      const iso = plainDateKey(date);
+      const inYear = date.year === yr;
       const data = byDate.get(iso);
       const sample = colorBy === "delta" ? data?.delta ?? 0 : data?.value ?? 0;
       // Anything strictly > 0 must show some color so a "lightest stream
@@ -126,15 +183,15 @@ export function HeatmapYear({
       if (sample > thresholds[2]) bucket = 4;
       out.push({
         date: iso,
-        day: d.getDay(),
+        day: plainDayOfWeek(date),
         week: Math.floor(i / 7),
         bucket: inYear ? bucket : -1, // -1 → render as out-of-year placeholder
-        isPast: d <= today,
+        isPast: todayKey === null || iso <= todayKey,
         data,
       });
     }
     return out;
-  }, [byDate, year, colorBy, deltaThresholds]);
+  }, [byDate, year, colorBy, deltaThresholds, todayKey]);
 
   const weeksWide = (cells[cells.length - 1]?.week ?? 0) + 1;
   // Reserve 24px on the left for the Sun..Sat row labels. Month labels
@@ -151,11 +208,11 @@ export function HeatmapYear({
   for (const c of cells) {
     if (c.day !== 0) continue; // only check first row per column
     if (c.bucket === -1) continue; // skip pre-Jan padding
-    const month = new Date(c.date).getMonth();
+    const month = parsePlainDate(c.date)?.month ?? -1;
     if (month !== lastMonth) {
       monthLabels.push({
         x: LABEL_W + c.week * (SQUARE + GAP),
-        label: new Date(c.date).toLocaleString("en-US", { month: "short" }),
+        label: formatPlainDate(c.date, { month: "short" }),
       });
       lastMonth = month;
     }
@@ -214,13 +271,13 @@ export function HeatmapYear({
             const x = c.week * (SQUARE + GAP);
             const y = c.day * (SQUARE + GAP);
             const fill = bucketColor(c.bucket, accent, !c.isPast);
-            const dayLabel = new Date(c.date).toLocaleDateString("en-US", {
+            const dayLabel = formatPlainDate(c.date, {
               weekday: "short",
               month: "short",
               day: "numeric",
               year: "numeric",
             });
-            const isToday = c.date === todayIso();
+            const isToday = c.date === todayKey;
             const isHovered = hover?.date === c.date;
             return (
               <g key={c.date} className="heatmap-cell">
@@ -264,26 +321,26 @@ export function HeatmapYear({
         ? createPortal(
             <div
               role="tooltip"
-              className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/95 px-3 py-2 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md"
+              className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-lg bg-secondary px-3 py-2 ring-1 ring-inset ring-secondary shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md"
               style={{ left: hover.cx, top: hover.top - 8, minWidth: 180 }}
             >
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
                 {hover.label}
                 {hover.isToday ? " · today" : ""}
                 {hover.isFuture ? " · upcoming" : ""}
               </p>
               {hover.body ? (
-                <p className="mt-1 whitespace-pre-line text-[12px] leading-snug text-[color:var(--ink)]">
+                <p className="mt-1 whitespace-pre-line text-sm leading-snug text-primary">
                   {hover.body}
                 </p>
               ) : (
-                <p className="mt-1 text-[12px] leading-snug text-[color:var(--ink)]">
-                  <span className="font-bold tabular-nums">
+                <p className="mt-1 text-sm leading-snug text-primary">
+                  <span className="font-semibold tabular-nums">
                     {hover.value.toLocaleString("en-US")}
                   </span>
                   {hover.delta != null ? (
                     <span
-                      className="ml-2 font-mono text-[11px] tabular-nums"
+                      className="ml-2 text-xs tabular-nums"
                       style={{ color: hover.delta >= 0 ? "var(--core)" : "var(--ink-dim)" }}
                     >
                       {hover.delta > 0 ? "+" : ""}
@@ -293,11 +350,11 @@ export function HeatmapYear({
                 </p>
               )}
               {hover.stats && hover.stats.length > 0 ? (
-                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[10px]">
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
                   {hover.stats.map((s) => (
                     <div key={s.label} className="contents">
-                      <dt className="text-[color:var(--ink-faint)]">{s.label}</dt>
-                      <dd className="text-right tabular-nums text-[color:var(--ink)]">
+                      <dt className="text-quaternary">{s.label}</dt>
+                      <dd className="text-right tabular-nums text-primary">
                         {s.value}
                       </dd>
                     </div>
@@ -309,7 +366,7 @@ export function HeatmapYear({
           )
         : null}
       {/* Color-scale legend — five buckets matching bucketColor(). */}
-      <div className="flex items-center gap-1.5 self-end font-mono text-[9px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+      <div className="flex items-center gap-1.5 self-end text-xs uppercase tracking-[0.14em] text-quaternary">
         <span>Less</span>
         {[0, 1, 2, 3, 4].map((b) => (
           <span
@@ -323,10 +380,6 @@ export function HeatmapYear({
       </div>
     </div>
   );
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function bucketColor(bucket: number, accent: string, isFuture: boolean): string {

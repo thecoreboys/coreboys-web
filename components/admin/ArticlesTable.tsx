@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowUpRight, Calendar, Trash2 } from "lucide-react";
+import { ArrowUpRight, Calendar, Trash01, Edit05, SearchLg, AlertCircle, File02 } from "@untitledui/icons";
+import { Input } from "@/components/base/input/input";
+import { Button } from "@/components/base/buttons/button";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
+import { Badge } from "@/components/base/badges/badges";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 
 type ArticleRow = {
   id: string;
@@ -67,36 +71,44 @@ export function ArticlesTable() {
   });
 
   return (
-    <div className="flex flex-col gap-4">
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by title, dek, or category…"
-        className="w-full max-w-[420px] rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-[13px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
-      />
+    <div className="flex flex-col gap-5">
+      <div className="max-w-[420px]">
+        <Input
+          icon={SearchLg}
+          size="md"
+          value={query}
+          onChange={(v) => setQuery(v)}
+          placeholder="Search by title, dek, or category…"
+          aria-label="Search articles"
+        />
+      </div>
 
       {error ? (
-        <div className="rounded-md border border-[color:var(--core)]/40 bg-[color:var(--core)]/10 p-3 text-[12px] text-[color:var(--core)]">
-          Load failed: {error}
+        <div className="flex items-center gap-3 rounded-xl border border-error_subtle bg-error-primary p-4 shadow-xs-skeuomorphic">
+          <FeaturedIcon icon={AlertCircle} size="md" color="error" theme="light" />
+          <p className="text-sm font-medium text-primary">Load failed: {error}</p>
         </div>
       ) : null}
 
       {loading ? (
-        <p className="text-[12px] text-[color:var(--ink-faint)]">Loading…</p>
+        <p className="text-sm text-tertiary">Loading…</p>
       ) : visible.length === 0 ? (
-        <div className="flex min-h-[180px] items-center justify-center rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center">
-          <p className="text-[12px] text-[color:var(--ink-faint)]">
+        <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-secondary bg-secondary p-10 text-center shadow-xs-skeuomorphic">
+          <FeaturedIcon icon={File02} size="xl" color="gray" theme="modern" />
+          <p className="mt-4 text-lg font-semibold text-primary">
+            {articles.length === 0 ? "No articles yet" : "No articles match"}
+          </p>
+          <p className="mt-1 text-sm text-tertiary">
             {articles.length === 0
-              ? "No articles yet — click + New article above."
-              : "No articles match your search."}
+              ? "Click + New article above to write your first one."
+              : "Try a different search term."}
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-[color:var(--rule)]">
-          <table className="w-full text-[13px]">
+        <div className="overflow-x-auto rounded-2xl border border-secondary bg-primary shadow-lg">
+          <table className="w-full">
             <thead>
-              <tr className="border-b border-[color:var(--rule)] bg-[color:var(--surface)] text-left">
+              <tr className="border-b border-secondary bg-secondary text-left">
                 <Th>Title</Th>
                 <Th>Category</Th>
                 <Th>Status</Th>
@@ -108,66 +120,72 @@ export function ArticlesTable() {
               {visible.map((a, i) => (
                 <tr
                   key={a.id}
-                  className={`transition-colors hover:bg-[color:var(--bg-elev)] ${
-                    i === 0 ? "" : "border-t border-[color:var(--rule)]"
+                  className={`transition-colors hover:bg-secondary ${
+                    i === 0 ? "" : "border-t border-secondary"
                   }`}
                 >
-                  <td className="px-3 py-3">
-                    <p className="text-[13px] font-semibold text-[color:var(--ink)]">
+                  <td className="px-5 py-4">
+                    <p className="text-sm font-semibold text-primary">
                       {a.title || "Untitled"}
                     </p>
                     {a.dek ? (
-                      <p className="mt-0.5 line-clamp-1 text-[11px] text-[color:var(--ink-dim)]">
+                      <p className="mt-0.5 line-clamp-1 text-sm text-tertiary">
                         {a.dek}
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-3 py-3">
-                    <span className="rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight text-[color:var(--ink-dim)]">
+                  <td className="px-5 py-4">
+                    <Badge type="pill-color" color="gray" size="sm">
                       {a.category ?? "—"}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight ${
+                  <td className="px-5 py-4">
+                    <Badge
+                      type="pill-color"
+                      size="sm"
+                      color={
                         a.status === "published"
-                          ? "bg-[color:var(--success)]/12 text-[color:var(--success)]"
+                          ? "success"
                           : a.status === "archived"
-                            ? "bg-[color:var(--ink-faint)]/15 text-[color:var(--ink-faint)]"
-                            : "bg-[color:var(--warning)]/12 text-[color:var(--warning)]"
-                      }`}
+                            ? "gray"
+                            : "warning"
+                      }
                     >
                       {a.status}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-3 py-3 text-[12px] text-[color:var(--ink-dim)]">
+                  <td className="px-5 py-4 text-sm text-tertiary">
                     <span className="inline-flex items-center gap-1.5">
-                      <Calendar size={11} />
+                      <Calendar className="size-3.5" />
                       {formatDate(a.published_at ?? a.updated_at)}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-right">
-                    <div className="inline-flex items-center gap-1.5">
-                      <Link
+                  <td className="px-5 py-4 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <Button
                         href={`/news/${a.slug}` as `/news/${string}`}
                         target="_blank"
-                        className="inline-flex h-8 items-center gap-1 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-2.5 text-[11px] font-medium text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
+                        size="sm"
+                        color="secondary"
+                        iconTrailing={<ArrowUpRight className="size-5" />}
                       >
-                        Preview <ArrowUpRight size={11} />
-                      </Link>
-                      <Link
+                        Preview
+                      </Button>
+                      <Button
                         href={`/admin/articles/${a.id}` as never}
-                        className="inline-flex h-8 items-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-2.5 text-[11px] font-medium text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
+                        size="sm"
+                        color="secondary"
+                        iconLeading={<Edit05 className="size-5" />}
                       >
                         Edit
-                      </Link>
-                      <button
-                        type="button"
+                      </Button>
+                      <ButtonUtility
+                        size="sm"
+                        color="tertiary"
+                        tooltip="Delete"
+                        icon={Trash01}
                         onClick={() => remove(a.id)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--core)]"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                      />
                     </div>
                   </td>
                 </tr>
@@ -183,7 +201,7 @@ export function ArticlesTable() {
 function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
   return (
     <th
-      className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)] ${align === "right" ? "text-right" : ""}`}
+      className={`px-5 py-3 text-xs font-semibold text-quaternary ${align === "right" ? "text-right" : ""}`}
     >
       {children}
     </th>

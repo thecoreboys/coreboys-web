@@ -6,12 +6,14 @@ import {
   Eye,
   EyeOff,
   Play,
-  Search,
   TrendingUp,
   X,
 } from "lucide-react";
+import { PlayCircle, Eye as EyeIcon, TrendUp01, SearchLg } from "@untitledui/icons";
 import { ClipEmbed, ClipPlatformBadge, ExternalClipLink } from "@/components/clips/ClipEmbed";
 import { PlatformLogo } from "@/components/clips/PlatformLogo";
+import { MetricCard } from "@/components/metrics/MetricCard";
+import { Input } from "@/components/base/input/input";
 import type { Clip } from "@/lib/clips";
 
 const TIMELINE_KEY = "coreboys-virality-curated:v1";
@@ -99,7 +101,7 @@ export function ViralityTimeline({
   };
 
   // Filter pipeline — admin sees everything (with hidden flag visible),
-  // public sees curated only. AI-style query filter on title + description.
+  // Public view shows approved entries only. Search checks the title and description.
   const all = useMemo(() => {
     const base = authed ? clips : clips.filter((c) => !hidden.has(c.id));
     const q = query.trim().toLowerCase();
@@ -148,18 +150,18 @@ export function ViralityTimeline({
 
   return (
     <section className="border-t border-[color:var(--rule)] bg-[color:var(--bg)]">
-      <div className="mx-auto max-w-[1440px] px-6 py-12 md:px-8 md:py-16">
+      <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
         <header className="mb-8 grid grid-cols-12 items-end gap-6">
           <div className="col-span-12 md:col-span-7">
-            <p className="eyebrow inline-flex items-center gap-2">
-              <TrendingUp size={11} />
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-brand-secondary">
+              <TrendingUp size={14} />
               Virality timeline
             </p>
-            <h2 className="mt-2 text-display text-[clamp(28px,3.6vw,44px)] font-black tracking-[-0.04em] text-[color:var(--ink)]">
-              {memberStageName}&apos;s biggest moments.
+            <h2 className="mt-2 text-display-sm font-semibold tracking-tight text-primary md:text-display-md">
+              {memberStageName}&apos;s biggest <span className="gradient-text">moments.</span>
             </h2>
             {authed ? (
-              <p className="mt-2 max-w-[60ch] text-[14px] leading-relaxed text-[color:var(--core)]">
+              <p className="mt-2 max-w-[60ch] text-sm leading-relaxed text-[color:var(--core)]">
                 Admin: hide a clip with the eye icon to remove it from the public archive.
               </p>
             ) : null}
@@ -167,30 +169,26 @@ export function ViralityTimeline({
 
           {/* Search — useful at 100+ clips. */}
           <div className="col-span-12 md:col-span-5">
-            <div className="relative">
-              <Search
-                size={14}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-faint)]"
-              />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${clips.length} clips…`}
-                className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] py-2 pl-9 pr-3 text-[13px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
-              />
-            </div>
+            <Input
+              icon={SearchLg}
+              aria-label="Search clips"
+              value={query}
+              onChange={setQuery}
+              placeholder={`Search ${clips.length} clips…`}
+            />
           </div>
         </header>
 
         {/* Stats */}
-        <div className="mb-6 grid grid-cols-3 gap-2 md:max-w-[640px]">
-          <Stat label="Clips" value={`${all.length}`} sub="in archive" />
-          <Stat label="Total views" value={formatCompact(totalViews)} sub="across platforms" />
-          <Stat
+        <div className="mb-6 grid grid-cols-3 gap-3 md:max-w-[640px]">
+          <MetricCard icon={PlayCircle} label="Clips" value={`${all.length}`} delta="in archive" trend="neutral" />
+          <MetricCard icon={EyeIcon} label="Total views" value={formatCompact(totalViews)} delta="across platforms" trend="neutral" />
+          <MetricCard
+            icon={TrendUp01}
             label="Peak clip"
             value={formatCompact(peakClip?.viewCount ?? 0)}
-            sub={peakClip ? formatYearMonth(peakClip.publishedAt) : "—"}
+            delta={peakClip ? formatYearMonth(peakClip.publishedAt) : "—"}
+            trend="neutral"
           />
         </div>
 
@@ -219,10 +217,10 @@ export function ViralityTimeline({
                   }}
                   aria-hidden
                 />
-                <span className="font-mono text-[10px] font-semibold tabular-nums text-[color:var(--ink-dim)] group-hover/year:text-[color:var(--ink)]">
+                <span className="text-xs font-semibold tabular-nums text-tertiary group-hover/year:text-primary">
                   {y.year}
                 </span>
-                <span className="font-mono text-[9px] tabular-nums text-[color:var(--ink-faint)]">
+                <span className="text-xs tabular-nums text-quaternary">
                   {y.clips.length}
                 </span>
               </a>
@@ -247,11 +245,11 @@ export function ViralityTimeline({
                 id={`${memberSlug}-y-${y.year}`}
                 className="scroll-mt-24"
               >
-                <div className="mb-4 flex items-end justify-between gap-3 border-b border-[color:var(--rule)] pb-3">
-                  <h3 className="text-display text-[clamp(28px,3.4vw,44px)] font-black leading-none tracking-[-0.03em] text-[color:var(--ink)]">
+                <div className="mb-4 flex items-end justify-between gap-3 border-b border-secondary pb-3">
+                  <h3 className="text-display-xs font-semibold leading-none tracking-tight text-primary md:text-display-sm">
                     {y.year}
                   </h3>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-tertiary">
                     {y.clips.length} clip{y.clips.length === 1 ? "" : "s"} · {formatCompact(yearViews)} views
                   </p>
                 </div>
@@ -309,7 +307,7 @@ export function ViralityTimeline({
           onClick={() => setOpenClipId(null)}
         >
           <div
-            className="relative w-full max-w-[960px] overflow-hidden rounded-2xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8)]"
+            className="relative w-full max-w-[960px] overflow-hidden rounded-2xl bg-secondary ring-1 ring-inset ring-secondary shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8)]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -321,12 +319,12 @@ export function ViralityTimeline({
               <X size={15} />
             </button>
             <ClipEmbed clip={openClip} />
-            <div className="flex flex-wrap items-start justify-between gap-3 border-t border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-t border-secondary bg-secondary px-4 py-3">
               <div className="min-w-0 flex-1">
-                <h4 className="text-balance text-[14px] font-semibold leading-snug tracking-tight text-[color:var(--ink)]">
+                <h4 className="text-balance text-md font-semibold leading-snug tracking-tight text-primary">
                   {openClip.title}
                 </h4>
-                <p className="mt-1 inline-flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
+                <p className="mt-1 inline-flex items-center gap-3 text-xs font-medium uppercase tracking-[0.14em] text-tertiary">
                   <span>{formatLongDate(openClip.publishedAt)}</span>
                   {openClip.viewCount != null ? (
                     <span>· {formatCompact(openClip.viewCount)} views</span>
@@ -412,7 +410,7 @@ function ClipTile({
         {/* Top-right rank badge for featured */}
         {rank ? (
           <span
-            className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-tight backdrop-blur"
+            className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold uppercase tracking-tight backdrop-blur"
             style={{
               borderColor: `${accent}77`,
               background: `${accent}1f`,
@@ -448,7 +446,7 @@ function ClipTile({
         <span className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-2">
           <span
             className={`line-clamp-2 text-balance font-semibold leading-snug tracking-tight text-on-image ${
-              isFeatured ? "text-[13px]" : "text-[11px]"
+              isFeatured ? "text-sm" : "text-xs"
             }`}
           >
             {clip.title}
@@ -457,23 +455,15 @@ function ClipTile({
       </button>
 
       <div
-        className={`flex items-center justify-between gap-2 border-t border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-2.5 ${
+        className={`flex items-center justify-between gap-2 border-t border-secondary bg-secondary px-2.5 ${
           isFeatured ? "py-2" : "py-1.5"
         }`}
       >
-        <span
-          className={`font-mono tabular-nums text-[color:var(--ink-dim)] ${
-            isFeatured ? "text-[11px]" : "text-[10px]"
-          }`}
-        >
+        <span className="text-xs tabular-nums text-tertiary">
           {clip.viewCount != null ? `${formatCompact(clip.viewCount)} views` : "—"}
         </span>
         <span className="flex items-center gap-1.5">
-          <span
-            className={`font-mono uppercase tracking-tight text-[color:var(--ink-faint)] ${
-              isFeatured ? "text-[10px]" : "text-[9px]"
-            }`}
-          >
+          <span className="text-xs uppercase tracking-tight text-quaternary">
             {formatYearMonth(clip.publishedAt)}
           </span>
           <a
@@ -502,22 +492,6 @@ function ClipTile({
         </span>
       </div>
     </article>
-  );
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-        {label}
-      </p>
-      <p className="mt-1 text-[16px] font-bold tabular-nums text-[color:var(--ink)] md:text-[18px]">
-        {value}
-      </p>
-      <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
-        {sub}
-      </p>
-    </div>
   );
 }
 

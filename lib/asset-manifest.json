@@ -84,6 +84,9 @@
     ]
   },
   "crew": {
+    "bepsy": [
+      "/crew/bepsy/portrait.jpg"
+    ],
     "drew-wall": [
       "/crew/drew-wall/527530587_18361458757152448_6375985734961861742_n.jpg",
       "/crew/drew-wall/527572565_18361458721152448_3377875247542110507_n.jpg",
@@ -156,6 +159,9 @@
       "/crew/said/GqkkOPHbAAA3NBU.jpg",
       "/crew/said/GuWQMOFasAAThja.jpg",
       "/crew/said/GuWQNLyaYAA-m6h.jpg"
+    ],
+    "sixty": [
+      "/crew/sixty/portrait.jpg"
     ],
     "wojito": [
       "/crew/wojito/503808252_18304157494242731_1314293898582389132_n.jpg",

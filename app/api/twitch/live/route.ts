@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { MEMBERS } from "@/lib/members";
 import { buildLiveResponse, type LiveResponse } from "@/lib/twitch";
+import { maybeRecordLiveSessions } from "@/lib/streams/reconcile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,9 @@ export async function GET() {
   const logins = MEMBERS.map((m) => m.twitchLogin);
   try {
     const payload: LiveResponse = await buildLiveResponse(logins);
+    after(async () => {
+      await maybeRecordLiveSessions(payload.live).catch(() => {});
+    });
     return NextResponse.json(payload, {
       headers: {
         "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",

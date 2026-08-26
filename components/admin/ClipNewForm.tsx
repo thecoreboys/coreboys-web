@@ -1,9 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { TextArea } from "@/components/base/textarea/textarea";
+import { Badge } from "@/components/base/badges/badges";
 
 type MemberLite = { slug: string; stageName: string; accent: string };
 
@@ -11,6 +14,8 @@ type MemberLite = { slug: string; stageName: string; accent: string };
  * Direct-add clip form. Detects platform + ID from the URL, posts to
  * `POST /api/admin/clips` which inserts into the clips table and
  * mirrors the picked member slugs into clip_member_tags.
+ *
+ * UUI controls throughout: Input / TextArea / Button / Badge.
  */
 export function ClipNewForm({ members }: { members: MemberLite[] }) {
   const router = useRouter();
@@ -71,55 +76,56 @@ export function ClipNewForm({ members }: { members: MemberLite[] }) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
-      {/* URL */}
-      <Field label="Source URL" hint="Paste a Twitch clip / YouTube short / TikTok / Instagram reel URL.">
-        <input
+      <div>
+        <Input
+          isRequired
           type="url"
+          label="Source URL"
+          hint="Paste a Twitch clip / YouTube short / TikTok / Instagram reel URL."
+          size="md"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          required
+          onChange={(v) => setUrl(v)}
           placeholder="https://clips.twitch.tv/..."
-          className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2.5 text-[14px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
         />
         {url && detection.source ? (
-          <p className="mt-2 inline-flex items-center gap-2 text-[12px] text-[color:var(--ink-dim)]">
-            Detected: <strong className="text-[color:var(--ink)]">{detection.source}</strong>
-            <span className="text-[color:var(--ink-faint)]">·</span> id{" "}
-            <code className="font-mono">{detection.externalId}</code>
+          <p className="mt-2 inline-flex items-center gap-2 text-xs text-tertiary">
+            Detected:
+            <Badge type="pill-color" color="brand" size="sm">
+              {detection.source}
+            </Badge>
+            <span className="text-quaternary">· id</span>
+            <code className="font-mono text-secondary">{detection.externalId}</code>
           </p>
         ) : url ? (
-          <p className="mt-2 text-[12px] text-[color:var(--core)]">
+          <p className="mt-2 text-xs font-medium text-error-primary">
             Couldn&apos;t detect platform from URL — supported: clips.twitch.tv,
             youtube.com/shorts, youtu.be, tiktok.com, instagram.com/reel.
           </p>
         ) : null}
-      </Field>
+      </div>
 
-      <Field label="Title" hint="Shown on the clip card.">
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          placeholder="Ron · 1v3 clutch · tournament finals"
-          className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2.5 text-[14px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
-        />
-      </Field>
+      <Input
+        isRequired
+        label="Title"
+        hint="Shown on the clip card."
+        size="md"
+        value={title}
+        onChange={(v) => setTitle(v)}
+        placeholder="Ron · 1v3 clutch · tournament finals"
+      />
 
-      <Field
+      <TextArea
         label="AI description"
         hint="One sentence describing the moment — used for AI search."
-      >
-        <textarea
-          value={aiDesc}
-          onChange={(e) => setAiDesc(e.target.value)}
-          rows={3}
-          placeholder="Auto-filled by Claude Vision in Phase 4 — type for now."
-          className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2.5 text-[14px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
-        />
-      </Field>
+        rows={3}
+        value={aiDesc}
+        onChange={(v) => setAiDesc(v)}
+        placeholder="Auto-filled by Claude Vision in Phase 4 — type for now."
+      />
 
-      <Field label="Tagged members" hint="Pick everyone who appears in the clip.">
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium text-secondary">Tagged members</span>
+        <span className="-mt-1 text-xs text-tertiary">Pick everyone who appears in the clip.</span>
         <ul className="flex flex-wrap items-center gap-2">
           {members.map((m) => {
             const active = picked.includes(m.slug);
@@ -129,15 +135,15 @@ export function ClipNewForm({ members }: { members: MemberLite[] }) {
                   type="button"
                   onClick={() => togglePick(m.slug)}
                   aria-pressed={active}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
+                  className={`inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset transition-colors ${
                     active
-                      ? "text-[color:var(--ink)]"
-                      : "border-[color:var(--rule)] text-[color:var(--ink-dim)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]"
+                      ? "text-primary"
+                      : "bg-secondary text-tertiary ring-secondary hover:text-primary"
                   }`}
                   style={
                     active
                       ? {
-                          borderColor: m.accent,
+                          ["--tw-ring-color" as string]: m.accent,
                           background: `color-mix(in oklab, ${m.accent} 16%, transparent)`,
                         }
                       : undefined
@@ -150,55 +156,30 @@ export function ClipNewForm({ members }: { members: MemberLite[] }) {
             );
           })}
         </ul>
-      </Field>
+      </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[color:var(--rule)] pt-5">
-        <button
+      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-secondary pt-5">
+        <Button
           type="submit"
-          disabled={!detection.source || !title.trim() || saving}
-          className="btn btn-primary disabled:opacity-50"
+          size="md"
+          color="primary"
+          isDisabled={!detection.source || !title.trim() || saving}
+          isLoading={saving}
+          iconLeading={saved ? Check : Plus}
         >
-          {saved ? (
-            <>
-              <Check size={14} /> Saved
-            </>
-          ) : saving ? (
-            <>Saving…</>
-          ) : (
-            <>
-              <Plus size={14} /> Save clip
-            </>
-          )}
-        </button>
-        <Link href="/admin/clips" className="btn btn-secondary">
+          {saved ? "Saved" : "Save clip"}
+        </Button>
+        <Button href="/admin/clips" size="md" color="secondary">
           All clips
-        </Link>
-        <Link href="/admin" className="text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]">
+        </Button>
+        <Button href="/admin" size="md" color="link-gray">
           Back to admin
-        </Link>
+        </Button>
         {error ? (
-          <span className="ml-auto text-[12px] text-[color:var(--core)]">{error}</span>
+          <span className="ml-auto text-xs font-medium text-error-primary">{error}</span>
         ) : null}
       </div>
     </form>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-2">
-      <span className="text-[13px] font-medium text-[color:var(--ink)]">{label}</span>
-      {hint ? <span className="-mt-1 text-[11px] text-[color:var(--ink-dim)]">{hint}</span> : null}
-      {children}
-    </label>
   );
 }
 

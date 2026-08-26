@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { LogOut01 } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
 
 /**
  * Admin auth flows live in three places that run BEFORE this component
@@ -28,12 +30,8 @@ export function SignOutButton() {
     router.refresh();
   }
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)] cursor-pointer"
-    >
+    <Button type="button" onClick={onClick} size="md" color="secondary" iconLeading={LogOut01}>
       Sign out
-    </button>
+    </Button>
   );
 }

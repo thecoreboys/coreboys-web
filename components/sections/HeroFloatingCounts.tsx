@@ -1,14 +1,15 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { SocialIcon } from "@/components/ui/SocialIcon";
+import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
 import type { PlatformKey } from "@/components/ui/PlatformLink";
 
 export type FloatingCountItem = {
   platform: PlatformKey;
   count: number;
   handle: string;
-  /** Brand hex used for the chip's accent ring + glow. */
+  /** Brand hex used only as a subtle icon tint. */
   brand: string;
   /** "subs" for YouTube, "followers" for the rest. */
   unit: string;
@@ -16,15 +17,17 @@ export type FloatingCountItem = {
 };
 
 /**
- * Group-account follower / sub counts as a static horizontal row of
- * pill chips. No drift animation — just a clean fade-in on mount,
- * generous padding, and a subtle hover lift on each link.
+ * Group-account follower / sub counts — a sleek, corporate metric row.
+ * Uniform neutral chips (restrained: brand color used only as a muted icon
+ * tint, not a glow), big animated tabular count-up, hover lift. Premium over
+ * loud per-platform glows.
  */
 export function HeroFloatingCounts({ items }: { items: FloatingCountItem[] }) {
+  const reduce = useReducedMotion();
   if (items.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2.5">
+    <div className="flex flex-wrap items-center gap-3">
       {items.map((item, i) => (
         <motion.a
           key={item.platform}
@@ -32,30 +35,26 @@ export function HeroFloatingCounts({ items }: { items: FloatingCountItem[] }) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`${formatCount(item.count)} ${item.unit} on ${item.platform}`}
-          initial={{ opacity: 0, scale: 0.92, y: 6 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{
-            duration: 0.55,
-            delay: 0.9 + i * 0.1,
-            ease: [0.16, 1, 0.3, 1],
-          }}
-          style={{
-            borderColor: `${item.brand}55`,
-            boxShadow: `0 18px 40px -18px ${item.brand}99, inset 0 0 0 1px ${item.brand}33`,
-          }}
-          className="pointer-events-auto inline-flex items-center gap-3 rounded-full border bg-[color:var(--bg-elev)]/85 px-4 py-2 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-[color:var(--bg-elev)]/95"
+          initial={reduce ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+          className="group inline-flex items-center gap-3 rounded-2xl bg-[color:var(--bg-elev)]/80 px-4 py-3 shadow-xs ring-1 ring-inset ring-[color:var(--rule)] backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-[color:var(--rule-strong)]"
         >
           <span
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-            style={{ background: `${item.brand}22`, color: item.brand }}
+            aria-hidden
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-[color:var(--rule)]"
+            style={{ color: item.brand, background: `${item.brand}14` }}
           >
-            <SocialIcon platform={item.platform as never} size={14} />
+            <SocialIcon platform={item.platform as never} size={16} />
           </span>
           <span className="flex flex-col leading-tight">
-            <span className="text-[14px] font-bold tabular-nums tracking-tight text-[color:var(--ink)]">
-              {formatCount(item.count)}
-            </span>
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[color:var(--ink-dim)]">
+            <AnimatedCounter
+              value={item.count}
+              format={formatCount}
+              duration={1.6}
+              className="text-xl font-semibold tracking-tight text-[color:var(--ink)]"
+            />
+            <span className="text-xs font-medium uppercase tracking-[0.16em] text-[color:var(--ink-dim)]">
               {item.unit}
             </span>
           </span>
@@ -68,5 +67,5 @@ export function HeroFloatingCounts({ items }: { items: FloatingCountItem[] }) {
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`;
-  return n.toLocaleString("en-US");
+  return Math.round(n).toLocaleString("en-US");
 }

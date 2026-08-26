@@ -1,8 +1,38 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Maximize2, Minimize2, Minus, Plus, RotateCcw, Settings2, Tv, TvMinimal, X } from "lucide-react";
-import { TwitchChat } from "@/components/live/TwitchChat";
+import {
+  Maximize01,
+  Minimize01,
+  Minus,
+  Monitor01,
+  Monitor04,
+  Plus,
+  RefreshCcw01,
+  Settings01,
+  XClose,
+} from "@untitledui/icons";
+import { ChatDock } from "@/components/live/ChatDock";
+import { ChatStreamPlayer } from "@/components/live/ChatStreamPlayer";
+import { ChannelLogo } from "@/components/live/ChannelLogo";
+import { useChatLayouts } from "@/components/live/useChatLayouts";
+import { accountChatLayoutSync } from "@/components/live/chat-layout-sync";
+import { formatHandleDisplay } from "@/lib/watch/display-label";
+import {
+  BUILT_IN_CHAT_LAYOUTS,
+  chatColumnGridClass,
+  parseChatLayout,
+  serializeChatLayout,
+  shouldRenderChatStreams,
+  type ChatLayoutSnapshot,
+  type ChatViewMode,
+} from "@/lib/chat-layouts";
+import { Button } from "@/components/base/buttons/button";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
+import { Avatar } from "@/components/base/avatar/avatar";
+import { BadgeWithDot } from "@/components/base/badges/badges";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 
 const TEXT_SCALE_MIN = 0.7;
@@ -15,6 +45,7 @@ function clampScale(n: number): number {
 }
 
 const STORAGE_KEY = "coreboys-chat-hub:v1";
+const WORKSPACE_STORAGE_KEY = "coreboys-chat-workspace:v1";
 
 export type ChatChannel = {
   /** Twitch login. */
@@ -76,20 +107,40 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
   const [addError, setAddError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [order, setOrder] = useState<string[]>([]);
-  const [dragLogin, setDragLogin] = useState<string | null>(null);
-  const [dragOverLogin, setDragOverLogin] = useState<string | null>(null);
-  const [dragOverSide, setDragOverSide] = useState<"before" | "after">("before");
   const [mobileActive, setMobileActive] = useState<string | null>(null);
   const [textScale, setTextScale] = useState<number>(1);
   const [streamsVisible, setStreamsVisible] = useState<boolean>(true);
   const [playerParent, setPlayerParent] = useState<string | null>(null);
   const fullscreenRootRef = useRef<HTMLDivElement | null>(null);
+  const [legacyNameplate, setLegacyNameplate] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ChatViewMode>("combined");
+  const [chatPlacement, setChatPlacement] = useState<"right" | "left" | "below">("right");
+  const [maxConnected, setMaxConnected] = useState(6);
+  const [dataSaver, setDataSaver] = useState(false);
+  const [layoutName, setLayoutName] = useState("");
+  const [layoutNotice, setLayoutNotice] = useState<string | null>(null);
+  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
+  const { layouts, save: saveNamedLayout, remove: removeNamedLayout } = useChatLayouts({
+    sync: accountChatLayoutSync,
+  });
 
   // Twitch's player iframe rejects requests until the embedding host
   // is sent as `parent=`. Defer mounting the stream grid until we know
   // the hostname client-side.
   useEffect(() => {
     setPlayerParent(window.location.hostname);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/account/loyalty", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { card?: { houseStatus?: string } } | null) => {
+        const s = d?.card?.houseStatus;
+        if (s === "super") setLegacyNameplate("House Super");
+        else if (s === "og-path") setLegacyNameplate("OG path");
+        else setLegacyNameplate(null);
+      })
+      .catch(() => {});
   }, []);
 
   // Real browser fullscreen via the Fullscreen API. Sync the local
@@ -153,6 +204,34 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       /* ignore */
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = parseChatLayout(localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "");
+      if (saved) {
+        setViewMode(saved.mode);
+        setMobileActive(saved.focusedLogin ?? null);
+        setTextScale(clampScale(saved.textScale));
+        setStreamsVisible(saved.streamsVisible);
+        setMaxConnected(saved.maxConnected);
+        setDataSaver(saved.dataSaver);
+        if (saved.channelLogins.length > 0) {
+          const selected = new Set(saved.channelLogins);
+          setOrder(saved.channelLogins);
+          setHidden(
+            new Set(
+              coreChannels
+                .map((channel) => channel.login.toLowerCase())
+                .filter((login) => !selected.has(login)),
+            ),
+          );
+          setShown(selected);
+        }
+      }
+    } finally {
+      setWorkspaceHydrated(true);
+    }
+  }, [coreChannels]);
 
   const persist = useCallback(
     (
@@ -332,6 +411,10 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
     setOrder([]);
     setTextScale(1);
     setStreamsVisible(true);
+    setViewMode("combined");
+    setMobileActive(null);
+    setMaxConnected(6);
+    setDataSaver(false);
     persist(new Set(), new Set(), [], [], 1, true);
   }, [persist]);
 
@@ -375,6 +458,63 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
     return sorted;
   }, [visibleCore, guests, order]);
 
+  const currentLayout = useMemo<ChatLayoutSnapshot>(
+    () => ({
+      version: 1,
+      mode: viewMode,
+      channelLogins: visible.map((channel) => channel.login.toLowerCase()),
+      focusedLogin: mobileActive ?? visible[0]?.login.toLowerCase(),
+      textScale,
+      streamsVisible,
+      maxConnected,
+      dataSaver,
+    }),
+    [viewMode, visible, mobileActive, textScale, streamsVisible, maxConnected, dataSaver],
+  );
+
+  useEffect(() => {
+    if (!workspaceHydrated) return;
+    try {
+      localStorage.setItem(WORKSPACE_STORAGE_KEY, serializeChatLayout(currentLayout));
+    } catch {
+      /* local preferences are optional */
+    }
+  }, [currentLayout, workspaceHydrated]);
+
+  const applyLayout = useCallback(
+    (snapshot: ChatLayoutSnapshot) => {
+      const selectedLogins = snapshot.channelLogins.length
+        ? snapshot.channelLogins
+        : visible.map((channel) => channel.login.toLowerCase());
+      const selected = new Set(selectedLogins);
+      const nextHidden = new Set(
+        coreChannels
+          .map((channel) => channel.login.toLowerCase())
+          .filter((login) => !selected.has(login)),
+      );
+      const nextShown = new Set(selectedLogins);
+      setHidden(nextHidden);
+      setShown(nextShown);
+      setOrder(selectedLogins);
+      setViewMode(snapshot.mode);
+      setMobileActive(snapshot.focusedLogin ?? selectedLogins[0] ?? null);
+      setTextScale(clampScale(snapshot.textScale));
+      setStreamsVisible(snapshot.streamsVisible);
+      setMaxConnected(snapshot.maxConnected);
+      setDataSaver(snapshot.dataSaver);
+      persist(
+        nextHidden,
+        nextShown,
+        guests,
+        selectedLogins,
+        clampScale(snapshot.textScale),
+        snapshot.streamsVisible,
+      );
+      setLayoutNotice("Layout applied.");
+    },
+    [coreChannels, guests, persist, visible],
+  );
+
   // Default the mobile active chat to the first visible channel; when the
   // active one disappears (hidden / removed), fall back to the first.
   const activeMobileLogin = (() => {
@@ -384,70 +524,93 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
     return visible[0]?.login.toLowerCase() ?? null;
   })();
 
-  // Grid column count adapts to channel count. As channels are toggled
-  // off, the remaining ones fan out to fill the row.
-  const gridCols = (() => {
-    const n = visible.length;
-    if (n <= 1) return "grid-cols-1";
-    if (n === 2) return "grid-cols-1 md:grid-cols-2";
-    if (n === 3) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
-    if (n === 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-    if (n === 5) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5";
-    if (n === 6) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6";
-    return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
-  })();
+  const showStreamWall = workspaceHydrated && shouldRenderChatStreams(streamsVisible, dataSaver) && playerParent && visible.length > 0;
+  const chatDock = visible.length === 0 ? (
+    <div className="flex min-h-[320px] items-center justify-center rounded-xl bg-secondary p-8 ring-1 ring-inset ring-secondary">
+      <EmptyState size="sm">
+        <EmptyState.Header><FeaturedIcon icon={Monitor01} size="lg" color="gray" theme="modern" /></EmptyState.Header>
+        <EmptyState.Content><EmptyState.Title>No channels visible</EmptyState.Title><EmptyState.Description>Open Customize and turn channels back on, or add a guest channel.</EmptyState.Description></EmptyState.Content>
+      </EmptyState>
+    </div>
+  ) : (
+    <ChatDock
+      channels={visible.map((channel) => ({ login: channel.login, userId: channel.userId, displayName: channel.displayName, avatarUrl: channel.avatarUrl, channelLogoUrl: channel.commLogo, channelLogoName: channel.commName, accent: channel.accent, isCore: channel.isCore, passportChannelSlug: channel.slug }))}
+      mode={viewMode}
+      onModeChange={setViewMode}
+      focusedLogin={activeMobileLogin ?? undefined}
+      onFocusedLoginChange={setMobileActive}
+      textScale={textScale}
+      maxConnected={maxConnected}
+      dataSaver={dataSaver}
+      nameplate={legacyNameplate}
+      onCloseChannel={(login) => { const channel = visible.find((candidate) => candidate.login.toLowerCase() === login); if (!channel) return; if (channel.isCore) toggleChannelVisibility(channel.login, true); else removeGuest(channel.login); }}
+      onMoveChannel={(login, direction) => { const index = visible.findIndex((channel) => channel.login.toLowerCase() === login); const target = visible[index + direction]; if (!target) return; reorder(login, target.login.toLowerCase(), direction < 0 ? "before" : "after"); }}
+      className={fullscreen ? "min-h-0 flex-1 px-4 pb-4" : "h-[calc(100svh-260px)] min-h-[480px] max-h-[780px] sm:h-[calc(100svh-180px)] sm:min-h-[520px]"}
+    />
+  );
 
   return (
     <div
       ref={fullscreenRootRef}
-      className={`bg-[color:var(--bg)] ${fullscreen ? "flex h-screen flex-col overflow-hidden" : ""}`}
+      className={`bg-primary ${fullscreen ? "flex h-screen flex-col overflow-hidden" : ""}`}
     >
-      {/* Action bar — clean, minimal. */}
+      {/* Action bar — eyebrow + live count on the left, controls on the right. */}
       <div
-        className={`flex items-center justify-end gap-2 ${
-          fullscreen ? "shrink-0 px-4 pt-4 pb-3" : "mb-5"
+        className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
+          fullscreen ? "shrink-0 px-4 pt-4 pb-3" : "mb-6"
         }`}
       >
-        <button
-          type="button"
-          onClick={() => setSettingsOpen((v) => !v)}
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-semibold text-brand-secondary">Live channels</p>
+          {anyoneLive ? (
+            <BadgeWithDot type="pill-color" color="error" size="sm">
+              {liveByLogin.size} live now
+            </BadgeWithDot>
+          ) : (
+            <BadgeWithDot type="pill-color" color="gray" size="sm">
+              All offline
+            </BadgeWithDot>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          color={settingsOpen ? "secondary" : "tertiary"}
+          onPress={() => setSettingsOpen((v) => !v)}
           aria-expanded={settingsOpen}
-          className="inline-flex items-center gap-1.5 rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] px-3 py-1.5 text-[12px] font-medium text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:text-[color:var(--ink)] cursor-pointer"
+          iconLeading={Settings01}
         >
-          <Settings2 size={13} />
           Customize
-        </button>
-        <button
-          type="button"
-          onClick={toggleStreams}
+        </Button>
+        <Button
+          size="sm"
+          color={streamsVisible ? "primary" : "tertiary"}
+          onPress={toggleStreams}
+          isDisabled={dataSaver}
           aria-pressed={streamsVisible}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-all hover:-translate-y-px cursor-pointer ${
-            streamsVisible
-              ? "border-[color:var(--core)] bg-[color:var(--core)]/12 text-[color:var(--core)]"
-              : "border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)] hover:text-[color:var(--ink)]"
-          }`}
+          iconLeading={streamsVisible ? Monitor04 : Monitor01}
         >
-          {streamsVisible ? <TvMinimal size={13} /> : <Tv size={13} />}
           {streamsVisible ? "Hide streams" : "Show streams"}
-        </button>
-        <button
-          type="button"
-          onClick={toggleFullscreen}
+        </Button>
+        <Button
+          size="sm"
+          color="tertiary"
+          onPress={toggleFullscreen}
           aria-pressed={fullscreen}
-          className="inline-flex items-center gap-1.5 rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] px-3 py-1.5 text-[12px] font-medium text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:text-[color:var(--ink)] cursor-pointer"
+          iconLeading={fullscreen ? Minimize01 : Maximize01}
         >
-          {fullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           {fullscreen ? "Exit fullscreen" : "Fullscreen"}
-        </button>
+        </Button>
+        </div>
       </div>
 
       {/* Settings panel */}
       {settingsOpen ? (
-        <div className="mb-6 rounded-lg border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-4 md:p-5">
-          <p className="text-[12px] font-semibold tracking-tight text-[color:var(--ink)]">
+        <div className="mb-6 rounded-xl bg-secondary p-4 ring-1 ring-inset ring-secondary md:p-5">
+          <p className="text-md font-semibold text-primary">
             Customize
           </p>
-          <p className="mt-1 text-[13px] text-[color:var(--ink-dim)]">
+          <p className="mt-1 text-sm text-tertiary">
             Toggle members on or off, or add another Twitch channel.
           </p>
 
@@ -466,45 +629,31 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                       ? `${c.displayName} is live`
                       : `${c.displayName} is offline — toggle on to pin visible`
                   }
-                  className={`group flex items-center gap-2.5 rounded-md border px-2 py-2 text-left transition-colors cursor-pointer ${
+                  className={`group flex items-center gap-2.5 rounded-lg px-2 py-2 text-left ring-1 ring-inset transition-colors cursor-pointer ${
                     visible
-                      ? "border-[color:var(--rule-strong)] bg-[color:var(--surface)]"
-                      : "border-[color:var(--rule)] bg-[color:var(--bg)] opacity-60 hover:opacity-100"
+                      ? "bg-primary ring-brand text-primary"
+                      : "bg-secondary ring-secondary opacity-70 hover:opacity-100"
                   }`}
-                  style={visible ? { boxShadow: `inset 0 0 0 1px ${c.accent}55` } : undefined}
                 >
-                  <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                    {c.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-[color:var(--bg)] text-[10px] font-bold uppercase">
-                        {c.displayName[0]}
-                      </span>
-                    )}
-                    {/* Tiny live dot in the corner of the avatar so the
-                        viewer can tell who's actually streaming right
-                        now without reading the toggle state. */}
-                    {isLive ? (
-                      <span
-                        aria-hidden
-                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-[color:var(--bg-elev)] bg-[color:var(--core)] shadow-[0_0_6px_rgba(239,68,68,0.7)]"
-                        style={{ animation: "live-blink 1s ease-in-out infinite" }}
-                      />
-                    ) : null}
-                  </span>
+                  <Avatar
+                    size="sm"
+                    src={c.avatarUrl}
+                    alt={c.displayName}
+                    initials={c.displayName[0]}
+                    status={isLive ? "online" : undefined}
+                  />
                   <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                    <span className="truncate text-[13px] font-semibold text-[color:var(--ink)]">
+                    <span className="truncate text-sm font-semibold text-primary">
                       {c.displayName}
                     </span>
-                    <span className="mt-0.5 truncate text-[11px] text-[color:var(--ink-dim)]">
+                    <span className="mt-0.5 truncate text-xs text-tertiary">
                       {isLive ? "Live now" : "Offline"}
                     </span>
                   </span>
                   <span
                     aria-hidden
                     className={`inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
-                      visible ? "bg-[color:var(--core)]" : "bg-[color:var(--ink-faint)]/40"
+                      visible ? "bg-brand-solid" : "bg-quaternary"
                     }`}
                   >
                     <span
@@ -520,78 +669,72 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
 
           {/* Text size control — applies to every chat tile. */}
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <p className="text-[11px] font-semibold tracking-tight text-[color:var(--ink-dim)]">
+            <p className="text-sm font-semibold text-tertiary">
               Text size
             </p>
-            <div className="inline-flex items-center gap-1 rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--surface)] p-0.5">
-              <button
-                type="button"
+            <div className="inline-flex items-center gap-1 rounded-lg bg-primary p-0.5 ring-1 ring-inset ring-secondary">
+              <ButtonUtility
+                size="sm"
+                color="tertiary"
                 onClick={() => adjustTextScale(-TEXT_SCALE_STEP)}
                 disabled={textScale <= TEXT_SCALE_MIN + 1e-6}
                 aria-label="Decrease chat text size"
-                className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm text-[color:var(--ink-dim)] transition-colors hover:text-[color:var(--ink)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Minus size={13} />
-              </button>
+                tooltip="Decrease text size"
+                icon={Minus}
+              />
               <span
-                className="min-w-[44px] text-center font-mono text-[12px] tabular-nums text-[color:var(--ink)]"
+                className="min-w-[44px] text-center text-sm tabular-nums text-primary"
                 aria-live="polite"
               >
                 {Math.round(textScale * 100)}%
               </span>
-              <button
-                type="button"
+              <ButtonUtility
+                size="sm"
+                color="tertiary"
                 onClick={() => adjustTextScale(TEXT_SCALE_STEP)}
                 disabled={textScale >= TEXT_SCALE_MAX - 1e-6}
                 aria-label="Increase chat text size"
-                className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm text-[color:var(--ink-dim)] transition-colors hover:text-[color:var(--ink)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Plus size={13} />
-              </button>
+                tooltip="Increase text size"
+                icon={Plus}
+              />
             </div>
-            <button
-              type="button"
-              onClick={resetTextScale}
-              disabled={Math.abs(textScale - 1) < 1e-6}
-              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[color:var(--ink-dim)]"
+            <Button
+              size="sm"
+              color="link-gray"
+              onPress={resetTextScale}
+              isDisabled={Math.abs(textScale - 1) < 1e-6}
+              iconLeading={RefreshCcw01}
             >
-              <RotateCcw size={11} /> Reset
-            </button>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+              Reset
+            </Button>
+            <span className="text-xs text-quaternary">
               Applies to every chat
             </span>
           </div>
 
           {guests.length > 0 ? (
             <div className="mt-5">
-              <p className="text-[11px] font-semibold tracking-tight text-[color:var(--ink-dim)]">
+              <p className="text-sm font-semibold text-tertiary">
                 Guests · {guests.length}
               </p>
               <ul className="mt-3 flex flex-wrap items-center gap-2">
                 {guests.map((g) => (
                   <li
                     key={g.login}
-                    className="inline-flex items-center gap-2 rounded-md border border-[color:var(--rule-strong)] bg-[color:var(--surface)] px-2.5 py-1.5"
+                    className="inline-flex items-center gap-2 rounded-full bg-primary py-1 pl-1 pr-1.5 ring-1 ring-inset ring-secondary"
                   >
-                    {g.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={g.avatarUrl}
-                        alt=""
-                        className="h-5 w-5 rounded-full"
-                      />
-                    ) : null}
-                    <span className="text-[12px] font-medium text-[color:var(--ink)]">
+                    <Avatar size="xs" src={g.avatarUrl} alt={g.displayName} initials={g.displayName[0]} />
+                    <span className="text-sm font-medium text-primary">
                       {g.displayName}
                     </span>
-                    <button
-                      type="button"
+                    <ButtonUtility
+                      size="xs"
+                      color="tertiary"
                       onClick={() => removeGuest(g.login)}
                       aria-label={`Remove ${g.displayName}`}
-                      className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-transparent text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--core)] hover:bg-[color:var(--core)]/10 hover:text-[color:var(--core)] hover:shadow-[0_4px_10px_-4px_rgba(255,106,0,0.4)] active:translate-y-0"
-                    >
-                      <X size={11} />
-                    </button>
+                      tooltip={`Remove ${g.displayName}`}
+                      icon={XClose}
+                    />
                   </li>
                 ))}
               </ul>
@@ -607,12 +750,12 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
           >
             <label
               htmlFor="add-guest"
-              className="text-[12px] font-medium tracking-tight text-[color:var(--ink-dim)]"
+              className="text-sm font-medium text-tertiary"
             >
               Add guest
             </label>
             <div className="relative flex-1 min-w-[220px]">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-mono text-[12px] text-[color:var(--ink-faint)]">
+              <span className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center text-sm text-quaternary">
                 twitch.tv/
               </span>
               <input
@@ -624,229 +767,151 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                   setAddError(null);
                 }}
                 placeholder="username"
-                className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg)] py-2 pl-[88px] pr-3 font-mono text-[13px] text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
+                className="w-full rounded-lg bg-primary py-2 pl-[88px] pr-3 text-sm text-primary ring-1 ring-inset ring-secondary shadow-xs transition-shadow placeholder:text-placeholder focus:outline-none focus:ring-2 focus:ring-brand"
                 disabled={adding}
               />
             </div>
-            <button type="submit" disabled={adding} className="btn btn-primary disabled:opacity-50">
-              {adding ? "Adding…" : (
-                <>
-                  <Plus size={13} />
-                  Add channel
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={reset}
-              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)] cursor-pointer"
+            <Button
+              type="submit"
+              size="sm"
+              color="primary"
+              isDisabled={adding}
+              isLoading={adding}
+              showTextWhileLoading
+              iconLeading={adding ? undefined : Plus}
             >
-              <RotateCcw size={11} /> Reset
-            </button>
+              {adding ? "Adding…" : "Add channel"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              color="link-gray"
+              onPress={reset}
+              iconLeading={RefreshCcw01}
+            >
+              Reset
+            </Button>
           </form>
           {addError ? (
-            <p className="mt-2 font-mono text-[11px] text-[color:var(--core)]">{addError}</p>
+            <p className="mt-2 text-sm font-medium text-error-primary">{addError}</p>
           ) : null}
-        </div>
-      ) : null}
 
-      {/* Multistream player grid — toggled via "Show streams". Mounted
-          above the chat grid so the chats stay where they are; default
-          off so the page is light by default. */}
-      {streamsVisible && playerParent && visible.length > 0 ? (
-        <StreamGrid channels={visible} parent={playerParent} />
-      ) : null}
-
-      {/* Grid */}
-      {visible.length === 0 ? (
-        <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-8 text-center">
-          <div>
-            <p className="eyebrow">No channels visible</p>
-            <p className="mt-3 text-[14px] text-[color:var(--ink-dim)]">
-              Open <span className="font-semibold text-[color:var(--ink)]">Customize</span> and turn
-              channels back on, or add a guest channel.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className={fullscreen ? "flex min-h-0 flex-1 flex-col px-4 pb-4" : ""}>
-          {/* Mobile chat picker — desktop hides since all tiles fit on screen. */}
-          {visible.length > 1 ? (
-            <div className="mb-3 -mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1 md:hidden">
-              {visible.map((c) => {
-                const isActive = c.login.toLowerCase() === activeMobileLogin;
-                return (
-                  <button
-                    key={c.login}
+          <details className="mt-5 rounded-lg bg-primary ring-1 ring-inset ring-secondary">
+            <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-semibold text-secondary focus:outline-none focus:ring-2 focus:ring-brand">
+              Layouts &amp; performance <span aria-hidden className="text-quaternary">⌄</span>
+            </summary>
+            <div className="border-t border-secondary p-3">
+              <p className="text-xs font-medium text-quaternary">Quick layouts</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {BUILT_IN_CHAT_LAYOUTS.map((preset) => (
+                  <Button
+                    key={preset.id}
                     type="button"
-                    onClick={() => setMobileActive(c.login.toLowerCase())}
-                    aria-pressed={isActive}
-                    className={`group inline-flex shrink-0 items-center gap-2 rounded-full border px-2.5 py-1.5 transition-all cursor-pointer ${
-                      isActive
-                        ? "border-[color:var(--core)] bg-[color:var(--surface)] text-[color:var(--ink)]"
-                        : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]"
-                    }`}
-                    style={isActive ? { boxShadow: `inset 0 0 0 1px ${c.accent}55` } : undefined}
+                    size="sm"
+                    color="secondary"
+                    onPress={() => applyLayout(preset.layout)}
                   >
-                    {c.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={c.avatarUrl}
-                        alt=""
-                        className="h-5 w-5 rounded-full ring-1 ring-inset"
-                        style={{ ["--tw-ring-color" as string]: c.accent }}
-                      />
-                    ) : (
-                      <span
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--bg)] text-[9px] font-bold uppercase"
-                        style={{ color: c.accent }}
-                      >
-                        {c.displayName[0]}
-                      </span>
-                    )}
-                    <span className="text-[12px] font-semibold leading-none">{c.displayName}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
+                    {preset.name}
+                  </Button>
+                ))}
+              </div>
 
-          <div
-            className={`grid gap-3 ${gridCols} ${fullscreen ? "min-h-0 flex-1" : ""}`}
-          >
-            {visible.map((c) => {
-              const isDragOver = dragOverLogin === c.login.toLowerCase();
-              const isDragging = dragLogin === c.login.toLowerCase();
-              const isHiddenOnMobile = c.login.toLowerCase() !== activeMobileLogin;
-              return (
-                <div
-                  key={c.login}
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    if (dragLogin && dragLogin !== c.login.toLowerCase()) {
-                      setDragOverLogin(c.login.toLowerCase());
-                    }
-                  }}
-                  onDragOver={(e) => {
-                    if (!dragLogin || dragLogin === c.login.toLowerCase()) return;
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    // Use the longer axis as the drop axis: on a row of tiles
-                    // (wider than tall) split horizontally, otherwise vertically.
-                    const horizontal = rect.width >= rect.height;
-                    const before = horizontal
-                      ? e.clientX < rect.left + rect.width / 2
-                      : e.clientY < rect.top + rect.height / 2;
-                    setDragOverSide(before ? "before" : "after");
-                    if (dragOverLogin !== c.login.toLowerCase()) {
-                      setDragOverLogin(c.login.toLowerCase());
-                    }
-                  }}
-                  onDragLeave={(e) => {
-                    // Only clear when leaving the tile itself, not when crossing
-                    // into a child (which fires dragLeave on this element too).
-                    const related = e.relatedTarget as Node | null;
-                    if (related && e.currentTarget.contains(related)) return;
-                    if (dragOverLogin === c.login.toLowerCase()) setDragOverLogin(null);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const from = e.dataTransfer.getData("text/plain") || dragLogin;
-                    if (from && from !== c.login.toLowerCase()) {
-                      reorder(from, c.login.toLowerCase(), dragOverSide);
-                    }
-                    setDragLogin(null);
-                    setDragOverLogin(null);
-                  }}
-                  className={`group/tile relative flex min-w-0 flex-col overflow-hidden pt-7 transition-all ${
-                    fullscreen ? "h-full min-h-0" : "h-[calc(100vh-260px)] min-h-[480px]"
-                  } ${isDragging ? "opacity-40 scale-[0.98]" : ""} ${
-                    isHiddenOnMobile ? "hidden md:flex" : ""
-                  }`}
-                >
-                  {isDragOver ? (
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute z-20 rounded-full bg-[color:var(--core)] shadow-[0_0_12px_rgba(255,106,0,0.7)]"
-                      style={(() => {
-                        // Match the indicator orientation to the drop axis we
-                        // computed in onDragOver. Lines sit just outside the
-                        // tile so the gap between cells lights up.
-                        const horizontal = (() => {
-                          // Heuristic: if there are >= 2 columns active in the
-                          // grid we treat indicator as a vertical line on
-                          // before/after edge; on single-col mobile use a
-                          // horizontal line on top/bottom.
-                          if (typeof window === "undefined") return true;
-                          return window.innerWidth >= 768 && visible.length > 1;
-                        })();
-                        if (horizontal) {
-                          return {
-                            top: 0,
-                            bottom: 0,
-                            width: "3px",
-                            [dragOverSide === "before" ? "left" : "right"]: "-7px",
-                          } as React.CSSProperties;
-                        }
-                        return {
-                          left: 0,
-                          right: 0,
-                          height: "3px",
-                          [dragOverSide === "before" ? "top" : "bottom"]: "-7px",
-                        } as React.CSSProperties;
-                      })()}
-                    />
-                  ) : null}
-                  {/* Drag handle — sits in the 28px gap ABOVE the chat
-                      tile so it never overlaps the username. Hover-revealed
-                      via the parent `group/tile`. */}
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    draggable
-                    onDragStart={(e) => {
-                      setDragLogin(c.login.toLowerCase());
-                      e.dataTransfer.effectAllowed = "move";
-                      e.dataTransfer.setData("text/plain", c.login.toLowerCase());
-                    }}
-                    onDragEnd={() => {
-                      setDragLogin(null);
-                      setDragOverLogin(null);
-                    }}
-                    aria-label={`Drag ${c.displayName} to reorder`}
-                    title="Drag to reorder"
-                    className="absolute left-1/2 top-0.5 z-20 inline-flex h-5 w-12 -translate-x-1/2 cursor-grab items-center justify-center rounded-full border border-[color:var(--rule)] bg-[color:var(--bg-elev)]/95 text-[color:var(--ink-dim)] opacity-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-all hover:border-[color:var(--core)] hover:text-[color:var(--core)] active:cursor-grabbing group-hover/tile:opacity-100"
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                <label className="text-xs font-medium text-tertiary">
+                  Chat placement
+                  <select value={chatPlacement} onChange={(event) => setChatPlacement(event.target.value as typeof chatPlacement)} className="ml-2 rounded-md bg-secondary px-2 py-1.5 text-sm text-primary ring-1 ring-inset ring-secondary">
+                    <option value="right">Right of streams</option>
+                    <option value="left">Left of streams</option>
+                    <option value="below">Below streams</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium text-tertiary">
+                  Active chat limit
+                  <select
+                    value={maxConnected}
+                    onChange={(event) => setMaxConnected(Number(event.target.value))}
+                    className="ml-2 rounded-md bg-secondary px-2 py-1.5 text-sm text-primary ring-1 ring-inset ring-secondary"
                   >
-                    <GripVertical size={11} />
-                  </span>
-                  <TwitchChat
-                    login={c.login}
-                    userId={c.userId}
-                    displayName={c.displayName}
-                    accent={c.accent}
-                    avatarUrl={c.avatarUrl}
-                    isCore={c.isCore}
-                    onClose={c.isCore ? () => toggleChannelVisibility(c.login, true) : () => removeGuest(c.login)}
-                    compact
-                    textScale={textScale}
-                    monitorSlug={c.isCore ? c.slug : undefined}
+                    {[1, 2, 4, 6, 8].map((count) => <option key={count} value={count}>{count}</option>)}
+                  </select>
+                </label>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-tertiary">
+                  <input
+                    type="checkbox"
+                    checked={dataSaver}
+                    onChange={(event) => {
+                      setDataSaver(event.target.checked);
+                      if (event.target.checked) setStreamsVisible(false);
+                    }}
+                    className="accent-brand-600"
                   />
-                </div>
-              );
-            })}
-          </div>
+                  Data saver
+                </label>
+              </div>
+
+              <form
+                className="mt-4 flex flex-wrap items-center gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!layoutName.trim()) {
+                    setLayoutNotice("Name the layout first.");
+                    return;
+                  }
+                  saveNamedLayout(layoutName, currentLayout);
+                  setLayoutName("");
+                  setLayoutNotice("Layout saved locally and synced when signed in.");
+                }}
+              >
+                <input
+                  value={layoutName}
+                  onChange={(event) => setLayoutName(event.target.value)}
+                  maxLength={48}
+                  placeholder="My game-night layout"
+                  className="min-w-[220px] flex-1 rounded-lg bg-secondary px-3 py-2 text-sm text-primary ring-1 ring-inset ring-secondary placeholder:text-placeholder focus:outline-none focus:ring-2 focus:ring-brand"
+                />
+                <Button type="submit" size="sm" color="primary">Save current</Button>
+              </form>
+
+              {layouts.length > 0 ? (
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {layouts.map((saved) => (
+                    <li key={saved.id} className="inline-flex items-center rounded-full bg-secondary p-0.5 ring-1 ring-inset ring-secondary">
+                      <button type="button" onClick={() => applyLayout(saved.layout)} className="rounded-full px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary">
+                        {saved.name}
+                      </button>
+                      <ButtonUtility
+                        size="xs"
+                        color="tertiary"
+                        icon={XClose}
+                        tooltip={`Delete ${saved.name}`}
+                        aria-label={`Delete ${saved.name}`}
+                        onClick={() => removeNamedLayout(saved.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {layoutNotice ? <p className="mt-2 text-xs text-quaternary" role="status">{layoutNotice}</p> : null}
+            </div>
+          </details>
         </div>
-      )}
+      ) : null}
+
+      {showStreamWall ? (
+        <section aria-label="Watch and chat layout" className={chatPlacement === "below" ? "flex flex-col gap-5" : "grid gap-5 lg:grid-cols-[minmax(19rem,.58fr)_minmax(0,1fr)]"}>
+          {chatPlacement === "left" ? chatDock : null}
+          <StreamGrid channels={visible} parent={playerParent!} />
+          {chatPlacement !== "left" ? chatDock : null}
+        </section>
+      ) : chatDock}
     </div>
   );
 }
 
 /**
- * Multistream player grid — drops one Twitch player per visible channel
- * into a responsive grid above the chats. Each iframe autoplays muted
- * (browser autoplay policy: muted autoplay is allowed everywhere); the
- * viewer can unmute individually via the player's own UI.
+ * Multistream player grid — drops one controlled Twitch player per visible
+ * channel above the chats. Each player requests muted autoplay and exposes
+ * only CORE controls; the provider iframe remains inert below the surface.
  *
  * Tiles keep a 16:9 aspect ratio so the row heights stay even regardless
  * of how many streams are visible, and the column count scales with the
@@ -859,45 +924,31 @@ function StreamGrid({
   channels: ChatChannel[];
   parent: string;
 }) {
-  const cols = (() => {
-    const n = channels.length;
-    if (n <= 1) return "grid-cols-1";
-    if (n === 2) return "grid-cols-1 md:grid-cols-2";
-    if (n === 3) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
-    if (n === 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4";
-    if (n === 5) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5";
-    if (n === 6) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3";
-    return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
-  })();
-
   return (
     <section
       aria-label="Live multistream"
-      className={`mb-5 grid gap-3 ${cols}`}
+      className={`mb-5 grid gap-3 ${chatColumnGridClass(channels.length)}`}
     >
       {channels.map((c) => (
-        <div
+        <article
           key={c.login}
-          className="relative overflow-hidden rounded-lg border border-[color:var(--rule)] bg-black ring-1 ring-inset"
-          style={{ ["--tw-ring-color" as string]: `${c.accent}55`, aspectRatio: "16 / 9" }}
+          className="min-w-0 overflow-hidden rounded-xl bg-secondary ring-1 ring-inset ring-secondary"
         >
-          <iframe
-            key={`${c.login}-${parent}`}
-            src={`https://player.twitch.tv/?channel=${encodeURIComponent(c.login)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`}
-            title={`${c.displayName} live stream`}
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full"
-          />
-          {/* Channel pill in the corner so the user can tell tiles apart
-              while every player loads in parallel. */}
-          <span
-            className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-black/65 px-2 py-1 text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.5)] backdrop-blur-sm"
-            style={{ borderLeft: `2px solid ${c.accent}` }}
-          >
-            {c.displayName}
-          </span>
-        </div>
+          <header className="flex items-center gap-2.5 border-b border-secondary px-3 py-2">
+            <ChannelLogo
+              name={c.displayName}
+              logoUrl={c.commLogo}
+              logoName={c.commName}
+              avatarUrl={c.avatarUrl}
+              size="sm"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-primary">{c.displayName}</span>
+              <span className="block truncate text-xs text-quaternary">@{formatHandleDisplay(c.login)}</span>
+            </span>
+          </header>
+          <ChatStreamPlayer channel={c} parent={parent} />
+        </article>
       ))}
     </section>
   );

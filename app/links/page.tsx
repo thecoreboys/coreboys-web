@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LinksClient } from "./LinksClient";
+import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { MEMBERS } from "@/lib/members";
 import { GROUP_SOCIALS } from "@coreboys/shared";
 
@@ -40,5 +41,10 @@ export default function LinksPage() {
     label: s.label ?? null,
   }));
 
-  return <LinksClient members={members} groupSocials={groupSocials} />;
+  return (
+    <>
+      <LinksClient members={members} groupSocials={groupSocials} />
+      <SiteFooter />
+    </>
+  );
 }

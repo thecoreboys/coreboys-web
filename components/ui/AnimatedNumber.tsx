@@ -46,8 +46,8 @@ export function AnimatedNumber({
       if (startRef.current == null) startRef.current = ts;
       const elapsed = ts - startRef.current;
       const t = Math.min(1, elapsed / durationMs);
-      // easeOutCubic
-      const eased = 1 - Math.pow(1 - t, 3);
+      // easeOutExpo — graceful deceleration into the final value.
+      const eased = t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
       const next = fromRef.current + (value - fromRef.current) * eased;
       setDisplay(next);
       if (t < 1) {
@@ -67,7 +67,7 @@ export function AnimatedNumber({
 
   return (
     <span
-      className={className}
+      className={`tabular-nums ${className ?? ""}`}
       aria-label={ariaLabel}
       aria-live={ariaLabel ? "polite" : undefined}
     >

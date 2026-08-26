@@ -53,7 +53,7 @@ export function PlatformLink({
   variant = "secondary",
 }: PlatformLinkProps) {
   const raw = PLATFORM[platform];
-  const { theme } = useTheme();
+  const { resolvedTheme: theme } = useTheme();
   // X / Snapchat have brand colors that disappear on the opposite theme;
   // pick the light variant when we know the surface won't carry contrast.
   const brand = theme === "light" && raw.brandLight ? raw.brandLight : raw.brand;
@@ -87,17 +87,17 @@ export function PlatformLink({
           className="text-[color:var(--ink)] transition-colors group-hover:text-[var(--brand-ink)]"
         />
         <span className="flex min-w-0 flex-1 flex-col leading-tight">
-          <span className="truncate text-[13px] font-semibold text-[color:var(--ink)] group-hover:text-[var(--brand-ink)]">
+          <span className="truncate text-sm font-semibold text-[color:var(--ink)] group-hover:text-[var(--brand-ink)]">
             {meta.label}
           </span>
           {handle ? (
-            <span className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.16em] text-[color:var(--ink-dim)] group-hover:text-[var(--brand-ink)]/85">
+            <span className="mt-0.5 truncate font-mono text-xs uppercase tracking-[0.16em] text-[color:var(--ink-dim)] group-hover:text-[var(--brand-ink)]/85">
               {handle}
             </span>
           ) : null}
         </span>
         {metric ? (
-          <span className="font-mono text-[11px] tabular-nums text-[color:var(--ink-dim)] group-hover:text-[var(--brand-ink)]">
+          <span className="font-mono text-xs tabular-nums text-[color:var(--ink-dim)] group-hover:text-[var(--brand-ink)]">
             {metric}
           </span>
         ) : null}
@@ -132,17 +132,17 @@ export function PlatformLink({
         <SocialIcon platform={platform as never} size={14} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col leading-tight">
-        <span className="truncate text-[13px] font-semibold text-[color:var(--ink)]">
+        <span className="truncate text-sm font-semibold text-[color:var(--ink)]">
           {meta.label}
         </span>
         {handle ? (
-          <span className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.16em] text-[color:var(--ink-dim)]">
+          <span className="mt-0.5 truncate font-mono text-xs uppercase tracking-[0.16em] text-[color:var(--ink-dim)]">
             {handle}
           </span>
         ) : null}
       </span>
       {metric ? (
-        <span className="font-mono text-[11px] tabular-nums text-[color:var(--ink-dim)]">
+        <span className="font-mono text-xs tabular-nums text-[color:var(--ink-dim)]">
           {metric}
         </span>
       ) : null}

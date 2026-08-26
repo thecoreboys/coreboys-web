@@ -21,6 +21,8 @@ export type MailMember = {
   slug: string;
   /** Display name on the page. */
   displayName: string;
+  /** Exact recipient line registered for the PO box or private mailbox. */
+  mailRecipient: string;
   /** First glyph used on the postage stamp graphic. */
   initial: string;
   /**
@@ -37,12 +39,14 @@ export const MAIL_MEMBERS: readonly MailMember[] = [
   {
     slug: "ron",
     displayName: "Ron",
+    mailRecipient: "StableRonaldo",
     initial: "R",
     addressLines: ["PO Box 2459", "Van Nuys, CA 91404"] as const,
   },
   {
     slug: "jason",
     displayName: "Jason",
+    mailRecipient: "JasonTheWeen",
     initial: "J",
     addressLines: ["15701 Sherman Way #7854", "Van Nuys, CA 91409"] as const,
     note: "Private mailbox at the Van Nuys USPS — packages are fine, oversized boxes may need counter pickup.",
@@ -50,12 +54,14 @@ export const MAIL_MEMBERS: readonly MailMember[] = [
   {
     slug: "lacy",
     displayName: "Lacy",
+    mailRecipient: "Lacy",
     initial: "L",
     addressLines: ["PO Box 55427", "Sherman Oaks, CA 91413"] as const,
   },
   {
     slug: "marlon",
     displayName: "Marlon",
+    mailRecipient: "Marlon (Mar3lg)",
     initial: "M",
     addressLines: ["5609 Yolanda Ave #570730", "Tarzana, CA 91356"] as const,
     note: "Private mailbox at the Tarzana location.",
@@ -63,6 +69,7 @@ export const MAIL_MEMBERS: readonly MailMember[] = [
   {
     slug: "adapt",
     displayName: "Adapt",
+    mailRecipient: "Adapt",
     initial: "A",
     addressLines: ["PO Box 2820", "Toluca Lake, CA 91610"] as const,
   },
@@ -74,7 +81,7 @@ export const MAIL_MEMBERS_BY_SLUG: Readonly<Record<string, MailMember>> = Object
 
 /** Build the multi-line clipboard payload: name + address. */
 export function clipboardPayloadFor(m: MailMember): string {
-  return [m.displayName, ...m.addressLines].join("\n");
+  return [m.mailRecipient, ...m.addressLines].join("\n");
 }
 
 /**

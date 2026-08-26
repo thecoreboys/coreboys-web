@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExt from "@tiptap/extension-link";
@@ -65,7 +67,7 @@ export function ArticleEditor() {
 
   if (!editor) {
     return (
-      <div className="rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-8 text-center text-[12px] text-[color:var(--ink-dim)]">
+      <div className="rounded-xl bg-secondary p-8 text-center text-sm text-tertiary ring-1 ring-inset ring-secondary">
         Loading editor…
       </div>
     );
@@ -125,39 +127,41 @@ export function ArticleEditor() {
   return (
     <div className="flex flex-col gap-6">
       {/* Frontmatter */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_180px]">
-        <input
-          type="text"
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_200px]">
+        <Input
+          label="Title"
+          size="lg"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(v) => setTitle(v)}
           placeholder="Article title"
-          className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-4 py-3 text-[18px] font-bold tracking-tight text-[color:var(--ink)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
         />
-        <select
+        <NativeSelect
+          label="Category"
+          size="lg"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-3 text-[13px] text-[color:var(--ink)] focus:border-[color:var(--core)] focus:outline-none"
-        >
-          {["Recap", "House", "Org", "Press", "Craft", "Product"].map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+          options={["Recap", "House", "Org", "Press", "Craft", "Product"].map((c) => ({
+            label: c,
+            value: c,
+          }))}
+        />
       </div>
-      <input
-        type="text"
+      <Input
+        label="Dek"
+        hint="One-sentence subtitle shown under the headline."
+        size="md"
         value={dek}
-        onChange={(e) => setDek(e.target.value)}
+        onChange={(v) => setDek(v)}
         placeholder="One-sentence dek (subtitle)"
-        className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-4 py-2.5 text-[14px] text-[color:var(--ink-dim)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
       />
-      <input
-        type="text"
+      <Input
+        label="Slug"
+        hint="Auto-generates from the title if left blank."
+        size="md"
         value={slug}
-        onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
-        placeholder="custom-slug (auto-generates from title if blank)"
-        className="w-full rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-4 py-2 font-mono text-[12px] text-[color:var(--ink-dim)] placeholder:text-[color:var(--ink-faint)] focus:border-[color:var(--core)] focus:outline-none"
+        onChange={(v) => setSlug(v.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+        placeholder="custom-slug"
+        inputClassName="font-mono"
       />
 
       {/* Toolbar */}
@@ -167,46 +171,37 @@ export function ArticleEditor() {
       <div className="rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-6">
         <EditorContent
           editor={editor}
-          className="prose prose-invert max-w-none focus:outline-none [&_.ProseMirror]:min-h-[320px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:text-[32px] [&_.ProseMirror_h1]:font-black [&_.ProseMirror_h1]:tracking-[-0.02em] [&_.ProseMirror_h2]:text-[22px] [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:tracking-[-0.01em] [&_.ProseMirror_h2]:mt-8 [&_.ProseMirror_h3]:text-[18px] [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:mt-6 [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:leading-relaxed [&_.ProseMirror_p]:text-[color:var(--ink)] [&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-[color:var(--core)] [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-[color:var(--ink-dim)] [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_a]:text-[color:var(--core)] [&_.ProseMirror_iframe]:my-6 [&_.ProseMirror_iframe]:w-full [&_.ProseMirror_iframe]:aspect-video [&_.ProseMirror_iframe]:rounded-lg"
+          className="prose prose-invert max-w-none focus:outline-none [&_.ProseMirror]:min-h-[320px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:text-[32px] [&_.ProseMirror_h1]:font-black [&_.ProseMirror_h1]:tracking-[-0.02em] [&_.ProseMirror_h2]:text-[22px] [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:tracking-[-0.01em] [&_.ProseMirror_h2]:mt-8 [&_.ProseMirror_h3]:text-lg [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:mt-6 [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:leading-relaxed [&_.ProseMirror_p]:text-[color:var(--ink)] [&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-[color:var(--core)] [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-[color:var(--ink-dim)] [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_a]:text-[color:var(--core)] [&_.ProseMirror_iframe]:my-6 [&_.ProseMirror_iframe]:w-full [&_.ProseMirror_iframe]:aspect-video [&_.ProseMirror_iframe]:rounded-lg"
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-[color:var(--rule)] pt-5">
-        <button
-          type="button"
+      <div className="flex flex-wrap items-center gap-3 border-t border-secondary pt-5">
+        <Button
+          color="secondary"
+          size="md"
           onClick={() => save("draft")}
-          disabled={saving}
-          className="btn btn-secondary disabled:opacity-50"
+          isDisabled={saving}
+          iconLeading={saved ? Check : undefined}
         >
-          {saved ? (
-            <>
-              <Check size={14} /> Saved
-            </>
-          ) : saving ? (
-            <>Saving…</>
-          ) : (
-            <>Save draft</>
-          )}
-        </button>
-        <button
-          type="button"
+          {saved ? "Saved" : saving ? "Saving…" : "Save draft"}
+        </Button>
+        <Button
+          color="primary"
+          size="md"
           onClick={() => save("published")}
-          disabled={saving}
-          className="btn btn-primary disabled:opacity-50"
+          isDisabled={saving}
+          isLoading={saving}
         >
           Publish
-        </button>
-        <Link href="/admin/articles" className="btn btn-secondary">
+        </Button>
+        <Button color="secondary" size="md" href="/admin/articles">
           All articles
-        </Link>
-        <Link
-          href="/admin"
-          className="text-[12px] font-medium text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-        >
+        </Button>
+        <Button color="link-gray" size="md" href="/admin">
           Back to admin
-        </Link>
+        </Button>
         {error ? (
-          <span className="ml-auto text-[12px] text-[color:var(--core)]">{error}</span>
+          <span className="ml-auto text-sm font-medium text-error-primary">{error}</span>
         ) : null}
       </div>
     </div>

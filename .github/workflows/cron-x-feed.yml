@@ -1,0 +1,23 @@
+name: cron-x-feed
+
+# The website never calls X. This scheduled job makes at most one combined
+# roster request every five minutes and persists the sanitized result in Postgres.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh the shared CORE X feed
+        env:
+          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          SECRET: ${{ secrets.METRICS_CRON_SECRET }}
+        run: |
+          set -e
+          curl -fsS -X POST \
+            -H "x-cron-secret: $SECRET" \
+            -w "\nHTTP %{http_code}\n" \
+            "$APP_URL/api/social/x/refresh"

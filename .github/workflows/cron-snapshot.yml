@@ -1,8 +1,8 @@
 name: cron-snapshot
 
-# Daily follower / sub snapshot. Cheap (one HTTP POST) so we run it
-# once a day at 03:00 UTC to give the previous day's late streams a
-# chance to settle before the row gets written.
+# Daily social and TwitchTracker snapshots. The TwitchTracker endpoint is a
+# rolling 30-day summary; storing one validated sample per day gives the site
+# a durable history without making third-party calls during page rendering.
 
 on:
   schedule:
@@ -24,3 +24,15 @@ jobs:
             -H "x-cron-secret: $SECRET" \
             -w "\nHTTP %{http_code}\n" \
             "$APP_URL/api/metrics/snapshot"
+
+      - name: POST /api/metrics/twitchtracker/snapshot
+        env:
+          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          SECRET: ${{ secrets.METRICS_CRON_SECRET }}
+        run: |
+          set -e
+          echo "Hitting $APP_URL/api/metrics/twitchtracker/snapshot"
+          curl -fsS -X POST \
+            -H "x-cron-secret: $SECRET" \
+            -w "\nHTTP %{http_code}\n" \
+            "$APP_URL/api/metrics/twitchtracker/snapshot"

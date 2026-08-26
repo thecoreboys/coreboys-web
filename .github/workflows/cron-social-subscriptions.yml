@@ -1,0 +1,17 @@
+name: Renew social webhook subscriptions
+on:
+  schedule:
+    # Twitch subscriptions persist until revoked. YouTube WebSub leases expire,
+    # so renew daily before the requested ten-day lease elapses.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+concurrency:
+  group: core-social-subscription-renewal
+  cancel-in-progress: false
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Provision or renew provider subscriptions
+        run: curl --fail --silent --show-error -X POST "${{ secrets.CORE_SITE_URL }}/api/social/subscriptions/provision" -H "x-cron-secret: ${{ secrets.METRICS_CRON_SECRET }}"

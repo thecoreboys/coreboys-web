@@ -63,7 +63,7 @@ export function Manifesto() {
       className="relative w-full bg-[color:var(--bg)] py-32 md:py-48"
     >
       <SectionNumber index={1} label="Manifesto" />
-      <div className="mx-auto max-w-[1440px] px-6 md:px-16">
+      <div className="mx-auto max-w-container px-6 md:px-8">
         <Eyebrow className="mb-16">The acronym</Eyebrow>
         <ul className="flex flex-col gap-20 md:gap-28">
           {PILLARS.map(({ letter, word, line }) => (
@@ -74,13 +74,13 @@ export function Manifesto() {
                     {letter}
                   </span>
                   <span
-                    className="m-word inline-block overflow-hidden text-[10vw] md:text-[6rem] leading-[0.85] text-[color:var(--core)]"
+                    className="m-word gradient-text-core inline-block overflow-hidden text-[10vw] md:text-[6rem] leading-[0.85]"
                     style={{ whiteSpace: "nowrap" }}
                   >
                     {word}
                   </span>
                 </div>
-                <p className="m-line mt-4 max-w-xl text-lg md:text-xl text-[color:var(--ink-dim)]">
+                <p className="m-line mt-4 max-w-xl text-lg text-[color:var(--ink-dim)]">
                   {line}
                 </p>
               </div>

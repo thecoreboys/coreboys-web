@@ -1,0 +1,3666 @@
+.guide-v2,
+.guide-history {
+  width: min(100%, 1600px);
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.guide-v2 {
+  /* The board below is intentionally wider than the screen. Keep that width
+     inside its dedicated .guide-timeline-scroll instead of letting ambient
+     glows or sticky timeline children widen the whole document. */
+  overflow-x: clip;
+  padding: clamp(2rem, 5vw, 4.5rem) clamp(1rem, 4vw, 2.5rem) 2rem;
+}
+
+.guide-history {
+  overflow-x: clip;
+}
+
+.guide-v2 button,
+.guide-v2 input,
+.guide-v2 select,
+.guide-history button {
+  font: inherit;
+}
+
+.guide-v2 button,
+.guide-v2 a,
+.guide-history summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.guide-v2-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.guide-v2-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.5rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  color: var(--ink-dim);
+  font-size: 0.78rem;
+}
+
+.guide-v2-status > span {
+  width: 0.52rem;
+  height: 0.52rem;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+.guide-v2-status > span.is-live {
+  background: var(--live);
+  box-shadow: 0 0 0 0.24rem color-mix(in srgb, var(--live) 16%, transparent);
+}
+
+.guide-live-first,
+.guide-schedule {
+  margin-top: clamp(2.25rem, 5vw, 4.5rem);
+}
+
+.guide-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.guide-section-heading h2 {
+  margin-top: 0.18rem;
+  color: var(--ink);
+  font-size: clamp(1.25rem, 3vw, 1.65rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.guide-section-heading > span {
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.guide-live-rail {
+  display: flex;
+  gap: clamp(0.65rem, 1.4vw, 1rem);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0.2rem 0.1rem 0.75rem;
+  scroll-padding-inline: 0.1rem;
+  scroll-snap-type: x mandatory;
+}
+
+/* The Guide’s on-air shelf deliberately reuses Home’s media player cards.
+   Keeping the shared sizing makes the content feel like one product instead
+   of a separate guide-only card system. */
+.guide-live-rail .watch-poster { flex: 0 0 auto; }
+
+.guide-live-card {
+  position: relative;
+  display: flex;
+  flex: 0 0 min(82vw, 21rem);
+  scroll-snap-align: start;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0.85rem;
+  background: var(--bg-elev);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+.guide-live-card:hover {
+  border-color: color-mix(in srgb, var(--ink) 30%, var(--rule));
+  background: color-mix(in srgb, var(--bg-elev) 92%, var(--surface));
+  transform: translateY(-2px);
+}
+
+.guide-live-media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  background: #090909;
+}
+
+.guide-live-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.guide-live-card:hover .guide-live-media img {
+  transform: scale(1.025);
+}
+
+.guide-live-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 42%, rgba(0, 0, 0, 0.88) 100%);
+}
+
+.guide-live-badge {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.48rem;
+  border-radius: 0.36rem;
+  background: var(--live);
+  color: #fff;
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.guide-live-copy {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  min-height: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.68rem;
+  padding: 1.55rem 0.72rem 0.72rem;
+  background: linear-gradient(180deg, transparent, rgba(5, 5, 7, 0.48));
+}
+
+.guide-live-copy strong,
+.guide-live-copy span span {
+  display: block;
+}
+
+.guide-live-copy strong {
+  font-size: 0.84rem;
+  line-height: 1.2;
+}
+
+.guide-live-copy span span {
+  overflow: hidden;
+  margin-top: 0.22rem;
+  color: var(--ink-dim);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-v2-mark {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex: 0 0 2.15rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.62rem;
+  background: #050505;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.guide-v2-mark img {
+  width: 76%;
+  height: 76%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.guide-live-empty,
+.guide-schedule-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-height: 4.2rem;
+  padding: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg-elev) 76%, transparent);
+  color: var(--ink-dim);
+  font-size: 0.86rem;
+}
+
+.guide-live-empty-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+.guide-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.7rem;
+  margin-top: 2rem;
+  padding-block: 0.9rem;
+  border-block: 1px solid var(--rule);
+}
+
+.guide-filter-row {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  padding-bottom: 1px;
+  scrollbar-width: none;
+}
+
+.guide-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.guide-filter-row button,
+.guide-scope button {
+  min-height: 2.25rem;
+  flex: 0 0 auto;
+  padding: 0.48rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 0.76rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.guide-filter-row button:hover,
+.guide-scope button:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.guide-filter-row button.is-active,
+.guide-scope button.is-active {
+  border-color: var(--rule-strong);
+  background: var(--bg-elev);
+  color: var(--ink);
+}
+
+.guide-select-wrap,
+.guide-search-wrap {
+  position: relative;
+  display: block;
+}
+
+.guide-select-wrap::after {
+  content: "⌄";
+  position: absolute;
+  top: 50%;
+  right: 0.72rem;
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  pointer-events: none;
+  transform: translateY(-58%);
+}
+
+.guide-select-wrap.guide-untitled-select::after {
+  display: none;
+}
+
+.guide-select-wrap select,
+.guide-search-wrap input {
+  width: 100%;
+  min-height: 2.45rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.62rem;
+  outline: 0;
+  background: var(--bg-elev);
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+
+.guide-select-wrap select {
+  appearance: none;
+  padding: 0.55rem 2rem 0.55rem 0.72rem;
+  cursor: pointer;
+}
+
+.guide-search-wrap input {
+  padding: 0.55rem 0.75rem;
+}
+
+.guide-search-wrap input::placeholder {
+  color: var(--ink-faint);
+}
+
+.guide-select-wrap select:focus-visible,
+.guide-search-wrap input:focus-visible,
+.guide-v2 button:focus-visible,
+.guide-v2 a:focus-visible,
+.guide-history summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--core) 72%, white);
+  outline-offset: 2px;
+}
+
+.guide-schedule-heading {
+  align-items: center;
+}
+
+.guide-timeline-section .guide-section-heading h2 {
+  font-size: clamp(1.2rem, 2vw, 1.45rem);
+}
+
+.guide-scope {
+  display: inline-flex;
+  gap: 0.18rem;
+  padding: 0.16rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--bg-elev) 75%, transparent);
+}
+
+.guide-scope button {
+  min-height: 2rem;
+  padding-inline: 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.7rem;
+}
+
+.guide-schedule-empty {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.guide-schedule-empty strong {
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.guide-schedule-empty span,
+.guide-inline-note {
+  color: var(--ink-faint);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.guide-inline-note {
+  padding: 0.85rem 0.15rem;
+}
+
+.guide-mobile-agenda ol {
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: 0.82rem;
+  background: var(--bg-elev);
+}
+
+.guide-mobile-agenda li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.guide-mobile-agenda li > button,
+.guide-mobile-agenda li > a {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 4.1rem 2.15rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.82rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.guide-mobile-agenda li > button:hover,
+.guide-mobile-agenda li > a:hover {
+  background: var(--surface);
+}
+
+.guide-agenda-time,
+.guide-agenda-copy,
+.guide-agenda-copy strong,
+.guide-agenda-copy span {
+  display: block;
+  min-width: 0;
+}
+
+.guide-agenda-time strong {
+  display: block;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-agenda-time span,
+.guide-agenda-copy span {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--ink-faint);
+  font-size: 0.65rem;
+}
+
+.guide-agenda-copy strong {
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-desktop-epg {
+  display: none;
+}
+
+.guide-v2-epg {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--rule);
+  border-radius: 0.85rem;
+  background: var(--bg-elev);
+  overscroll-behavior-x: contain;
+}
+
+.guide-v2-board {
+  min-width: 100%;
+}
+
+.guide-v2-row {
+  display: flex;
+  border-bottom: 1px solid var(--rule);
+}
+
+.guide-v2-row:last-child {
+  border-bottom: 0;
+}
+
+.guide-v2-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+}
+
+.guide-v2-channel {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.62rem;
+  padding: 0.68rem;
+  border-right: 1px solid var(--rule);
+  background: var(--bg-elev);
+}
+
+.guide-v2-head .guide-v2-channel {
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.63rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.guide-v2-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  box-shadow: 8px 0 18px color-mix(in srgb, var(--bg) 34%, transparent);
+}
+
+.guide-v2-head .guide-v2-sticky {
+  z-index: 7;
+  background: var(--bg);
+}
+
+.guide-v2-channel strong,
+.guide-v2-channel span span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-v2-channel strong {
+  font-size: 0.73rem;
+}
+
+.guide-v2-channel span span {
+  margin-top: 0.14rem;
+  color: var(--ink-faint);
+  font-size: 0.62rem;
+}
+
+.guide-v2-track {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.guide-v2-track-grid {
+  background-image: linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+  background-repeat: repeat-x;
+}
+
+.guide-v2-tick {
+  position: absolute;
+  bottom: 0.52rem;
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(0.45rem);
+  white-space: nowrap;
+}
+
+.guide-v2-program {
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0.62rem;
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg-elev));
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.guide-v2-program:hover {
+  border-color: color-mix(in srgb, var(--core) 54%, var(--rule-strong));
+  background: color-mix(in srgb, var(--surface) 78%, var(--core) 7%);
+}
+
+.guide-v2-program.is-live {
+  border-color: color-mix(in srgb, var(--live) 50%, var(--rule));
+  background: color-mix(in srgb, var(--live) 13%, var(--bg-elev));
+}
+
+.guide-v2-program-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.56rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.guide-v2-program.is-live .guide-v2-program-topline {
+  color: var(--live);
+  font-weight: 800;
+}
+
+.guide-v2-program > strong {
+  overflow: hidden;
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-v2-now-line {
+  position: absolute;
+  inset-block: 0;
+  z-index: 3;
+  width: 2px;
+  background: var(--core);
+  box-shadow: 0 0 0.75rem color-mix(in srgb, var(--core) 45%, transparent);
+  pointer-events: none;
+}
+
+.guide-replays,
+.guide-history {
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-elev) 80%, transparent);
+}
+
+.guide-replays {
+  margin-top: 2.5rem;
+}
+
+.guide-replays > summary,
+.guide-history > summary {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  color: var(--ink);
+  list-style: none;
+  cursor: pointer;
+}
+
+.guide-replays > summary::-webkit-details-marker,
+.guide-history > summary::-webkit-details-marker {
+  display: none;
+}
+
+.guide-replays > summary::after,
+.guide-history > summary::after {
+  content: "+";
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-dim);
+  font-size: 1rem;
+}
+
+.guide-replays[open] > summary::after,
+.guide-history[open] > summary::after {
+  content: "−";
+}
+
+.guide-replays[open] > summary,
+.guide-history[open] > summary {
+  border-bottom: 1px solid var(--rule);
+}
+
+.guide-replays > summary > span:first-child,
+.guide-history > summary > span:first-child,
+.guide-replays > summary strong,
+.guide-history > summary strong {
+  display: block;
+}
+
+.guide-replays > summary strong,
+.guide-history > summary strong {
+  margin-top: 0.2rem;
+  font-size: 0.95rem;
+}
+
+.guide-replays > summary > span:last-of-type,
+.guide-history > summary > span:last-of-type {
+  margin-left: auto;
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+}
+
+.guide-replay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  padding: 0.85rem;
+}
+
+.guide-replay-card {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0.68rem;
+  background: var(--bg);
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.guide-replay-card:hover {
+  border-color: var(--rule-strong);
+}
+
+.guide-replay-media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: #080808;
+}
+
+.guide-replay-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 240ms ease;
+}
+
+.guide-replay-card:hover .guide-replay-media img {
+  transform: scale(1.025);
+}
+
+.guide-replay-media > span {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.76);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.guide-replay-copy {
+  display: block;
+  padding: 0.68rem;
+}
+
+.guide-replay-copy strong,
+.guide-replay-copy > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-replay-copy strong {
+  font-size: 0.76rem;
+}
+
+.guide-replay-copy > span {
+  margin-top: 0.2rem;
+  color: var(--ink-faint);
+  font-size: 0.64rem;
+}
+
+.guide-replay-copy .guide-replay-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.guide-replay-meta > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.guide-loading {
+  display: grid;
+  grid-template-columns: 8rem repeat(3, minmax(8rem, 1fr));
+  gap: 0.5rem;
+  overflow: hidden;
+  padding: 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.8rem;
+}
+
+.guide-loading > span:not(.sr-only) {
+  height: 3.2rem;
+  border-radius: 0.55rem;
+  background: linear-gradient(90deg, var(--surface), var(--bg-elev), var(--surface));
+  background-size: 220% 100%;
+  animation: guide-shimmer 1.4s linear infinite;
+}
+
+@keyframes guide-shimmer {
+  to { background-position: -220% 0; }
+}
+
+.guide-history {
+  width: min(calc(100% - 2rem), 1550px);
+  margin-bottom: 6rem;
+}
+
+.guide-history-body {
+  padding: 1rem;
+}
+
+.guide-history-body > p {
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+}
+
+.guide-history-body > .guide-history-source-note {
+  display: inline-flex;
+  margin-top: 0.7rem;
+  padding: 0.38rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.42rem;
+  background: rgba(255, 255, 255, 0.025);
+  color: color-mix(in srgb, var(--ink-dim) 82%, transparent);
+  font-size: 0.62rem;
+}
+
+.guide-history-scroll {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.guide-history table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.72rem;
+  text-align: left;
+}
+
+.guide-history th,
+.guide-history td {
+  padding: 0.32rem;
+}
+
+.guide-history thead th {
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.56rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.guide-history .guide-history-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 9.5rem;
+  padding-left: 0;
+  background: var(--bg-elev);
+  text-align: left;
+}
+
+.guide-history thead .guide-history-sticky {
+  z-index: 3;
+}
+
+.guide-history-summary-head {
+  min-width: 15.5rem;
+  padding-inline: 0.7rem !important;
+  text-align: left !important;
+}
+
+.guide-history-summary-cell {
+  min-width: 15.5rem;
+  padding-inline: 0.7rem !important;
+  border-inline: 1px solid var(--rule);
+}
+
+.guide-history-summary {
+  display: grid;
+  grid-template-columns: 1.05fr 0.85fr 1fr;
+  gap: 0.55rem;
+  align-items: center;
+  border-radius: 0.5rem;
+  cursor: help;
+  outline: none;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.guide-history-summary > span {
+  min-width: 0;
+}
+
+.guide-history-summary strong,
+.guide-history-summary b,
+.guide-history-summary small {
+  display: block;
+}
+
+.guide-history-summary.is-provider-derived b {
+  color: color-mix(in srgb, var(--ink) 86%, var(--core));
+}
+
+.guide-history-summary strong,
+.guide-history-summary b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-history-summary small {
+  margin-top: 0.12rem;
+  color: var(--ink-faint);
+  font-size: 0.52rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.guide-history-summary-empty {
+  color: var(--ink-faint);
+  font-size: 0.62rem;
+  cursor: help;
+  outline: none;
+}
+
+.guide-history-channel {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.guide-history .guide-comm-mark {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.55rem;
+}
+
+.guide-history-channel strong,
+.guide-history-channel small,
+.guide-history-session-main strong,
+.guide-history-session-main small {
+  display: block;
+}
+
+.guide-history-channel strong {
+  max-width: 6.4rem;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-history-channel small {
+  margin-top: 0.1rem;
+  color: var(--ink-faint);
+  font-size: 0.57rem;
+  font-weight: 400;
+}
+
+.guide-history-cell {
+  display: block;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.42rem;
+  background: var(--surface);
+  cursor: help;
+  outline: none;
+  transition: transform 150ms cubic-bezier(.16, 1, .3, 1), border-color 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.guide-history-cell.has-airtime {
+  border-color: color-mix(in srgb, var(--core) 48%, var(--rule));
+  background: var(--core);
+  opacity: var(--guide-heat);
+}
+
+.guide-history-summary:focus-visible,
+.guide-history-summary-empty:focus-visible,
+.guide-history-cell:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--core) 68%, #fff);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .guide-history-summary:hover {
+    background: color-mix(in srgb, var(--core) 8%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--core) 22%, transparent);
+  }
+
+  .guide-history-cell:hover {
+    z-index: 1;
+    border-color: color-mix(in srgb, var(--core) 78%, #fff);
+    box-shadow: 0 0.45rem 1rem color-mix(in srgb, var(--core) 26%, transparent), inset 0 1px rgba(255,255,255,.15);
+    filter: brightness(1.18);
+    transform: translateY(-2px) scale(1.08);
+  }
+}
+
+.guide-history-sessions {
+  display: grid;
+  gap: 1px;
+  margin-top: 1.25rem;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: 0.72rem;
+  background: var(--rule);
+}
+
+.guide-history-sessions li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--bg-elev);
+}
+
+.guide-history-session-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.guide-history-session-main > span:last-child {
+  min-width: 0;
+}
+
+.guide-history-session-main strong {
+  overflow: hidden;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-history-session-main small {
+  margin-top: 0.12rem;
+  color: var(--ink-faint);
+  font-size: 0.59rem;
+}
+
+.guide-history-sessions time {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+  font-size: 0.63rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-history-session-stamp {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.14rem;
+  text-align: right;
+}
+
+.guide-history-session-stamp > small {
+  color: var(--ink-faint);
+  font-size: 0.56rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-history-sessions .guide-history-none {
+  justify-content: flex-start;
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+}
+
+/* Unified past-to-future channel timeline */
+.guide-timeline-section {
+  margin-top: 1.8rem;
+}
+
+.guide-timeline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.9rem 0 0.65rem;
+}
+
+.guide-timeline-toolbar p {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+}
+
+.guide-timeline-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.guide-timeline-zoom {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.35rem;
+  padding: 0.22rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.guide-timeline-zoom > span {
+  padding-inline: 0.5rem 0.35rem;
+  color: var(--ink-faint);
+  font-size: 0.64rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.guide-timeline-zoom output {
+  min-width: 2.7rem;
+  color: var(--ink-dim);
+  font-size: 0.64rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  text-align: center;
+}
+
+.guide-timeline-toolbar .guide-timeline-zoom button {
+  width: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.guide-timeline-toolbar button {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.72rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.guide-timeline-toolbar button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--core) 52%, var(--rule-strong));
+  background: color-mix(in srgb, var(--surface) 88%, var(--core) 8%);
+}
+
+.guide-timeline-toolbar button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.guide-timeline-scroll {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: auto hidden;
+  border: 1px solid var(--rule);
+  border-radius: 0.9rem;
+  background: var(--bg-elev);
+  box-shadow: 0 1rem 3rem color-mix(in srgb, #000 18%, transparent);
+  cursor: grab;
+  overscroll-behavior-x: contain;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  touch-action: pan-x pan-y;
+}
+
+.guide-timeline-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.guide-timeline-scroll.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+}
+
+.guide-timeline-scroll:focus-visible {
+  outline: 2px solid var(--core);
+  outline-offset: 3px;
+}
+
+.guide-timeline-board {
+  width: calc(var(--guide-label-w) + var(--guide-track-w));
+  min-width: 100%;
+}
+
+.guide-timeline-row {
+  display: flex;
+  min-width: 100%;
+  border-bottom: 1px solid var(--rule);
+}
+
+.guide-timeline-row:last-child {
+  border-bottom: 0;
+}
+
+.guide-timeline-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 54px;
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  box-shadow: 0 0.35rem 1rem color-mix(in srgb, #000 16%, transparent);
+}
+
+.guide-timeline-label {
+  position: relative;
+  display: flex;
+  width: var(--guide-label-w);
+  flex: 0 0 var(--guide-label-w);
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.7rem;
+  border-right: 1px solid var(--rule);
+  background: var(--bg-elev);
+}
+
+.guide-timeline-head .guide-timeline-label {
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.guide-timeline-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 14;
+  box-shadow: 0.55rem 0 1.2rem color-mix(in srgb, var(--bg) 35%, transparent);
+}
+
+.guide-timeline-head .guide-timeline-sticky {
+  z-index: 24;
+  background: var(--bg);
+}
+
+.guide-timeline-label .guide-v2-mark {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+}
+
+.guide-timeline-label-copy,
+.guide-timeline-label-copy strong,
+.guide-timeline-label-copy span {
+  display: block;
+  min-width: 0;
+}
+
+.guide-timeline-label-copy {
+  flex: 1;
+  overflow: hidden;
+}
+
+.guide-timeline-label-copy strong {
+  overflow: hidden;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-timeline-label-copy span {
+  margin-top: 0.15rem;
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.guide-timeline-platforms {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  align-self: flex-end;
+  margin-left: auto;
+  padding-bottom: 0.1rem;
+  color: var(--ink-dim);
+}
+
+.guide-timeline-platforms .guide-platform-mark + .guide-platform-mark {
+  margin-left: -0.14rem;
+}
+
+.guide-platform-mark {
+  display: inline-flex;
+  width: 0.82rem;
+  height: 0.82rem;
+  flex: 0 0 0.82rem;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  vertical-align: middle;
+}
+
+.guide-platform-mark.is-house {
+  overflow: hidden;
+  border-radius: 50%;
+  background: #050505;
+}
+
+.guide-platform-mark.is-house img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+
+.guide-timeline-track {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.guide-timeline-grid {
+  background-image: linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+  background-repeat: repeat-x;
+}
+
+.guide-timeline-tick {
+  position: absolute;
+  bottom: 0.7rem;
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(0.45rem);
+  white-space: nowrap;
+}
+
+.guide-timeline-now {
+  position: absolute;
+  inset-block: 0;
+  z-index: 5;
+  width: 2px;
+  background: var(--core);
+  box-shadow: 0 0 0.9rem color-mix(in srgb, var(--core) 55%, transparent);
+  pointer-events: none;
+  transition: left 220ms linear;
+}
+
+.guide-timeline-now-head {
+  z-index: 8;
+}
+
+.guide-timeline-now-head > span {
+  position: absolute;
+  top: 0.35rem;
+  left: 0;
+  padding: 0.22rem 0.42rem;
+  border-radius: 999px;
+  background: var(--core);
+  color: white;
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.52rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.guide-timeline-card {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  height: 82px;
+  min-width: 0;
+  align-items: stretch;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg-elev));
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  box-shadow: 0 0.45rem 1rem color-mix(in srgb, #000 14%, transparent);
+  cursor: pointer;
+  container-type: inline-size;
+}
+
+.guide-timeline-card:hover {
+  z-index: 7;
+  border-color: color-mix(in srgb, var(--core) 58%, var(--rule-strong));
+  background: color-mix(in srgb, var(--surface) 86%, var(--core) 8%);
+  box-shadow: 0 0.65rem 1.5rem color-mix(in srgb, #000 26%, transparent);
+  transform: translateY(-2px);
+}
+
+.guide-timeline-card.is-live {
+  border-color: color-mix(in srgb, var(--live) 58%, var(--rule));
+  background: color-mix(in srgb, var(--live) 13%, var(--bg-elev));
+}
+
+.guide-timeline-card.is-upcoming {
+  border-color: color-mix(in srgb, #8a7dff 48%, var(--rule));
+  background: color-mix(in srgb, #8a7dff 10%, var(--bg-elev));
+}
+
+.guide-timeline-card.is-replay {
+  background: color-mix(in srgb, var(--surface) 80%, var(--bg));
+}
+
+.guide-timeline-media {
+  width: 4.7rem;
+  flex: 0 0 4.7rem;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.guide-timeline-card.is-portrait .guide-timeline-media {
+  /* The card is 82px border-box, leaving an 80px media height. 45px is
+     exactly 9:16, so timeline thumbnails never widen Shorts/Reels. */
+  width: 45px;
+  flex-basis: 45px;
+  aspect-ratio: 9 / 16;
+}
+
+.guide-timeline-card.is-square .guide-timeline-media {
+  width: 4.05rem;
+  flex-basis: 4.05rem;
+}
+
+.guide-timeline-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guide-timeline-card.is-photo .guide-timeline-media img {
+  object-fit: contain;
+}
+
+.guide-timeline-card.is-portrait .guide-timeline-media img {
+  object-position: center 22%;
+}
+
+.guide-timeline-card-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.55rem 0.6rem;
+}
+
+.guide-timeline-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  color: var(--ink-faint);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.5rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.guide-timeline-card-time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.guide-timeline-card-kind {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.guide-timeline-card.is-live .guide-timeline-card-meta {
+  color: var(--live);
+  font-weight: 850;
+}
+
+.guide-timeline-card-copy > strong {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 0.28rem;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@container (max-width: 125px) {
+  .guide-timeline-media {
+    display: none;
+  }
+
+  .guide-timeline-card-copy {
+    padding-inline: 0.5rem;
+  }
+
+  .guide-timeline-card-kind > span {
+    display: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .guide-history {
+    width: min(calc(100% - 5rem), 1550px);
+  }
+
+  .guide-controls {
+    grid-template-columns: auto auto minmax(10rem, 0.75fr) minmax(12rem, 1fr);
+    align-items: center;
+  }
+
+  .guide-replay-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .guide-mobile-agenda {
+    display: none;
+  }
+
+  .guide-desktop-epg {
+    display: block;
+  }
+
+  .guide-live-card {
+    flex-basis: 22.5rem;
+  }
+
+  .guide-replay-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 1120px) {
+  .guide-replay-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .guide-v2-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .guide-v2-status {
+    min-height: 2.1rem;
+    padding-block: 0.42rem;
+  }
+
+  .guide-section-heading {
+    align-items: flex-start;
+  }
+
+  .guide-schedule-heading {
+    align-items: center;
+  }
+
+  .guide-replays > summary > span:last-of-type,
+  .guide-history > summary > span:last-of-type {
+    display: none;
+  }
+
+  .guide-history-sessions li {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .guide-history-sessions time {
+    padding-left: 2.4rem;
+  }
+
+  .guide-timeline-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-top: 0.7rem;
+  }
+
+  .guide-timeline-toolbar > div {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .guide-timeline-toolbar button:nth-child(2) {
+    flex: 1;
+  }
+
+  .guide-timeline-zoom {
+    width: 100%;
+    margin: 0.15rem 0 0;
+  }
+
+  .guide-timeline-zoom > span {
+    margin-right: auto;
+  }
+
+  .guide-timeline-board {
+    --guide-label-w: 136px !important;
+  }
+
+  .guide-timeline-label {
+    gap: 0.38rem;
+    padding-inline: 0.48rem;
+  }
+
+  .guide-timeline-label .guide-v2-mark {
+    width: 1.65rem;
+    height: 1.65rem;
+    flex-basis: 1.65rem;
+  }
+
+  .guide-timeline-label-copy strong {
+    font-size: 0.61rem;
+  }
+
+  .guide-timeline-platforms {
+    display: none;
+  }
+
+  .guide-timeline-head .guide-timeline-label {
+    font-size: 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-loading > span:not(.sr-only) {
+    animation: none;
+  }
+
+  .guide-timeline-card,
+  .guide-timeline-scroll,
+  .guide-timeline-now {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
+
+/* Premium streaming refinement — Inter-led hierarchy and quieter scheduler
+   chrome without changing the Guide's timeline behavior. */
+.guide-v2,
+.guide-history,
+.guide-v2 button,
+.guide-v2 input,
+.guide-v2 select {
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+}
+
+.guide-v2 {
+  padding-top: clamp(2.25rem, 4vw, 3.5rem);
+}
+
+.guide-v2-header .watch-title {
+  font-size: clamp(2.75rem, 5vw, 4rem) !important;
+  font-weight: 760;
+  letter-spacing: -0.05em;
+  line-height: 0.98;
+}
+
+.guide-v2-header > div:first-child > p:last-child {
+  max-width: 44rem;
+  color: color-mix(in srgb, var(--ink-dim) 90%, transparent);
+  line-height: 1.55;
+}
+
+.guide-v2-status {
+  min-height: 2rem;
+  padding: 0.35rem 0;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--ink-dim) 84%, transparent);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.guide-live-first,
+.guide-schedule {
+  margin-top: clamp(1.8rem, 3.2vw, 2.75rem);
+}
+
+.guide-section-heading h2 {
+  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+  font-weight: 720;
+  letter-spacing: -0.035em;
+}
+
+.guide-section-heading > span,
+.guide-v2-head .guide-v2-channel,
+.guide-v2-tick,
+.guide-v2-program-topline,
+.guide-history thead th,
+.guide-timeline-head .guide-timeline-label,
+.guide-timeline-label-copy span,
+.guide-timeline-tick,
+.guide-timeline-now-head > span,
+.guide-timeline-card-meta {
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.guide-section-heading > span {
+  font-size: 0.72rem;
+  font-weight: 550;
+}
+
+.guide-live-badge {
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+}
+
+.guide-v2-mark img {
+  image-rendering: auto;
+}
+
+.guide-controls {
+  gap: 0.55rem;
+  margin-top: 1.75rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.guide-filter-row button,
+.guide-scope button {
+  border-radius: 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.guide-filter-row button.is-active,
+.guide-scope button.is-active {
+  border-color: transparent;
+  background: #f4f4f5;
+  color: #09090b;
+  box-shadow: 0 1px 10px rgba(0, 0, 0, 0.22);
+}
+
+.guide-select-wrap select,
+.guide-search-wrap input {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.guide-scope {
+  border-color: rgba(255, 255, 255, 0.07);
+  border-radius: 0.58rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.guide-timeline-toolbar p {
+  font-size: 0.72rem;
+}
+
+.guide-timeline-toolbar button {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 0.48rem;
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.guide-timeline-zoom {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 0.48rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.guide-timeline-scroll {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  background: #0b0b0d;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
+}
+
+.guide-timeline-head {
+  background: rgba(8, 8, 10, 0.97);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.guide-timeline-row:nth-child(even) .guide-timeline-track {
+  background-color: rgba(255, 255, 255, 0.012);
+}
+
+.guide-timeline-grid {
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+}
+
+.guide-timeline-head .guide-timeline-label {
+  color: color-mix(in srgb, var(--ink-dim) 80%, transparent);
+  font-size: 0.64rem;
+  font-weight: 650;
+}
+
+.guide-timeline-label-copy strong {
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.guide-timeline-label-copy span {
+  font-size: 0.61rem;
+  font-weight: 500;
+}
+
+.guide-timeline-tick {
+  font-size: 0.61rem;
+  font-weight: 500;
+}
+
+.guide-timeline-now-head > span {
+  font-size: 0.58rem;
+  font-weight: 750;
+}
+
+.guide-timeline-card {
+  border-color: rgba(255, 255, 255, 0.09);
+  border-radius: 0.46rem;
+  background: #151518;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.guide-timeline-card:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: #1b1b1f;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+}
+
+.guide-timeline-card.is-live {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #17171a;
+  box-shadow: inset 3px 0 var(--live), 0 6px 14px rgba(0, 0, 0, 0.24);
+}
+
+.guide-timeline-card.is-replay {
+  background: #121215;
+}
+
+.guide-timeline-card-meta {
+  color: color-mix(in srgb, var(--ink-dim) 76%, transparent);
+  font-size: 0.6rem;
+  font-weight: 550;
+}
+
+.guide-timeline-card-copy > strong {
+  margin-top: 0.24rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.guide-replays,
+.guide-history {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.55rem;
+  background: #0d0d0f;
+}
+
+.guide-replay-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.46rem;
+  background: #111114;
+}
+
+@media (max-width: 639px) {
+  .guide-v2 {
+    padding-top: 2rem;
+  }
+
+  .guide-schedule-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .guide-scope {
+    align-self: flex-start;
+  }
+
+  .guide-controls {
+    padding: 0.45rem;
+  }
+
+  .guide-timeline-card-copy > strong {
+    font-size: 0.72rem;
+  }
+}
+
+/* Network/channel tuner --------------------------------------------------- */
+
+.guide-channel-matrix {
+  margin-top: clamp(2.25rem, 5vw, 4rem);
+}
+
+.guide-channel-matrix-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.guide-channel-matrix-heading h2 {
+  margin-top: 0.25rem;
+  color: var(--ink);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 740;
+  letter-spacing: -0.04em;
+}
+
+.guide-channel-matrix-heading > div > p:last-child {
+  max-width: 38rem;
+  margin-top: 0.45rem;
+  color: var(--ink-dim);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.guide-channel-now {
+  display: inline-flex;
+  min-width: 0;
+  max-width: min(24rem, 42vw);
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  color: var(--ink-dim);
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-channel-now > span {
+  width: 0.46rem;
+  height: 0.46rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--live) 13%, transparent);
+}
+
+.guide-network-jump {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scrollbar-width: none;
+}
+
+.guide-network-jump::-webkit-scrollbar {
+  display: none;
+}
+
+.guide-network-jump button {
+  position: relative;
+  display: inline-flex;
+  min-height: 2.35rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.48rem;
+  padding: 0.35rem 0.68rem 0.35rem 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elev) 84%, transparent);
+  color: var(--ink-dim);
+  font-size: 0.7rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.guide-network-jump button:hover,
+.guide-network-jump button[aria-pressed="true"] {
+  border-color: var(--rule-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.guide-network-jump button.is-active {
+  border-color: color-mix(in srgb, var(--core) 45%, var(--rule));
+}
+
+.guide-network-jump img {
+  width: 1.62rem;
+  height: 1.62rem;
+  border-radius: 50%;
+  background: #09090b;
+  object-fit: contain;
+}
+
+.guide-network-jump i {
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: -0.05rem;
+  border-radius: 50%;
+  background: var(--live);
+}
+
+.guide-network-groups {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+
+.guide-network-group {
+  overflow: hidden;
+  scroll-margin-top: 5.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-elev) 84%, transparent);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.guide-network-group.is-open {
+  border-color: var(--rule-strong);
+  background: var(--bg-elev);
+}
+
+.guide-network-group.is-tuned {
+  box-shadow: inset 3px 0 var(--guide-network-accent);
+}
+
+.guide-network-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 4.35rem;
+}
+
+.guide-network-tune,
+.guide-channel-row-tune,
+.guide-channel-item-rail > button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.guide-network-tune {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.72rem;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+}
+
+.guide-network-tune:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+
+.guide-network-tune:disabled,
+.guide-channel-row-tune:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.guide-network-logo {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.7rem;
+  background: #08080a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+}
+
+.guide-network-logo img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+
+.guide-network-copy,
+.guide-network-copy strong,
+.guide-network-copy small {
+  display: block;
+  min-width: 0;
+}
+
+.guide-network-copy {
+  flex: 1;
+}
+
+.guide-network-copy strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-network-copy small {
+  margin-top: 0.18rem;
+  color: var(--ink-faint);
+  font-size: 0.65rem;
+}
+
+.guide-network-play {
+  display: inline-flex;
+  min-height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--ink-dim);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.is-tuned .guide-network-play {
+  border-color: color-mix(in srgb, var(--guide-network-accent) 48%, var(--rule));
+  color: var(--ink);
+}
+
+.guide-channel-rows {
+  border-top: 1px solid var(--rule);
+}
+
+.guide-channel-row {
+  display: grid;
+  grid-template-columns: minmax(11.5rem, 16.5rem) minmax(0, 1fr);
+  min-height: 7.25rem;
+  background: color-mix(in srgb, var(--bg) 48%, transparent);
+}
+
+.guide-channel-row + .guide-channel-row {
+  border-top: 1px solid var(--rule);
+}
+
+.guide-channel-row.is-active {
+  background: color-mix(in srgb, var(--guide-network-accent) 4%, var(--bg));
+}
+
+.guide-channel-row-tune {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border-right: 1px solid var(--rule);
+  text-align: left;
+}
+
+.guide-channel-row-tune:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+.guide-channel-row-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.56rem;
+  background: var(--surface);
+  color: var(--ink-dim);
+}
+
+.guide-channel-row.is-active .guide-channel-row-icon {
+  background: var(--guide-network-accent);
+  color: #fff;
+}
+
+.guide-channel-row-copy,
+.guide-channel-row-copy strong {
+  display: block;
+  min-width: 0;
+}
+
+.guide-channel-row-copy strong {
+  color: var(--ink);
+  font-size: 0.79rem;
+  font-weight: 700;
+}
+
+.guide-channel-item-rail {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 0.72rem;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.guide-channel-item-rail > button {
+  display: grid;
+  width: clamp(9.5rem, 15vw, 12.5rem);
+  flex: 0 0 auto;
+  grid-template-columns: 5.1rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.58rem;
+  padding: 0.42rem;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+  text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.guide-channel-item-rail > button:hover {
+  border-color: var(--rule);
+  background: var(--surface);
+}
+
+.guide-channel-item-rail > button.is-playing {
+  border-color: color-mix(in srgb, var(--guide-network-accent) 55%, var(--rule));
+  background: color-mix(in srgb, var(--guide-network-accent) 7%, transparent);
+}
+
+.guide-channel-item-media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 5.1rem;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.42rem;
+  background: #08080a;
+}
+
+.guide-channel-item-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guide-channel-item-media i {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.25rem;
+  padding: 0.13rem 0.24rem;
+  border-radius: 0.22rem;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 0.48rem;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.guide-channel-item-copy,
+.guide-channel-item-copy strong,
+.guide-channel-item-copy small {
+  display: block;
+  min-width: 0;
+}
+
+.guide-channel-item-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.65rem;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.guide-channel-item-copy small {
+  overflow: hidden;
+  margin-top: 0.25rem;
+  color: var(--ink-faint);
+  font-size: 0.53rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One synchronized EPG-style board for every network and channel. The four
+   columns are lineup types, not invented clock times. */
+.guide-channel-timeline-scroll {
+  position: relative;
+  margin-top: 1.15rem;
+  overflow: auto hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.58rem;
+  background: #0b0b0d;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
+  cursor: grab;
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--rule-strong) transparent;
+  scrollbar-width: thin;
+  touch-action: pan-x pan-y;
+}
+
+.guide-channel-timeline-scroll.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+  user-select: none;
+}
+
+.guide-channel-timeline-scroll:focus-visible {
+  outline: 2px solid var(--core);
+  outline-offset: 3px;
+}
+
+.guide-channel-timeline-board {
+  --guide-channel-network-w: 13.5rem;
+  --guide-channel-cell-w: 17rem;
+  width: calc(var(--guide-channel-network-w) + var(--guide-channel-cell-w) * 4);
+  min-width: 100%;
+}
+
+.guide-channel-timeline-head,
+.guide-channel-timeline-row {
+  display: grid;
+  width: 100%;
+  min-width: 100%;
+  grid-template-columns: var(--guide-channel-network-w) repeat(4, var(--guide-channel-cell-w));
+}
+
+.guide-channel-timeline-head {
+  min-height: 3.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(8, 8, 10, 0.98);
+  color: var(--ink-dim);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.guide-channel-timeline-network {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.72rem 0.78rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0d0d0f;
+}
+
+.guide-channel-timeline-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  box-shadow: 0.6rem 0 1.25rem rgba(0, 0, 0, 0.24);
+}
+
+.guide-channel-timeline-head .guide-channel-timeline-network {
+  z-index: 12;
+  align-items: end;
+  background: #08080a;
+  color: color-mix(in srgb, var(--ink-dim) 82%, transparent);
+  font-size: 0.63rem;
+  font-weight: 700;
+}
+
+.guide-channel-timeline-column {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: center;
+  column-gap: 0.5rem;
+  padding: 0.58rem 0.72rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.guide-channel-timeline-column > i {
+  grid-row: 1 / 3;
+  align-self: center;
+  color: var(--ink-faint);
+  font-size: 0.54rem;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-channel-timeline-column > span {
+  display: grid;
+  grid-row: 1 / 3;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border-radius: 0.42rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--ink-dim);
+}
+
+.guide-channel-timeline-column > strong,
+.guide-channel-timeline-column > small {
+  display: block;
+  min-width: 0;
+}
+
+.guide-channel-timeline-column > strong {
+  align-self: end;
+  color: var(--ink);
+  font-size: 0.73rem;
+  font-weight: 680;
+}
+
+.guide-channel-timeline-column > small {
+  align-self: start;
+  margin-top: 0.08rem;
+  color: var(--ink-faint);
+  font-size: 0.57rem;
+}
+
+.guide-channel-timeline-row {
+  position: relative;
+  min-height: 8.15rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+  background: #0b0b0d;
+}
+
+.guide-channel-timeline-row:last-child {
+  border-bottom: 0;
+}
+
+.guide-channel-timeline-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.guide-channel-timeline-row.is-tuned {
+  background: color-mix(in srgb, var(--guide-network-accent) 3.5%, #0b0b0d);
+}
+
+.guide-channel-timeline-row.is-tuned .guide-channel-timeline-network {
+  box-shadow:
+    inset 3px 0 var(--guide-network-accent),
+    0.6rem 0 1.25rem rgba(0, 0, 0, 0.3);
+}
+
+.guide-channel-timeline-network .guide-network-logo {
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 0.65rem;
+}
+
+.guide-channel-timeline-network .guide-network-copy strong {
+  display: -webkit-box;
+  font-size: 0.78rem;
+  font-weight: 680;
+  line-height: 1.15;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.guide-channel-timeline-network .guide-network-copy small {
+  font-size: 0.6rem;
+}
+
+.guide-channel-network-playing {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.28rem;
+  margin-left: auto;
+  color: var(--guide-network-accent);
+  font-size: 0.54rem;
+  font-weight: 750;
+}
+
+.guide-channel-timeline-slot {
+  min-width: 0;
+  padding: 0.48rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.guide-channel-timeline-card {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 7.15rem;
+  align-items: stretch;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 0.5rem;
+  background: #151518;
+  color: var(--ink);
+  text-align: left;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.guide-channel-timeline-card:focus-visible {
+  position: relative;
+  z-index: 3;
+  outline: 2px solid color-mix(in srgb, var(--core) 68%, #fff);
+  outline-offset: 1px;
+}
+
+.guide-channel-timeline-card:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.26);
+  background: #1b1b1f;
+  box-shadow: 0 11px 24px rgba(0, 0, 0, 0.34);
+}
+
+.guide-channel-timeline-card.is-active {
+  border-color: color-mix(in srgb, var(--guide-network-accent) 72%, #fff);
+  background: color-mix(in srgb, var(--guide-network-accent) 10%, #161619);
+  box-shadow:
+    inset 3px 0 var(--guide-network-accent),
+    0 9px 22px rgba(0, 0, 0, 0.32);
+}
+
+.guide-channel-timeline-card.is-live:not(.is-active) {
+  box-shadow: inset 3px 0 var(--live), 0 6px 14px rgba(0, 0, 0, 0.24);
+}
+
+.guide-channel-timeline-card:disabled {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.018);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.guide-channel-timeline-media {
+  position: relative;
+  width: 6.25rem;
+  flex: 0 0 6.25rem;
+  overflow: hidden;
+  background: #060608;
+}
+
+.guide-channel-timeline-slot.is-shorts .guide-channel-timeline-media {
+  width: 4.05rem;
+  flex-basis: 4.05rem;
+}
+
+.guide-channel-timeline-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guide-channel-timeline-slot.is-shorts .guide-channel-timeline-media img {
+  object-position: center 22%;
+}
+
+.guide-channel-timeline-card:disabled .guide-channel-timeline-media img {
+  opacity: 0.3;
+  filter: grayscale(1);
+  object-fit: contain;
+  transform: scale(0.68);
+}
+
+.guide-channel-timeline-media::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 54%, rgba(0, 0, 0, 0.48));
+  content: "";
+  pointer-events: none;
+}
+
+.guide-channel-timeline-media > i {
+  position: absolute;
+  z-index: 1;
+  right: 0.3rem;
+  bottom: 0.3rem;
+  padding: 0.14rem 0.28rem;
+  border-radius: 0.24rem;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 0.48rem;
+  font-style: normal;
+  font-weight: 780;
+}
+
+.guide-channel-timeline-card.is-live .guide-channel-timeline-media > i {
+  background: var(--live);
+}
+
+.guide-channel-timeline-copy {
+  display: flex;
+  min-width: 0;
+}
+
+.guide-channel-timeline-copy > strong,
+.guide-channel-timeline-copy > small {
+  display: block;
+  min-width: 0;
+}
+
+.guide-channel-timeline-copy {
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.56rem 0.62rem;
+}
+
+.guide-channel-timeline-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  color: var(--ink-faint);
+  font-size: 0.54rem;
+  font-weight: 620;
+}
+
+.guide-channel-timeline-card.is-active .guide-channel-timeline-meta {
+  color: color-mix(in srgb, var(--guide-network-accent) 72%, #fff);
+}
+
+.guide-channel-timeline-copy > strong {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 0.28rem;
+  color: var(--ink);
+  font-size: 0.69rem;
+  font-weight: 660;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.guide-channel-timeline-copy > small {
+  overflow: hidden;
+  margin-top: 0.25rem;
+  color: var(--ink-faint);
+  font-size: 0.54rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-channel-timeline-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: auto;
+  padding-top: 0.38rem;
+  color: var(--ink-dim);
+  font-size: 0.55rem;
+  font-weight: 680;
+}
+
+.guide-channel-timeline-card:disabled .guide-channel-timeline-action {
+  opacity: 0.54;
+}
+
+.guide-channel-timeline-hint {
+  margin-top: 0.48rem;
+  color: var(--ink-faint);
+  font-size: 0.6rem;
+  text-align: right;
+}
+
+.guide-secondary {
+  margin-top: clamp(2.25rem, 5vw, 4rem);
+  border-top: 1px solid var(--rule);
+}
+
+.guide-secondary-body {
+  padding-bottom: 0.5rem;
+}
+
+@media (max-width: 767px) {
+  .guide-channel-matrix-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .guide-channel-now {
+    max-width: 100%;
+  }
+
+  .guide-network-header {
+    min-height: 4rem;
+  }
+
+  .guide-network-play {
+    padding-inline: 0.52rem;
+  }
+
+  .guide-channel-row {
+    display: block;
+    min-height: 0;
+  }
+
+  .guide-channel-row-tune {
+    width: 100%;
+    min-height: 4.5rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .guide-channel-item-rail {
+    padding: 0.55rem;
+  }
+
+  .guide-channel-item-rail > button {
+    width: min(68vw, 13rem);
+  }
+
+  .guide-channel-timeline-board {
+    --guide-channel-network-w: 9.25rem;
+    --guide-channel-cell-w: 14.5rem;
+  }
+
+  .guide-channel-timeline-head {
+    min-height: 3.45rem;
+  }
+
+  .guide-channel-timeline-network {
+    gap: 0.5rem;
+    padding: 0.58rem;
+  }
+
+  .guide-channel-timeline-network .guide-network-logo {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .guide-channel-timeline-network .guide-network-copy strong {
+    font-size: 0.7rem;
+  }
+
+  .guide-channel-timeline-network .guide-network-copy small {
+    font-size: 0.55rem;
+  }
+
+  .guide-channel-network-playing > span {
+    display: none;
+  }
+
+  .guide-channel-timeline-column {
+    padding-inline: 0.58rem;
+  }
+
+  .guide-channel-timeline-row {
+    min-height: 7.75rem;
+  }
+
+  .guide-channel-timeline-card {
+    min-height: 6.8rem;
+  }
+
+  .guide-channel-timeline-media {
+    width: 5.25rem;
+    flex-basis: 5.25rem;
+  }
+
+  .guide-channel-timeline-slot.is-shorts .guide-channel-timeline-media {
+    width: 3.8rem;
+    flex-basis: 3.8rem;
+  }
+
+  .guide-channel-timeline-copy {
+    padding-inline: 0.52rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .guide-network-copy small,
+  .guide-network-play {
+    font-size: 0.58rem;
+  }
+
+  .guide-network-play {
+    border: 0;
+    padding-inline: 0.25rem;
+  }
+
+  .guide-channel-timeline-board {
+    --guide-channel-network-w: 8.35rem;
+    --guide-channel-cell-w: 13.7rem;
+  }
+
+  .guide-channel-timeline-network .guide-network-logo {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .guide-channel-network-playing {
+    display: none;
+  }
+
+  .guide-channel-timeline-column > i {
+    display: none;
+  }
+
+  .guide-channel-timeline-column {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-network-group,
+  .guide-channel-item-rail > button {
+    transition: none;
+  }
+}
+
+/* Premium interaction language -----------------------------------------------
+   Timeline controls and channel actions respond in place with light, outline,
+   and shadow rather than shifting the draggable guide geometry. */
+.guide-filter-row button,
+.guide-scope button,
+.guide-timeline-toolbar button,
+.guide-live-card,
+.guide-timeline-card,
+.guide-replay-card,
+.guide-network-jump button,
+.guide-network-tune,
+.guide-channel-row-tune,
+.guide-channel-item-rail > button,
+.guide-replays > summary,
+.guide-history > summary {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.guide-filter-row button,
+.guide-scope button,
+.guide-timeline-toolbar button,
+.guide-live-card,
+.guide-timeline-card,
+.guide-replay-card,
+.guide-network-jump button,
+.guide-network-tune,
+.guide-channel-row-tune,
+.guide-channel-item-rail > button,
+.guide-replays > summary,
+.guide-history > summary {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    opacity 150ms ease;
+}
+
+.guide-filter-row button,
+.guide-scope button,
+.guide-timeline-toolbar button,
+.guide-network-jump button {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.guide-filter-row button.is-active,
+.guide-scope button.is-active,
+.guide-network-jump button.is-active {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.guide-filter-row button:focus-visible,
+.guide-scope button:focus-visible,
+.guide-timeline-toolbar button:focus-visible,
+.guide-live-card:focus-visible,
+.guide-timeline-card:focus-visible,
+.guide-replay-card:focus-visible,
+.guide-network-jump button:focus-visible,
+.guide-network-tune:focus-visible,
+.guide-channel-row-tune:focus-visible,
+.guide-channel-item-rail > button:focus-visible,
+.guide-replays > summary:focus-visible,
+.guide-history > summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--core) 68%, #fff);
+  outline-offset: 2px;
+}
+
+.guide-timeline-toolbar button:disabled,
+.guide-network-tune:disabled,
+.guide-channel-row-tune:disabled {
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .guide-filter-row button:hover:not(.is-active),
+  .guide-scope button:hover:not(.is-active),
+  .guide-timeline-toolbar button:hover:not(:disabled),
+  .guide-network-jump button:hover:not(.is-active) {
+    border-color: rgba(255, 255, 255, 0.19);
+    background: rgba(255, 255, 255, 0.09);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 7px 18px rgba(0, 0, 0, 0.22);
+  }
+
+  .guide-live-card:hover,
+  .guide-timeline-card:hover,
+  .guide-replay-card:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    background-color: #1b1b1f;
+    box-shadow: 0 13px 28px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transform: none;
+  }
+
+  .guide-network-tune:hover:not(:disabled),
+  .guide-channel-row-tune:hover:not(:disabled),
+  .guide-channel-item-rail > button:hover:not(.is-playing),
+  .guide-replays > summary:hover,
+  .guide-history > summary:hover {
+    background: rgba(255, 255, 255, 0.065);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+  }
+
+  .guide-channel-item-rail > button.is-playing:hover {
+    border-color: color-mix(in srgb, var(--guide-network-accent) 72%, #fff);
+    background: color-mix(in srgb, var(--guide-network-accent) 12%, transparent);
+    box-shadow: 0 7px 18px rgba(0, 0, 0, 0.22);
+  }
+
+  .guide-timeline-card.is-live:hover {
+    background: color-mix(in srgb, var(--live) 10%, #1b1b1f);
+    box-shadow: inset 3px 0 var(--live), 0 13px 28px rgba(0, 0, 0, 0.36);
+  }
+}
+
+.guide-filter-row button:active,
+.guide-scope button:active,
+.guide-timeline-toolbar button:active:not(:disabled),
+.guide-live-card:active,
+.guide-timeline-card:active,
+.guide-replay-card:active,
+.guide-network-jump button:active,
+.guide-network-tune:active:not(:disabled),
+.guide-channel-row-tune:active:not(:disabled),
+.guide-channel-item-rail > button:active,
+.guide-replays > summary:active,
+.guide-history > summary:active {
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.38);
+  filter: brightness(0.9);
+  transform: none;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .guide-filter-row button,
+  .guide-scope button,
+  .guide-timeline-toolbar button,
+  .guide-network-jump button {
+    min-height: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-v2 button,
+  .guide-v2 a,
+  .guide-v2 summary {
+    transition: none !important;
+  }
+}
+
+/* Network channel EPG -------------------------------------------------------
+   The old four-column tuner is now expressed as real chronological subchannels
+   inside the draggable guide. Every network keeps its complete 3/4-row shape,
+   including honest empty rows and a deterministic nonstop channel. */
+.guide-timeline-intro {
+  max-width: 48rem;
+  margin-top: 0.55rem;
+  color: var(--ink-dim);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.guide-timeline-channel-row {
+  --guide-network-accent: var(--core);
+}
+
+.guide-timeline-channel-row.is-network-first {
+  border-top: 2px solid color-mix(in srgb, var(--guide-network-accent) 52%, rgba(255, 255, 255, 0.08));
+}
+
+.guide-timeline-channel-row.is-network-last {
+  border-bottom-color: color-mix(in srgb, var(--guide-network-accent) 30%, rgba(255, 255, 255, 0.08));
+}
+
+.guide-timeline-channel-row .guide-timeline-label {
+  box-shadow:
+    inset 3px 0 color-mix(in srgb, var(--guide-network-accent) 76%, transparent),
+    0.55rem 0 1.2rem rgba(0, 0, 0, 0.3);
+}
+
+.guide-timeline-channel-row.is-network-first .guide-timeline-label {
+  background: color-mix(in srgb, var(--guide-network-accent) 5%, #111114);
+}
+
+.guide-timeline-subchannel {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.32rem;
+  margin-top: 0.24rem !important;
+  color: rgba(255, 255, 255, 0.68) !important;
+  font-size: 0.64rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.2;
+  text-transform: none !important;
+}
+
+.guide-timeline-subchannel > i {
+  display: block;
+  width: 0.42rem;
+  height: 0.42rem;
+  flex: 0 0 0.42rem;
+  border: 1px solid currentColor;
+  border-radius: 0.12rem;
+  opacity: 0.88;
+}
+
+.guide-timeline-subchannel.is-live > i {
+  border: 0;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0.5rem color-mix(in srgb, var(--live) 65%, transparent);
+}
+
+.guide-timeline-subchannel.is-shorts > i {
+  width: 0.3rem;
+  flex-basis: 0.3rem;
+  border-radius: 0.1rem;
+}
+
+.guide-timeline-subchannel.is-continuous > i {
+  border-color: var(--guide-network-accent);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--guide-network-accent) 36%, transparent);
+}
+
+.guide-timeline-channel-row.is-continuous .guide-timeline-track {
+  background-color: color-mix(in srgb, var(--guide-network-accent) 2.25%, #0b0b0d);
+}
+
+.guide-timeline-card.is-continuous {
+  border-color: color-mix(in srgb, var(--guide-network-accent) 22%, rgba(255, 255, 255, 0.1));
+  background: #141417;
+  box-shadow:
+    inset 3px 0 var(--guide-network-accent),
+    0 6px 14px rgba(0, 0, 0, 0.24);
+}
+
+.guide-timeline-card.is-continuous .guide-timeline-card-time {
+  color: color-mix(in srgb, var(--guide-network-accent) 72%, #fff);
+  font-weight: 720;
+}
+
+.guide-timeline-lane-empty {
+  position: absolute;
+  top: 50%;
+  left: 1rem;
+  max-width: min(28rem, calc(100% - 2rem));
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 0.68rem;
+  font-weight: 550;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .guide-timeline-intro {
+    font-size: 0.72rem;
+  }
+
+  .guide-timeline-channel-row .guide-timeline-label {
+    align-items: center;
+  }
+
+  .guide-timeline-channel-row .guide-v2-mark {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-basis: 1.5rem;
+  }
+
+  .guide-timeline-subchannel {
+    font-size: 0.58rem !important;
+  }
+}
+
+/* Artwork-led TV guide cards -----------------------------------------------
+   The thumbnail is the program surface, not a secondary badge. This final
+   block intentionally overrides the earlier portrait and container rules so
+   even clipped and short 24/7 airings keep their artwork. */
+.guide-timeline-toolbar > p {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.guide-timeline-toolbar > p > strong {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  font-weight: 680;
+}
+
+.guide-timeline-toolbar > p > span {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 0.64rem;
+}
+
+.guide-timeline-card {
+  isolation: isolate;
+  background: #121216;
+}
+
+.guide-timeline-card .guide-timeline-media,
+.guide-timeline-card.is-portrait .guide-timeline-media,
+.guide-timeline-card.is-square .guide-timeline-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: auto;
+  height: auto;
+  flex: none;
+  aspect-ratio: auto;
+  background: #121216;
+}
+
+.guide-timeline-card .guide-timeline-media img,
+.guide-timeline-card.is-photo .guide-timeline-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.88) saturate(1.04);
+  transform: scale(1.002);
+  transition: filter 180ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.guide-timeline-card.is-portrait .guide-timeline-media img {
+  object-position: center 24%;
+}
+
+.guide-timeline-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(4, 4, 6, 0.06) 0%,
+    rgba(4, 4, 6, 0.18) 42%,
+    rgba(4, 4, 6, 0.88) 100%
+  );
+  pointer-events: none;
+}
+
+.guide-timeline-card:hover .guide-timeline-media img,
+.guide-timeline-card:focus-visible .guide-timeline-media img {
+  filter: brightness(1) saturate(1.08);
+  transform: scale(1.035);
+}
+
+.guide-timeline-card .guide-timeline-card-copy {
+  position: relative;
+  z-index: 2;
+  justify-content: flex-end;
+  width: 100%;
+  padding: 0.48rem 0.55rem;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.92), 0 2px 10px rgba(0, 0, 0, 0.72);
+}
+
+.guide-timeline-card .guide-timeline-card-meta {
+  display: block;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.58rem;
+  font-weight: 720;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.guide-timeline-card .guide-timeline-card-copy > strong {
+  margin-top: 0.14rem;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 720;
+  line-height: 1.22;
+}
+
+.guide-timeline-card.is-continuous {
+  background: #121216;
+  box-shadow:
+    inset 3px 0 var(--guide-network-accent),
+    0 6px 14px rgba(0, 0, 0, 0.24);
+}
+
+.guide-timeline-card.is-continuous::after {
+  background: linear-gradient(
+    180deg,
+    rgba(4, 4, 6, 0.02) 0%,
+    rgba(4, 4, 6, 0.16) 38%,
+    rgba(4, 4, 6, 0.9) 100%
+  );
+}
+
+@media (max-width: 639px) {
+  .guide-timeline-toolbar > p > span {
+    max-width: 24rem;
+    line-height: 1.4;
+  }
+}
+
+/* Broadcast polish ---------------------------------------------------------
+   Keep the schedule readable first, then add the small spatial cues that
+   make the current programme feel like a real on-air control room. */
+.guide-v2 {
+  position: relative;
+  isolation: isolate;
+}
+
+.guide-v2::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 1.5rem -6vw auto;
+  height: 28rem;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 24% 0%, rgba(219, 3, 104, 0.09), transparent 58%);
+  filter: blur(18px);
+}
+
+.guide-v2-header,
+.guide-timeline-toolbar {
+  border-radius: 1rem;
+}
+
+.guide-timeline-toolbar {
+  box-shadow: 0 1.25rem 3.25rem rgba(0, 0, 0, 0.16);
+}
+
+.guide-timeline-scroll {
+  scrollbar-width: none;
+}
+
+.guide-timeline-card {
+  overflow: hidden;
+  transform-origin: center bottom;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.guide-timeline-card:hover,
+.guide-timeline-card:focus-visible {
+  z-index: 7;
+  transform: translateY(-3px) scale(1.018);
+  box-shadow: 0 1rem 2.4rem rgba(0, 0, 0, 0.42);
+}
+
+.guide-timeline-card.is-airing-now {
+  border-color: color-mix(in srgb, var(--live) 62%, rgba(255, 255, 255, 0.18));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--live) 20%, transparent), 0 0.8rem 2rem rgba(255, 12, 83, 0.16);
+}
+
+/* Earlier programs should read as history at a glance without becoming dead
+   controls. Current and future cards intentionally keep their full color. */
+.guide-timeline-card.is-past {
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: none;
+  opacity: 0.5;
+}
+
+.guide-timeline-card.is-past .guide-timeline-media img {
+  filter: grayscale(1) saturate(0.18) brightness(0.62);
+}
+
+.guide-timeline-card.is-past::after {
+  background: linear-gradient(
+    180deg,
+    rgba(5, 5, 7, 0.36) 0%,
+    rgba(5, 5, 7, 0.56) 42%,
+    rgba(5, 5, 7, 0.94) 100%
+  );
+}
+
+.guide-timeline-card.is-past .guide-timeline-card-meta,
+.guide-timeline-card.is-past .guide-timeline-card-copy > strong {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .guide-timeline-card.is-past:hover,
+  .guide-timeline-card.is-past:focus-visible {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0.8rem 1.8rem rgba(0, 0, 0, 0.32);
+    opacity: 0.82;
+  }
+
+  .guide-timeline-card.is-past:hover .guide-timeline-media img,
+  .guide-timeline-card.is-past:focus-visible .guide-timeline-media img {
+    filter: grayscale(0.82) saturate(0.35) brightness(0.78);
+  }
+}
+
+.guide-timeline-elapsed {
+  position: absolute;
+  z-index: 4;
+  right: auto;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--guide-elapsed, 0) * 100%);
+  height: 3px;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(90deg, #ff2d75, #fff 190%);
+  box-shadow: 0 0 0.8rem rgba(255, 45, 117, 0.76);
+}
+
+.guide-timeline-now {
+  box-shadow: 0 0 1.1rem rgba(255, 45, 117, 0.72);
+}
+
+.guide-timeline-now::after {
+  animation: guide-now-ping 1.8s ease-out infinite;
+}
+
+@keyframes guide-now-ping {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  60% { opacity: 0.22; transform: scale(1.65); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-timeline-card { transition: none; }
+  .guide-timeline-now::after { animation: none; }
+}
+
+/* Full-year airtime archive -------------------------------------------------
+   This is deliberately a persistent report, not another collapsible Guide
+   drawer. Each member gets a GitHub-like week-column contribution grid so a
+   full year stays useful at a glance without turning into a 365-column table. */
+.guide-history {
+  overflow: hidden;
+}
+
+.guide-history-header {
+  display: flex;
+  min-height: 5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1rem clamp(1rem, 2.3vw, 1.35rem);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.guide-history-heading {
+  min-width: 0;
+}
+
+.guide-history-heading .watch-kicker {
+  display: block;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.62rem;
+  letter-spacing: 0.075em;
+}
+
+.guide-history-heading h2 {
+  margin: 0.22rem 0 0;
+  color: #fff;
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  font-weight: 680;
+  letter-spacing: -0.025em;
+}
+
+.guide-history-header-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.65rem;
+  font-weight: 520;
+  text-align: right;
+}
+
+.guide-history-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.guide-history-legend i {
+  display: block;
+  width: 0.58rem;
+  height: 0.58rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.16rem;
+  background: #202025;
+}
+
+.guide-history-legend i:nth-child(2) { background: color-mix(in srgb, var(--core) 42%, #202025); }
+.guide-history-legend i:nth-child(3) { background: color-mix(in srgb, var(--core) 68%, #202025); }
+.guide-history-legend i:nth-child(4) { background: var(--core); }
+
+.guide-history-body {
+  padding: clamp(0.9rem, 2vw, 1.25rem);
+}
+
+.guide-history-body > p {
+  max-width: 48rem;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.guide-history-body > .guide-history-source-note {
+  margin-top: 0.75rem;
+}
+
+.guide-history-year-scroll {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 1.05rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scrollbar-width: thin;
+  touch-action: pan-x;
+}
+
+.guide-history-year {
+  min-width: 43rem;
+  padding: 0.15rem 0 0.35rem;
+}
+
+.guide-history-month-row,
+.guide-history-year-row {
+  display: grid;
+  grid-template-columns: minmax(11rem, 0.8fr) minmax(30rem, 3.4fr);
+  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+}
+
+.guide-history-month-row {
+  min-height: 1.25rem;
+  align-items: end;
+  margin-bottom: 0.4rem;
+}
+
+.guide-history-month-label {
+  padding-left: 0.08rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.guide-history-months {
+  display: grid;
+  grid-template-columns: repeat(var(--guide-history-weeks), minmax(0, 1fr));
+  gap: 3px;
+  align-items: end;
+}
+
+.guide-history-months > span {
+  min-width: max-content;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.guide-history-year-row {
+  align-items: center;
+  min-height: 5.05rem;
+  padding: 0.48rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.guide-history-year-row:last-child {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.guide-history-person {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.guide-history-person .guide-comm-mark {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.55rem;
+}
+
+.guide-history-person-copy {
+  min-width: 0;
+}
+
+.guide-history-person-copy strong,
+.guide-history-person-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-history-person-copy strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.71rem;
+  font-weight: 680;
+}
+
+.guide-history-person-copy small {
+  margin-top: 0.1rem;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.6rem;
+}
+
+.guide-history-person .guide-history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.28rem;
+  margin-top: 0.38rem;
+  padding: 0.32rem 0.38rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.42rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.guide-history-person .guide-history-summary strong,
+.guide-history-person .guide-history-summary b,
+.guide-history-person .guide-history-summary small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-history-person .guide-history-summary strong,
+.guide-history-person .guide-history-summary b {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.63rem;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-history-person .guide-history-summary small {
+  margin-top: 0.08rem;
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 0.49rem;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.guide-history-contribution-grid {
+  display: grid;
+  width: 100%;
+  aspect-ratio: var(--guide-history-weeks) / 7;
+  grid-auto-flow: column;
+  grid-template-columns: repeat(var(--guide-history-weeks), minmax(0, 1fr));
+  grid-template-rows: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.guide-history-cell,
+.guide-history-cell-empty {
+  display: block;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: clamp(0.1rem, 0.3vw, 0.22rem);
+  background: #1b1b20;
+}
+
+.guide-history-cell {
+  padding: 0;
+  appearance: none;
+  cursor: help;
+  outline: none;
+  transition: transform 130ms cubic-bezier(.16, 1, .3, 1), border-color 130ms ease, box-shadow 130ms ease, filter 130ms ease;
+}
+
+.guide-history-cell.has-airtime {
+  border-color: color-mix(in srgb, var(--core) 46%, rgba(255, 255, 255, 0.08));
+  background: color-mix(in srgb, var(--core) calc(var(--guide-heat, .18) * 100%), #1b1b20);
+  opacity: 1;
+}
+
+.guide-history-cell.is-archive {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--core) 11%, transparent);
+}
+
+.guide-history-cell:focus-visible {
+  z-index: 1;
+  outline: 2px solid color-mix(in srgb, var(--core) 70%, #fff);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .guide-history-cell:hover {
+    z-index: 1;
+    border-color: color-mix(in srgb, var(--core) 80%, #fff);
+    box-shadow: 0 0.35rem 0.9rem color-mix(in srgb, var(--core) 28%, transparent), inset 0 1px rgba(255,255,255,.14);
+    filter: brightness(1.15);
+    transform: scale(1.2);
+  }
+}
+
+@media (max-width: 639px) {
+  .guide-history-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .guide-history-header-meta {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .guide-history-body {
+    padding: 0.85rem;
+  }
+
+  .guide-history-year {
+    min-width: 39rem;
+  }
+
+  .guide-history-month-row,
+  .guide-history-year-row {
+    grid-template-columns: 10.2rem minmax(27.5rem, 1fr);
+    gap: 0.72rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-history-cell { transition: none; }
+}

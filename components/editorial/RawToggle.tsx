@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Toggle } from "@/components/base/toggle/toggle";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,46 +21,34 @@ export function RawToggle({ className }: { className?: string }) {
     }
   }, []);
 
-  function toggle() {
-    setRaw((r) => {
-      const next = !r;
-      if (next) {
-        document.documentElement.dataset.mode = "raw";
-        window.localStorage.setItem("coreboys:mode", "raw");
-      } else {
-        delete document.documentElement.dataset.mode;
-        window.localStorage.removeItem("coreboys:mode");
-      }
-      return next;
-    });
+  function toggle(next: boolean) {
+    if (next) {
+      document.documentElement.dataset.mode = "raw";
+      window.localStorage.setItem("coreboys:mode", "raw");
+    } else {
+      delete document.documentElement.dataset.mode;
+      window.localStorage.removeItem("coreboys:mode");
+    }
+    setRaw(next);
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-pressed={raw}
-      className={cn(
-        "group inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.18em] text-[color:var(--ink-faint)] transition-colors",
-        "hover:text-[color:var(--ink)]",
-        className,
-      )}
-    >
+    <div className={cn("inline-flex items-center gap-2.5", className)}>
+      <Toggle
+        size="sm"
+        slim
+        isSelected={raw}
+        onChange={toggle}
+        aria-label="RAW mode"
+      />
       <span
-        aria-hidden="true"
         className={cn(
-          "inline-flex h-5 w-9 items-center rounded-full border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-0.5 transition-colors",
-          raw && "border-[color:var(--core)]/60 bg-[color:var(--core)]/10",
+          "font-mono text-xs uppercase tracking-[0.18em] transition-colors",
+          raw ? "text-[color:var(--core)]" : "text-[color:var(--ink-faint)]",
         )}
       >
-        <span
-          className={cn(
-            "h-3.5 w-3.5 rounded-full bg-[color:var(--ink-dim)] transition-transform",
-            raw && "translate-x-4 bg-[color:var(--core)]",
-          )}
-        />
+        RAW{raw ? " · ON" : ""}
       </span>
-      RAW{raw ? " · ON" : ""}
-    </button>
+    </div>
   );
 }

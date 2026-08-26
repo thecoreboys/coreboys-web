@@ -13,7 +13,7 @@ export function CookieSettingsLink({ className }: { className?: string }) {
       onClick={openConsentSettings}
       className={
         className ??
-        "inline-flex items-center gap-1 rounded-[4px] border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-2 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--core)] hover:text-[color:var(--ink)]"
+        "inline-flex items-center gap-1 rounded-md border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-2 py-1 font-mono text-xs uppercase tracking-[0.16em] text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--core)] hover:text-[color:var(--ink)]"
       }
     >
       Cookie settings

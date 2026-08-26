@@ -40,11 +40,11 @@ export function CookieBanner() {
       aria-label="Cookie consent"
       className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex justify-center px-4"
     >
-      <div className="pointer-events-auto w-full max-w-[420px] rounded-[12px] border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/95 px-5 py-4 shadow-2xl backdrop-blur-md">
-        <p className="text-[15px] font-semibold tracking-tight text-[color:var(--ink)]">
+      <div className="pointer-events-auto w-full max-w-[420px] rounded-2xl border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)]/95 px-5 py-4 shadow-2xl backdrop-blur-md">
+        <p className="text-md font-semibold tracking-tight text-[color:var(--ink)]">
           Cookies
         </p>
-        <p className="mt-1.5 text-[13px] leading-[1.5] text-[color:var(--ink-dim)]">
+        <p className="mt-1.5 text-sm leading-[1.5] text-[color:var(--ink-dim)]">
           We save one cookie for your preference, plus Google Analytics if you accept.{" "}
           <Link
             href={"/legal/cookies" as Route}
@@ -57,14 +57,14 @@ export function CookieBanner() {
           <button
             type="button"
             onClick={decline}
-            className="inline-flex h-9 cursor-pointer items-center rounded-[6px] border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-4 text-[12px] font-semibold tracking-tight text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--ink)] hover:text-[color:var(--ink)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.4)] active:translate-y-0"
+            className="inline-flex h-9 cursor-pointer items-center rounded-lg border border-[color:var(--rule-strong)] bg-[color:var(--bg)] px-4 text-xs font-semibold tracking-tight text-[color:var(--ink-dim)] transition-all hover:-translate-y-px hover:border-[color:var(--ink)] hover:text-[color:var(--ink)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.4)] active:translate-y-0"
           >
             Decline
           </button>
           <button
             type="button"
             onClick={accept}
-            className="inline-flex h-9 cursor-pointer items-center rounded-[6px] border border-[color:var(--core)] bg-[color:var(--core)] px-4 text-[12px] font-semibold tracking-tight text-white transition-all hover:-translate-y-px hover:shadow-[0_8px_20px_-6px_rgba(239,68,68,0.55)] active:translate-y-0"
+            className="inline-flex h-9 cursor-pointer items-center rounded-lg border border-[color:var(--core)] bg-[color:var(--core)] px-4 text-xs font-semibold tracking-tight text-white transition-all hover:-translate-y-px hover:shadow-[0_8px_20px_-6px_rgba(219,3,104,0.55)] active:translate-y-0"
           >
             Accept
           </button>
