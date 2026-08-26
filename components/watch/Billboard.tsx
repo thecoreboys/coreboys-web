@@ -211,7 +211,7 @@ export function BillboardCarousel({ items }: { items: WatchItem[] }) {
   );
 }
 
-function BillboardLivePlayer({ item, playable, onOpen }: { item: WatchItem; playable: Playable; onOpen: () => void }) {
+function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; playable: Playable; onOpen: () => void }) {
   const slotRef = useRef<HTMLDivElement>(null);
   const twitchMountRef = useRef<HTMLDivElement>(null);
   const reactId = useId();
@@ -600,7 +600,7 @@ function BillboardLivePlayer({ item, playable, onOpen }: { item: WatchItem; play
         />
       ) : frameSrc ? (
         <iframe
-          title={`${item.title} live stream`}
+          title={`${item.title} muted preview`}
           src={frameSrc}
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
@@ -617,7 +617,7 @@ function BillboardLivePlayer({ item, playable, onOpen }: { item: WatchItem; play
         onClick={onOpen}
         aria-label={`Open ${item.title} in the media player`}
       >
-        <span className="watch-billboard-live-core-badge"><i aria-hidden /> Live · CORE</span>
+        <span className="watch-billboard-live-core-badge"><i aria-hidden /> {item.kind === "live" || item.format === "live" ? "Live" : "Preview"} · CORE</span>
         <span className="watch-billboard-live-core-open"><span aria-hidden>▶</span> Open player</span>
         <span className="watch-billboard-live-core-muted">Muted preview</span>
       </button>
@@ -640,9 +640,8 @@ export function Billboard({ item }: { item: WatchItem }) {
   const live = item.kind === "live" || item.format === "live";
   const shape = contentShape(item);
   const playable = useMemo(() => itemToPlayable(item), [item]);
-  const livePlayable = useMemo(() => {
+  const heroPlayable = useMemo(() => {
     if (
-      !live ||
       item.live?.type === "audio" ||
       item.embeddable === false ||
       item.previewStrategy === "external" ||
@@ -652,7 +651,10 @@ export function Billboard({ item }: { item: WatchItem }) {
       return null;
     }
     if (!playable) return null;
-    if (item.platform === "twitch" && !playable.twitchLogin) return null;
+    // The Twitch SDK path currently represents channels; VODs continue to
+    // open in the full player. YouTube uploads can safely use the same muted
+    // hero preview path as live streams.
+    if (item.platform === "twitch" && (!live || !playable.twitchLogin)) return null;
     if (item.platform === "youtube" && !playable.youtubeId) return null;
     return playable;
   }, [item, live, playable]);
@@ -692,7 +694,7 @@ export function Billboard({ item }: { item: WatchItem }) {
 
   return (
     <header
-      className={`watch-billboard is-${shape} is-platform-${item.platform} ${livePlayable ? "has-live-player" : ""}`}
+      className={`watch-billboard is-${shape} is-platform-${item.platform} ${heroPlayable ? "has-live-player" : ""}`}
       aria-labelledby="watch-billboard-title"
     >
       <div className="watch-billboard-media" aria-hidden>
@@ -713,9 +715,9 @@ export function Billboard({ item }: { item: WatchItem }) {
       </div>
       <div className="watch-billboard-veil" aria-hidden />
 
-      {livePlayable ? <BillboardLivePlayer item={item} playable={livePlayable} onOpen={playInPlayer} /> : null}
+      {heroPlayable ? <BillboardHeroPlayer item={item} playable={heroPlayable} onOpen={playInPlayer} /> : null}
 
-      {playable && !livePlayable ? (
+      {playable && !heroPlayable ? (
         <button
           type="button"
           className="watch-billboard-surface-action"

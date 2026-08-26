@@ -2354,3 +2354,79 @@ html.lenis body {
 @media (max-width: 700px) { .cinematic-route-transition--shorts .cinematic-route-transition__content { transform:translateY(20vh); align-items:center; text-align:center; }.cinematic-route-transition__short-stack { top:38%; right:50%; width:9rem; height:16rem; transform:translate(50%,-50%); opacity:.62; }.cinematic-route-transition--multiview .cinematic-route-transition__grid { right:50%; top:35%; width:13rem; transform:translate(50%,-50%); opacity:.62; }.cinematic-route-transition--multiview .cinematic-route-transition__content { transform:translateY(17vh); }.cinematic-route-transition__object:nth-child(n+5) { display:none; }.cinematic-route-transition__object { opacity:.54; }.cinematic-route-transition__object:nth-child(1) { left:10%;top:23%; }.cinematic-route-transition__object:nth-child(2) { left:88%;top:21%; }.cinematic-route-transition__object:nth-child(3) { left:14%;top:71%; }.cinematic-route-transition__object:nth-child(4) { left:85%;top:72%; } }
 @media (prefers-reduced-motion: reduce) { .cinematic-route-transition,.cinematic-route-transition::before,.cinematic-route-transition__content,.cinematic-route-transition__beam,.cinematic-route-transition__signal i,.cinematic-route-transition__loader-label i,.cinematic-route-transition__object,.cinematic-route-transition__object svg,.cinematic-route-transition__object-emoji,.cinematic-route-transition__short-stack i,.cinematic-route-transition__grid i { animation:none!important; }.cinematic-route-transition { opacity:0; transition:opacity .01ms linear; } }
 html[data-watch-motion="calm"] .cinematic-route-transition,html[data-watch-motion="calm"] .cinematic-route-transition::before,html[data-watch-motion="calm"] .cinematic-route-transition__content,html[data-watch-motion="calm"] .cinematic-route-transition__beam,html[data-watch-motion="calm"] .cinematic-route-transition__signal i { animation-duration:.01ms!important; animation-delay:0ms!important; }
+/* Production preview gate -------------------------------------------------- */
+.access-gate-shell {
+  position: fixed;
+  inset: 0;
+  isolation: isolate;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  overflow: hidden;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 18, 111, .22), transparent 27rem),
+    radial-gradient(circle at 12% 92%, rgba(138, 40, 255, .13), transparent 30rem),
+    #050507;
+  color: #fff;
+}
+.access-gate-shell::before {
+  position: absolute;
+  z-index: -2;
+  inset: -35%;
+  background: conic-gradient(from 80deg, transparent, rgba(255, 24, 117, .18), transparent 29%, rgba(130, 53, 255, .11), transparent 63%);
+  content: "";
+  animation: access-gate-drift 18s linear infinite;
+}
+.access-gate-scan {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  opacity: .14;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.1) 4px);
+  mask-image: linear-gradient(transparent, #000 20%, #000 80%, transparent);
+  pointer-events: none;
+}
+.access-gate-orbit { position: absolute; z-index: -1; border: 1px solid rgba(255, 55, 139, .18); border-radius: 50%; box-shadow: 0 0 4rem rgba(255, 19, 113, .08); }
+.access-gate-orbit-one { width: min(72vw, 58rem); aspect-ratio: 1; transform: rotate(-18deg) scaleY(.35); }
+.access-gate-orbit-two { width: min(52vw, 42rem); aspect-ratio: 1; transform: rotate(31deg) scaleY(.38); }
+.access-gate-card {
+  width: min(100%, 31rem);
+  padding: clamp(1.6rem, 5vw, 3.2rem);
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 1.5rem;
+  background: linear-gradient(145deg, rgba(24, 20, 29, .9), rgba(7, 7, 10, .8));
+  box-shadow: inset 0 1px rgba(255,255,255,.08), 0 0 0 1px rgba(255, 21, 114, .08), 0 2rem 8rem rgba(0,0,0,.65), 0 0 5rem rgba(255, 18, 111, .12);
+  text-align: center;
+  backdrop-filter: blur(24px) saturate(1.25);
+}
+.access-gate-eyebrow { display: inline-flex; align-items: center; gap: .5rem; margin: 0 0 1rem; color: rgba(255,255,255,.64); font: 750 .7rem/1 var(--font-inter-tight), sans-serif; letter-spacing: .15em; text-transform: uppercase; }
+.access-gate-eyebrow span { width: .45rem; height: .45rem; border-radius: 50%; background: #ff176e; box-shadow: 0 0 1rem #ff176e; }
+.access-gate-card h1 { margin: 0; font: 850 clamp(2.15rem, 7vw, 3.75rem)/.92 var(--font-inter-tight), sans-serif; letter-spacing: -.065em; text-wrap: balance; }
+.access-gate-copy { margin: 1rem auto 1.75rem; color: rgba(255,255,255,.56); font-size: .94rem; }
+.access-gate-form { display: grid; gap: .75rem; }
+.access-gate-form label { color: rgba(255,255,255,.72); font: 700 .72rem/1 var(--font-inter-tight), sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.access-gate-form input {
+  width: 100%;
+  min-height: 4.35rem;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: .9rem;
+  outline: 0;
+  background: rgba(0,0,0,.38);
+  box-shadow: inset 0 1px 1rem rgba(0,0,0,.3);
+  color: #fff;
+  font: 800 1.7rem/1 var(--font-inter-tight), sans-serif;
+  letter-spacing: .55em;
+  text-align: center;
+  text-indent: .55em;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.access-gate-form input:focus { border-color: #ff3c89; box-shadow: 0 0 0 3px rgba(255, 32, 119, .15), 0 0 2rem rgba(255, 24, 112, .16); }
+.access-gate-form button { min-height: 3.35rem; border: 0; border-radius: .9rem; background: linear-gradient(105deg, #fff, #ffe4ef); color: #08080a; font: 850 .85rem/1 var(--font-inter-tight), sans-serif; cursor: pointer; box-shadow: 0 .8rem 2.2rem rgba(255, 24, 112, .15); transition: transform 150ms ease, opacity 150ms ease; }
+.access-gate-form button:not(:disabled):hover { transform: translateY(-2px); }
+.access-gate-form button:disabled { cursor: not-allowed; opacity: .38; }
+.access-gate-form p { min-height: 1.15rem; margin: .15rem 0 0; color: rgba(255,255,255,.38); font-size: .68rem; }
+.access-gate-form input[aria-invalid="true"] { border-color: #ff3f70; }
+.access-gate-form input[aria-invalid="true"] ~ p { color: #ff8aaa; }
+@keyframes access-gate-drift { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .access-gate-shell::before { animation: none; } }

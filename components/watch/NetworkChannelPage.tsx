@@ -487,7 +487,11 @@ function ChannelOnNowPreview({
     const audio = advisoryAudioRef.current;
     if (!audio) return;
     void audio.play().then(() => setAdvisoryNeedsGesture(false)).catch(() => {
-      setAdvisoryNeedsGesture(true);
+      // Audible autoplay is routinely rejected even though muted video is
+      // allowed. The advisory must never strand a 24/7 channel on a poster;
+      // keep the visual notice briefly, then continue into muted playback.
+      setAdvisoryNeedsGesture(false);
+      window.setTimeout(() => setAdvisoryReady(true), 1_400);
     });
   }, []);
 

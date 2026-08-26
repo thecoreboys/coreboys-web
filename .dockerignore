@@ -18,12 +18,9 @@ certificates
 *.exe
 doctl-*
 
-# These development copies are redirected to media.thecoreboys.com in
-# production and should not bloat the application image.
-public/members
-public/crew
-public/group
-public/comms
+# The production image is intentionally self-contained. Member, crew, group,
+# community, and brand artwork all ship from public/ so a missing media CDN
+# can never turn the primary browse experience into broken image tiles.
 public/house-reveal.mp4
 
 # Local face-analysis data is private and never belongs in a web image.

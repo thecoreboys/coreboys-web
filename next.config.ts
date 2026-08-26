@@ -45,19 +45,13 @@ const config: NextConfig = {
       },
     ];
   },
-  // Image / video / brand assets are referenced as `/members/...` etc.
-  // In production the Docker image does not ship the gitignored public
-  // folders, so we 308 those paths to the public R2 media domain. Locally
-  // the files exist under public/, so skip redirects in development.
+  // The oversized house reel stays outside the application image. All
+  // artwork used by the product ships from public/ so browse pages remain
+  // healthy even if the optional media CDN is unavailable.
   async redirects() {
     if (process.env.NODE_ENV !== "production") return [];
     const cdn = "https://media.thecoreboys.com";
     return [
-      { source: "/members/:path*", destination: `${cdn}/members/:path*`, permanent: true },
-      { source: "/crew/:slug/:asset+", destination: `${cdn}/crew/:slug/:asset+`, permanent: true },
-      { source: "/group/:path*", destination: `${cdn}/group/:path*`, permanent: true },
-      { source: "/comms/:path*", destination: `${cdn}/comms/:path*`, permanent: true },
-      { source: "/brand/:path*", destination: `${cdn}/brand/:path*`, permanent: true },
       { source: "/house-reveal.mp4", destination: `${cdn}/house-reveal.mp4`, permanent: true },
     ];
   },

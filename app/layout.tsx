@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Inter, Inter_Tight } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { LenisProvider } from "@/components/providers/LenisProvider";
@@ -115,7 +116,9 @@ async function getMemberAvatars(): Promise<Record<string, string>> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const avatars = await getMemberAvatars();
+  const requestHeaders = await headers();
+  const accessPage = requestHeaders.get("x-coreboys-access-page") === "1";
+  const avatars = accessPage ? {} : await getMemberAvatars();
   return (
     <html
       lang="en"
@@ -123,6 +126,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={`dark-mode ${inter.variable} ${interTight.variable} ${inter.className}`}
     >
       <body>
+        {accessPage ? children : (
+        <>
         <a href="#main" className="skip-link">
           Skip to content
         </a>
@@ -176,6 +181,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <CookieBanner />
         <FeedbackButton />
         <GoogleAnalytics />
+        </>
+        )}
       </body>
     </html>
   );
