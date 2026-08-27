@@ -200,8 +200,15 @@ test("network hero retries only after its provider iframe has loaded", () => {
 test("network 24/7 Twitch preview verifies and recovers actual paused playback", () => {
   assert.match(channelPage, /isPaused\?: \(\) => boolean/);
   assert.match(channelPage, /instance\.addEventListener\(api\.Player\.PAUSE/);
-  assert.match(channelPage, /scheduleRetries\(\[120, 700, 1_800, 3_200\]\)/);
+  assert.match(channelPage, /scheduleRetries\(\[120, 700, 1_800, 3_200, 5_200, 7_500\]\)/);
   assert.match(channelPage, /document\.addEventListener\("visibilitychange", resumeWhenVisible\)/);
+});
+
+test("network 24/7 Twitch preview survives a transient provider autoplay block", () => {
+  assert.match(channelPage, /muted:\s*true/);
+  assert.match(channelPage, /const maxPlaybackAttempts = 16/);
+  assert.match(channelPage, /PLAYBACK_BLOCKED[\s\S]{0,420}playbackAttempts = 0;[\s\S]{0,160}scheduleRetries\(\[250, 800, 1_800, 3_200, 5_200, 7_500\]\)/);
+  assert.match(channelPage, /\}, 15_000\)/);
 });
 
 test("the home billboard yields provider playback to the persistent player", () => {
