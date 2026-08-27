@@ -90,6 +90,20 @@ jobs:
           YOUTUBE_WEBHOOK_SECRET: ${{ secrets.YOUTUBE_WEBHOOK_SECRET }}
           YOUTUBE_WEBHOOK_VERIFY_TOKEN: ${{ secrets.YOUTUBE_WEBHOOK_VERIFY_TOKEN }}
           META_WEBHOOK_VERIFY_TOKEN: ${{ secrets.META_WEBHOOK_VERIFY_TOKEN }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_ACCOUNT_TOKENS_JSON: ${{ secrets.TIKTOK_ACCOUNT_TOKENS_JSON }}
+          TIKTOK_ACCOUNT_HANDLE: ${{ secrets.TIKTOK_ACCOUNT_HANDLE }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          INSTAGRAM_CLIENT_ID: ${{ secrets.INSTAGRAM_CLIENT_ID }}
+          INSTAGRAM_CLIENT_SECRET: ${{ secrets.INSTAGRAM_CLIENT_SECRET }}
+          INSTAGRAM_ACCOUNT_TOKENS_JSON: ${{ secrets.INSTAGRAM_ACCOUNT_TOKENS_JSON }}
+          INSTAGRAM_ACCOUNT_HANDLE: ${{ secrets.INSTAGRAM_ACCOUNT_HANDLE }}
+          INSTAGRAM_TOKEN: ${{ secrets.INSTAGRAM_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
+          FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
         run: |
           set -Eeuo pipefail
 
@@ -151,6 +165,20 @@ jobs:
           add_secret youtube-webhook-secret YOUTUBE_WEBHOOK_SECRET "$YOUTUBE_WEBHOOK_SECRET"
           add_secret youtube-webhook-verify-token YOUTUBE_WEBHOOK_VERIFY_TOKEN "$YOUTUBE_WEBHOOK_VERIFY_TOKEN"
           add_secret meta-webhook-verify-token META_WEBHOOK_VERIFY_TOKEN "$META_WEBHOOK_VERIFY_TOKEN"
+          add_secret meta-app-secret META_APP_SECRET "$META_APP_SECRET"
+          add_secret tiktok-client-key TIKTOK_CLIENT_KEY "$TIKTOK_CLIENT_KEY"
+          add_secret tiktok-client-secret TIKTOK_CLIENT_SECRET "$TIKTOK_CLIENT_SECRET"
+          add_secret tiktok-account-tokens-json TIKTOK_ACCOUNT_TOKENS_JSON "$TIKTOK_ACCOUNT_TOKENS_JSON"
+          add_secret tiktok-account-handle TIKTOK_ACCOUNT_HANDLE "$TIKTOK_ACCOUNT_HANDLE"
+          add_secret tiktok-access-token TIKTOK_ACCESS_TOKEN "$TIKTOK_ACCESS_TOKEN"
+          add_secret instagram-client-id INSTAGRAM_CLIENT_ID "$INSTAGRAM_CLIENT_ID"
+          add_secret instagram-client-secret INSTAGRAM_CLIENT_SECRET "$INSTAGRAM_CLIENT_SECRET"
+          add_secret instagram-account-tokens-json INSTAGRAM_ACCOUNT_TOKENS_JSON "$INSTAGRAM_ACCOUNT_TOKENS_JSON"
+          add_secret instagram-account-handle INSTAGRAM_ACCOUNT_HANDLE "$INSTAGRAM_ACCOUNT_HANDLE"
+          add_secret instagram-token INSTAGRAM_TOKEN "$INSTAGRAM_TOKEN"
+          add_secret instagram-user-id INSTAGRAM_USER_ID "$INSTAGRAM_USER_ID"
+          add_secret facebook-app-id FACEBOOK_APP_ID "$FACEBOOK_APP_ID"
+          add_secret facebook-app-secret FACEBOOK_APP_SECRET "$FACEBOOK_APP_SECRET"
 
           if (( ${#secret_args[@]} > 0 )); then
             az containerapp secret set \

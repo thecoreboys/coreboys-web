@@ -43,6 +43,7 @@ test("source health distinguishes webhook receipt from reconciliation", () => {
 test("reconciliation is a serialized ten-minute fallback", () => {
   const workflow = read(".github/workflows/cron-social-events.yml");
   const route = read("app/api/social/reconcile/route.ts");
+  const middleware = read("middleware.ts");
   assert.match(workflow, /\*\/10 \* \* \* \*/);
   assert.doesNotMatch(workflow, /\*\/2 \* \* \* \*/);
   assert.match(workflow, /concurrency:/);
@@ -52,6 +53,9 @@ test("reconciliation is a serialized ten-minute fallback", () => {
   assert.match(route, /add\("x", GROUP\.socials\.x/);
   assert.doesNotMatch(route, /accountRef: item\.authorSlug \?\? item\.authorLabel/);
   assert.match(route, /webhookState: appReady \? undefined : "not_configured"/);
+  assert.match(workflow, /APP_URL: https:\/\/thecoreboys\.com/);
+  assert.match(middleware, /"\/api\/social\/reconcile"/);
+  assert.match(middleware, /"\/api\/social\/x\/refresh"/);
 });
 
 test("provider subscriptions are idempotently provisioned and renewed", () => {
@@ -77,6 +81,7 @@ test("provider subscriptions are idempotently provisioned and renewed", () => {
   assert.match(provisioner, /sslip\\\.io/);
   assert.match(workflow, /api\/social\/subscriptions\/provision/);
   assert.match(workflow, /cron: "17 6 \* \* \*"/);
+  assert.match(workflow, /APP_URL: https:\/\/thecoreboys\.com/);
   assert.match(socialFeed, /ROSTER_YOUTUBE_CHANNEL_IDS/);
   assert.match(youtubeWebhook, /configuredYouTubeWebhookChannels/);
   assert.match(youtubeWebhook, /createHash\("sha256"\)\.update\(raw\)/);

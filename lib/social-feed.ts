@@ -17,7 +17,6 @@ import {
 } from "@/lib/watch/social-credentials";
 import { getXFeedSnapshot } from "@/lib/x-feed-snapshot";
 import { extractPublicTikTokPosts } from "@/lib/tiktok-public";
-import { publicSocialPostFallback } from "@/lib/watch/public-social-posts";
 
 const CENTER = { x: 0.5, y: 0.5 } as const;
 // Public routes can render the catalog frequently, but provider reads must be
@@ -462,15 +461,8 @@ export async function fetchTikTokFeed(
     authorLabel,
     Math.max(0, limit - authorized.items.length),
   );
-  const fallbackItems = publicSocialPostFallback(
-    "tiktok",
-    rawHandle,
-    authorSlug,
-    authorLabel,
-    Math.max(0, limit - authorized.items.length - publicItems.length),
-  );
   const seen = new Set<string>();
-  return [...authorized.items, ...publicItems, ...fallbackItems]
+  return [...authorized.items, ...publicItems]
     .filter((item) => !seen.has(item.id) && Boolean(seen.add(item.id)))
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
     .slice(0, limit);
@@ -479,8 +471,8 @@ export async function fetchTikTokFeed(
 /**
  * Fetch the posts visibly present in TikTok's public profile hydration data.
  * This never uses a user cookie, token, or a browser session. TikTok may
- * instead serve a JS/anti-bot shell; that is a normal empty result and the
- * authorized Display API or curated public post URLs remain the fallback.
+ * instead serve a JS/anti-bot shell; that is a normal empty result. The UI
+ * reports the missing creator authorization instead of inventing media cards.
  */
 export async function fetchPublicTikTokProfileFeed(
   rawHandle: string,
@@ -667,17 +659,7 @@ export async function fetchInstagramFeed(
   options: { fresh?: boolean } = {},
 ): Promise<FeedItem[]> {
   const authorized = await fetchInstagramFeedResult(rawHandle, authorSlug, authorLabel, limit, options);
-  if (authorized.items.length >= limit) return authorized.items.slice(0, limit);
-  return [
-    ...authorized.items,
-    ...publicSocialPostFallback(
-      "instagram",
-      rawHandle,
-      authorSlug,
-      authorLabel,
-      Math.max(0, limit - authorized.items.length),
-    ),
-  ].slice(0, limit);
+  return authorized.items.slice(0, limit);
 }
 
 /** Fetch Instagram media while preserving a token-free operator diagnostic. */

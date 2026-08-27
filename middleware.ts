@@ -18,6 +18,12 @@ export const config = {
 const TRUSTED_INTEGRATION_PATHS = [
   "/api/account/billing/webhook",
   "/api/postcard/webhook",
+  // These routes authenticate with x-cron-secret themselves. They must remain
+  // reachable while the human-facing production preview is code-gated or the
+  // scheduled social cache/alert jobs can never run.
+  "/api/social/reconcile",
+  "/api/social/subscriptions/provision",
+  "/api/social/x/refresh",
   "/api/social/webhooks/",
 ] as const;
 
