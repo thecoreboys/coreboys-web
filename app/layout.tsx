@@ -25,7 +25,6 @@ import { ConsoleEgg } from "@/components/editorial/ConsoleEgg";
 import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { CookieBanner } from "@/components/legal/CookieBanner";
-import { FeedbackButton } from "@/components/chrome/FeedbackButton";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { CinematicRouteTransition } from "@/components/watch/CinematicRouteTransition";
 import "./globals.css";
@@ -179,7 +178,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ConsoleEgg />
         <OrganizationJsonLd />
         <CookieBanner />
-        <FeedbackButton />
         <GoogleAnalytics />
         </>
         )}
