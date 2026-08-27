@@ -21,6 +21,8 @@ const TRUSTED_INTEGRATION_PATHS = [
   "/api/social/webhooks/",
 ] as const;
 
+const PUBLIC_STATIC_ASSET = /\.(?:avif|gif|ico|jpe?g|mp3|mp4|ogg|png|svg|ttf|wav|webm|webp|woff2?)$/i;
+
 function withPathHeader(req: NextRequest, accessPage = false): NextResponse {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-coreboys-pathname", req.nextUrl.pathname);
@@ -30,6 +32,14 @@ function withPathHeader(req: NextRequest, accessPage = false): NextResponse {
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Next's image optimizer fetches local public assets from the server without
+  // forwarding the visitor's signed preview cookie. Static files are not app
+  // routes, so let those internal fetches through while pages and APIs remain
+  // gated below.
+  if ((req.method === "GET" || req.method === "HEAD") && PUBLIC_STATIC_ASSET.test(pathname)) {
+    return NextResponse.next();
+  }
 
   if (siteAccessGateEnabled()) {
     const integration = TRUSTED_INTEGRATION_PATHS.some((path) => (
