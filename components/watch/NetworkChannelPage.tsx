@@ -655,9 +655,10 @@ function ChannelOnNowPreview({
     };
     const playerIsPaused = () => {
       try {
-        return instance?.isPaused?.() === true;
+        const paused = instance?.isPaused?.();
+        return typeof paused === "boolean" ? paused : null;
       } catch {
-        return false;
+        return null;
       }
     };
     const slotIsVisible = () => {
@@ -680,11 +681,11 @@ function ChannelOnNowPreview({
       scheduleRetries([120, 700, 1_800, 3_200, 5_200, 7_500]);
       if (recoveryBlockedTimer !== null) window.clearTimeout(recoveryBlockedTimer);
       recoveryBlockedTimer = window.setTimeout(() => {
-        if (!disposed && playerIsPaused()) markAutoplayBlocked();
+        if (!disposed && playerIsPaused() === true) markAutoplayBlocked();
       }, 10_000);
     };
     const resumeWhenVisible = () => {
-      if (document.visibilityState === "visible" && playerIsPaused()) recoverPausedPlayback();
+      if (document.visibilityState === "visible" && playerIsPaused() === true) recoverPausedPlayback();
     };
 
     mount.replaceChildren();
@@ -692,11 +693,12 @@ function ChannelOnNowPreview({
     observer.observe(mount, { childList: true, subtree: true });
     const blockedTimer = window.setTimeout(() => {
       if (disposed || playbackStartedRef.current) return;
-      if (!playerIsPaused()) {
+      const paused = playerIsPaused();
+      if (paused === false) {
         markPlaying();
         return;
       }
-      markAutoplayBlocked();
+      if (paused === true) markAutoplayBlocked();
     }, 15_000);
 
     void loadChannelTwitch()
@@ -732,7 +734,7 @@ function ChannelOnNowPreview({
           markPlaying();
           if (playbackHealthTimer !== null) window.clearTimeout(playbackHealthTimer);
           playbackHealthTimer = window.setTimeout(() => {
-            if (!disposed && playerIsPaused()) recoverPausedPlayback();
+            if (!disposed && playerIsPaused() === true) recoverPausedPlayback();
           }, 900);
         });
         instance.addEventListener(api.Player.PAUSE, () => {

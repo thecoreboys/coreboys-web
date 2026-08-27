@@ -199,6 +199,7 @@ test("network hero retries only after its provider iframe has loaded", () => {
 
 test("network 24/7 Twitch preview verifies and recovers actual paused playback", () => {
   assert.match(channelPage, /isPaused\?: \(\) => boolean/);
+  assert.match(channelPage, /return typeof paused === "boolean" \? paused : null/);
   assert.match(channelPage, /instance\.addEventListener\(api\.Player\.PAUSE/);
   assert.match(channelPage, /scheduleRetries\(\[120, 700, 1_800, 3_200, 5_200, 7_500\]\)/);
   assert.match(channelPage, /document\.addEventListener\("visibilitychange", resumeWhenVisible\)/);
