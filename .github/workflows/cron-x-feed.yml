@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Refresh the shared CORE X feed
         env:
-          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          APP_URL: https://thecoreboys.com
           SECRET: ${{ secrets.METRICS_CRON_SECRET }}
         run: |
           set -e

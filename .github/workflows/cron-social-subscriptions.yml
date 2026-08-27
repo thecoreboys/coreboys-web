@@ -14,4 +14,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Provision or renew provider subscriptions
-        run: curl --fail --silent --show-error -X POST "${{ secrets.CORE_SITE_URL }}/api/social/subscriptions/provision" -H "x-cron-secret: ${{ secrets.METRICS_CRON_SECRET }}"
+        env:
+          APP_URL: https://thecoreboys.com
+          SECRET: ${{ secrets.METRICS_CRON_SECRET }}
+        run: |
+          set -e
+          curl --fail --silent --show-error -X POST \
+            -H "x-cron-secret: $SECRET" \
+            "$APP_URL/api/social/subscriptions/provision"
