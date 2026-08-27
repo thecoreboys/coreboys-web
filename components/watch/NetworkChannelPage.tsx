@@ -621,6 +621,7 @@ function ChannelOnNowPreview({
     let disposed = false;
     let instance: ChannelTwitchInstance | null = null;
     let playbackAttempts = 0;
+    const maxPlaybackAttempts = 16;
     let playbackHealthTimer: number | null = null;
     let recoveryBlockedTimer: number | null = null;
     const retryTimers = new Set<number>();
@@ -636,14 +637,14 @@ function ChannelOnNowPreview({
       return true;
     };
     const requestPlayback = () => {
-      if (disposed || !instance || playbackStartedRef.current || playbackAttempts >= 4) return;
+      if (disposed || !instance || playbackStartedRef.current || playbackAttempts >= maxPlaybackAttempts) return;
       playbackAttempts += 1;
       prepareIframe();
       instance.setMuted?.(true);
       instance.play?.();
     };
     const scheduleRetries = (delays: readonly number[]) => {
-      const available = Math.max(0, 4 - playbackAttempts - retryTimers.size);
+      const available = Math.max(0, maxPlaybackAttempts - playbackAttempts - retryTimers.size);
       for (const delay of delays.slice(0, available)) {
         const timer = window.setTimeout(() => {
           retryTimers.delete(timer);
@@ -676,11 +677,11 @@ function ChannelOnNowPreview({
       if (!autoStart || document.visibilityState !== "visible" || !slotIsVisible()) return;
       clearRetries();
       playbackAttempts = 0;
-      scheduleRetries([120, 700, 1_800, 3_200]);
+      scheduleRetries([120, 700, 1_800, 3_200, 5_200, 7_500]);
       if (recoveryBlockedTimer !== null) window.clearTimeout(recoveryBlockedTimer);
       recoveryBlockedTimer = window.setTimeout(() => {
         if (!disposed && playerIsPaused()) markAutoplayBlocked();
-      }, 5_500);
+      }, 10_000);
     };
     const resumeWhenVisible = () => {
       if (document.visibilityState === "visible" && playerIsPaused()) recoverPausedPlayback();
@@ -690,8 +691,13 @@ function ChannelOnNowPreview({
     const observer = new MutationObserver(prepareIframe);
     observer.observe(mount, { childList: true, subtree: true });
     const blockedTimer = window.setTimeout(() => {
-      if (!disposed) markAutoplayBlocked();
-    }, 5_500);
+      if (disposed || playbackStartedRef.current) return;
+      if (!playerIsPaused()) {
+        markPlaying();
+        return;
+      }
+      markAutoplayBlocked();
+    }, 15_000);
 
     void loadChannelTwitch()
       .then((api) => {
@@ -713,9 +719,9 @@ function ChannelOnNowPreview({
         }
         instance = new api.Player(twitchMountId, options);
         prepareIframe();
-        scheduleRetries([250, 1_000, 2_500]);
+        scheduleRetries([250, 750, 1_500, 2_800, 4_400, 6_500, 9_000]);
         instance.addEventListener(api.Player.READY, () => {
-          if (!disposed) scheduleRetries([0, 600, 1_800]);
+          if (!disposed) scheduleRetries([0, 600, 1_500, 2_800, 4_800]);
         });
         instance.addEventListener(api.Player.PLAYING, () => {
           if (disposed) return;
@@ -736,7 +742,11 @@ function ChannelOnNowPreview({
           if (disposed) return;
           clearRetries();
           prepareIframe();
-          markAutoplayBlocked();
+          // Twitch can emit this while its iframe or an ad is still settling.
+          // Keep the scheduled program mounted and retry muted rather than
+          // replacing the player with a false unavailable state.
+          playbackAttempts = 0;
+          scheduleRetries([250, 800, 1_800, 3_200, 5_200, 7_500]);
         });
         instance.addEventListener(api.Player.OFFLINE, () => {
           if (disposed) return;
@@ -768,7 +778,7 @@ function ChannelOnNowPreview({
       instance?.destroy?.();
       mount.replaceChildren();
     };
-  }, [autoStart, host, markAutoplayBlocked, markPlaying, playable, previewStartSeconds, twitchMountId, usesTwitchSdk]);
+  }, [autoStart, host, markAutoplayBlocked, markPlaying, onProgramBoundary, playable, previewStartSeconds, twitchMountId, usesTwitchSdk]);
 
   useEffect(() => {
     if (!frameSrc || frameReadyToken === 0) return;
@@ -794,7 +804,7 @@ function ChannelOnNowPreview({
     const attempts = [180, 650, 1_400, 2_800].map((delay) => window.setTimeout(requestProviderAutoplay, delay));
     const blockedTimer = window.setTimeout(() => {
       markAutoplayBlocked();
-    }, 5_500);
+    }, 12_000);
     return () => {
       for (const timer of attempts) window.clearTimeout(timer);
       window.clearTimeout(blockedTimer);
