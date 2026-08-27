@@ -35,6 +35,7 @@ const SEEDS = [
   ["stable-99-kill-lead", "StableRonaldo: 99 Kill Lead", "/brand/events-series-challenges/stable-99-kill-lead.png"],
   ["jason-the-ween", "JasonTheWeen: Island Survivor", "/brand/events-series-challenges/jason-the-ween.png"],
   ["core-environment", "CORE Environment", "/brand/events-series-challenges/core-environment.png"],
+  ["core-po-box-openings", "CORE PO Box Openings", "/brand/events-series-challenges/core-po-box-openings.webp"],
 ] as const;
 
 let schema: Promise<void> | null = null;
@@ -83,7 +84,26 @@ export async function getCoreOriginalSnapshot(includeUnpublished = false): Promi
 }
 
 export async function getCoreOriginal(slug: string) {
-  const snapshot = await getCoreOriginalSnapshot();
-  const original = snapshot.originals.find((entry) => entry.slug === slug) ?? null;
-  return original ? { original, items: snapshot.items.filter((item) => item.originalId === original.id) } : null;
+  try {
+    const snapshot = await getCoreOriginalSnapshot();
+    const original = snapshot.originals.find((entry) => entry.slug === slug) ?? null;
+    return original ? { original, items: snapshot.items.filter((item) => item.originalId === original.id) } : null;
+  } catch {
+    const seedIndex = SEEDS.findIndex(([seedSlug]) => seedSlug === slug);
+    const seed = SEEDS[seedIndex];
+    if (!seed) return null;
+    const [seedSlug, title, posterUrl] = seed;
+    return {
+      original: {
+        id: `seed:${seedSlug}`,
+        slug: seedSlug,
+        title,
+        summary: null,
+        posterUrl,
+        enabled: true,
+        sortOrder: seedIndex,
+      },
+      items: [],
+    };
+  }
 }

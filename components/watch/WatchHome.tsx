@@ -99,12 +99,13 @@ const FALLBACK_EVENT_POSTERS = [
   { title: "StableRonaldo: 99 Kill Lead", src: "/brand/events-series-challenges/stable-99-kill-lead.png" },
   { title: "JasonTheWeen: Island Survivor", src: "/brand/events-series-challenges/jason-the-ween.png" },
   { title: "CORE Environment", src: "/brand/events-series-challenges/core-environment.png" },
+  { title: "CORE PO Box Openings", src: "/brand/events-series-challenges/core-po-box-openings.webp" },
 ] as const;
 
 function EventsSeriesChallengesRail({ originals }: { originals: CoreOriginal[] }) {
   const posters = originals.length ? originals : FALLBACK_EVENT_POSTERS.map((poster, index) => ({
     id: poster.src,
-    slug: poster.src.split("/").at(-1)?.replace(/\.png$/, "") ?? String(index),
+    slug: poster.src.split("/").at(-1)?.replace(/\.(?:png|webp)$/, "") ?? String(index),
     title: poster.title,
     posterUrl: poster.src,
   }));
