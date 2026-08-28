@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { signupSchema, createFanUser, DuplicateEmailError } from "@/lib/fan-users";
 import { signFanSessionToken, buildFanSessionCookie } from "@/lib/fan-auth";
+import { getEmailVerificationReadiness, requestEmailVerification } from "@/lib/email-verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,13 @@ export async function POST(req: Request) {
     const token = await signFanSessionToken(user.id);
     const res = NextResponse.json({ user }, { status: 201 });
     res.headers.set("Set-Cookie", buildFanSessionCookie(token));
+    if (getEmailVerificationReadiness().ready) {
+      after(async () => {
+        await requestEmailVerification(user.id).catch((error) => {
+          console.error("signup email verification send failed", error);
+        });
+      });
+    }
     return res;
   } catch (err) {
     if (err instanceof DuplicateEmailError) {

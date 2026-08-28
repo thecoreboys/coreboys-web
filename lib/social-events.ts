@@ -1,8 +1,15 @@
 import "server-only";
 
-import { query } from "@/lib/db";
+import type { PoolClient } from "pg";
+import { query, withTransaction } from "@/lib/db";
 import type { FeedItem, SocialPlatform } from "@/components/feed/types";
 import type { AlertOrientation, SocialAlert, SocialContentType } from "@/lib/social-alert";
+import {
+  canonicalSocialEventId,
+  isFreshSocialEvent,
+  socialContentTypeForFeedItem,
+  socialNotificationMaxAgeMs,
+} from "@/lib/social-event-normalization";
 
 export type SocialEventInput = {
   provider: SocialPlatform | "twitch";
@@ -16,6 +23,8 @@ export type SocialEventInput = {
   orientation?: AlertOrientation | null;
   publishedAt: string;
   platformPayload?: Record<string, unknown>;
+  /** Explicitly allow/suppress fanout. Omitted events use the freshness gate. */
+  notify?: boolean;
 };
 
 type EventRow = {
@@ -61,14 +70,6 @@ function rowToAlert(row: EventRow, deliveryId: string, readAt: string | null): S
   };
 }
 
-function asContentType(item: FeedItem): SocialContentType {
-  if (item.isLive || item.format === "live") return "live";
-  if (item.format === "photo" || item.mediaType === "image") return "photo";
-  if (item.platform === "x") return "post";
-  if (item.format === "short") return "short";
-  return "video";
-}
-
 function asOrientation(item: FeedItem): AlertOrientation | null {
   if (item.orientation === "landscape" || item.orientation === "portrait" || item.orientation === "square") return item.orientation;
   if (item.format === "short") return "portrait";
@@ -83,15 +84,29 @@ export function socialEventFromFeedItem(item: FeedItem): SocialEventInput | null
   return {
     provider: item.platform,
     memberSlug: item.authorSlug,
-    contentType: asContentType(item),
-    canonicalId: `${item.platform}:${item.id}`.slice(0, 300),
+    contentType: socialContentTypeForFeedItem(item),
+    canonicalId: canonicalSocialEventId(item).slice(0, 300),
     title: bounded(item.title || `${item.authorLabel} posted`, 240),
     body: bounded(item.authorLabel, 160) || null,
     href,
     artworkUrl: validUrl(item.thumbnailUrl ?? ""),
     orientation: asOrientation(item),
     publishedAt: new Date(publishedAt).toISOString(),
-    platformPayload: { authorLabel: item.authorLabel, sourceUrl: item.sourceUrl ?? item.url },
+    // Keep only durable rendering metadata in the event snapshot. In
+    // particular, provider CDN video URLs are intentionally excluded because
+    // they expire; public catalog reads reconstruct TikTok/Instagram embeds
+    // from the canonical provider id/permalink instead.
+    platformPayload: {
+      authorLabel: item.authorLabel,
+      sourceUrl: item.sourceUrl ?? item.url,
+      canonicalProviderId: item.canonicalProviderId,
+      embedUrl: item.embedUrl,
+      mediaType: item.mediaType,
+      format: item.format,
+      width: item.width,
+      height: item.height,
+      durationSeconds: item.durationSeconds,
+    },
   };
 }
 
@@ -100,45 +115,86 @@ export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: 
   const href = validUrl(input.href);
   const published = Date.parse(input.publishedAt);
   if (!href || !Number.isFinite(published) || !input.canonicalId.trim()) throw new Error("invalid_social_event");
-  const inserted = await query<{ id: string }>(
-    `INSERT INTO social_content_events
-       (provider,member_slug,content_type,canonical_id,title,body,href,artwork_url,orientation,platform_payload,published_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)
-     ON CONFLICT (canonical_id) DO NOTHING
-     RETURNING id::text`,
-    [
-      input.provider,
-      input.memberSlug,
-      input.contentType,
-      bounded(input.canonicalId, 300),
-      bounded(input.title, 240),
-      input.body ? bounded(input.body, 500) : null,
-      href,
-      input.artworkUrl ? validUrl(input.artworkUrl) : null,
-      input.orientation ?? null,
-      JSON.stringify(input.platformPayload ?? {}),
-      new Date(published).toISOString(),
-    ],
+  const canonicalId = bounded(input.canonicalId, 300);
+  const notificationEligible = input.notify ?? isFreshSocialEvent(
+    published,
+    Date.now(),
+    socialNotificationMaxAgeMs(),
   );
-  const id = inserted.rows[0]?.id;
-  if (!id) {
-    const existing = await query<{ id: string }>(
-      `SELECT id::text FROM social_content_events WHERE canonical_id=$1 LIMIT 1`,
-      [bounded(input.canonicalId, 300)],
+  const suppressionReason = notificationEligible
+    ? null
+    : input.notify === false
+      ? "source_suppressed"
+      : "stale_backfill";
+
+  return withTransaction(async (client) => {
+    type StoredEvent = {
+      id: string;
+      member_slug: string | null;
+      content_type: SocialContentType;
+      published_at: string;
+      notification_eligible: boolean;
+    };
+    const inserted = await client.query<StoredEvent>(
+      `INSERT INTO social_content_events
+         (provider,member_slug,content_type,canonical_id,title,body,href,artwork_url,orientation,
+          platform_payload,published_at,notification_eligible,notification_suppressed_reason)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13)
+       ON CONFLICT (canonical_id) DO NOTHING
+       RETURNING id::text,member_slug,content_type,published_at::text,notification_eligible`,
+      [
+        input.provider,
+        input.memberSlug,
+        input.contentType,
+        canonicalId,
+        bounded(input.title, 240),
+        input.body ? bounded(input.body, 500) : null,
+        href,
+        input.artworkUrl ? validUrl(input.artworkUrl) : null,
+        input.orientation ?? null,
+        JSON.stringify(input.platformPayload ?? {}),
+        new Date(published).toISOString(),
+        notificationEligible,
+        suppressionReason,
+      ],
     );
-    return { id: existing.rows[0]!.id, created: false };
-  }
-  await createEventDeliveries(id, input.memberSlug, input.contentType);
-  return { id, created: true };
+    const created = Boolean(inserted.rows[0]);
+    const event = inserted.rows[0] ?? (await client.query<StoredEvent>(
+      `SELECT id::text,member_slug,content_type,published_at::text,notification_eligible
+         FROM social_content_events WHERE canonical_id=$1 LIMIT 1`,
+      [canonicalId],
+    )).rows[0];
+    if (!event) throw new Error("social_event_conflict_missing");
+
+    const eligibleNow = input.notify !== false
+      && event.notification_eligible
+      && (input.notify === true || isFreshSocialEvent(
+        event.published_at,
+        Date.now(),
+        socialNotificationMaxAgeMs(),
+      ));
+    // Always retry the idempotent fanout for an eligible existing event. This
+    // repairs rows created by the pre-transaction implementation without ever
+    // duplicating a channel delivery.
+    if (eligibleNow) {
+      await createEventDeliveries(client, event.id, event.member_slug, event.content_type);
+    }
+    return { id: event.id, created };
+  });
 }
 
 /**
  * In-app alerts default on for every signed-in fan. Push/email entries are
  * created only for users that explicitly enable that channel.
  */
-async function createEventDeliveries(eventId: string, memberSlug: string | null, contentType: SocialContentType) {
+async function createEventDeliveries(
+  client: PoolClient,
+  eventId: string,
+  memberSlug: string | null,
+  contentType: SocialContentType,
+) {
   const member = memberSlug ?? "core";
-  await query(
+  await client.query(
     `INSERT INTO social_notification_deliveries (event_id,user_id,channel,status,delivered_at)
      SELECT $1, u.id, 'in_app', 'sent', now()
        FROM fan_users u
@@ -151,7 +207,7 @@ async function createEventDeliveries(eventId: string, memberSlug: string | null,
      ON CONFLICT (event_id,user_id,channel) DO NOTHING`,
     [eventId, member, contentType],
   );
-  await query(
+  await client.query(
     `INSERT INTO social_notification_deliveries (event_id,user_id,channel,status)
      SELECT $1, u.id, 'push', 'pending'
        FROM fan_users u
@@ -164,7 +220,7 @@ async function createEventDeliveries(eventId: string, memberSlug: string | null,
      ON CONFLICT (event_id,user_id,channel) DO NOTHING`,
     [eventId, member, contentType],
   );
-  await query(
+  await client.query(
     `INSERT INTO social_notification_deliveries (event_id,user_id,channel,status)
      SELECT $1, u.id, 'email', 'pending'
        FROM fan_users u
@@ -230,23 +286,31 @@ export async function getSocialNotificationSettings(userId: string): Promise<Soc
 }
 
 export async function saveSocialNotificationSettings(userId: string, settings: SocialNotificationSettings) {
-  await query(
-    `INSERT INTO fan_social_notification_settings (user_id,enabled,in_app_enabled,push_enabled,email_enabled)
-     VALUES ($1,$2,$3,$4,$5)
-     ON CONFLICT (user_id) DO UPDATE SET enabled=$2,in_app_enabled=$3,push_enabled=$4,email_enabled=$5,updated_at=now()`,
-    [userId, settings.enabled, settings.inAppEnabled, settings.pushEnabled, settings.emailEnabled],
-  );
-  // The UI submits the complete override set; removing old overrides restores
-  // the default-on rule instead of leaving an invisible stale preference.
-  await query(`DELETE FROM fan_social_notification_rules WHERE user_id=$1`, [userId]);
+  const uniqueRules = new Map<string, SocialNotificationSettings["rules"][number]>();
   for (const rule of settings.rules.slice(0, 200)) {
-    await query(
-      `INSERT INTO fan_social_notification_rules (user_id,member_slug,content_type,enabled)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (user_id,member_slug,content_type) DO UPDATE SET enabled=$4,updated_at=now()`,
-      [userId, bounded(rule.memberSlug, 80), rule.contentType, rule.enabled],
-    );
+    const memberSlug = bounded(rule.memberSlug, 80);
+    if (!memberSlug) continue;
+    uniqueRules.set(`${memberSlug}\u0000${rule.contentType}`, { ...rule, memberSlug });
   }
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `INSERT INTO fan_social_notification_settings (user_id,enabled,in_app_enabled,push_enabled,email_enabled)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (user_id) DO UPDATE SET enabled=$2,in_app_enabled=$3,push_enabled=$4,email_enabled=$5,updated_at=now()`,
+      [userId, settings.enabled, settings.inAppEnabled, settings.pushEnabled, settings.emailEnabled],
+    );
+    // The UI submits the complete override set; removing old overrides restores
+    // the default-on rule instead of leaving an invisible stale preference.
+    await client.query(`DELETE FROM fan_social_notification_rules WHERE user_id=$1`, [userId]);
+    for (const rule of uniqueRules.values()) {
+      await client.query(
+        `INSERT INTO fan_social_notification_rules (user_id,member_slug,content_type,enabled)
+         VALUES ($1,$2,$3,$4)`,
+        [userId, rule.memberSlug, rule.contentType, rule.enabled],
+      );
+    }
+  });
 }
 
 export async function upsertPushSubscription(userId: string, input: { endpoint: string; p256dh: string; auth: string; expirationTime?: number | null; userAgent?: string | null }) {
@@ -271,14 +335,86 @@ export async function recordWebhookReceipt(input: {
   signatureValid: boolean;
   payload: unknown;
 }) {
-  const result = await query<{ id: string }>(
-    `INSERT INTO social_webhook_receipts (provider,external_event_id,event_type,signature_valid,payload,processed_at)
-     VALUES ($1,$2,$3,$4,$5::jsonb,now())
-     ON CONFLICT (provider,external_event_id) DO NOTHING
-     RETURNING id::text`,
-    [input.provider, input.externalEventId?.slice(0, 300) ?? null, bounded(input.eventType, 160), input.signatureValid, JSON.stringify(input.payload ?? {})],
+  const externalEventId = input.externalEventId?.slice(0, 300) ?? null;
+  const values: unknown[] = [
+    input.provider,
+    externalEventId,
+    bounded(input.eventType, 160),
+    input.signatureValid,
+    JSON.stringify(input.payload ?? {}),
+  ];
+
+  return withTransaction(async (client) => {
+    const inserted = await client.query<{ id: string; attempts: number }>(
+      `INSERT INTO social_webhook_receipts
+         (provider,external_event_id,event_type,signature_valid,payload,processed_at,processing_started_at,attempts)
+       VALUES ($1,$2,$3,$4,$5::jsonb,NULL,now(),1)
+       ON CONFLICT (provider,external_event_id) DO NOTHING
+       RETURNING id::text,attempts`,
+      values,
+    );
+    if (inserted.rows[0]) {
+      return {
+        created: true,
+        id: inserted.rows[0].id,
+        shouldProcess: true,
+        attempt: inserted.rows[0].attempts,
+      };
+    }
+
+    // A duplicate is normally acknowledged without doing work. Failed or
+    // abandoned receipts remain unprocessed and can be reclaimed after their
+    // lease expires, which makes provider retries useful instead of permanent
+    // no-ops.
+    const reclaimed = await client.query<{ id: string; attempts: number }>(
+      `UPDATE social_webhook_receipts
+          SET processing_started_at=now(),attempts=attempts+1,processing_error=NULL
+        WHERE provider=$1 AND external_event_id IS NOT DISTINCT FROM $2
+          AND processed_at IS NULL
+          AND (processing_started_at IS NULL OR processing_started_at <= now()-interval '15 minutes')
+       RETURNING id::text,attempts`,
+      [input.provider, externalEventId],
+    );
+    if (reclaimed.rows[0]) {
+      return {
+        created: false,
+        id: reclaimed.rows[0].id,
+        shouldProcess: true,
+        attempt: reclaimed.rows[0].attempts,
+      };
+    }
+    const existing = await client.query<{ id: string }>(
+      `SELECT id::text FROM social_webhook_receipts
+        WHERE provider=$1 AND external_event_id IS NOT DISTINCT FROM $2
+        ORDER BY received_at DESC LIMIT 1`,
+      [input.provider, externalEventId],
+    );
+    return {
+      created: false,
+      id: existing.rows[0]?.id ?? null,
+      shouldProcess: false,
+      attempt: null,
+    };
+  });
+}
+
+export async function completeWebhookReceipt(id: string, attempt: number): Promise<void> {
+  await query(
+    `UPDATE social_webhook_receipts
+        SET processed_at=now(),processing_started_at=NULL,processing_error=NULL
+      WHERE id=$1 AND attempts=$2 AND processed_at IS NULL`,
+    [id, attempt],
   );
-  return { created: Boolean(result.rows[0]), id: result.rows[0]?.id ?? null };
+}
+
+export async function failWebhookReceipt(id: string, attempt: number, error: unknown): Promise<void> {
+  const message = error instanceof Error ? error.message : "webhook processing failed";
+  await query(
+    `UPDATE social_webhook_receipts
+        SET processing_started_at=NULL,processing_error=LEFT($3,500)
+      WHERE id=$1 AND attempts=$2 AND processed_at IS NULL`,
+    [id, attempt, message],
+  );
 }
 
 export async function upsertSocialSource(input: {
@@ -291,18 +427,30 @@ export async function upsertSocialSource(input: {
   cursor?: string | null;
   error?: string | null;
   received?: boolean;
+  /** Reconciliation can confirm configuration, but cannot undo revocation. */
+  preserveExpired?: boolean;
 }) {
   await query(
     `INSERT INTO social_source_registry (provider,account_ref,member_slug,account_label,credential_state,webhook_state,last_cursor,last_received_at,last_reconciled_at,last_error,next_reconcile_at)
      VALUES ($1,$2,$3,$4,COALESCE($5,'unknown'),COALESCE($6,'not_configured'),$7,CASE WHEN $9 THEN now() ELSE NULL END,now(),$8,now() + interval '10 minutes')
      ON CONFLICT (provider,account_ref) DO UPDATE SET
        member_slug=EXCLUDED.member_slug, account_label=EXCLUDED.account_label,
-       credential_state=COALESCE($5,social_source_registry.credential_state),
+       credential_state=CASE
+         WHEN $10 AND social_source_registry.credential_state='expired' AND $5='healthy'
+           THEN social_source_registry.credential_state
+         ELSE COALESCE($5,social_source_registry.credential_state)
+       END,
        webhook_state=COALESCE($6,social_source_registry.webhook_state),
        last_cursor=COALESCE($7,social_source_registry.last_cursor),
        last_received_at=CASE WHEN $9 THEN now() ELSE social_source_registry.last_received_at END,
-       last_reconciled_at=now(), last_error=$8, next_reconcile_at=now() + interval '10 minutes', updated_at=now()`,
-    [input.provider, bounded(input.accountRef, 300), input.memberSlug ?? null, input.accountLabel ?? null, input.credentialState ?? null, input.webhookState ?? null, input.cursor ?? null, input.error?.slice(0, 500) ?? null, input.received === true],
+       last_reconciled_at=now(),
+       last_error=CASE
+         WHEN $10 AND social_source_registry.credential_state='expired' AND $5='healthy'
+           THEN social_source_registry.last_error
+         ELSE $8
+       END,
+       next_reconcile_at=now() + interval '10 minutes', updated_at=now()`,
+    [input.provider, bounded(input.accountRef, 300), input.memberSlug ?? null, input.accountLabel ?? null, input.credentialState ?? null, input.webhookState ?? null, input.cursor ?? null, input.error?.slice(0, 500) ?? null, input.received === true, input.preserveExpired === true],
   );
 }
 

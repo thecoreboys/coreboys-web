@@ -38,6 +38,12 @@ const migrations = [
   "032_x_feed_history.sql",
   "033_dj_cora_radio_cues.sql",
   "034_admin_mfa_and_ai_controls.sql",
+  "040_social_notification_reliability.sql",
+  "041_fan_email_verification.sql",
+  "042_social_fetch_media_refresh.sql",
+  "043_social_fetch_credit_budget.sql",
+  "044_social_fetch_backfill.sql",
+  "048_x_social_archive_paging.sql",
 ];
 
 function loadEnvLocal() {

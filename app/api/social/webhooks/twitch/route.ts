@@ -1,7 +1,13 @@
 import { after, NextResponse } from "next/server";
 import { MEMBERS } from "@/lib/members";
 import { fetchUserIdsByLogin } from "@/lib/twitch";
-import { recordSocialEvent, recordWebhookReceipt, upsertSocialSource } from "@/lib/social-events";
+import {
+  completeWebhookReceipt,
+  failWebhookReceipt,
+  recordSocialEvent,
+  recordWebhookReceipt,
+  upsertSocialSource,
+} from "@/lib/social-events";
 import { freshTimestamp, matchesHmac } from "@/lib/social-webhooks";
 import { drainSocialNotificationDeliveries } from "@/lib/social-delivery";
 
@@ -85,7 +91,9 @@ export async function POST(request: Request) {
     signatureValid: true,
     payload: body,
   });
-  if (receipt.created) {
+  if (receipt.shouldProcess && receipt.id && receipt.attempt) {
+    const receiptId = receipt.id;
+    const receiptAttempt = receipt.attempt;
     after(async () => {
       try {
         const event = body.event;
@@ -105,7 +113,7 @@ export async function POST(request: Request) {
           });
         }
         if (subscriptionType === "stream.online" && event && member) {
-          const recorded = await recordSocialEvent({
+          await recordSocialEvent({
             provider: "twitch",
             memberSlug: member.slug,
             contentType: "live",
@@ -116,9 +124,13 @@ export async function POST(request: Request) {
             publishedAt: String(event.started_at ?? new Date().toISOString()),
             platformPayload: event,
           });
-          if (recorded.created) await drainSocialNotificationDeliveries(100);
+          await drainSocialNotificationDeliveries(100);
         }
+        await completeWebhookReceipt(receiptId, receiptAttempt);
       } catch (error) {
+        await failWebhookReceipt(receiptId, receiptAttempt, error).catch((receiptError) => {
+          console.error("twitch webhook receipt failure update failed", receiptError);
+        });
         console.error("twitch webhook processing failed", error);
       }
     });

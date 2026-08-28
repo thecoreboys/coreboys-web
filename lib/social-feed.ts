@@ -17,6 +17,23 @@ import {
 } from "@/lib/watch/social-credentials";
 import { getXFeedSnapshot } from "@/lib/x-feed-snapshot";
 import { extractPublicTikTokPosts } from "@/lib/tiktok-public";
+import {
+  getPersistedPublicSocialFeed,
+  PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT,
+} from "@/lib/social-feed-events";
+import {
+  fetchSocialFetchInstagramPosts,
+  fetchSocialFetchInstagramReels,
+  fetchSocialFetchTikTokVideos,
+  type SocialFetchDimensions,
+  type SocialFetchInstagramMedia,
+  type SocialFetchMediaStatus,
+} from "@/lib/social-fetch-media";
+import {
+  collectTikTokCursorPages,
+  isInstagramFieldSelectionError,
+} from "@/lib/social-ingestion-helpers";
+import { isLikelyYouTubeShort } from "@/lib/youtube-classification";
 
 const CENTER = { x: 0.5, y: 0.5 } as const;
 // Public routes can render the catalog frequently, but provider reads must be
@@ -46,6 +63,65 @@ function isoTimestamp(raw: string | undefined): string | null {
   return Number.isFinite(value) ? new Date(value).toISOString() : null;
 }
 
+function mediaOrientation(
+  dimensions: SocialFetchDimensions | undefined,
+  fallback: "landscape" | "portrait" | "square",
+): "landscape" | "portrait" | "square" {
+  if (!dimensions) return fallback;
+  const ratio = dimensions.width / dimensions.height;
+  return ratio > 1.12 ? "landscape" : ratio < 0.89 ? "portrait" : "square";
+}
+
+function normalizedFeedUrl(item: FeedItem): string {
+  try {
+    const url = new URL(item.sourceUrl ?? item.url);
+    url.hash = "";
+    url.search = "";
+    url.hostname = url.hostname.toLowerCase();
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    return url.toString();
+  } catch {
+    return item.sourceUrl ?? item.url;
+  }
+}
+
+/**
+ * Preserve every authoritative item (including Graph carousel children), then
+ * admit fallback rows only when neither their provider object nor permalink is
+ * already represented.
+ */
+function mergeFeedWindows(
+  authoritative: readonly FeedItem[],
+  fallback: readonly FeedItem[],
+  limit: number,
+): FeedItem[] {
+  const items: FeedItem[] = [];
+  const itemIds = new Set<string>();
+  const canonicalIds = new Set<string>();
+  const urls = new Set<string>();
+  for (const item of authoritative) {
+    if (itemIds.has(item.id)) continue;
+    itemIds.add(item.id);
+    if (item.canonicalProviderId) canonicalIds.add(`${item.platform}:${item.canonicalProviderId}`);
+    urls.add(normalizedFeedUrl(item));
+    items.push(item);
+  }
+  for (const item of fallback) {
+    const canonicalId = item.canonicalProviderId
+      ? `${item.platform}:${item.canonicalProviderId}`
+      : null;
+    const url = normalizedFeedUrl(item);
+    if (itemIds.has(item.id) || (canonicalId && canonicalIds.has(canonicalId)) || urls.has(url)) continue;
+    itemIds.add(item.id);
+    if (canonicalId) canonicalIds.add(canonicalId);
+    urls.add(url);
+    items.push(item);
+  }
+  return items
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
+    .slice(0, Math.max(0, limit));
+}
+
 function decodeXml(raw: string): string {
   return raw
     .replaceAll("&amp;", "&")
@@ -73,7 +149,9 @@ export async function fetchYouTubeChannelFeed(
 ): Promise<FeedItem[]> {
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
   try {
-    const res = await fetch(url, { next: { revalidate: SOCIAL_FEED_CACHE_SECONDS } });
+    const res = await fetch(url, {
+      next: { revalidate: SOCIAL_FEED_CACHE_SECONDS, tags: [SOCIAL_FEED_CACHE_TAG] },
+    });
     if (!res.ok) return [];
     const xml = await res.text();
     return parseYouTubeRss(xml, authorSlug, authorLabel).slice(0, limit);
@@ -102,7 +180,7 @@ function parseYouTubeRss(
     const publishedAt = isoTimestamp(published);
     if (!id || !title || !publishedAt) continue;
     const sourceUrl = `https://www.youtube.com/watch?v=${id}`;
-    const shortHint = /(?:^|\s)#?shorts?(?:\s|$|[.!?])/i.test(`${title} ${description}`);
+    const shortHint = isLikelyYouTubeShort({ title, description });
     items.push({
       id: `yt-${id}`,
       platform: "youtube",
@@ -260,7 +338,7 @@ export async function resolveYouTubeChannelId(
     const resolveChannel = async (selector: "forHandle" | "forUsername") => {
       const params = new URLSearchParams({ part: "id", [selector]: handle, key });
       const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?${params}`, {
-        next: { revalidate: 86_400 },
+        next: { revalidate: 86_400, tags: [SOCIAL_FEED_CACHE_TAG] },
       });
       if (!res.ok) return null;
       const json = (await res.json()) as { items?: Array<{ id?: string }> };
@@ -286,7 +364,7 @@ export async function resolveYouTubeChannelId(
       key,
     });
     const searchRes = await fetch(`https://www.googleapis.com/youtube/v3/search?${search}`, {
-      next: { revalidate: 86_400 },
+      next: { revalidate: 86_400, tags: [SOCIAL_FEED_CACHE_TAG] },
     });
     if (!searchRes.ok) return null;
     const searchJson = (await searchRes.json()) as {
@@ -416,6 +494,14 @@ export type OfficialSocialFeedResult = {
   credentialSource: "env" | null;
 };
 
+export type PublicMediaDiagnostic = {
+  provider: "tiktok" | "instagram";
+  handle: string;
+  surface: "videos" | "posts" | "reels";
+  status: SocialFetchMediaStatus;
+  lookupStatus: string | null;
+};
+
 function feedResult(
   provider: IngestProvider,
   handle: string,
@@ -448,31 +534,83 @@ export async function fetchTikTokFeed(
   authorSlug: string | null = null,
   authorLabel = rawHandle,
   limit = 12,
+  options: {
+    publicFallback?: boolean;
+    onPublicDiagnostic?: (diagnostic: PublicMediaDiagnostic) => void;
+  } = {},
 ): Promise<FeedItem[]> {
   const authorized = await fetchTikTokFeedResult(rawHandle, authorSlug, authorLabel, limit);
-  if (authorized.items.length >= limit) return authorized.items.slice(0, limit);
+  if (authorized.items.length >= limit || !options.publicFallback) {
+    return authorized.items.slice(0, limit);
+  }
 
-  // A canonical post URL can always use TikTok's public player. Creator OAuth
-  // is only needed for the richer Display API; merge a public-profile window
-  // whenever that account is not connected or the token feed is incomplete.
-  const publicItems = await fetchPublicTikTokProfileFeed(
+  // Social Fetch is the public, no-creator-login adapter. Its provider-owned
+  // ids drive TikTok's official player, while its CDN URLs are artwork only.
+  const socialFetchItems = await fetchSocialFetchTikTokFeed(
     rawHandle,
     authorSlug,
     authorLabel,
-    Math.max(0, limit - authorized.items.length),
+    Math.max(0, limit),
+    options.onPublicDiagnostic,
   );
-  const seen = new Set<string>();
-  return [...authorized.items, ...publicItems]
-    .filter((item) => !seen.has(item.id) && Boolean(seen.add(item.id)))
-    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
-    .slice(0, limit);
+  // Public profile HTML is intentionally not scraped here. Social Fetch gives
+  // us canonical ids and the UI uses TikTok's official player/profile embed.
+  return mergeFeedWindows(authorized.items, socialFetchItems, limit);
+}
+
+/** Map Social Fetch's public videos to durable provider-owned TikTok players. */
+export async function fetchSocialFetchTikTokFeed(
+  rawHandle: string,
+  authorSlug: string | null = null,
+  authorLabel = rawHandle,
+  limit = 12,
+  onDiagnostic?: (diagnostic: PublicMediaDiagnostic) => void,
+): Promise<FeedItem[]> {
+  const result = await fetchSocialFetchTikTokVideos(rawHandle, limit);
+  onDiagnostic?.({
+    provider: "tiktok",
+    handle: bareHandle(rawHandle),
+    surface: "videos",
+    status: result.status,
+    lookupStatus: result.lookupStatus,
+  });
+  return result.items.flatMap((video): FeedItem[] => {
+    if (!video.createdAt) return [];
+    const dimensions = video.dimensions;
+    const durationSeconds = video.durationSeconds;
+    return [{
+      id: `tt-${video.id}`,
+      canonicalProviderId: video.id,
+      platform: "tiktok",
+      url: video.sourceUrl,
+      sourceUrl: video.sourceUrl,
+      embedUrl: `https://www.tiktok.com/player/v1/${video.id}`,
+      title: cleanTitle(video.caption ?? undefined, `${authorLabel} on TikTok`),
+      publishedAt: video.createdAt,
+      authorSlug,
+      authorLabel,
+      thumbnailUrl: video.thumbnailUrl,
+      mediaType: "video",
+      orientation: mediaOrientation(dimensions, "portrait"),
+      width: dimensions?.width,
+      height: dimensions?.height,
+      format: "short",
+      previewStrategy: "embed",
+      embeddable: true,
+      focalPoint: CENTER,
+      durationSeconds,
+      duration: durationSeconds ? formatDurationSeconds(durationSeconds) : undefined,
+      liveCapability: "unsupported",
+    }];
+  });
 }
 
 /**
  * Fetch the posts visibly present in TikTok's public profile hydration data.
  * This never uses a user cookie, token, or a browser session. TikTok may
  * instead serve a JS/anti-bot shell; that is a normal empty result. The UI
- * reports the missing creator authorization instead of inventing media cards.
+ * keeps the source visible as a public profile without exposing credential
+ * diagnostics or inventing media cards.
  */
 export async function fetchPublicTikTokProfileFeed(
   rawHandle: string,
@@ -499,6 +637,7 @@ export async function fetchPublicTikTokProfileFeed(
       const sourceUrl = `https://www.tiktok.com/@${handle}/video/${post.id}`;
       return {
         id: `tt-${post.id}`,
+        canonicalProviderId: post.id,
         platform: "tiktok",
         url: sourceUrl,
         sourceUrl,
@@ -551,51 +690,75 @@ export async function fetchTikTokFeedResult(
       "title",
       "embed_link",
     ].join(",");
-    const res = await fetch(`https://open.tiktokapis.com/v2/video/list/?fields=${fields}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${credential.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ max_count: Math.max(1, Math.min(20, limit)) }),
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      return feedResult(
-        "tiktok",
-        resolution.handle,
-        httpFeedState(res.status),
-        [],
-        credential.source,
-      );
+    type TikTokVideo = {
+      id?: string;
+      create_time?: number | string;
+      cover_image_url?: string;
+      share_url?: string;
+      video_description?: string;
+      duration?: number;
+      height?: number;
+      width?: number;
+      title?: string;
+      embed_link?: string;
+    };
+    class TikTokPageError extends Error {
+      constructor(readonly state: OfficialSocialFeedState) {
+        super(state);
+      }
     }
-    const json = (await res.json().catch(() => null)) as {
-      data?: {
-        videos?: Array<{
-          id?: string;
-          create_time?: number | string;
-          cover_image_url?: string;
-          share_url?: string;
-          video_description?: string;
-          duration?: number;
-          height?: number;
-          width?: number;
-          title?: string;
-          embed_link?: string;
-        }>;
+
+    let providerRows = 0;
+    const collected = await collectTikTokCursorPages<TikTokVideo>(limit, async (cursor, pageSize) => {
+      const body: { max_count: number; cursor?: string | number } = { max_count: pageSize };
+      if (cursor != null) body.cursor = cursor;
+      const res = await fetch(`https://open.tiktokapis.com/v2/video/list/?fields=${fields}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${credential.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        cache: "no-store",
+      });
+      if (!res.ok) throw new TikTokPageError(httpFeedState(res.status));
+
+      const json = (await res.json().catch(() => null)) as {
+        data?: {
+          videos?: TikTokVideo[];
+          cursor?: string | number;
+          has_more?: boolean;
+        };
+        error?: { code?: string };
+      } | null;
+      if (
+        !json
+        || (json.error?.code && json.error.code !== "ok")
+        || !Array.isArray(json.data?.videos)
+      ) {
+        throw new TikTokPageError("invalid_response");
+      }
+      providerRows += json.data.videos.length;
+      return {
+        // Invalid rows should not satisfy the requested window; continue to a
+        // later cursor when TikTok supplies one instead of returning short.
+        items: json.data.videos.filter((video) => {
+          const createdAt = Number(video.create_time);
+          return Boolean(video.id?.trim()) && Number.isFinite(createdAt) && createdAt > 0;
+        }),
+        cursor: json.data.cursor,
+        hasMore: json.data.has_more === true,
       };
-      error?: { code?: string };
-    } | null;
-    if (!json) {
-      return feedResult("tiktok", resolution.handle, "invalid_response", [], credential.source);
+    });
+
+    if (collected.error && collected.items.length === 0) {
+      const state = collected.error instanceof TikTokPageError
+        ? collected.error.state
+        : "upstream_error";
+      return feedResult("tiktok", resolution.handle, state, [], credential.source);
     }
-    if (json.error?.code && json.error.code !== "ok") {
-      return feedResult("tiktok", resolution.handle, "invalid_response", [], credential.source);
-    }
-    if (!Array.isArray(json.data?.videos)) {
-      return feedResult("tiktok", resolution.handle, "invalid_response", [], credential.source);
-    }
-    const items = json.data.videos.flatMap((video): FeedItem[] => {
+
+    const items = collected.items.flatMap((video): FeedItem[] => {
       const createdAt = Number(video.create_time);
       if (!video.id || !Number.isFinite(createdAt) || createdAt <= 0) return [];
       const sourceUrl = video.share_url || `https://www.tiktok.com/@${resolution.handle}/video/${video.id}`;
@@ -610,6 +773,7 @@ export async function fetchTikTokFeedResult(
             : "square";
       return [{
         id: `tt-${video.id}`,
+        canonicalProviderId: video.id,
         platform: "tiktok",
         url: sourceUrl,
         sourceUrl,
@@ -637,7 +801,7 @@ export async function fetchTikTokFeedResult(
     return feedResult(
       "tiktok",
       resolution.handle,
-      items.length ? "ok" : json.data.videos.length ? "invalid_response" : "empty",
+      items.length ? "ok" : providerRows ? "invalid_response" : "empty",
       items,
       credential.source,
     );
@@ -656,10 +820,86 @@ export async function fetchInstagramFeed(
   authorSlug: string | null = null,
   authorLabel = rawHandle,
   limit = 12,
-  options: { fresh?: boolean } = {},
+  options: {
+    fresh?: boolean;
+    publicFallback?: boolean;
+    publicPostsFallback?: boolean;
+    publicReelsFallback?: boolean;
+    onPublicDiagnostic?: (diagnostic: PublicMediaDiagnostic) => void;
+  } = {},
 ): Promise<FeedItem[]> {
   const authorized = await fetchInstagramFeedResult(rawHandle, authorSlug, authorLabel, limit, options);
-  return authorized.items.slice(0, limit);
+  const usePublicPosts = options.publicFallback === true || options.publicPostsFallback === true;
+  const usePublicReels = options.publicFallback === true || options.publicReelsFallback === true;
+  if (authorized.items.length >= limit || (!usePublicPosts && !usePublicReels)) {
+    return authorized.items.slice(0, limit);
+  }
+
+  // Posts/photos and Reels are separate public Social Fetch pages. Read them
+  // together only when the official creator-token window is absent or short;
+  // their independent two-hour caches protect API credits even though
+  // the application reconciler runs every ten minutes.
+  const publicTasks: Array<Promise<SocialFetchInstagramMedia[]>> = [];
+  if (usePublicReels) {
+    publicTasks.push(fetchSocialFetchInstagramReels(rawHandle, Math.max(0, limit)).then((result) => {
+      options.onPublicDiagnostic?.({
+        provider: "instagram",
+        handle: bareHandle(rawHandle),
+        surface: "reels",
+        status: result.status,
+        lookupStatus: result.lookupStatus,
+      });
+      return result.items;
+    }));
+  }
+  if (usePublicPosts) {
+    publicTasks.push(fetchSocialFetchInstagramPosts(rawHandle, Math.max(0, limit)).then((result) => {
+      options.onPublicDiagnostic?.({
+        provider: "instagram",
+        handle: bareHandle(rawHandle),
+        surface: "posts",
+        status: result.status,
+        lookupStatus: result.lookupStatus,
+      });
+      return result.items;
+    }));
+  }
+  const publicCollections = await Promise.all(publicTasks);
+  // Prefer the dedicated Reels classification when the posts endpoint also
+  // includes the same shortcode.
+  const publicItems = publicCollections.flat().flatMap((media): FeedItem[] => {
+    if (!media.createdAt) return [];
+    const isReel = media.surface === "reel" || /instagram\.com\/reels?\//i.test(media.sourceUrl);
+    const isVideo = isReel || media.mediaType === "video";
+    const isPhoto = !isVideo;
+    const dimensions = media.dimensions;
+    return [{
+      id: `ig-${media.id}`,
+      canonicalProviderId: media.id,
+      platform: "instagram",
+      url: media.sourceUrl,
+      sourceUrl: media.sourceUrl,
+      embedUrl: media.embedUrl,
+      title: cleanTitle(media.caption ?? undefined, `${authorLabel} on Instagram`),
+      publishedAt: media.createdAt,
+      authorSlug,
+      authorLabel,
+      thumbnailUrl: media.thumbnailUrl,
+      // Sidecars remain photo posts at the feed boundary. Their exact upstream
+      // mediaType remains preserved by the adapter, while this render type
+      // selects Instagram's official post embed rather than a transient CDN.
+      mediaType: isPhoto ? "image" : "video",
+      orientation: mediaOrientation(dimensions, isReel ? "portrait" : isPhoto ? "square" : "landscape"),
+      width: dimensions?.width,
+      height: dimensions?.height,
+      format: isPhoto ? "photo" : isReel ? "short" : "long",
+      previewStrategy: "embed",
+      embeddable: true,
+      focalPoint: CENTER,
+      liveCapability: "unsupported",
+    }];
+  });
+  return mergeFeedWindows(authorized.items, publicItems, limit);
 }
 
 /** Fetch Instagram media while preserving a token-free operator diagnostic. */
@@ -689,8 +929,10 @@ export async function fetchInstagramFeedResult(
       : `https://graph.instagram.com/${version}/me/media`;
     const baseFields =
       "id,caption,media_type,media_product_type,media_url,permalink,thumbnail_url,timestamp,username";
+    const expandedFields = `${baseFields},children{id,media_type,media_url,permalink,thumbnail_url,timestamp}`;
+    const minimalChildrenFields = `${baseFields},children{id,media_type,media_url,thumbnail_url}`;
     const params = new URLSearchParams({
-      fields: `${baseFields},children{id,media_type,media_url,permalink,thumbnail_url,timestamp}`,
+      fields: expandedFields,
       limit: String(Math.max(1, Math.min(25, limit))),
     });
     const request = () => fetch(`${base}?${params}`, options.fresh
@@ -700,14 +942,26 @@ export async function fetchInstagramFeedResult(
         }
       : {
           headers: { Authorization: `Bearer ${credential.accessToken}` },
-          next: { revalidate: SOCIAL_FEED_CACHE_SECONDS },
+          next: { revalidate: SOCIAL_FEED_CACHE_SECONDS, tags: [SOCIAL_FEED_CACHE_TAG] },
         });
     let res = await request();
-    // Some older Graph versions/accounts reject nested child expansion. Keep
-    // the post-level official response rather than dropping the whole source.
-    if (!res.ok) {
-      params.set("fields", baseFields);
+    // Some Graph account/version combinations reject fields on carousel
+    // children. Retry only a field-selection failure, first retaining the
+    // useful children with their portable fields, then falling back to the
+    // post-level record. Auth, quota, and upstream failures are not retried.
+    if (!res.ok && isInstagramFieldSelectionError(
+      res.status,
+      await res.clone().json().catch(() => null),
+    )) {
+      params.set("fields", minimalChildrenFields);
       res = await request();
+      if (!res.ok && isInstagramFieldSelectionError(
+        res.status,
+        await res.clone().json().catch(() => null),
+      )) {
+        params.set("fields", baseFields);
+        res = await request();
+      }
     }
     if (!res.ok) {
       return feedResult(
@@ -770,6 +1024,9 @@ export async function fetchInstagramFeedResult(
         const position = entries.length > 1 ? ` · ${index + 1}/${entries.length}` : "";
         return [{
           id: `ig-${entry.id}`,
+          // Carousel cards keep their child ids for UI navigation while one
+          // provider post produces one durable notification/event identity.
+          canonicalProviderId: media.id,
           platform: "instagram",
           url: sourceUrl,
           sourceUrl,
@@ -926,7 +1183,13 @@ function balancedFeedItems(items: readonly FeedItem[], limit: number): FeedItem[
  * member's linked YouTube social via RSS. Other platforms use their
  * official credential-gated APIs. Never throws.
  */
-async function loadHouseFeed(): Promise<FeedItem[]> {
+type ScheduledPublicFallbacks = {
+  profileMedia?: boolean;
+  instagramReels?: boolean;
+  onDiagnostic?: (diagnostic: PublicMediaDiagnostic) => void;
+};
+
+async function loadHouseFeed(options: ScheduledPublicFallbacks = {}): Promise<FeedItem[]> {
   // Each member can run several YouTube channels (Marlon has 3); resolve
   // every linked YouTube social to its RSS feed in parallel. A handle's
   // bare login (e.g. "stableronaldoyt") works as a resolver ref too.
@@ -948,11 +1211,30 @@ async function loadHouseFeed(): Promise<FeedItem[]> {
     }
     for (const tk of m.socials.filter((s) => s.platform === "tiktok")) {
       if (tk.handle)
-        tasks.push(fetchTikTokFeed(tk.handle, m.slug, `${m.stageName} · ${tk.handle}`, 16));
+        tasks.push(fetchTikTokFeed(
+          tk.handle,
+          m.slug,
+          `${m.stageName} · ${tk.handle}`,
+          16,
+          {
+            publicFallback: options.profileMedia,
+            onPublicDiagnostic: options.onDiagnostic,
+          },
+        ));
     }
     for (const ig of m.socials.filter((s) => s.platform === "instagram")) {
       if (ig.handle)
-        tasks.push(fetchInstagramFeed(ig.handle, m.slug, `${m.stageName} · ${ig.handle}`, 16));
+        tasks.push(fetchInstagramFeed(
+          ig.handle,
+          m.slug,
+          `${m.stageName} · ${ig.handle}`,
+          16,
+          {
+            publicPostsFallback: options.profileMedia,
+            publicReelsFallback: options.instagramReels,
+            onPublicDiagnostic: options.onDiagnostic,
+          },
+        ));
     }
   }
   const settled = await Promise.allSettled(tasks);
@@ -963,16 +1245,38 @@ async function loadHouseFeed(): Promise<FeedItem[]> {
 }
 
 const cachedHouseFeed = unstable_cache(
-  loadHouseFeed,
+  () => loadHouseFeed(),
   ["coreboys", "social-feed", "house", "v1"],
   { revalidate: SOCIAL_FEED_CACHE_SECONDS, tags: [SOCIAL_FEED_CACHE_TAG] },
 );
 
 export async function getHouseFeed(limit = 24): Promise<FeedItem[]> {
-  const [items, xItems] = await Promise.all([
+  const [items, xItems, persistedItems] = await Promise.all([
     cachedHouseFeed(),
     // X remains snapshot-native and never makes a provider request on a
     // render. Its own short cache makes this database read shared too.
+    getXFeedSnapshot(),
+    // Small callers retain the existing shared snapshot floor, while the
+    // watch catalog can explicitly request the bounded six-month archive.
+    getPersistedPublicSocialFeed(
+      "house",
+      Math.min(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT, Math.max(768, limit)),
+    ).catch(() => []),
+  ]);
+  return balancedFeedItems([
+    ...items,
+    ...persistedItems,
+    ...xItems.filter((item) => item.authorSlug !== null),
+  ], Math.max(0, limit));
+}
+
+/** Scheduled ingestion entrypoint. This is the only HOUSE path allowed to spend Social Fetch credits. */
+export async function refreshHouseFeed(
+  limit = 512,
+  fallbacks: ScheduledPublicFallbacks = { profileMedia: true, instagramReels: true },
+): Promise<FeedItem[]> {
+  const [items, xItems] = await Promise.all([
+    loadHouseFeed(fallbacks),
     getXFeedSnapshot(),
   ]);
   return balancedFeedItems([
@@ -986,7 +1290,7 @@ export async function getHouseFeed(limit = 24): Promise<FeedItem[]> {
  * via RSS (channel id, or official API handle resolution); TikTok,
  * Instagram uses its official fetcher; X comes from the durable snapshot.
  */
-async function loadCoreFeed(): Promise<FeedItem[]> {
+async function loadCoreFeed(options: ScheduledPublicFallbacks = {}): Promise<FeedItem[]> {
   const tasks: Promise<FeedItem[]>[] = [];
 
   const ytRef =
@@ -1000,6 +1304,10 @@ async function loadCoreFeed(): Promise<FeedItem[]> {
         null,
         `${GROUP.name} · ${GROUP.socials.tiktok.handle}`,
         24,
+        {
+          publicFallback: options.profileMedia,
+          onPublicDiagnostic: options.onDiagnostic,
+        },
       ),
     );
   if (GROUP.socials.instagram?.handle)
@@ -1009,6 +1317,11 @@ async function loadCoreFeed(): Promise<FeedItem[]> {
         null,
         `${GROUP.name} · ${GROUP.socials.instagram.handle}`,
         24,
+        {
+          publicPostsFallback: options.profileMedia,
+          publicReelsFallback: options.instagramReels,
+          onPublicDiagnostic: options.onDiagnostic,
+        },
       ),
     );
   const settled = await Promise.allSettled(tasks);
@@ -1019,14 +1332,34 @@ async function loadCoreFeed(): Promise<FeedItem[]> {
 }
 
 const cachedCoreFeed = unstable_cache(
-  loadCoreFeed,
+  () => loadCoreFeed(),
   ["coreboys", "social-feed", "core", "v1"],
   { revalidate: SOCIAL_FEED_CACHE_SECONDS, tags: [SOCIAL_FEED_CACHE_TAG] },
 );
 
 export async function getCoreFeed(limit = 24): Promise<FeedItem[]> {
-  const [items, xItems] = await Promise.all([
+  const [items, xItems, persistedItems] = await Promise.all([
     cachedCoreFeed(),
+    getXFeedSnapshot(),
+    getPersistedPublicSocialFeed(
+      "core",
+      Math.min(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT, Math.max(256, limit)),
+    ).catch(() => []),
+  ]);
+  return balancedFeedItems([
+    ...items,
+    ...persistedItems,
+    ...xItems.filter((item) => item.authorSlug === null),
+  ], Math.max(0, limit));
+}
+
+/** Scheduled ingestion entrypoint. This is the only CORE path allowed to spend Social Fetch credits. */
+export async function refreshCoreFeed(
+  limit = 128,
+  fallbacks: ScheduledPublicFallbacks = { profileMedia: true, instagramReels: true },
+): Promise<FeedItem[]> {
+  const [items, xItems] = await Promise.all([
+    loadCoreFeed(fallbacks),
     getXFeedSnapshot(),
   ]);
   return balancedFeedItems([

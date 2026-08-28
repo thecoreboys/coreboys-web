@@ -33,11 +33,22 @@ test("paid reads reserve the worst case before X and share the write ceiling", (
   assert.match(usage, /SUM\(reserved_microusd\)[\s\S]*x_api_reservations/);
   assert.match(usage, /spent \+ worstCase > cap/);
   assert.ok(feed.indexOf("const gate = await reserveXApiBudget") < feed.indexOf("await fetchConfiguredXFeedOnce"));
-  assert.match(feed, /500 \* archivePages/);
-  assert.match(feed, /Math\.max\(10, Math\.min\(100, accounts\.length \* 12\)\)/);
+  assert.match(feed, /const maximumResources = 100/);
+  assert.match(feed, /newestXSnapshotStatusId\(existing\.items\)/);
+  assert.doesNotMatch(feed, /X_FEED_FULL_ARCHIVE_BACKFILL|fetchConfiguredXFeedHistory|search\/all/);
   assert.ok(communities.indexOf("reserveXApiBudgetInTransaction") < communities.indexOf("for (const entry of due)"));
   assert.match(communities, /AbortSignal\.timeout\(LOOKUP_TIMEOUT_MS\)/);
   assert.match(communities, /\{ unavailable: true \}, FAILURE_BACKOFF_HOURS/);
+});
+
+test("protected X refresh persists fresh events and drains delivery without reconcile", () => {
+  const feed = source("app/api/social/x/refresh/route.ts");
+  assert.match(feed, /isFreshSocialEvent\(event\.publishedAt, now, maxAgeMs\)/);
+  assert.match(feed, /await recordSocialEvent\(event\)/);
+  assert.match(feed, /result\.status !== "locked"/);
+  assert.match(feed, /eventCandidates\.length > 0[\s\S]{0,120}await getXFeedSnapshot\(\)/);
+  assert.match(feed, /await drainSocialNotificationDeliveries\(100\)/);
+  assert.ok(feed.indexOf("await persistFreshXEvents(eventCandidates)") < feed.indexOf("await drainSocialNotificationDeliveries(100)"));
 });
 
 test("visitor community reads are cache-only", () => {

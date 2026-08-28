@@ -1,14 +1,9 @@
 import "server-only";
 import { getLatestCountsForSlug } from "@/lib/metric-snapshots";
-import {
-  fetchSocialCountFromApi,
-  type SocialFetchPlatform,
-} from "@/lib/social-fetch";
 import { fetchFollowerCount, fetchUsersByLogin } from "@/lib/twitch";
 import {
   formatCompactSocialCount,
   snapshotLookupKeys,
-  socialHandle,
   socialMetricUnit,
   twitchLoginForSocial,
   type ProfileSocial,
@@ -25,13 +20,6 @@ type ProfileSocialMetricOptions = {
   /** Disable when the caller already attempted Helix and supplied its result. */
   fetchMissingTwitch?: boolean;
 };
-
-const SOCIAL_FETCH_PLATFORMS = new Set<SocialFetchPlatform>([
-  "youtube",
-  "tiktok",
-  "instagram",
-  "x",
-]);
 
 function usableCount(value: number | null | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
@@ -78,9 +66,10 @@ function snapshotCount(
 
 /**
  * Resolve the metric shown beside each profile social. Priority is:
- * live Twitch Helix → latest successful DB snapshot → cached Social Fetch
- * API → explicit manual fallback. Missing data stays blank instead of being
- * presented as zero.
+ * live Twitch Helix → latest successful DB snapshot → explicit manual
+ * fallback. Social Fetch runs only in the authenticated snapshot job; a
+ * viewer loading a profile must never spend provider credits. Missing data
+ * stays blank instead of being presented as zero.
  */
 export async function getProfileSocialMetrics({
   snapshotSlug,
@@ -104,14 +93,6 @@ export async function getProfileSocialMetrics({
       let count = twitchCountsByUrl.get(social.url);
       if (!usableCount(count)) count = liveTwitch.get(social.url);
       if (!usableCount(count)) count = snapshotCount(snapshots, social) ?? undefined;
-
-      if (!usableCount(count) && SOCIAL_FETCH_PLATFORMS.has(social.platform as SocialFetchPlatform)) {
-        count = await fetchSocialCountFromApi(
-          social.platform as SocialFetchPlatform,
-          socialHandle(social),
-          social.url,
-        ) ?? undefined;
-      }
 
       if (!usableCount(count)) {
         const manual = manualCounts?.[social.platform];

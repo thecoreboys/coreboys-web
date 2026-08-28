@@ -1,11 +1,30 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import type { FeedItem } from "@/components/feed/types";
 import {
   configuredXFeedAccounts,
-  fetchConfiguredXFeedHistory,
   fetchConfiguredXFeedOnce,
+  hydrateConfiguredXQuotesOnce,
 } from "@/lib/x-feed-upstream";
-import { refreshXFeedSnapshot } from "@/lib/x-feed-snapshot";
+import {
+  collectPendingXQuoteReferences,
+  newestXSnapshotStatusId,
+} from "@/lib/x-feed-request";
+import {
+  getXFeedSnapshot,
+  refreshXFeedSnapshot,
+  xFeedRefreshFailureCode,
+} from "@/lib/x-feed-snapshot";
+import { drainSocialNotificationDeliveries } from "@/lib/social-delivery";
+import {
+  isFreshSocialEvent,
+  socialNotificationMaxAgeMs,
+} from "@/lib/social-event-normalization";
+import {
+  recordSocialEvent,
+  socialEventFromFeedItem,
+  type SocialEventInput,
+} from "@/lib/social-events";
 import {
   reconcileXApiReservation,
   reserveXApiBudget,
@@ -20,6 +39,33 @@ function secretsMatch(expected: string, supplied: string): boolean {
   const left = Buffer.from(expected);
   const right = Buffer.from(supplied);
   return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function freshUniqueXEvents(items: readonly FeedItem[]): SocialEventInput[] {
+  const now = Date.now();
+  const maxAgeMs = socialNotificationMaxAgeMs();
+  const byCanonicalId = new Map<string, SocialEventInput>();
+  for (const item of items) {
+    if (item.platform !== "x") continue;
+    const event = socialEventFromFeedItem(item);
+    if (!event || !isFreshSocialEvent(event.publishedAt, now, maxAgeMs)) continue;
+    if (!byCanonicalId.has(event.canonicalId)) {
+      byCanonicalId.set(event.canonicalId, event);
+    }
+  }
+  return [...byCanonicalId.values()];
+}
+
+async function persistFreshXEvents(items: readonly FeedItem[]) {
+  const events = freshUniqueXEvents(items);
+  let created = 0;
+  for (const event of events) {
+    // Leave `notify` unset: recordSocialEvent performs the authoritative second
+    // freshness check and idempotently repairs fanout for an eligible retry.
+    const result = await recordSocialEvent(event);
+    if (result.created) created += 1;
+  }
+  return { candidates: events.length, created };
 }
 
 /**
@@ -58,18 +104,16 @@ export async function POST(request: Request) {
     let fetchedPostCount = 0;
     let fetchedUserCount = 0;
     let budgetGateReason: XBudgetGateReason | null = null;
-    let historyBackfilled = false;
+    let quoteHydration: "not_needed" | "hydrated" | "unavailable" | "skipped_budget" | "failed" = "not_needed";
+    let eventCandidates: FeedItem[] = [];
     const result = await refreshXFeedSnapshot(
       async (existing) => {
         const pricing = xApiPricing();
-        const shouldBackfill =
-          process.env.X_FEED_FULL_ARCHIVE_BACKFILL === "true" &&
-          !existing.historyBackfilled;
-        const archivePages = Math.max(1, Math.min(20, Number(process.env.X_FEED_FULL_ARCHIVE_MAX_PAGES) || 20));
-        // buildXRecentSearchUrl uses this same bounded max_results formula.
-        const maximumResources = shouldBackfill
-          ? 500 * archivePages
-          : Math.max(10, Math.min(100, accounts.length * 12));
+        const sinceId = newestXSnapshotStatusId(existing.items);
+        // The routine reader always performs one complete recent-search
+        // window. Six-month history is owned by the guarded, resumable Social
+        // Fetch admin backfill and can no longer be triggered by an env flag.
+        const maximumResources = 100;
         // author_id expansion returns user resources alongside Post resources,
         // so reserve both documented unit prices before the one X request.
         const worstCaseMicrousd =
@@ -89,10 +133,7 @@ export async function POST(request: Request) {
         }
 
         try {
-          const items = shouldBackfill
-            ? await fetchConfiguredXFeedHistory(accounts)
-            : await fetchConfiguredXFeedOnce(accounts);
-          historyBackfilled = shouldBackfill;
+          const items = await fetchConfiguredXFeedOnce(accounts, { sinceId });
           fetchedPostCount = new Set(items.map((item) => {
             const status = /\/status\/(\d{5,25})/i.exec(item.sourceUrl ?? item.url)?.[1];
             return status ?? item.id;
@@ -105,21 +146,79 @@ export async function POST(request: Request) {
             + fetchedUserCount * pricing.readUserMicrousd;
           await reconcileXApiReservation({
             reservationId: gate.reservation.id,
-            endpoint: shouldBackfill ? "/2/tweets/search/all" : "/2/tweets/search/recent",
-            operation: shouldBackfill ? "feed.snapshot.history_backfill" : "feed.snapshot.refresh",
+            endpoint: "/2/tweets/search/recent",
+            operation: "feed.snapshot.refresh",
             resourceCount: fetchedPostCount,
             actualCostMicrousd,
             success: true,
           });
-          return items;
+
+          // Fresh recent-search rows already include quote expansions. Only
+          // spend a second read when an older durable row still has an
+          // unresolved quote; it is hard-capped in lib/x-feed-request.
+          const snapshotItems = [...items, ...existing.items];
+          eventCandidates = snapshotItems;
+          const pendingQuotes = collectPendingXQuoteReferences(snapshotItems);
+          if (!pendingQuotes.length) return snapshotItems;
+
+          try {
+            const quoteGate = await reserveXApiBudget({
+              category: "read",
+              operation: "feed.snapshot.quote_hydration",
+              worstCaseMicrousd: pendingQuotes.length * (
+                pricing.readPostMicrousd + pricing.readUserMicrousd
+              ),
+              credentialsReady: Boolean(process.env.X_BEARER_TOKEN?.trim()),
+            });
+            if (!quoteGate.ok) {
+              quoteHydration = "skipped_budget";
+              return snapshotItems;
+            }
+
+            try {
+              const hydrated = await hydrateConfiguredXQuotesOnce(snapshotItems);
+              const quoteActualCost =
+                hydrated.resolvedCount * pricing.readPostMicrousd +
+                hydrated.resolvedUserCount * pricing.readUserMicrousd;
+              await reconcileXApiReservation({
+                reservationId: quoteGate.reservation.id,
+                endpoint: "/2/tweets",
+                operation: "feed.snapshot.quote_hydration",
+                resourceCount: hydrated.resolvedCount,
+                actualCostMicrousd: quoteActualCost,
+                success: true,
+              });
+              quoteHydration = hydrated.unavailableCount > 0 && hydrated.resolvedCount === 0
+                ? "unavailable"
+                : "hydrated";
+              eventCandidates = hydrated.items;
+              return hydrated.items;
+            } catch {
+              await reconcileXApiReservation({
+                reservationId: quoteGate.reservation.id,
+                endpoint: "/2/tweets",
+                operation: "feed.snapshot.quote_hydration",
+                resourceCount: 0,
+                actualCostMicrousd: 0,
+                success: false,
+              });
+              quoteHydration = "failed";
+              return snapshotItems;
+            }
+          } catch {
+            // Quote enrichment is additive. A temporary quote lookup/budget
+            // failure must never hide successfully refreshed primary posts.
+            quoteHydration = "failed";
+            return snapshotItems;
+          }
         } catch (error) {
           // A provider failure returned no billable resources. If parsing or
           // persistence failed after resources were received, the captured
           // count is still reconciled conservatively.
           await reconcileXApiReservation({
             reservationId: gate.reservation.id,
-            endpoint: shouldBackfill ? "/2/tweets/search/all" : "/2/tweets/search/recent",
-            operation: shouldBackfill ? "feed.snapshot.history_backfill" : "feed.snapshot.refresh",
+            endpoint: "/2/tweets/search/recent",
+            operation: "feed.snapshot.refresh",
             resourceCount: fetchedPostCount,
             actualCostMicrousd:
               fetchedPostCount * pricing.readPostMicrousd
@@ -129,20 +228,33 @@ export async function POST(request: Request) {
           throw error;
         }
       },
-      { historyBackfilled: () => historyBackfilled },
     );
+
+    let socialEvents = { candidates: 0, created: 0 };
+    let deliveries: Awaited<ReturnType<typeof drainSocialNotificationDeliveries>> | null = null;
+    if (result.ok && result.status !== "locked") {
+      // Persist and fan out immediately after the snapshot transaction commits.
+      // A post-commit failure returns non-2xx. An immediate retry may be
+      // throttled before another X read, so re-read the committed snapshot in
+      // that case and repair event fanout without spending provider credits.
+      const candidates = eventCandidates.length > 0
+        ? eventCandidates
+        : await getXFeedSnapshot();
+      socialEvents = await persistFreshXEvents(candidates);
+      deliveries = await drainSocialNotificationDeliveries(100);
+    }
     return NextResponse.json(
       budgetGateReason
         ? { ...result, budgetGate: { allowed: false, reason: budgetGateReason } }
-        : result,
+        : { ...result, quoteHydration, socialEvents, deliveries },
       {
         status: result.ok ? 200 : budgetGateReason ? 503 : 502,
         headers: { "Cache-Control": "no-store" },
       },
     );
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { ok: false, status: "failed" },
+      { ok: false, status: "failed", failureCode: xFeedRefreshFailureCode(error) },
       { status: 502, headers: { "Cache-Control": "no-store" } },
     );
   }

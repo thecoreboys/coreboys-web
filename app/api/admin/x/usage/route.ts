@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-api";
 import { query } from "@/lib/db";
 import { getXCommunityDirectory, xNativeActionsEnvironment } from "@/lib/x/config";
+import { getXFeedSnapshotHealth } from "@/lib/x-feed-snapshot";
 import { ensureXIntegrationSchema } from "@/lib/x/schema";
-import { getXUsageSummary, xApiPricing } from "@/lib/x/usage";
-import { pruneExpiredXCache } from "@/lib/x/usage";
+import { getXUsageSummary, pruneExpiredXCache, xApiPricing } from "@/lib/x/usage";
 import { requestHasSameOrigin } from "@/lib/x/security";
 
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ export async function GET() {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   await ensureXIntegrationSchema();
-  const [summary, cache, actions] = await Promise.all([
+  const [summary, cache, actions, snapshot] = await Promise.all([
     getXUsageSummary(),
     query<{ entries: string; fresh: string; hits: string }>(`
       SELECT COUNT(*)::text AS entries,
@@ -23,8 +23,9 @@ export async function GET() {
     `),
     query<{ status: string; count: string }>(`
       SELECT status,COUNT(*)::text AS count FROM x_action_audit
-       WHERE created_at>=date_trunc('month',now()) GROUP BY status ORDER BY status
+      WHERE created_at>=date_trunc('month',now()) GROUP BY status ORDER BY status
     `),
+    getXFeedSnapshotHealth(),
   ]);
   const env = xNativeActionsEnvironment();
   const prices = xApiPricing();
@@ -36,6 +37,7 @@ export async function GET() {
       hits: Number(cache.rows[0]?.hits ?? 0),
     },
     actions: Object.fromEntries(actions.rows.map((row) => [row.status, Number(row.count)])),
+    snapshot,
     readiness: {
       oauthCredentials: env.credentials,
       bearerCredential: Boolean(process.env.X_BEARER_TOKEN?.trim()),

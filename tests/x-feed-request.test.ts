@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applyXQuoteLookup,
   XFeedUpstreamError,
   buildXRecentSearchUrl,
+  buildXQuoteLookupUrl,
+  collectPendingXQuoteReferences,
   fetchXRecentSearchOnce,
+  fetchXQuoteLookupOnce,
+  newestXSnapshotStatusId,
   parseXRecentSearchResponse,
   type XFeedAccount,
   type XFeedFetch,
@@ -105,12 +110,12 @@ test("one recent-search request covers all six members plus CORE and coalesces c
 
   const first = fetchXRecentSearchOnce(ACCOUNTS, {
     bearerToken: "test-token",
-    perAccountLimit: 2,
+    sinceId: "79999",
     fetchImpl,
   });
   const second = fetchXRecentSearchOnce(ACCOUNTS, {
     bearerToken: "test-token",
-    perAccountLimit: 2,
+    sinceId: "79999",
     fetchImpl,
   });
   await Promise.resolve();
@@ -128,13 +133,14 @@ test("one recent-search request covers all six members plus CORE and coalesces c
   }
   assert.match(query, /-is:reply/);
   assert.match(query, /-is:retweet/);
-  assert.equal(requestUrl.searchParams.get("max_results"), "14");
+  assert.equal(requestUrl.searchParams.get("max_results"), "100");
+  assert.equal(requestUrl.searchParams.get("since_id"), "79999");
   assert.match(requestUrl.searchParams.get("tweet.fields") ?? "", /note_tweet/);
   assert.match(requestUrl.searchParams.get("tweet.fields") ?? "", /entities/);
   assert.match(requestUrl.searchParams.get("tweet.fields") ?? "", /community_id/);
   assert.equal(
     requestUrl.searchParams.get("expansions"),
-    "attachments.media_keys,author_id,referenced_tweets.id,referenced_tweets.id.author_id",
+    "attachments.media_keys,author_id,referenced_tweets.id,referenced_tweets.id.author_id,referenced_tweets.id.attachments.media_keys",
   );
   assert.equal(capturedInit?.method, "GET");
   assert.equal(capturedInit?.cache, "no-store");
@@ -142,7 +148,7 @@ test("one recent-search request covers all six members plus CORE and coalesces c
 });
 
 test("parser preserves full note text, media, author metadata, and canonical permalinks", () => {
-  const items = parseXRecentSearchResponse(searchPayload(), ACCOUNTS, 2);
+  const items = parseXRecentSearchResponse(searchPayload(), ACCOUNTS);
   const [photo, video, text] = items;
 
   assert.ok(photo);
@@ -171,7 +177,27 @@ test("parser preserves full note text, media, author metadata, and canonical per
   assert.equal(text.mediaType, "text");
 });
 
-test("parser applies the per-account cap independently", () => {
+test("recent-search cursor comes from the newest validated durable snapshot status", () => {
+  const items = parseXRecentSearchResponse(searchPayload(), ACCOUNTS);
+  assert.equal(newestXSnapshotStatusId(items), "90001");
+
+  const poisoned = {
+    ...items[0]!,
+    publishedAt: "2026-08-22T14:00:00.000Z",
+    x: {
+      ...items[0]!.x!,
+      statusId: "99999",
+      statusUrl: "https://x.com/Mar3lg/status/88888",
+    },
+  };
+  assert.equal(newestXSnapshotStatusId([...items, poisoned]), "90001");
+
+  const invalidCursorUrl = buildXRecentSearchUrl(ACCOUNTS, "bad OR since_id:99999");
+  assert.ok(invalidCursorUrl);
+  assert.equal(new URL(invalidCursorUrl).searchParams.has("since_id"), false);
+});
+
+test("parser keeps every returned post without a second per-account clip", () => {
   const payload = {
     data: [
       { id: "3", author_id: "a", text: "A newest", created_at: "2026-08-21T15:00:00Z" },
@@ -187,8 +213,8 @@ test("parser applies the per-account cap independently", () => {
     meta: { result_count: 3 },
   };
 
-  const items = parseXRecentSearchResponse(payload, ACCOUNTS, 1);
-  assert.deepEqual(items.map((item) => item.x?.statusId), ["3", "1"]);
+  const items = parseXRecentSearchResponse(payload, ACCOUNTS);
+  assert.deepEqual(items.map((item) => item.x?.statusId), ["3", "2", "1"]);
   assert.deepEqual(new Set(items.map((item) => item.authorSlug)), new Set(["marlon", "adapt"]));
 });
 
@@ -211,10 +237,27 @@ test("parser retains quoted posts from the same roster response", () => {
         author_id: "q",
         text: "The actual post viewers should be able to preview first.",
         created_at: "2026-08-21T14:30:00Z",
+        attachments: { media_keys: ["quote-photo"] },
+        entities: {
+          urls: [{
+            start: 0,
+            end: 21,
+            url: "https://t.co/video",
+            unwound_url: "https://www.youtube.com/watch?v=quote-video",
+            title: "Quoted video",
+          }],
+        },
+      }],
+      media: [{
+        media_key: "quote-photo",
+        type: "photo",
+        url: "https://pbs.twimg.com/media/quoted-photo.jpg",
+        width: 1200,
+        height: 800,
       }],
     },
     meta: { result_count: 1 },
-  }, ACCOUNTS, 2);
+  }, ACCOUNTS);
 
   assert.deepEqual(items[0]?.x?.quote, {
     statusId: "81001",
@@ -224,8 +267,121 @@ test("parser retains quoted posts from the same roster response", () => {
     authorHandle: "@QuotedCreator",
     authorProfileUrl: "https://x.com/QuotedCreator",
     authorAvatarUrl: "https://pbs.twimg.com/quoted.jpg",
-    imageUrl: undefined,
+    imageUrl: "https://pbs.twimg.com/media/quoted-photo.jpg",
+    media: [{
+      mediaKey: "quote-photo",
+      kind: "image",
+      thumbnailUrl: "https://pbs.twimg.com/media/quoted-photo.jpg",
+      width: 1200,
+      height: 800,
+    }],
+    entities: {
+      urls: [{
+        start: 0,
+        end: 21,
+        url: "https://t.co/video",
+        unwound_url: "https://www.youtube.com/watch?v=quote-video",
+        title: "Quoted video",
+      }],
+    },
   });
+});
+
+test("bounded central quote lookup enriches a legacy snapshot without a visitor request", async () => {
+  const [legacy] = parseXRecentSearchResponse({
+    data: [{
+      id: "92001",
+      author_id: "a",
+      text: "Context https://t.co/quoted",
+      created_at: "2026-08-21T15:00:00Z",
+      referenced_tweets: [{ type: "quoted", id: "82001" }],
+      entities: {
+        urls: [{
+          start: 8,
+          end: 28,
+          url: "https://t.co/quoted",
+          expanded_url: "https://x.com/QuoteAuthor/status/82001",
+        }],
+      },
+    }],
+    includes: { users: [{ id: "a", username: "Mar3lg", name: "Marlon" }] },
+    meta: { result_count: 1 },
+  }, ACCOUNTS);
+  assert.ok(legacy);
+  const references = collectPendingXQuoteReferences([legacy]);
+  assert.deepEqual(references, [{ statusId: "82001", statusUrl: "https://x.com/QuoteAuthor/status/82001" }]);
+
+  let requestedUrl = "";
+  const result = await fetchXQuoteLookupOnce(references, {
+    bearerToken: "test-token",
+    fetchImpl: async (input) => {
+      requestedUrl = String(input);
+      return new Response(JSON.stringify({
+        data: [{
+          id: "82001",
+          author_id: "q",
+          text: "The full quoted post is now stored in the shared snapshot.",
+          created_at: "2026-08-21T14:30:00Z",
+          attachments: { media_keys: ["quote-video"] },
+        }],
+        includes: {
+          users: [{ id: "q", username: "QuoteAuthor", name: "Quote Author" }],
+          media: [{
+            media_key: "quote-video",
+            type: "video",
+            preview_image_url: "https://pbs.twimg.com/ext/quoted-video.jpg",
+            width: 1920,
+            height: 1080,
+          }],
+        },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  const lookupUrl = new URL(requestedUrl);
+  assert.equal(lookupUrl.origin + lookupUrl.pathname, "https://api.x.com/2/tweets");
+  assert.equal(lookupUrl.searchParams.get("ids"), "82001");
+  assert.equal(lookupUrl.searchParams.get("expansions"), "attachments.media_keys,author_id");
+  assert.equal(result.quotes.get("82001")?.authorName, "Quote Author");
+  assert.deepEqual(result.quotes.get("82001")?.media, [{
+    mediaKey: "quote-video",
+    kind: "video",
+    thumbnailUrl: "https://pbs.twimg.com/ext/quoted-video.jpg",
+    width: 1920,
+    height: 1080,
+  }]);
+
+  const [enriched] = applyXQuoteLookup([legacy], result);
+  assert.equal(enriched?.x?.quote?.text, "The full quoted post is now stored in the shared snapshot.");
+  assert.equal(enriched?.x?.quoteReference, undefined);
+});
+
+test("quote lookup marks an absent protected or deleted ID unavailable so it is not retried", async () => {
+  const references = [{ statusId: "83001", statusUrl: "https://x.com/QuoteAuthor/status/83001" }];
+  const result = await fetchXQuoteLookupOnce(references, {
+    bearerToken: "test-token",
+    fetchImpl: async () => new Response(JSON.stringify({ data: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  });
+  assert.equal(result.unavailableIds.has("83001"), true);
+  const [legacy] = parseXRecentSearchResponse({
+    data: [{
+      id: "93001",
+      author_id: "a",
+      text: "A quote that is no longer available.",
+      created_at: "2026-08-21T15:00:00Z",
+      referenced_tweets: [{ type: "quoted", id: "83001" }],
+    }],
+    includes: { users: [{ id: "a", username: "Mar3lg", name: "Marlon" }] },
+    meta: { result_count: 1 },
+  }, ACCOUNTS);
+  assert.ok(legacy);
+  const [markedUnavailable] = applyXQuoteLookup([legacy], result);
+  assert.equal(markedUnavailable?.x?.quoteReference?.unavailable, true);
+  assert.deepEqual(collectPendingXQuoteReferences(markedUnavailable ? [markedUnavailable] : []), []);
+  assert.equal(buildXQuoteLookupUrl(Array.from({ length: 30 }, (_, index) => String(90_000 + index)))
+    ?.split("?")[0], "https://api.x.com/2/tweets");
 });
 
 test("valid empty searches return [] while credential, HTTP, and payload failures throw", async () => {

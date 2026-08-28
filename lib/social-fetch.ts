@@ -4,12 +4,15 @@
  * and YouTube. Snapchat isn't covered by Social Fetch; those keep
  * coming from each member's `manualCounts` map.
  *
- * Caching: every request goes through Next's fetch cache with a 6h
- * revalidate window + the `social-fetch` tag, so the same handle is
- * pulled at most ~4× per day across all renders. With ~5 socials × 6
- * members that's ~120 credits/day worst-case — well under the free
- * tier on a personal site.
+ * Paid profile metrics run only from the daily snapshot job. Every lookup
+ * reserves against the database-backed monthly credit cap before it reaches
+ * Social Fetch; public renders read the saved snapshots and never spend.
  */
+
+import {
+  readSocialFetchCreditsCharged,
+  socialFetchBudgetAdapter,
+} from "@/lib/social-fetch-budget";
 
 const BASE = "https://api.socialfetch.dev/v1";
 // 6 hours — Social Fetch counts move slowly enough that fresher than
@@ -78,10 +81,9 @@ export async function fetchSocialCount(
 }
 
 /**
- * Cached API-only lookup for server-rendered profile cards. Unlike
- * `fetchSocialCount`, this never falls back to the slower public-page
- * scrapers, so a missing/limited upstream cannot hold up a page render.
- * The nightly snapshot job still uses the full API → scraper chain.
+ * Cached API-only lookup retained for authenticated/background callers.
+ * Public profile renders deliberately use durable metric snapshots instead,
+ * so viewer traffic cannot spend Social Fetch credits.
  */
 export async function fetchSocialCountFromApi(
   platform: SocialFetchPlatform,
@@ -102,16 +104,30 @@ async function tryApi(
   const endpoint = endpointFor(platform, handle, url);
   if (!endpoint) return null;
 
+  const reservation = await socialFetchBudgetAdapter.reserve({
+    feature: "profile_metric",
+    requestKey: `${platform}:${handle.replace(/^@+/, "").trim().toLowerCase() || "unknown"}`,
+    estimatedCredits: 1,
+  });
+  if (!reservation.ok) return null;
+
+  let reportedCredits: number | null = null;
   try {
     const res = await fetch(endpoint, {
       headers: { "x-api-key": key, accept: "application/json" },
       next: { revalidate: REVALIDATE_SECONDS, tags: [CACHE_TAG] },
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
-    if (!res.ok) return null;
-    const json = await res.json();
+    const json = await res.json().catch(() => null);
+    reportedCredits = readSocialFetchCreditsCharged(json);
+    if (!res.ok || json === null) return null;
     return pickCount(platform, json);
   } catch {
     return null;
+  } finally {
+    await socialFetchBudgetAdapter.settle(reservation.reservationId, reportedCredits).catch((error) => {
+      // Leave the reservation committed if settlement cannot be recorded.
+      console.error("[social-fetch-budget] metric settlement failed", error);
+    });
   }
 }

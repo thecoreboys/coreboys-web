@@ -1,11 +1,19 @@
 name: cron-x-feed
 
-# The website never calls X. This scheduled job makes at most one combined
-# roster request every five minutes and persists the sanitized result in Postgres.
+# The website never calls X directly. Keep this fallback schedule through the
+# Azure Jobs rollout; the database advisory lock and refresh interval prevent
+# an overlapping invocation from issuing a second provider read.
 on:
   schedule:
     - cron: "*/5 * * * *"
-  workflow_dispatch:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coreboys-x-feed-refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -13,11 +21,31 @@ jobs:
     steps:
       - name: Refresh the shared CORE X feed
         env:
+          # This is intentionally canonical instead of METRICS_APP_URL. Other
+          # legacy metric jobs may point at an old origin; the X job needs the
+          # deployed public application that owns the shared snapshot.
           APP_URL: https://thecoreboys.com
           SECRET: ${{ secrets.METRICS_CRON_SECRET }}
         run: |
-          set -e
-          curl -fsS -X POST \
+          set -Eeuo pipefail
+          if [[ -z "${SECRET:-}" ]]; then
+            echo "METRICS_CRON_SECRET is not configured; refusing to run an unauthenticated X refresh." >&2
+            exit 1
+          fi
+          if [[ -z "${APP_URL:-}" ]]; then
+            echo "The canonical X refresh APP_URL is not configured." >&2
+            exit 1
+          fi
+
+          target="${APP_URL%/}/api/social/x/refresh"
+          echo "Refreshing the shared X snapshot at ${target}"
+          # --fail-with-body leaves the safe server failureCode/budgetGate in
+          # the Actions log while still making a failed refresh visibly fail.
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 45 \
+            -X POST \
             -H "x-cron-secret: $SECRET" \
+            -H "accept: application/json" \
             -w "\nHTTP %{http_code}\n" \
-            "$APP_URL/api/social/x/refresh"
+            "$target"

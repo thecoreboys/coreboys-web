@@ -25,6 +25,8 @@ const TRUSTED_INTEGRATION_PATHS = [
   "/api/social/subscriptions/provision",
   "/api/social/x/refresh",
   "/api/social/webhooks/",
+  "/api/streams/poll",
+  "/api/auth/verify-email",
 ] as const;
 
 const PUBLIC_STATIC_ASSET = /\.(?:avif|gif|ico|jpe?g|mp3|mp4|ogg|png|svg|ttf|wav|webm|webp|woff2?)$/i;

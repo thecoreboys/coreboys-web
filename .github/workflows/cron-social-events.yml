@@ -1,11 +1,15 @@
 name: Reconcile social events
 on:
+  # Keep the GitHub schedule during the Azure Jobs rollout. The provider
+  # leases make overlapping calls read-only; remove this schedule only after
+  # successful Azure executions have been observed in production.
   schedule:
-    # YouTube and Twitch arrive through signed webhooks. This lower-frequency
-    # reconciliation is the fallback for Instagram/TikTok, whose public-post
-    # webhook coverage is limited, and prevents overlapping provider reads.
     - cron: "*/10 * * * *"
-  workflow_dispatch:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
 concurrency:
   group: core-social-reconcile
   cancel-in-progress: false
@@ -19,7 +23,19 @@ jobs:
           APP_URL: https://thecoreboys.com
           SECRET: ${{ secrets.METRICS_CRON_SECRET }}
         run: |
-          set -e
-          curl --fail --silent --show-error -X POST \
+          set -Eeuo pipefail
+          if [[ -z "${SECRET:-}" ]]; then
+            echo "METRICS_CRON_SECRET is not configured; refusing an unauthenticated reconciliation." >&2
+            exit 1
+          fi
+
+          target="${APP_URL%/}/api/social/reconcile"
+          echo "Reconciling social events at ${target}"
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 240 \
+            -X POST \
             -H "x-cron-secret: $SECRET" \
-            "$APP_URL/api/social/reconcile"
+            -H "accept: application/json" \
+            -w "\nHTTP %{http_code}\n" \
+            "$target"

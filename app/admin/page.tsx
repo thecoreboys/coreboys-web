@@ -29,6 +29,12 @@ const TILES = [
     Icon: BarChart01,
   },
   {
+    href: "/admin/social-fetch",
+    title: "Social feed credits",
+    desc: "Pause paid TikTok, Instagram, and X discovery, set a hard monthly credit cap, and inspect private usage.",
+    Icon: BarChart01,
+  },
+  {
     href: "/admin/originals",
     title: "CORE Originals",
     desc: "Control events, series, challenges, home posters, and the approval-only recommendation queue.",

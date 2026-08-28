@@ -55,6 +55,53 @@
   display: none;
 }
 
+/* Channel pages use the same shelf treatment as home, with a touch more
+   presence than the compact source rails had before. Preserve every media
+   shape rather than stretching Shorts into landscape tiles. */
+.section .homeMediaRail :global(.watch-poster) {
+  --watch-card-height: clamp(9rem, 11vw, 11rem);
+  width: clamp(16rem, 19.5vw, 19.5rem);
+  height: var(--watch-card-height);
+}
+
+.section .homeMediaRail :global(.watch-poster.is-portrait) {
+  width: calc(var(--watch-card-height) * .5625);
+}
+
+.section .homeMediaRail :global(.watch-poster.is-square) {
+  width: var(--watch-card-height);
+}
+
+.archiveControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .8rem;
+  padding: 0 clamp(1rem, 4vw, 3rem);
+  color: rgba(255, 255, 255, .45);
+  font-size: .69rem;
+  font-weight: 650;
+}
+
+.archiveControls button {
+  min-height: 2rem;
+  padding: 0 .72rem;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: .55rem;
+  background: rgba(255, 255, 255, .045);
+  color: rgba(255, 255, 255, .84);
+  font: inherit;
+  font-weight: 760;
+  transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+
+.archiveControls button:hover,
+.archiveControls button:focus-visible {
+  border-color: rgba(255, 255, 255, .3);
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+}
+
 .railHeading.railHeading {
   display: flex;
   width: 100%;
@@ -270,6 +317,69 @@
   font-size: .76rem;
 }
 
+.embedFallback {
+  width: calc(100% - 2rem);
+  margin: 0 1rem;
+  padding: clamp(.85rem, 2vw, 1.25rem);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: .85rem;
+  background: rgba(255, 255, 255, .025);
+}
+
+.embedNotice,
+.embedLimitation {
+  max-width: 58rem;
+  color: rgba(255, 255, 255, .56);
+  font-size: .72rem;
+  line-height: 1.55;
+}
+
+.embedNotice { margin: 0 0 1rem; }
+
+.embedLimitation {
+  margin: 1rem 0 0;
+  padding-top: .8rem;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  color: rgba(255, 255, 255, .42);
+}
+
+.tiktokEmbedFrame,
+.instagramEmbedFrame {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: .72rem;
+  background: #fff;
+}
+
+.tiktokEmbedFrame {
+  width: min(100%, 720px);
+  margin: 0 auto;
+}
+
+.tiktokEmbedFrame :global(.tiktok-embed) {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.instagramEmbedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  align-items: start;
+  gap: 1rem;
+}
+
+.instagramEmbedFrame {
+  width: 100%;
+  min-height: 8rem;
+}
+
+.instagramEmbedFrame :global(.instagram-media) {
+  width: calc(100% - 2px) !important;
+  min-width: 0 !important;
+  max-width: 658px !important;
+  margin: 1px auto !important;
+}
+
 .card {
   position: relative;
   display: flex;
@@ -426,6 +536,7 @@
     flex-basis: min(57vw, 14rem);
   }
   .media { height: 9.5rem; }
+  .embedFallback { width: calc(100% - 2rem); }
 }
 
 @media (prefers-reduced-motion: reduce) {

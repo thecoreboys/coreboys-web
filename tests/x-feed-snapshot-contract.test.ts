@@ -14,6 +14,8 @@ const refreshRoute = source("app/api/social/x/refresh/route.ts");
 const migration = source("scripts/migrations/020_x_feed_snapshots.sql");
 const runner = source("scripts/apply-web-migrations.mjs");
 const workflow = source(".github/workflows/cron-x-feed.yml");
+const deploy = source(".github/workflows/deploy-azure.yml");
+const adminUsage = source("app/api/admin/x/usage/route.ts");
 const communityMetadata = source("lib/x/community-metadata.ts");
 const communityShelf = source("components/x/XCommunityShelf.tsx");
 const homeRail = source("components/watch/XTweetsRail.tsx");
@@ -70,8 +72,16 @@ test("snapshot schema is deployed after the X integration", () => {
   assert.match(runner, /"019_x_integration\.sql",\s+"020_x_feed_snapshots\.sql"/);
 });
 
-test("five-minute workflow makes one authenticated refresh and home cards stay snapshot-native", () => {
+test("five-minute Azure job owns refresh with a lock-safe rollout fallback", () => {
+  assert.match(
+    deploy,
+    /configure_job "coreboys-x-feed-cron" "2-59\/5 \* \* \* \*" "https:\/\/thecoreboys\.com\/api\/social\/x\/refresh"/,
+  );
+  assert.match(workflow, /workflow_dispatch: \{\}/);
   assert.match(workflow, /cron: "\*\/5 \* \* \* \*"/);
+  assert.match(workflow, /database advisory lock and refresh interval prevent/);
+  assert.match(workflow, /--fail-with-body/);
+  assert.match(workflow, /APP_URL: https:\/\/thecoreboys\.com/);
   assert.match(workflow, /-X POST/);
   assert.match(workflow, /x-cron-secret/);
   assert.match(workflow, /\/api\/social\/x\/refresh/);
@@ -86,4 +96,16 @@ test("five-minute workflow makes one authenticated refresh and home cards stay s
   assert.match(xEmbed, /privacyHold && !manual/);
   assert.match(xEmbed, /Load X post/);
   assert.match(xEmbed, /dnt: true/);
+});
+
+test("production refresh configuration and diagnostics fail visibly when a roster pull cannot run", () => {
+  assert.match(deploy, /X_API_READ_POST_UNIT_USD/);
+  assert.match(deploy, /X_API_READ_USER_UNIT_USD/);
+  assert.match(deploy, /x-api-read-post-unit-usd/);
+  assert.match(deploy, /x-api-read-user-unit-usd/);
+  assert.match(snapshot, /getXFeedSnapshotHealth/);
+  assert.match(snapshot, /xFeedRefreshFailureCode/);
+  assert.match(refreshRoute, /failureCode: xFeedRefreshFailureCode\(error\)/);
+  assert.match(adminUsage, /getXFeedSnapshotHealth/);
+  assert.match(adminUsage, /snapshot,/);
 });
