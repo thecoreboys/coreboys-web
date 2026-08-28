@@ -319,7 +319,7 @@ jobs:
             --name "$AZURE_CONTAINER_APP" \
             --query properties.environmentId \
             --output tsv)
-          runner='const url=process.env.CORE_CRON_URL;const secret=process.env.CORE_CRON_SECRET;const timeout=Number(process.env.CORE_CRON_TIMEOUT_MS);if(!url||!secret||!Number.isSafeInteger(timeout)||timeout<1000)throw new Error("cron configuration missing");const response=await fetch(url,{method:"POST",headers:{"x-cron-secret":secret,accept:"application/json"},signal:AbortSignal.timeout(timeout)});let body={};try{body=await response.json()}catch{}const status=typeof body?.status==="string"?body.status:undefined;const failureCode=typeof body?.failureCode==="string"?body.failureCode:undefined;console.log(JSON.stringify({httpStatus:response.status,ok:body?.ok??response.ok,status,failureCode}));if(!response.ok)process.exit(1);'
+          runner='(async()=>{const url=process.env.CORE_CRON_URL;const secret=process.env.CORE_CRON_SECRET;const timeout=Number(process.env.CORE_CRON_TIMEOUT_MS);if(!url||!secret||!Number.isSafeInteger(timeout)||timeout<1000)throw new Error("cron configuration missing");const response=await fetch(url,{method:"POST",headers:{"x-cron-secret":secret,accept:"application/json"},signal:AbortSignal.timeout(timeout)});let body={};try{body=await response.json()}catch{}const status=typeof body?.status==="string"?body.status:undefined;const failureCode=typeof body?.failureCode==="string"?body.failureCode:undefined;console.log(JSON.stringify({httpStatus:response.status,ok:body?.ok??response.ok,status,failureCode}));if(!response.ok)process.exit(1);})().catch(error=>{console.error(error instanceof Error?error.message:String(error));process.exit(1);});'
           runner_image='node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
 
           configure_job() {
@@ -358,7 +358,7 @@ jobs:
                 --replica-completion-count 1 \
                 --parallelism 1 \
                 --command node \
-                --args "--input-type=module" "-e" "$runner" \
+                "--args=--eval=$runner" \
                 --set-env-vars \
                   "CORE_CRON_SECRET=secretref:metrics-cron-secret" \
                   "CORE_CRON_URL=$target_url" \
@@ -379,7 +379,7 @@ jobs:
                 --cpu 0.25 \
                 --memory 0.5Gi \
                 --command node \
-                --args "--input-type=module" "-e" "$runner" \
+                "--args=--eval=$runner" \
                 --secrets "metrics-cron-secret=$METRICS_CRON_SECRET" \
                 --env-vars \
                   "CORE_CRON_SECRET=secretref:metrics-cron-secret" \
