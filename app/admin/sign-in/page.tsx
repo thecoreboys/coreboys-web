@@ -1,13 +1,55 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Copy01, Lock01 } from "@untitledui/icons";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/base/input/input";
 import { Button } from "@/components/base/buttons/button";
 
 type TwoFactorMode = "enroll" | "verify";
 type Setup = { manualKey: string; accountName: string; issuer: string };
+
+function AdminAuthShell({ children }: { children: ReactNode }) {
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-0 pb-0 pt-20 sm:px-5 sm:pb-5 sm:pt-24">
+      <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(225,29,72,.12),transparent_32%),radial-gradient(circle_at_82%_85%,rgba(147,51,234,.08),transparent_30%)]" />
+      <section className="relative grid min-h-[calc(100dvh-5rem)] w-full overflow-hidden border border-white/12 bg-[#151518] shadow-[0_34px_140px_rgba(0,0,0,.76)] sm:min-h-0 sm:max-w-5xl sm:grid-cols-[minmax(0,1.05fr)_minmax(25rem,.95fr)] sm:rounded-3xl">
+        <aside className="relative isolate hidden min-h-[38rem] overflow-hidden p-7 sm:flex sm:flex-col sm:justify-between">
+          <span className="absolute inset-0 -z-30 bg-[url('/brand/supporter/signal-room-v1.png')] bg-cover bg-center" />
+          <span className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(7,7,9,.18),rgba(7,7,9,.42)_44%,rgba(7,7,9,.97))]" />
+          <span className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_62%_26%,rgba(244,63,94,.24),transparent_36%)]" />
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/12 bg-black/35 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[.16em] text-white/75 backdrop-blur-md">
+            <ShieldCheck className="size-3.5 text-rose-300" aria-hidden="true" />
+            CORE administration
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[.2em] text-rose-300">Secure control room</p>
+            <h2 className="mt-3 max-w-md text-4xl font-semibold leading-[.95] tracking-[-.055em] text-white">Everything behind CORE, in one place.</h2>
+            <p className="mt-4 max-w-md text-sm leading-6 text-white/65">Manage programming, communities, originals, and network operations from the administration desk.</p>
+            <div className="mt-7 flex flex-wrap gap-2" aria-label="Administration areas">
+              {["Programming", "Moderation", "Operations"].map((label) => (
+                <span key={label} className="rounded-full border border-white/12 bg-black/30 px-3 py-1.5 text-xs font-medium text-white/72 backdrop-blur-md">{label}</span>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <div className="relative flex min-h-[34rem] flex-col px-5 py-6 sm:min-h-0 sm:px-10 sm:py-9">
+          <Link href="/" className="absolute right-4 top-4 inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-white/45 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Back to CORE
+          </Link>
+          <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pt-12 sm:pt-0">
+            {children}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
 
 /** Password is step one; elevated CORE desk access is only minted after TOTP. */
 export default function AdminSignIn() {
@@ -94,24 +136,24 @@ export default function AdminSignIn() {
   if (mode) {
     const enrolling = mode === "enroll";
     return (
-      <main className="relative flex min-h-screen items-center justify-center bg-[color:var(--bg)] px-6 pb-16 pt-24">
-        <form onSubmit={onTotpSubmit} className="w-full max-w-[460px] border border-[color:var(--rule)] bg-[color:var(--bg)] p-6 md:p-8">
-          <span className="inline-flex size-10 items-center justify-center rounded-full bg-brand-primary text-brand-secondary"><Lock01 className="size-5" /></span>
-          <p className="mt-5 font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">CORE staff security</p>
-          <h1 className="mt-3 font-display text-[32px] font-semibold tracking-[-0.03em] text-[color:var(--ink)]">
+      <AdminAuthShell>
+        <form onSubmit={onTotpSubmit} noValidate>
+          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-rose-500/12 text-rose-300 ring-1 ring-inset ring-rose-400/20"><Lock01 className="size-5" /></span>
+          <p className="mt-5 text-xs font-semibold uppercase tracking-[.18em] text-rose-300">Administrator security</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-.045em] text-white">
             {enrolling ? "Set up your authenticator." : "Enter your security code."}
           </h1>
-          <p className="mt-2 text-sm text-[color:var(--ink-dim)]">
+          <p className="mt-2 text-sm leading-5 text-white/48">
             {enrolling
               ? "Admin access requires a time-based one-time password. Add this account to an authenticator app, then enter the current six-digit code."
               : "Use the current six-digit code from your authenticator app to open the admin desk."}
           </p>
           {enrolling ? (
-            <div className="mt-5 rounded-xl border border-secondary bg-secondary p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-tertiary">Manual setup key</p>
-              <p className="mt-2 break-all font-mono text-base font-semibold tracking-[0.12em] text-primary">{setup?.manualKey ?? "Loading secure key…"}</p>
-              {setup ? <button type="button" onClick={() => void navigator.clipboard?.writeText(setup.manualKey)} className="mt-3 inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-brand-secondary"><Copy01 className="size-4" /> Copy key</button> : null}
-              <p className="mt-3 text-xs leading-relaxed text-tertiary">Issuer: {setup?.issuer ?? "CORE Staff"}. Account: {setup?.accountName ?? email}. This key is only shown during setup.</p>
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/[.04] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/45">Manual setup key</p>
+              <p className="mt-2 break-all font-mono text-base font-semibold tracking-[0.12em] text-white">{setup?.manualKey ?? "Loading secure key…"}</p>
+              {setup ? <button type="button" onClick={() => void navigator.clipboard?.writeText(setup.manualKey)} className="mt-3 inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-rose-300 transition hover:text-rose-200"><Copy01 className="size-4" /> Copy key</button> : null}
+              <p className="mt-3 text-xs leading-relaxed text-white/45">Issuer: {setup?.issuer ?? "CORE Staff"}. Account: {setup?.accountName ?? email}. This key is only shown during setup.</p>
             </div>
           ) : null}
           <div className="mt-6">
@@ -119,25 +161,24 @@ export default function AdminSignIn() {
           </div>
           {alert}
           <Button type="submit" size="lg" color="primary" isLoading={submitting || (enrolling && !setup)} className="mt-6 w-full">Verify and continue</Button>
-          <button type="button" onClick={() => { setMode(null); setSetup(null); setOtp(""); setError(null); }} className="mt-4 w-full text-sm font-semibold text-tertiary hover:text-primary">Use a different account</button>
+          <button type="button" onClick={() => { setMode(null); setSetup(null); setOtp(""); setError(null); }} className="mt-4 w-full text-sm font-semibold text-white/48 transition hover:text-white">Use a different account</button>
         </form>
-      </main>
+      </AdminAuthShell>
     );
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-[color:var(--bg)] px-6 pb-16 pt-24">
-      <form onSubmit={onPasswordSubmit} className="w-full max-w-[420px] border border-[color:var(--rule)] bg-[color:var(--bg)] p-6 md:p-8">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">CORE staff</p>
-        <h1 className="mt-3 font-display text-[32px] font-semibold tracking-[-0.03em] text-[color:var(--ink)]">Staff sign in.</h1>
-        <p className="mt-2 text-sm text-[color:var(--ink-dim)]">Admins require an authenticator code. Member managers open their assigned Studio.</p>
-        <div className="mt-6 flex flex-col gap-4">
-          <Input label="Email" type="email" autoComplete="username" isRequired value={email} onChange={(value) => setEmail(value)} placeholder="you@example.com" />
-          <Input label="Password" type="password" autoComplete="current-password" isRequired value={password} onChange={(value) => setPassword(value)} placeholder="••••••••" />
+    <AdminAuthShell>
+      <form onSubmit={onPasswordSubmit} noValidate>
+        <p className="text-xs font-semibold uppercase tracking-[.18em] text-rose-300">CORE administration</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-.045em] text-white">Administrator sign in.</h1>
+        <div className="mt-7 flex flex-col gap-4">
+          <Input size="md" label="Email" type="email" name="email" autoComplete="username" isRequired value={email} onChange={(value) => setEmail(value)} placeholder="you@email.com" />
+          <Input size="md" label="Password" type="password" name="password" autoComplete="current-password" isRequired value={password} onChange={(value) => setPassword(value)} placeholder="••••••••" />
         </div>
         {alert}
-        <Button type="submit" size="lg" color="primary" isLoading={submitting} className="mt-6 w-full">Continue</Button>
+        <Button type="submit" size="lg" color="primary" isLoading={submitting} className="mt-6 w-full">Sign in</Button>
       </form>
-    </main>
+    </AdminAuthShell>
   );
 }
