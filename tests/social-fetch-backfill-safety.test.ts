@@ -537,7 +537,13 @@ test("backfill state is resumable and has independent hard job limits", () => {
   assert.match(backfill, /pause_reason='uncertain_paid_page'/);
   assert.match(backfill, /attempt_token=\$[0-9]+/);
   assert.match(backfill, /reportedCredits: page\.committedCredits/);
-  assert.match(backfill, /credits_committed=credits_committed\+\(\$4-\$7\)/);
+  // PostgreSQL cannot infer an arithmetic operator when both prepared-statement
+  // operands are untyped parameters. Keep both the success and failure credit
+  // reconciliation deltas explicitly integer-cast so a charged page can never
+  // be stranded as an uncertain attempt after persistence.
+  assert.match(backfill, /credits_committed=credits_committed\+\(\$4::int-\$7::int\)/);
+  assert.match(backfill, /credits_committed=credits_committed\+\(\$4::int-\$5::int\)/);
+  assert.doesNotMatch(backfill, /\(\$[0-9]+-\$[0-9]+\)/);
   assert.match(backfill, /provider === "twitter" \? 2 : 1/);
 
   const persist = backfill.indexOf("persisted = await persistSocialFetchBackfillPage(");
