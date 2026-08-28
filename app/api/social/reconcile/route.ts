@@ -263,7 +263,10 @@ export async function POST(request: Request) {
   // Normal reconciliation persists current posts first. The private history
   // worker then advances only a few cursor pages and explicitly suppresses
   // notifications for its fixed historical window.
-  const backfill = await processSocialFetchBackfill({ maxPages: 3 }).catch((error) => ({
+  const backfill = await processSocialFetchBackfill({
+    maxPages: 3,
+    autoResumeProviderUpstreamError: true,
+  }).catch((error) => ({
     status: "blocked" as const,
     jobId: null,
     pagesProcessed: 0,
