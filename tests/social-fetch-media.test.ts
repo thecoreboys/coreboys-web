@@ -38,6 +38,47 @@ test("paid public media polling keeps every surface on the two-hour budget windo
   assert.equal(SOCIAL_FETCH_REELS_REVALIDATE_SECONDS, 2 * 60 * 60);
 });
 
+test("successful provider reads get enough time to finish before being classified upstream_error", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalTimeout = AbortSignal.timeout;
+  const previousKey = process.env.SOCIAL_FETCH_API_KEY;
+  let requestedTimeoutMs: number | null = null;
+  process.env.SOCIAL_FETCH_API_KEY = "test-social-fetch-key";
+  Object.defineProperty(AbortSignal, "timeout", {
+    configurable: true,
+    writable: true,
+    value: (milliseconds: number) => {
+      requestedTimeoutMs = milliseconds;
+      return new AbortController().signal;
+    },
+  });
+  globalThis.fetch = (async () => Response.json({
+    data: {
+      videos: [{
+        id: "7610123456789012300",
+        caption: "Slow but successful response",
+        createdAt: "2026-08-28T10:00:00Z",
+      }],
+    },
+  })) as typeof fetch;
+
+  try {
+    const result = await fetchSocialFetchTikTokVideos("slowproviderresponse", 1);
+
+    assert.equal(requestedTimeoutMs, 30_000);
+    assert.equal(result.status, "ok");
+    assert.equal(result.items.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.defineProperty(AbortSignal, "timeout", {
+      configurable: true,
+      writable: true,
+      value: originalTimeout,
+    });
+    restoreEnv("SOCIAL_FETCH_API_KEY", previousKey);
+  }
+});
+
 test("TikTok public media is cached, coalesced, and normalized to provider URLs", async () => {
   const originalFetch = globalThis.fetch;
   const previousKey = process.env.SOCIAL_FETCH_API_KEY;

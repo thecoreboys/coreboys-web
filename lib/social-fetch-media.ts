@@ -24,7 +24,11 @@ import {
 } from "@/lib/social-fetch-budget";
 
 const BASE_URL = "https://api.socialfetch.dev/v1";
-const REQUEST_TIMEOUT_MS = 8_000;
+// Successful profile reads can take more than 20 seconds while Social Fetch
+// resolves and normalizes an upstream page. Keep the deadline below the
+// scheduler's 240-second ceiling while allowing three serial history pages to
+// complete within one run.
+const REQUEST_TIMEOUT_MS = 30_000;
 export const SOCIAL_FETCH_MEDIA_CACHE_TAG = "social-fetch-media-v1";
 export const SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS = 2 * 60 * 60;
 export const SOCIAL_FETCH_REELS_REVALIDATE_SECONDS = 2 * 60 * 60;
