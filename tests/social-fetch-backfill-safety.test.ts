@@ -552,6 +552,27 @@ test("backfill state is resumable and has independent hard job limits", () => {
   assert.ok(persist >= 0 && decide > persist && advance > decide);
 });
 
+test("known paid-page failures stay fail closed and are retried after healthy pending work", () => {
+  const backfill = source("lib/social-fetch-backfill.ts");
+  const reserve = backfill.slice(
+    backfill.indexOf("async function reserveNextTask("),
+    backfill.indexOf("async function releaseZeroCallReservation("),
+  );
+  assert.match(
+    reserve,
+    /ORDER BY \(last_error IS NOT NULL\),last_attempt_at NULLS FIRST,id\s+LIMIT 1 FOR UPDATE SKIP LOCKED/,
+  );
+
+  const paidFailure = backfill.slice(
+    backfill.indexOf('if (page.status !== "ok")'),
+    backfill.indexOf("const target: SocialFetchBackfillTarget", backfill.indexOf('if (page.status !== "ok")')),
+  );
+  const markFailure = paidFailure.indexOf("await markPageFailure(");
+  const pauseReturn = paidFailure.indexOf('return { status: "paused"');
+  assert.ok(markFailure >= 0 && pauseReturn > markFailure);
+  assert.doesNotMatch(paidFailure, /status:\s*"completed"/);
+});
+
 test("historical persistence is explicitly silent even on existing fresh canonical rows", () => {
   const events = source("lib/social-events.ts");
   const backfill = source("lib/social-fetch-backfill.ts");
