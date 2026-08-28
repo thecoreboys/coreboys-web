@@ -3,10 +3,18 @@ import { revalidateTag } from "next/cache";
 import { createHash } from "node:crypto";
 import { GROUP } from "@/lib/group";
 import { MEMBERS } from "@/lib/members";
-import { recordSocialEvent, recordWebhookReceipt, upsertSocialSource } from "@/lib/social-events";
+import {
+  completeWebhookReceipt,
+  failWebhookReceipt,
+  recordSocialEvent,
+  recordWebhookReceipt,
+  upsertSocialSource,
+} from "@/lib/social-events";
 import { configuredYouTubeWebhookChannels, SOCIAL_FEED_CACHE_TAG } from "@/lib/social-feed";
 import { matchesSha1Hmac } from "@/lib/social-webhooks";
 import { drainSocialNotificationDeliveries } from "@/lib/social-delivery";
+import { fetchYouTubeMetadata } from "@/lib/youtube-duration";
+import { isLikelyYouTubeShort } from "@/lib/youtube-classification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,7 +139,9 @@ export async function POST(request: Request) {
     payload: { ...event, published: publishedAt },
   });
 
-  if (receipt.created) {
+  if (receipt.shouldProcess && receipt.id && receipt.attempt) {
+    const receiptId = receipt.id;
+    const receiptAttempt = receipt.attempt;
     after(async () => {
       try {
         await upsertSocialSource({
@@ -145,23 +155,42 @@ export async function POST(request: Request) {
           received: true,
         });
         if (event.videoId && owner) {
-          const short = /#shorts?\b/i.test(event.title);
-          const recorded = await recordSocialEvent({
+          // WebSub's Atom entry has no duration or explicit Shorts flag. Ask
+          // the first-party videos endpoint once for this new id, while
+          // preserving the title hint when quota/configuration is unavailable.
+          const metadata = (await fetchYouTubeMetadata(
+            [event.videoId],
+            { [event.videoId]: event.title },
+            { fresh: true },
+          ))[event.videoId];
+          const short = metadata?.isShort ?? isLikelyYouTubeShort({ title: event.title });
+          await recordSocialEvent({
             provider: "youtube",
             memberSlug: owner.memberSlug,
             contentType: short ? "short" : "video",
             canonicalId: `youtube:${event.videoId}`,
             title: event.title || `New video from ${owner.label}`,
-            href: `https://www.youtube.com/watch?v=${event.videoId}`,
+            href: short
+              ? `https://www.youtube.com/shorts/${event.videoId}`
+              : `https://www.youtube.com/watch?v=${event.videoId}`,
             artworkUrl: `https://i.ytimg.com/vi/${event.videoId}/hqdefault.jpg`,
             orientation: short ? "portrait" : "landscape",
             publishedAt,
-            platformPayload: { channelId: event.channelId, videoId: event.videoId },
+            platformPayload: {
+              channelId: event.channelId,
+              videoId: event.videoId,
+              durationSeconds: metadata?.durationSeconds,
+              liveBroadcastContent: metadata?.liveBroadcastContent,
+            },
           });
-          if (recorded.created) await drainSocialNotificationDeliveries(100);
+          await drainSocialNotificationDeliveries(100);
         }
         revalidateTag(SOCIAL_FEED_CACHE_TAG);
+        await completeWebhookReceipt(receiptId, receiptAttempt);
       } catch (error) {
+        await failWebhookReceipt(receiptId, receiptAttempt, error).catch((receiptError) => {
+          console.error("youtube webhook receipt failure update failed", receiptError);
+        });
         console.error("youtube webhook processing failed", error);
       }
     });

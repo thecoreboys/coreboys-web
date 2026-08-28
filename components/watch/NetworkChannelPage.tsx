@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -36,6 +37,7 @@ import type {
   CuratedChannelSourceDiagnostic,
 } from "@/lib/watch/creator-platform-rails";
 import { normalizeCreatorSocialHandle } from "@/lib/watch/social-account-ref";
+import { configuredInstagramEmbedUrls } from "@/lib/watch/public-social-embeds";
 import {
   channelProgramElapsedSeconds,
   networkChannelSchedule,
@@ -214,7 +216,9 @@ function curatedSources(
   channel: NetworkChannel,
   socialLinks: readonly ChannelSocialLink[],
   diagnostics: readonly CuratedChannelSourceDiagnostic[],
+  scopedItems: readonly WatchItem[],
 ): CuratedChannelSourceDescriptor[] {
+  const configuredInstagramUrls = configuredInstagramEmbedUrls(scopedItems);
   return socialLinks.map((social) => {
     const ingestProvider = social.platform === "tiktok" || social.platform === "instagram"
       ? social.platform
@@ -231,6 +235,7 @@ function curatedSources(
       label: curatedSourceLabel(channel, social),
       handle: social.handle,
       href: social.url,
+      publicEmbedUrls: social.platform === "instagram" ? configuredInstagramUrls : undefined,
       ingestState: diagnostic?.state,
     };
   });
@@ -1064,8 +1069,8 @@ export function NetworkChannelPage({
   const memberAge = member ? ageFromIso(member.birthDate) : null;
   const socialLinks = useMemo(() => channelSocialLinks(channel), [channel]);
   const sourceDescriptors = useMemo(
-    () => curatedSources(channel, socialLinks, sourceDiagnostics),
-    [channel, socialLinks, sourceDiagnostics],
+    () => curatedSources(channel, socialLinks, sourceDiagnostics, hub.all),
+    [channel, hub.all, socialLinks, sourceDiagnostics],
   );
   const nonXSourceDescriptors = useMemo(
     () => sourceDescriptors.filter((source) => source.platform !== "x"),
@@ -1818,15 +1823,21 @@ export function NetworkChannelPage({
         <XCommunityShelf selectedKey={xCommunityKey} compact />
       </section>
 
-      {ownerXPosts.length ? (
-        <div className={styles.xOwnerPosts}>
+      <div className={styles.xOwnerPosts}>
+        {ownerXPosts.length ? (
           <XTweetsRail
             items={ownerXPosts}
             title={channel.memberSlug === null ? "Official CORE posts on X" : `${channel.host}'s posts on X`}
             maxItems={8}
           />
+        ) : null}
+        <div className={styles.xArchiveActions}>
+          <Link href={`/channels/${channel.slug}/x` as Route} className={styles.profileLink}>
+            Browse X post archive
+            <ChevronRight aria-hidden="true" />
+          </Link>
         </div>
-      ) : null}
+      </div>
 
     </div>
   );

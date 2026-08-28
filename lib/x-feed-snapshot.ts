@@ -25,6 +25,7 @@ type SnapshotRow = {
   payload: unknown;
   refreshed_at: Date | string | null;
   attempted_at: Date | string | null;
+  last_error?: string | null;
   history_backfilled_at?: Date | string | null;
 };
 
@@ -40,6 +41,32 @@ export type XFeedRefreshResult = {
   status: "refreshed" | "not_due" | "locked" | "failed";
   count: number;
   refreshedAt: string | null;
+  /** Safe, operator-facing failure category; it never contains credentials. */
+  failureCode?: XFeedRefreshFailureCode;
+};
+
+export type XFeedRefreshFailureCode =
+  | "budget_disabled"
+  | "budget_credentials_missing"
+  | "budget_credit_gate_missing"
+  | "budget_price_missing"
+  | "budget_monthly_ceiling_reached"
+  | "configuration"
+  | "upstream_timeout"
+  | "upstream_http"
+  | "upstream_response"
+  | "storage_unavailable"
+  | "refresh_failed";
+
+export type XFeedSnapshotHealth = {
+  state: "fresh" | "stale" | "empty" | "unavailable";
+  refreshedAt: string | null;
+  attemptedAt: string | null;
+  lastError: string | null;
+  itemCount: number;
+  ageMinutes: number | null;
+  refreshIntervalMinutes: number;
+  publicMaxAgeHours: number;
 };
 
 let schemaReady: Promise<void> | null = null;
@@ -233,7 +260,7 @@ function iso(value: Date | string | null | undefined): string | null {
 
 async function currentSnapshot(client: PoolClient): Promise<SnapshotRow | null> {
   const result = await client.query<SnapshotRow>(
-    `SELECT payload, refreshed_at, attempted_at, history_backfilled_at
+    `SELECT payload, refreshed_at, attempted_at, last_error, history_backfilled_at
      FROM x_feed_snapshots
      WHERE cache_key = $1
      FOR UPDATE`,
@@ -250,11 +277,97 @@ function safeErrorLabel(error: unknown): string {
 }
 
 /**
+ * Keep health responses and CI logs actionable without surfacing tokens,
+ * request URLs, or raw provider payloads. The detailed (also sanitized)
+ * message remains in the durable snapshot row for an administrator.
+ */
+export function xFeedRefreshFailureCode(error: unknown): XFeedRefreshFailureCode {
+  const message = error instanceof Error ? error.message : "";
+  const budget = /^x_read_budget_(disabled|credentials_missing|credit_gate_missing|price_missing|monthly_ceiling_reached)$/.exec(message);
+  if (budget) return `budget_${budget[1]}` as XFeedRefreshFailureCode;
+  if (/X_BEARER_TOKEN is not configured|No valid X accounts are configured|x_refresh_not_configured/i.test(message)) {
+    return "configuration";
+  }
+  if (error instanceof Error && error.name === "AbortError") return "upstream_timeout";
+  if (/timeout|timed out/i.test(message)) return "upstream_timeout";
+  if (/X recent search returned HTTP \d{3}/i.test(message)) return "upstream_http";
+  if (/X recent search (returned|response)|malformed (JSON|data|media|user|post)/i.test(message)) {
+    return "upstream_response";
+  }
+  if (/database|postgres|connection|ECONN|ETIMEDOUT/i.test(message)) return "storage_unavailable";
+  return "refresh_failed";
+}
+
+/**
+ * Admin-only diagnostic for the one shared X roster. Render paths intentionally
+ * do not call this; they remain read-only consumers of the cached snapshot.
+ */
+export async function getXFeedSnapshotHealth(): Promise<XFeedSnapshotHealth> {
+  const base = {
+    refreshIntervalMinutes: refreshMinutes(),
+    publicMaxAgeHours: X_FEED_PUBLIC_MAX_AGE_HOURS,
+  };
+  try {
+    await ensureSchema();
+    const result = await query<SnapshotRow & { item_count: string | number }>(
+      `SELECT payload, refreshed_at, attempted_at, last_error, history_backfilled_at,
+              jsonb_array_length(payload) AS item_count
+         FROM x_feed_snapshots
+        WHERE cache_key = $1
+        LIMIT 1`,
+      [SNAPSHOT_KEY],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return {
+        state: "empty",
+        refreshedAt: null,
+        attemptedAt: null,
+        lastError: null,
+        itemCount: 0,
+        ageMinutes: null,
+        ...base,
+      };
+    }
+    const refreshedAt = iso(row.refreshed_at);
+    const refreshedMs = refreshedAt ? Date.parse(refreshedAt) : Number.NaN;
+    const ageMinutes = Number.isFinite(refreshedMs)
+      ? Math.max(0, Math.round((Date.now() - refreshedMs) / 60_000))
+      : null;
+    return {
+      state: xFeedSnapshotWithinAge(refreshedAt, X_FEED_PUBLIC_MAX_AGE_HOURS)
+        ? "fresh"
+        : "stale",
+      refreshedAt,
+      attemptedAt: iso(row.attempted_at),
+      lastError: row.last_error ? safeErrorLabel(new Error(row.last_error)) : null,
+      itemCount: Math.max(0, Number(row.item_count) || 0),
+      ageMinutes,
+      ...base,
+    };
+  } catch {
+    return {
+      state: "unavailable",
+      refreshedAt: null,
+      attemptedAt: null,
+      lastError: null,
+      itemCount: 0,
+      ageMinutes: null,
+      ...base,
+    };
+  }
+}
+
+/**
  * Cron-only writer. A transaction-scoped advisory lock guarantees that
  * overlapping jobs across processes/instances cannot both call X.
  */
 export async function refreshXFeedSnapshot(
-  fetchOnce: (existing: { historyBackfilled: boolean }) => Promise<FeedItem[]>,
+  fetchOnce: (existing: {
+    historyBackfilled: boolean;
+    /** Existing durable rows are supplied only to the protected refresh job. */
+    items: FeedItem[];
+  }) => Promise<FeedItem[]>,
   options?: { historyBackfilled?: () => boolean },
 ): Promise<XFeedRefreshResult> {
   await ensureSchema();
@@ -268,6 +381,7 @@ export async function refreshXFeedSnapshot(
     }
 
     const existing = await currentSnapshot(client);
+    const existingItems = normalizeItems(existing?.payload);
     const attemptedAt = iso(existing?.attempted_at);
     if (attemptedAt) {
       const ageMs = Date.now() - Date.parse(attemptedAt);
@@ -275,7 +389,7 @@ export async function refreshXFeedSnapshot(
         return {
           ok: true,
           status: "not_due",
-          count: normalizeItems(existing?.payload).length,
+          count: existingItems.length,
           refreshedAt: iso(existing?.refreshed_at),
         };
       }
@@ -283,8 +397,11 @@ export async function refreshXFeedSnapshot(
 
     try {
       const items = mergeItems(
-        normalizeItems(await fetchOnce({ historyBackfilled: Boolean(existing?.history_backfilled_at) })),
-        normalizeItems(existing?.payload),
+        normalizeItems(await fetchOnce({
+          historyBackfilled: Boolean(existing?.history_backfilled_at),
+          items: existingItems,
+        })),
+        existingItems,
       );
       const refreshedAt = new Date().toISOString();
       await client.query(
@@ -312,8 +429,9 @@ export async function refreshXFeedSnapshot(
       return {
         ok: false,
         status: "failed",
-        count: normalizeItems(existing?.payload).length,
+        count: existingItems.length,
         refreshedAt: iso(existing?.refreshed_at),
+        failureCode: xFeedRefreshFailureCode(error),
       };
     }
   });
@@ -393,6 +511,7 @@ export async function refreshLocalXFeedSnapshot(
         status: "failed",
         count: normalizeItems(existing?.payload).length,
         refreshedAt: existing?.refreshedAt ?? null,
+        failureCode: xFeedRefreshFailureCode(error),
       };
     }
   })();

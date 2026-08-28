@@ -22,10 +22,14 @@ test("provider webhook routes authenticate raw payloads and defer heavy work", (
   assert.match(twitch, /after\(/);
   assert.match(meta, /x-hub-signature-256/);
   assert.match(meta, /fetchInstagramFeed/);
+  assert.match(meta, /credentialStateForOfficialFeed/);
+  assert.match(meta, /normalizeCreatorProviderUserId/);
   assert.match(meta, /\{ fresh: true \}/);
   assert.match(meta, /after\(/);
   assert.match(tiktok, /tiktok-signature/);
   assert.match(tiktok, /matchesTikTokHmac/);
+  assert.match(tiktok, /fetchTikTokFeedResult/);
+  assert.match(tiktok, /credentialStateForOfficialFeed/);
   assert.doesNotMatch(tiktok, /tiktok-timestamp/);
   assert.match(tiktok, /after\(/);
   for (const route of [youtube, twitch, meta, tiktok]) {
@@ -53,6 +57,7 @@ test("reconciliation is a serialized ten-minute fallback", () => {
   assert.match(route, /add\("x", GROUP\.socials\.x/);
   assert.doesNotMatch(route, /accountRef: item\.authorSlug \?\? item\.authorLabel/);
   assert.match(route, /webhookState: appReady \? undefined : "not_configured"/);
+  assert.match(route, /preserveExpired: !publicHealth/);
   assert.match(workflow, /APP_URL: https:\/\/thecoreboys\.com/);
   assert.match(middleware, /"\/api\/social\/reconcile"/);
   assert.match(middleware, /"\/api\/social\/x\/refresh"/);

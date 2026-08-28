@@ -97,6 +97,10 @@ test("TikTok token exchange persists only an exact usable creator identity", asy
 
 test("TikTok creator grants fail closed when a required scope is denied", async () => {
   const originalFetch = globalThis.fetch;
+  const previousKey = process.env.TIKTOK_CLIENT_KEY;
+  const previousSecret = process.env.TIKTOK_CLIENT_SECRET;
+  process.env.TIKTOK_CLIENT_KEY = "test-client-key";
+  process.env.TIKTOK_CLIENT_SECRET = "test-client-secret";
   globalThis.fetch = async () => Response.json({
     access_token: "test-access-token",
     refresh_token: "test-refresh-token",
@@ -110,6 +114,10 @@ test("TikTok creator grants fail closed when a required scope is denied", async 
     );
   } finally {
     globalThis.fetch = originalFetch;
+    if (previousKey === undefined) delete process.env.TIKTOK_CLIENT_KEY;
+    else process.env.TIKTOK_CLIENT_KEY = previousKey;
+    if (previousSecret === undefined) delete process.env.TIKTOK_CLIENT_SECRET;
+    else process.env.TIKTOK_CLIENT_SECRET = previousSecret;
   }
 });
 

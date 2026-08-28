@@ -1,4 +1,5 @@
 import "server-only";
+import { isLikelyYouTubeShort } from "@/lib/youtube-classification";
 
 /** First-party YouTube metadata used to classify watch cards. */
 
@@ -10,7 +11,7 @@ export type YouTubeVideoMetadata = {
   durationSeconds: number;
   /**
    * YouTube does not expose an explicit `isShort` field. This is therefore
-   * a conservative duration/title heuristic, not a claim about the video's
+   * a conservative duration/text heuristic, not a claim about the video's
    * server-side Shorts shelf placement.
    */
   isShort: boolean;
@@ -43,10 +44,13 @@ export function formatDurationSeconds(totalSeconds: number): string {
  * Fetch duration/live metadata in quota-efficient 50-id batches.
  * Missing credentials and partial upstream failures intentionally resolve to
  * an empty/partial map so public RSS remains the no-credential fallback.
+ * Webhook callers can request a fresh read so a just-published id is never
+ * classified from an older cached API response.
  */
 export async function fetchYouTubeMetadata(
   videoIds: string[],
   titleById: Readonly<Record<string, string>> = {},
+  options: { fresh?: boolean } = {},
 ): Promise<Record<string, YouTubeVideoMetadata>> {
   const key = process.env.YOUTUBE_API_KEY;
   if (!key) return {};
@@ -65,7 +69,9 @@ export async function fetchYouTubeMetadata(
         key,
       });
       const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`, {
-        next: { revalidate: 86_400 },
+        ...(options.fresh
+          ? { cache: "no-store" as const }
+          : { next: { revalidate: 86_400 } }),
       });
       if (!res.ok) continue;
 
@@ -73,7 +79,12 @@ export async function fetchYouTubeMetadata(
         items?: Array<{
           id?: string;
           contentDetails?: { duration?: string };
-          snippet?: { title?: string; liveBroadcastContent?: "live" | "upcoming" | "none" };
+          snippet?: {
+            title?: string;
+            description?: string;
+            tags?: string[];
+            liveBroadcastContent?: "live" | "upcoming" | "none";
+          };
         }>;
       };
 
@@ -85,12 +96,12 @@ export async function fetchYouTubeMetadata(
         if (!durationSeconds) continue;
         const duration = formatDurationSeconds(durationSeconds);
         const title = item.snippet?.title ?? titleById[id] ?? "";
-        // <=60s catches the legacy Shorts shape. Up to 3 minutes is only
-        // considered a Short when the creator/platform title labels it; the
-        // API does not expose aspect ratio or an explicit Shorts flag.
-        const isShort =
-          durationSeconds <= 60 ||
-          (durationSeconds <= 180 && /(?:^|\s)#?shorts?(?:\s|$|[.!?])/i.test(title));
+        const isShort = isLikelyYouTubeShort({
+          durationSeconds,
+          title,
+          description: item.snippet?.description,
+          tags: item.snippet?.tags,
+        });
         out[id] = {
           duration,
           durationSeconds,

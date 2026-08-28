@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   buildCuratedChannelRails,
   type CuratedChannelPlatform,
@@ -12,6 +12,10 @@ import { MEMBERS_BY_SLUG } from "@/lib/members";
 import type { WatchItem } from "@/lib/watch/types";
 import { selectWatchHomeXPosts, type WatchHomeXPost } from "@/lib/watch/x-posts";
 import { DragScrollRail } from "./DragScrollRail";
+import {
+  OfficialSocialEmbedFallback,
+  TikTokEmbedScriptLoader,
+} from "./OfficialSocialEmbedFallback";
 import { PosterCard } from "./PosterCard";
 import { XTweetsRail } from "./XTweetsRail";
 import styles from "./CreatorPlatformRails.module.css";
@@ -48,6 +52,9 @@ const RAIL_KIND_LABEL: Record<CuratedChannelRail["kind"], string> = {
   posts: "Posts",
 };
 
+const INITIAL_MEDIA_ITEMS = 24;
+const MEDIA_ITEMS_STEP = 24;
+
 function safeExternalUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   try {
@@ -69,27 +76,48 @@ function statusIdOf(item: WatchItem): string | null {
 function emptySourceMessage(rail: CuratedChannelRail): string {
   const platform = PLATFORM_LABEL[rail.platform];
   if (rail.ingestState === "invalid_account_ref") {
-    return `The configured ${platform} profile reference is invalid. Update the source before posts can load.`;
+    return `This ${platform} profile link needs to be fixed before public content can load.`;
   }
   if (rail.ingestState === "not_configured") {
-    return `${platform} is linked as a profile, but CORE does not have authorized media access for this account yet.`;
+    return `${platform}'s automatic feed is not available.`;
   }
   if (rail.ingestState === "scope_missing") {
-    return `Reconnect this ${platform} account and approve its read-media permission to show recent posts.`;
+    return `${platform}'s automatic feed is not available with the current permissions.`;
   }
   if (rail.ingestState === "token_unavailable") {
-    return `This ${platform} connection expired or could not refresh. Reconnect it to restore recent posts.`;
+    return `${platform}'s automatic feed could not refresh.`;
   }
   if (rail.ingestState === "vault_unavailable") {
-    return `CORE cannot reach its encrypted social connection store right now. This feed will return when the service reconnects.`;
+    return `CORE could not refresh ${platform} right now.`;
   }
   if (rail.ingestState === "ready") {
-    return `${platform} is authorized, but the provider returned no recent posts for this account.`;
+    return `No recent items came back from ${platform}'s automatic feed.`;
   }
   if (rail.platform === "x") {
     return "No cached posts are available from this account yet.";
   }
-  return `No recent ${platform} posts are available from this account yet.`;
+  return `No recent ${platform} posts have been indexed for this profile yet.`;
+}
+
+function emptySourceStatus(rail: CuratedChannelRail): string {
+  if (rail.ingestState === "invalid_account_ref") return "Profile configuration issue";
+  if (rail.platform === "tiktok") return "Official public Creator Profile Embed";
+  if (rail.platform === "instagram") return "Official public profile and post embeds";
+  if (rail.ingestState === "ready") return "Media access ready · no recent items";
+  if (rail.ingestState === "not_configured") return "Official profile · media access unavailable";
+  if (rail.ingestState) return "Media connection needs attention";
+  return "Official profile · awaiting indexed posts";
+}
+
+function shouldRenderRail(rail: CuratedChannelRail): boolean {
+  if (rail.items.length) return true;
+  if (rail.platform !== "instagram" && rail.platform !== "tiktok") return false;
+  return Boolean(rail.sourceHref || rail.handle || rail.ingestState);
+}
+
+function shouldUseOfficialEmbedFallback(rail: CuratedChannelRail): boolean {
+  if (rail.platform !== "instagram" && rail.platform !== "tiktok") return false;
+  return rail.items.length === 0;
 }
 
 function XSourceRail({ rail, posts }: { rail: CuratedChannelRail; posts: readonly WatchHomeXPost[] }) {
@@ -101,6 +129,48 @@ function XSourceRail({ rail, posts }: { rail: CuratedChannelRail; posts: readonl
   return <XTweetsRail items={visible} title={`${rail.sourceLabel} latest posts`} maxItems={visible.length} showHeading={false} />;
 }
 
+function MediaSourceRail({
+  rail,
+  onPlay,
+}: {
+  rail: CuratedChannelRail;
+  onPlay: (item: WatchItem, sourceQueue: readonly WatchItem[]) => void;
+}) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_MEDIA_ITEMS);
+  const visibleItems = rail.items.slice(0, visibleCount);
+  const remaining = rail.items.length - visibleItems.length;
+  const revealCount = Math.min(MEDIA_ITEMS_STEP, remaining);
+
+  return (
+    <>
+      <DragScrollRail
+        className={`watch-shelf ${styles.homeMediaRail}`}
+        role="region"
+        tabIndex={0}
+        aria-label={`${rail.sourceLabel} content archive`}
+      >
+        {visibleItems.map((item) => (
+          <PosterCard
+            key={`${item.platform}:${item.id}`}
+            item={item}
+            context={rail.items}
+            onPlay={onPlay}
+            hoverAutoplay
+          />
+        ))}
+      </DragScrollRail>
+      {remaining > 0 ? (
+        <div className={styles.archiveControls}>
+          <span>{visibleItems.length.toLocaleString()} of {rail.items.length.toLocaleString()} available</span>
+          <button type="button" onClick={() => setVisibleCount((count) => count + MEDIA_ITEMS_STEP)}>
+            Show {revealCount.toLocaleString()} more
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * Curated, provider-native creator feeds. Every connected account gets its own
  * rail; media opens in the shared CORE player while true document posts retain
@@ -110,7 +180,7 @@ export function CreatorPlatformRails({
   channelName,
   items,
   onPlay,
-  maxItemsPerSource = 12,
+  maxItemsPerSource = 20_000,
   sources = [],
   sourceLinks = [],
   className = "",
@@ -157,27 +227,39 @@ export function CreatorPlatformRails({
     });
   }, [items, maxItemsPerSource]);
 
-  if (!rails.length) return null;
+  // Instagram and TikTok are first-class creator feeds. Keep a configured
+  // source visible when its adapter is empty so the official public embed can
+  // take over without replacing any real feed items that do arrive.
+  const contentRails = rails.filter(shouldRenderRail);
+  const tiktokEmbedSignature = contentRails
+    .filter((rail) => rail.platform === "tiktok" && shouldUseOfficialEmbedFallback(rail))
+    .map((rail) => `${rail.id}:${rail.handle ?? rail.sourceHref ?? "invalid"}`)
+    .join("|");
+
+  if (!contentRails.length) return null;
 
   return (
     <section className={`${styles.section} ${className}`.trim()} aria-labelledby="creator-platform-rails-heading">
       <div className={styles.intro}>
         <span>Creator platforms</span>
-        <h2 id="creator-platform-rails-heading">Latest from {channelName}</h2>
-        <p>Fresh posts, videos, Shorts, broadcasts, and live rooms from every authorized account.</p>
+        <h2 id="creator-platform-rails-heading">From {channelName}</h2>
+        <p>Every available video plus fresh posts, broadcasts, Shorts, and live rooms from each official source.</p>
       </div>
 
       <div className={styles.rails}>
-        {rails.map((rail) => {
+        {contentRails.map((rail) => {
           const sourceLink = links.get(rail.sourceKey);
           const officialHref = sourceLink?.href ?? safeExternalUrl(rail.sourceHref);
+          const usesOfficialEmbedFallback = shouldUseOfficialEmbedFallback(rail);
           return (
             <section key={rail.id} className={styles.railSection} aria-labelledby={`creator-source-${rail.id}`}>
               <div className={`watch-shelf-heading ${styles.railHeading}`}>
                 <span className={styles.headingCopy}>
                   <strong id={`creator-source-${rail.id}`}>{rail.sourceLabel}</strong>
                   <small>
-                    {PLATFORM_LABEL[rail.platform]} · {RAIL_KIND_LABEL[rail.kind]} · {rail.items.length} latest
+                    {!usesOfficialEmbedFallback && rail.items.length
+                      ? `${PLATFORM_LABEL[rail.platform]} · ${RAIL_KIND_LABEL[rail.kind]} · ${rail.items.length.toLocaleString()} available`
+                      : `${PLATFORM_LABEL[rail.platform]} · ${emptySourceStatus(rail)}`}
                   </small>
                 </span>
                 {officialHref ? (
@@ -190,30 +272,16 @@ export function CreatorPlatformRails({
 
               {rail.platform === "x" ? (
                 <XSourceRail rail={rail} posts={xPosts} />
-              ) : rail.items.length ? (
-                <DragScrollRail
-                  className={`watch-shelf ${styles.homeMediaRail}`}
-                  role="region"
-                  tabIndex={0}
-                  aria-label={`${rail.sourceLabel} latest content`}
-                >
-                  {rail.items.map((item) => (
-                    <PosterCard
-                      key={`${item.platform}:${item.id}`}
-                      item={item}
-                      context={rail.items}
-                      onPlay={onPlay}
-                      hoverAutoplay
-                    />
-                  ))}
-                </DragScrollRail>
+              ) : usesOfficialEmbedFallback ? (
+                <OfficialSocialEmbedFallback rail={rail} />
               ) : (
-                <div className={styles.empty}>{emptySourceMessage(rail)}</div>
+                <MediaSourceRail rail={rail} onPlay={onPlay} />
               )}
             </section>
           );
         })}
       </div>
+      <TikTokEmbedScriptLoader signature={tiktokEmbedSignature} />
     </section>
   );
 }

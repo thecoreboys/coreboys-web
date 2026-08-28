@@ -909,6 +909,12 @@
   width: 100%;
   padding-bottom: clamp(4rem, 7vw, 6rem);
 }
+.xArchiveActions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem clamp(1rem, 4vw, 3rem) 0;
+}
+.xArchiveActions svg { width: .9rem; height: .9rem; }
 .channelHubShelves {
   display: flex;
   width: 100%;

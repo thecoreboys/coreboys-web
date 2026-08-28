@@ -271,6 +271,20 @@ test("keeps every YouTube account visible while capping, sorting, and deduplicat
   );
 });
 
+test("keeps a creator's full archived source history available by default", () => {
+  const items = Array.from({ length: 48 }, (_, index) =>
+    watchItem(`archive-${index}`, {
+      accountLabel: "Adapt · Main",
+      publishedAt: new Date(Date.UTC(2026, 7, 20, 12, 0, -index)).toISOString(),
+      sourceUrl: `https://www.youtube.com/watch?v=archive-${index}`,
+    }),
+  );
+  const rails = buildCuratedChannelRails(items);
+  const main = railFor(rails, "youtube", "videos", "Adapt · Main");
+  assert.ok(main);
+  assert.equal(main.items.length, 48);
+});
+
 test("preserves configured connected sources during empty or failed upstream windows", () => {
   const rails = buildCuratedChannelRails([], {
     sources: [
@@ -298,6 +312,10 @@ test("preserves configured connected sources during empty or failed upstream win
         label: "Adapt · Instagram",
         handle: "@thefazeadapt",
         href: "https://www.instagram.com/thefazeadapt",
+        publicEmbedUrls: [
+          "https://www.instagram.com/p/ConfiguredPost1/",
+          "javascript:alert(1)",
+        ],
         ingestState: "not_configured",
       },
       {
@@ -341,9 +359,45 @@ test("preserves configured connected sources during empty or failed upstream win
     rails.find((rail) => rail.platform === "instagram")?.ingestState,
     "not_configured",
   );
+  assert.deepEqual(
+    rails.find((rail) => rail.platform === "instagram")?.publicEmbedUrls,
+    ["https://www.instagram.com/p/ConfiguredPost1/"],
+  );
   assert.equal(new Set(rails.map((rail) => rail.sourceKey)).size, rails.length);
   assert.equal(rails.some((rail) => String(rail.platform) === "snapchat"), false);
   assert.equal(rails.some((rail) => String(rail.platform) === "wikipedia"), false);
+});
+
+test("does not let a configured public post masquerade as a healthy authorized feed", () => {
+  const rails = buildCuratedChannelRails([
+    watchItem("configured-instagram-post", {
+      platform: "instagram",
+      kind: "tour",
+      format: "photo",
+      accountLabel: "Adapt · Instagram",
+      sourceUrl: "https://www.instagram.com/p/ConfiguredPost1/",
+      programming: {
+        community: true,
+        sourceId: "instagram-source",
+        curatedItemId: "instagram-item",
+        routes: [],
+      },
+    }),
+  ], {
+    sources: [{
+      platform: "instagram",
+      label: "Adapt · Instagram",
+      handle: "@thefazeadapt",
+      href: "https://www.instagram.com/thefazeadapt/",
+      publicEmbedUrls: ["https://www.instagram.com/p/ConfiguredPost1/"],
+      ingestState: "not_configured",
+    }],
+  });
+  const instagram = rails.find((rail) => rail.platform === "instagram");
+  assert.ok(instagram);
+  assert.equal(instagram.items.length, 1);
+  assert.equal(instagram.ingestState, "not_configured");
+  assert.deepEqual(instagram.publicEmbedUrls, ["https://www.instagram.com/p/ConfiguredPost1/"]);
 });
 
 test("uses a deterministic platform and content-kind order", () => {
@@ -395,6 +449,14 @@ test("mounts curated rails on the member channel page with cache-only X cards an
     resolve(process.cwd(), "components/watch/CreatorPlatformRails.tsx"),
     "utf8",
   );
+  const embedFallback = readFileSync(
+    resolve(process.cwd(), "components/watch/OfficialSocialEmbedFallback.tsx"),
+    "utf8",
+  );
+  const channelRoute = readFileSync(
+    resolve(process.cwd(), "app/channels/[slug]/page.tsx"),
+    "utf8",
+  );
 
   assert.match(
     page,
@@ -410,8 +472,26 @@ test("mounts curated rails on the member channel page with cache-only X cards an
   assert.match(component, /showHeading=\{false\}/);
   assert.doesNotMatch(component, /function CreatorPlatformCard/);
   assert.doesNotMatch(component, /function CachedXPostCard/);
-  assert.match(component, /CORE does not have authorized media access/);
-  assert.match(component, /cannot reach its encrypted social connection store/);
+  assert.match(component, /const contentRails = rails\.filter\(shouldRenderRail\)/);
+  assert.match(component, /\{contentRails\.map\(\(rail\) =>/);
+  assert.match(component, /rail\.platform !== "instagram" && rail\.platform !== "tiktok"/);
+  assert.match(component, /OfficialSocialEmbedFallback/);
+  assert.match(component, /shouldUseOfficialEmbedFallback/);
+  assert.match(component, /return rail\.items\.length === 0/);
+  assert.match(component, /TikTokEmbedScriptLoader signature=\{tiktokEmbedSignature\}/);
+  assert.match(component, /automatic feed is not available/);
+  assert.match(component, /CORE could not refresh \$\{platform\} right now/);
+  assert.match(embedFallback, /data-ingest-state=\{rail\.ingestState \?\? "unknown"\}/);
+  assert.match(embedFallback, /TikTok&apos;s official public Creator Profile Embed/);
+  assert.match(embedFallback, /Instagram&apos;s official public embed/);
+  assert.match(embedFallback, /monitor indexes individual posts and Reels/);
+  assert.match(embedFallback, /Creator alerts use CORE&apos;s public-feed monitor when available/);
+  assert.match(page, /sourceDiagnostics/);
+  assert.match(page, /configuredInstagramEmbedUrls\(scopedItems\)/);
+  assert.match(page, /publicEmbedUrls: social\.platform === "instagram"/);
+  assert.match(page, /ingestState: diagnostic\?\.state/);
+  assert.match(channelRoute, /channelSourceDiagnostics\(channel\)/);
+  assert.match(channelRoute, /sourceDiagnostics=\{sourceDiagnostics\}/);
   assert.doesNotMatch(component, /Connected\. No recent posts/);
   assert.doesNotMatch(component, /XPostEmbed|loadXWidgets|api\.x\.com|api\.twitter\.com|fetch\s*\(/);
 });

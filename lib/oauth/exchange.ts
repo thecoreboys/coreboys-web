@@ -8,6 +8,8 @@ import {
   X_INTERACTION_SCOPES,
   callbackPath,
   grantedScopeSet,
+  instagramLoginCredentials,
+  tiktokAppCredentials,
 } from "@/lib/oauth/providers";
 
 export type ExchangedIdentity = {
@@ -58,7 +60,7 @@ export function authorizeUrl(
   if (provider === "tiktok") {
     const scopes = PROVIDER_CATALOG.find((p) => p.key === "tiktok")!.scopes.join(",");
     const url = new URL("https://www.tiktok.com/v2/auth/authorize/");
-    url.searchParams.set("client_key", process.env.TIKTOK_CLIENT_KEY ?? "");
+    url.searchParams.set("client_key", process.env.TIKTOK_CLIENT_KEY?.trim() ?? "");
     url.searchParams.set("redirect_uri", redirect);
     url.searchParams.set("response_type", "code");
     url.searchParams.set("scope", scopes);
@@ -69,7 +71,7 @@ export function authorizeUrl(
     return url.toString();
   }
   if (provider === "instagram") {
-    const id = process.env.INSTAGRAM_CLIENT_ID || process.env.FACEBOOK_APP_ID || "";
+    const id = instagramLoginCredentials()?.clientId ?? "";
     const url = new URL("https://www.instagram.com/oauth/authorize");
     url.searchParams.set("client_id", id);
     url.searchParams.set("redirect_uri", redirect);
@@ -245,9 +247,11 @@ async function exchangeX(origin: string, code: string, verifier: string): Promis
 }
 
 async function exchangeTikTok(origin: string, code: string): Promise<ExchangedIdentity> {
+  const credentials = tiktokAppCredentials();
+  if (!credentials) throw new Error("tiktok oauth not configured");
   const body = new URLSearchParams({
-    client_key: process.env.TIKTOK_CLIENT_KEY ?? "",
-    client_secret: process.env.TIKTOK_CLIENT_SECRET ?? "",
+    client_key: credentials.clientKey,
+    client_secret: credentials.clientSecret,
     grant_type: "authorization_code",
     code,
     redirect_uri: `${origin}${callbackPath("tiktok")}`,
@@ -302,8 +306,9 @@ async function exchangeTikTok(origin: string, code: string): Promise<ExchangedId
 }
 
 async function exchangeInstagram(origin: string, code: string): Promise<ExchangedIdentity> {
-  const id = process.env.INSTAGRAM_CLIENT_ID || process.env.FACEBOOK_APP_ID || "";
-  const secret = process.env.INSTAGRAM_CLIENT_SECRET || process.env.FACEBOOK_APP_SECRET || "";
+  const credentials = instagramLoginCredentials();
+  if (!credentials) throw new Error("instagram oauth not configured");
+  const { clientId: id, clientSecret: secret } = credentials;
   const body = new URLSearchParams({
     client_id: id,
     client_secret: secret,

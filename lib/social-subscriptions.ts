@@ -21,6 +21,29 @@ type TwitchSubscription = {
   transport?: { method?: string; callback?: string };
 };
 
+const YOUTUBE_SUBSCRIPTION_CONCURRENCY = 4;
+const YOUTUBE_SUBSCRIPTION_ATTEMPTS = 3;
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function requestYouTubeSubscription(body: URLSearchParams): Promise<Response> {
+  let response: Response | null = null;
+  for (let attempt = 1; attempt <= YOUTUBE_SUBSCRIPTION_ATTEMPTS; attempt += 1) {
+    response = await fetch("https://pubsubhubbub.appspot.com/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      cache: "no-store",
+    });
+    if (response.ok || (response.status !== 429 && response.status < 500)) return response;
+    if (attempt < YOUTUBE_SUBSCRIPTION_ATTEMPTS) await wait(250 * attempt);
+  }
+  if (!response) throw new Error("websub_subscription_request_not_attempted");
+  return response;
+}
+
 function webhookOrigin(): URL | null {
   const raw = process.env.SOCIAL_WEBHOOK_BASE_URL?.trim()
     || process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -180,7 +203,7 @@ export async function provisionYouTubeSubscriptions(): Promise<ProvisionResult[]
 
   const callback = new URL("/api/social/webhooks/youtube", origin).toString();
   const channels = configuredYouTubeWebhookChannels();
-  const results = await Promise.all(channels.map(async (channel): Promise<ProvisionResult> => {
+  const provisionChannel = async (channel: (typeof channels)[number]): Promise<ProvisionResult> => {
     const body = new URLSearchParams({
       "hub.mode": "subscribe",
       "hub.topic": `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channel.channelId)}`,
@@ -191,12 +214,7 @@ export async function provisionYouTubeSubscriptions(): Promise<ProvisionResult[]
     });
     if (verifyToken) body.set("hub.verify_token", verifyToken);
     try {
-      const response = await fetch("https://pubsubhubbub.appspot.com/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-        cache: "no-store",
-      });
+      const response = await requestYouTubeSubscription(body);
       const state = response.ok ? "pending" : "error";
       const detail = response.ok ? undefined : `websub_subscribe_${response.status}:${(await response.text()).slice(0, 200)}`;
       await upsertSocialSource({
@@ -210,14 +228,34 @@ export async function provisionYouTubeSubscriptions(): Promise<ProvisionResult[]
       });
       return { provider: "youtube", account: channel.channelId, state, detail };
     } catch (error) {
+      const detail = error instanceof Error ? error.message.slice(0, 240) : "websub_provision_failed";
+      await upsertSocialSource({
+        provider: "youtube",
+        accountRef: channel.channelId,
+        memberSlug: channel.memberSlug,
+        accountLabel: channel.accountLabel,
+        credentialState: "healthy",
+        webhookState: "error",
+        error: detail,
+      });
       return {
         provider: "youtube",
         account: channel.channelId,
         state: "error",
-        detail: error instanceof Error ? error.message.slice(0, 240) : "websub_provision_failed",
+        detail,
       };
     }
-  }));
+  };
+
+  // PubSubHubbub occasionally returns transient 503s when all roster channels
+  // are renewed in one burst. Keep a small concurrency window and retry only
+  // explicitly transient responses so one channel cannot strand the lease.
+  const results: ProvisionResult[] = [];
+  for (let index = 0; index < channels.length; index += YOUTUBE_SUBSCRIPTION_CONCURRENCY) {
+    results.push(...await Promise.all(
+      channels.slice(index, index + YOUTUBE_SUBSCRIPTION_CONCURRENCY).map(provisionChannel),
+    ));
+  }
   if (!channels.length) {
     results.push({ provider: "youtube", account: GROUP.name, state: "skipped", detail: "no_channel_ids" });
   }

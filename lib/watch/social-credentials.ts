@@ -1,6 +1,11 @@
 import "server-only";
 
 import { normalizeCreatorSocialHandle } from "@/lib/watch/social-account-ref";
+import {
+  creatorHandleForMappedProviderUserId,
+  normalizeCreatorProviderUserId,
+  parseCreatorTokenMap,
+} from "@/lib/watch/social-credential-map";
 
 export type IngestProvider = "tiktok" | "instagram";
 
@@ -31,50 +36,23 @@ export type SocialCredentialDiagnostic = Omit<SocialCredentialResolution, "crede
   source: SocialCredential["source"] | null;
 };
 
-type EnvEntry =
-  | string
-  | {
-      accessToken?: string;
-      token?: string;
-      /** TikTok open_id or Instagram professional-account id for webhooks. */
-      userId?: string;
-      openId?: string;
-      api?: "instagram" | "facebook";
-    };
-
-function parsedEnvMap(provider: IngestProvider): Record<string, EnvEntry> {
+function parsedEnvMap(provider: IngestProvider) {
   const raw = process.env[
     provider === "tiktok" ? "TIKTOK_ACCOUNT_TOKENS_JSON" : "INSTAGRAM_ACCOUNT_TOKENS_JSON"
   ];
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    return parsed as Record<string, EnvEntry>;
-  } catch {
-    return {};
-  }
+  return parseCreatorTokenMap(provider, raw).entries;
 }
 
 function fromEnvMap(provider: IngestProvider, handle: string): SocialCredential | null {
   const map = parsedEnvMap(provider);
-  const pair = Object.entries(map).find(
-    ([key]) => normalizeCreatorSocialHandle(provider, key) === handle,
-  );
-  if (!pair) return null;
-  const entry = pair[1];
-  const token = typeof entry === "string" ? entry : entry.accessToken ?? entry.token;
-  if (!token?.trim()) return null;
+  const entry = map.get(handle);
+  if (!entry) return null;
   return {
-    accessToken: token.trim(),
+    accessToken: entry.accessToken,
     username: handle,
-    providerUserId: typeof entry === "string" ? undefined : entry.userId,
+    providerUserId: entry.providerUserId,
     source: "env",
-    instagramApi: provider === "instagram" && typeof entry !== "string"
-      ? entry.api ?? "instagram"
-      : provider === "instagram"
-        ? "instagram"
-        : undefined,
+    instagramApi: provider === "instagram" ? entry.instagramApi : undefined,
   };
 }
 
@@ -89,11 +67,17 @@ function fromLegacyEnv(provider: IngestProvider, handle: string): SocialCredenti
     provider === "tiktok" ? "TIKTOK_ACCESS_TOKEN" : "INSTAGRAM_TOKEN"
   ]?.trim();
   if (!accessToken) return null;
-  const instagramApi = process.env.INSTAGRAM_API_MODE === "facebook" ? "facebook" : "instagram";
+  const instagramApi = process.env.INSTAGRAM_API_MODE?.trim().toLowerCase() === "facebook"
+    ? "facebook"
+    : "instagram";
+  const providerUserId = provider === "instagram"
+    ? normalizeCreatorProviderUserId(process.env.INSTAGRAM_USER_ID)
+    : null;
+  if (provider === "instagram" && instagramApi === "facebook" && !providerUserId) return null;
   return {
     accessToken,
     username: handle,
-    providerUserId: provider === "instagram" ? process.env.INSTAGRAM_USER_ID : undefined,
+    providerUserId: providerUserId ?? undefined,
     source: "env",
     instagramApi: provider === "instagram" ? instagramApi : undefined,
   };
@@ -106,23 +90,17 @@ function fromLegacyEnv(provider: IngestProvider, handle: string): SocialCredenti
  */
 export function creatorHandleForProviderUserId(
   provider: IngestProvider,
-  rawProviderUserId: string | null | undefined,
+  rawProviderUserId: unknown,
 ): string | null {
-  const providerUserId = rawProviderUserId?.trim();
+  const providerUserId = normalizeCreatorProviderUserId(rawProviderUserId);
   if (!providerUserId) return null;
 
-  for (const [rawHandle, entry] of Object.entries(parsedEnvMap(provider))) {
-    if (typeof entry === "string") continue;
-    const configuredId = provider === "tiktok"
-      ? entry.openId ?? entry.userId
-      : entry.userId;
-    const handle = normalizeCreatorSocialHandle(provider, rawHandle);
-    if (configuredId?.trim() === providerUserId && handle) return handle;
-  }
+  const mapped = creatorHandleForMappedProviderUserId(parsedEnvMap(provider), providerUserId);
+  if (mapped) return mapped;
 
   if (
     provider === "instagram"
-    && process.env.INSTAGRAM_USER_ID?.trim() === providerUserId
+    && normalizeCreatorProviderUserId(process.env.INSTAGRAM_USER_ID) === providerUserId
   ) {
     const handle = normalizeCreatorSocialHandle(
       provider,

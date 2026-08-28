@@ -54,6 +54,30 @@ export type XFeedEntities = {
   [key: string]: unknown;
 };
 
+/**
+ * A lightweight media preview carried with a quoted X post. These are image
+ * URLs and dimensions from the scheduled server snapshot, never an X widget
+ * or a browser-side X API request.
+ */
+export type XFeedQuoteMedia = {
+  mediaKey: string;
+  kind: "image" | "video";
+  thumbnailUrl: string;
+  width?: number;
+  height?: number;
+};
+
+/**
+ * Preserves a quote relationship even if its author made the source post
+ * protected or deleted before the central refresh could expand it. It lets
+ * clients show an honest unavailable state without retrying from each page.
+ */
+export type XFeedQuoteReference = {
+  statusId: string;
+  statusUrl: string;
+  unavailable?: boolean;
+};
+
 export type XFeedMetadata = {
   statusId: string;
   statusUrl: string;
@@ -71,7 +95,7 @@ export type XFeedMetadata = {
   entities?: XFeedEntities;
   noteText?: string;
   noteEntities?: XFeedEntities;
-  /** A quoted status included in the same scheduled X roster response. */
+  /** A quoted status expanded or centrally hydrated by the scheduled roster refresh. */
   quote?: {
     statusId: string;
     statusUrl: string;
@@ -81,11 +105,22 @@ export type XFeedMetadata = {
     authorProfileUrl: string;
     authorAvatarUrl?: string;
     imageUrl?: string;
+    /** Up to four source-media previews from the quoted status. */
+    media?: XFeedQuoteMedia[];
+    /** Snapshot entities make rich links inside the quote renderable offline. */
+    entities?: XFeedEntities;
   };
+  /**
+   * Kept only until a scheduled quote lookup resolves the quote or confirms
+   * it is unavailable. Render paths never use this to contact X.
+   */
+  quoteReference?: XFeedQuoteReference;
 };
 
 export type FeedItem = {
   id: string;
+  /** Stable provider object id used for durable event de-duplication. */
+  canonicalProviderId?: string;
   platform: SocialPlatform;
   url: string;
   title: string;

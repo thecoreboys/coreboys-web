@@ -169,15 +169,27 @@ export function xConfigured(): boolean {
   return Boolean(process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET);
 }
 
+export function tiktokAppCredentials(): { clientKey: string; clientSecret: string } | null {
+  const clientKey = process.env.TIKTOK_CLIENT_KEY?.trim() ?? "";
+  const clientSecret = process.env.TIKTOK_CLIENT_SECRET?.trim() ?? "";
+  return clientKey && clientSecret ? { clientKey, clientSecret } : null;
+}
+
 export function tiktokConfigured(): boolean {
-  return Boolean(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET);
+  return Boolean(tiktokAppCredentials());
+}
+
+export function instagramLoginCredentials(): { clientId: string; clientSecret: string } | null {
+  const clientId = process.env.INSTAGRAM_CLIENT_ID?.trim() ?? "";
+  const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET?.trim() ?? "";
+  return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
 export function instagramConfigured(): boolean {
-  return Boolean(
-    (process.env.INSTAGRAM_CLIENT_ID || process.env.FACEBOOK_APP_ID) &&
-      (process.env.INSTAGRAM_CLIENT_SECRET || process.env.FACEBOOK_APP_SECRET),
-  );
+  // This provider uses Instagram Login endpoints and the
+  // `instagram_business_basic` scope. A Facebook Login app id/secret belongs
+  // to a different OAuth flow and must never be mixed with either half.
+  return Boolean(instagramLoginCredentials());
 }
 
 export function providerConfigured(p: OauthProvider): boolean {

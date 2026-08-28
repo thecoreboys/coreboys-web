@@ -12,18 +12,37 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: coreboys-stream-poll
+  cancel-in-progress: false
+
 jobs:
   poll:
     runs-on: ubuntu-latest
     steps:
       - name: POST /api/streams/poll
         env:
-          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          # The stream API is hosted by the canonical web application. The
+          # legacy metrics origin is intentionally not used here.
+          APP_URL: https://thecoreboys.com
           SECRET: ${{ secrets.METRICS_CRON_SECRET }}
         run: |
-          set -e
-          echo "Hitting $APP_URL/api/streams/poll"
-          curl -fsS -X POST \
+          set -Eeuo pipefail
+          if [[ -z "${SECRET:-}" ]]; then
+            echo "METRICS_CRON_SECRET is not configured; refusing an unauthenticated poll." >&2
+            exit 1
+          fi
+
+          target="${APP_URL%/}/api/streams/poll"
+          echo "Polling Twitch live state at ${target}"
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 45 \
+            -X POST \
             -H "x-cron-secret: $SECRET" \
+            -H "accept: application/json" \
             -w "\nHTTP %{http_code}\n" \
-            "$APP_URL/api/streams/poll"
+            "$target"

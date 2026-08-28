@@ -5,6 +5,10 @@ on:
     # so renew daily before the requested ten-day lease elapses.
     - cron: "17 6 * * *"
   workflow_dispatch:
+
+permissions:
+  contents: read
+
 concurrency:
   group: core-social-subscription-renewal
   cancel-in-progress: false
@@ -16,9 +20,23 @@ jobs:
       - name: Provision or renew provider subscriptions
         env:
           APP_URL: https://thecoreboys.com
-          SECRET: ${{ secrets.METRICS_CRON_SECRET }}
+          # A dedicated rotation can be introduced without breaking the
+          # existing shared cron credential used by older deployments.
+          SECRET: ${{ secrets.SOCIAL_SUBSCRIPTION_CRON_SECRET || secrets.METRICS_CRON_SECRET }}
         run: |
-          set -e
-          curl --fail --silent --show-error -X POST \
+          set -Eeuo pipefail
+          if [[ -z "${SECRET:-}" ]]; then
+            echo "SOCIAL_SUBSCRIPTION_CRON_SECRET/METRICS_CRON_SECRET is not configured; refusing unauthenticated provisioning." >&2
+            exit 1
+          fi
+
+          target="${APP_URL%/}/api/social/subscriptions/provision"
+          echo "Provisioning social listeners at ${target}"
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 240 \
+            -X POST \
             -H "x-cron-secret: $SECRET" \
-            "$APP_URL/api/social/subscriptions/provision"
+            -H "accept: application/json" \
+            -w "\nHTTP %{http_code}\n" \
+            "$target"

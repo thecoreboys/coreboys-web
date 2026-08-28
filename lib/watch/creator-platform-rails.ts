@@ -29,6 +29,8 @@ export type CuratedChannelSourceDescriptor = {
   label: string;
   handle?: string;
   href?: string;
+  /** Explicit public Instagram post/Reel URLs configured in Watch Programming. */
+  publicEmbedUrls?: readonly string[];
   ingestState?: CuratedChannelSourceState;
 };
 
@@ -41,6 +43,8 @@ export type CuratedChannelRail = {
   accountLabel?: string;
   handle?: string;
   sourceHref?: string;
+  /** Explicit public URLs only; the UI never discovers these from profile HTML. */
+  publicEmbedUrls?: string[];
   ingestState?: CuratedChannelSourceState;
   kind: CuratedChannelRailKind;
   items: WatchItem[];
@@ -84,9 +88,13 @@ const PLATFORM_LABEL: Record<CuratedChannelPlatform, string> = {
   x: "X",
 };
 
+// Full channel history is kept in the catalog. The client reveals it in
+// batches, so this is a data ceiling rather than a DOM rendering limit.
+const FULL_HISTORY_SOURCE_LIMIT = 20_000;
+
 function boundedLimit(value: number | undefined): number {
-  if (value === undefined || !Number.isFinite(value)) return 12;
-  return Math.max(1, Math.min(24, Math.trunc(value)));
+  if (value === undefined || !Number.isFinite(value)) return FULL_HISTORY_SOURCE_LIMIT;
+  return Math.max(1, Math.min(FULL_HISTORY_SOURCE_LIMIT, Math.trunc(value)));
 }
 
 function timestamp(item: WatchItem): number {
@@ -122,6 +130,14 @@ function safeHttpUrl(value: string | undefined): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function safeHttpUrls(values: readonly string[] | undefined): string[] | undefined {
+  const output = [...new Set((values ?? []).flatMap((value) => {
+    const safe = safeHttpUrl(value);
+    return safe ? [safe] : [];
+  }))];
+  return output.length ? output : undefined;
 }
 
 function canonicalUrl(value: string | undefined): string | null {
@@ -233,7 +249,11 @@ export function buildCuratedChannelRails(
         rail.accountLabel = label;
         rail.handle = descriptor.handle?.trim() || undefined;
         rail.sourceHref = safeHttpUrl(descriptor.href);
-        rail.ingestState = rail.items.length ? "ready" : descriptor.ingestState;
+        rail.publicEmbedUrls = safeHttpUrls(descriptor.publicEmbedUrls);
+        // Items may be explicit public Watch Programming picks rather than a
+        // successful authorized sync. Preserve the server diagnostic instead
+        // of allowing any card to imply that an API connection is healthy.
+        rail.ingestState = descriptor.ingestState ?? (rail.items.length ? "ready" : undefined);
       }
       continue;
     }
@@ -247,6 +267,7 @@ export function buildCuratedChannelRails(
       accountLabel: label,
       handle: descriptor.handle?.trim() || undefined,
       sourceHref: safeHttpUrl(descriptor.href),
+      publicEmbedUrls: safeHttpUrls(descriptor.publicEmbedUrls),
       ingestState: descriptor.ingestState,
       kind,
       items: [],

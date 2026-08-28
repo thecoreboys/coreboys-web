@@ -8,6 +8,7 @@ import {
   updateTokens,
 } from "@/lib/oauth/connections";
 import type { OauthProvider } from "@/lib/oauth/providers";
+import { tiktokAppCredentials } from "@/lib/oauth/providers";
 
 const refreshes = new Map<string, Promise<boolean>>();
 
@@ -173,9 +174,11 @@ async function refreshX(row: ConnectionRow, refresh: string): Promise<boolean> {
 }
 
 async function refreshTikTok(row: ConnectionRow, refresh: string): Promise<boolean> {
+  const credentials = tiktokAppCredentials();
+  if (!credentials) throw new RefreshRequestError("tiktok refresh not configured", true);
   const body = new URLSearchParams({
-    client_key: process.env.TIKTOK_CLIENT_KEY ?? "",
-    client_secret: process.env.TIKTOK_CLIENT_SECRET ?? "",
+    client_key: credentials.clientKey,
+    client_secret: credentials.clientSecret,
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
