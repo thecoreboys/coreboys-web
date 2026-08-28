@@ -807,7 +807,7 @@ async function markPageFailure(
     await client.query(
       `UPDATE social_fetch_backfill_jobs
           SET status='paused',pause_reason=$3,pages_processed=pages_processed+1,
-              credits_committed=credits_committed+($4-$5),last_error=$3,updated_at=now()
+              credits_committed=credits_committed+($4::int-$5::int),last_error=$3,updated_at=now()
         WHERE id=$1 AND lease_token=$2`,
       [lease.id, lease.token, error, committedCredits, reservedCredits],
     );
@@ -895,30 +895,30 @@ async function applyPageSuccess(input: {
       pause_reason: string | null;
     }>(
       `UPDATE social_fetch_backfill_jobs
-          SET credits_committed=credits_committed+($4-$7),
+          SET credits_committed=credits_committed+($4::int-$7::int),
               pages_processed=pages_processed+1,items_recorded=items_recorded+$3,
               status=CASE
-                WHEN $6 AND credits_committed+($4-$7) <= max_credits THEN 'completed'
+                WHEN $6 AND credits_committed+($4::int-$7::int) <= max_credits THEN 'completed'
                 WHEN $5::text IS NOT NULL THEN 'paused'
-                WHEN credits_committed+($4-$7) >= max_credits THEN 'paused'
+                WHEN credits_committed+($4::int-$7::int) >= max_credits THEN 'paused'
                 ELSE status
               END,
               pause_reason=CASE
-                WHEN $6 AND credits_committed+($4-$7) <= max_credits THEN NULL
+                WHEN $6 AND credits_committed+($4::int-$7::int) <= max_credits THEN NULL
                 WHEN $5::text IS NOT NULL THEN $5
-                WHEN credits_committed+($4-$7) > max_credits THEN 'job_credit_cap_exceeded'
-                WHEN credits_committed+($4-$7) = max_credits THEN 'job_credit_cap_reached'
+                WHEN credits_committed+($4::int-$7::int) > max_credits THEN 'job_credit_cap_exceeded'
+                WHEN credits_committed+($4::int-$7::int) = max_credits THEN 'job_credit_cap_reached'
                 ELSE pause_reason
               END,
               last_error=CASE
-                WHEN $6 AND credits_committed+($4-$7) <= max_credits THEN NULL
+                WHEN $6 AND credits_committed+($4::int-$7::int) <= max_credits THEN NULL
                 WHEN $5::text IS NOT NULL THEN $5
-                WHEN credits_committed+($4-$7) > max_credits THEN 'job_credit_cap_exceeded'
-                WHEN credits_committed+($4-$7) = max_credits THEN 'job_credit_cap_reached'
+                WHEN credits_committed+($4::int-$7::int) > max_credits THEN 'job_credit_cap_exceeded'
+                WHEN credits_committed+($4::int-$7::int) = max_credits THEN 'job_credit_cap_reached'
                 ELSE last_error
               END,
               completed_at=CASE
-                WHEN $6 AND credits_committed+($4-$7) <= max_credits THEN now()
+                WHEN $6 AND credits_committed+($4::int-$7::int) <= max_credits THEN now()
                 ELSE completed_at
               END,
               updated_at=now()
