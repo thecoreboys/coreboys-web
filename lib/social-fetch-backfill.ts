@@ -715,7 +715,8 @@ async function reserveNextTask(lease: JobLease): Promise<ReserveTaskResult> {
               completion_reason,pages_processed,credits_committed,items_recorded,last_error
          FROM social_fetch_backfill_tasks
         WHERE job_id=$1 AND status='pending' AND attempt_token IS NULL
-        ORDER BY last_attempt_at NULLS FIRST,id LIMIT 1 FOR UPDATE SKIP LOCKED`,
+        ORDER BY (last_error IS NOT NULL),last_attempt_at NULLS FIRST,id
+        LIMIT 1 FOR UPDATE SKIP LOCKED`,
       [lease.id],
     );
     const task = tasks.rows[0];
