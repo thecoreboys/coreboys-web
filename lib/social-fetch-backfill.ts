@@ -22,6 +22,7 @@ const DEFAULT_MAX_PAGES_PER_RUN = 3;
 const MAX_PAGES_PER_RUN = 12;
 const MAX_PAGES_PER_TASK = 250;
 const LEASE_SECONDS = 4 * 60;
+const PROVIDER_UPSTREAM_AUTO_RESUME_COOLDOWN_SECONDS = 6 * 60 * 60;
 
 export type SocialFetchBackfillProvider = "tiktok" | "instagram" | "twitter";
 export type SocialFetchBackfillSurface = "videos" | "posts" | "reels" | "tweets";
@@ -649,7 +650,9 @@ export async function resumeSocialFetchBackfill(input: {
   return status;
 }
 
-async function acquireJobLease(): Promise<AcquireJobLeaseResult> {
+async function acquireJobLease(input: {
+  autoResumeProviderUpstreamError: boolean;
+}): Promise<AcquireJobLeaseResult> {
   const token = randomUUID();
   return withTransaction(async (client) => {
     const jobs = await client.query<{
@@ -659,8 +662,18 @@ async function acquireJobLease(): Promise<AcquireJobLeaseResult> {
     }>(
       `SELECT id::text,cutoff_at,backfill_before_at
          FROM social_fetch_backfill_jobs
-        WHERE status='running' AND (lease_until IS NULL OR lease_until<=now())
+        WHERE (lease_until IS NULL OR lease_until<=now())
+          AND (
+            status='running'
+            OR (
+              $1::boolean
+              AND status='paused'
+              AND pause_reason='provider_upstream_error'
+              AND updated_at<=now()-($2::int*interval '1 second')
+            )
+          )
         ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED`,
+      [input.autoResumeProviderUpstreamError, PROVIDER_UPSTREAM_AUTO_RESUME_COOLDOWN_SECONDS],
     );
     const job = jobs.rows[0];
     if (!job) return { kind: "idle" as const };
@@ -684,7 +697,10 @@ async function acquireJobLease(): Promise<AcquireJobLeaseResult> {
 
     await client.query(
       `UPDATE social_fetch_backfill_jobs
-          SET lease_token=$2,lease_until=now()+($3::int*interval '1 second'),updated_at=now()
+          SET status='running',
+              pause_reason=CASE WHEN status='paused' THEN NULL ELSE pause_reason END,
+              last_error=CASE WHEN status='paused' THEN NULL ELSE last_error END,
+              lease_token=$2,lease_until=now()+($3::int*interval '1 second'),updated_at=now()
         WHERE id=$1`,
       [job.id, token, LEASE_SECONDS],
     );
@@ -963,7 +979,7 @@ async function releaseJobLease(lease: JobLease) {
 
 /** Advance a small bounded batch from the authenticated social reconcile cron. */
 export async function processSocialFetchBackfill(
-  input: { maxPages?: number } = {},
+  input: { maxPages?: number; autoResumeProviderUpstreamError?: boolean } = {},
 ): Promise<SocialFetchBackfillProcessResult> {
   const maxPages = finiteInteger(
     input.maxPages ?? DEFAULT_MAX_PAGES_PER_RUN,
@@ -971,7 +987,9 @@ export async function processSocialFetchBackfill(
     MAX_PAGES_PER_RUN,
     "invalid_social_fetch_backfill_page_limit",
   );
-  const acquired = await acquireJobLease();
+  const acquired = await acquireJobLease({
+    autoResumeProviderUpstreamError: input.autoResumeProviderUpstreamError === true,
+  });
   if (acquired.kind === "idle") {
     return { status: "idle", jobId: null, pagesProcessed: 0, itemsRecorded: 0 };
   }

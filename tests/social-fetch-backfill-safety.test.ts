@@ -573,6 +573,53 @@ test("known paid-page failures stay fail closed and are retried after healthy pe
   assert.doesNotMatch(paidFailure, /status:\s*"completed"/);
 });
 
+test("only the scheduled worker may recover an upstream pause after a hard six-hour cooldown", () => {
+  const backfill = source("lib/social-fetch-backfill.ts");
+  const reconcile = source("app/api/social/reconcile/route.ts");
+  const admin = source("app/api/admin/social-fetch/backfill/route.ts");
+  const acquire = backfill.slice(
+    backfill.indexOf("async function acquireJobLease("),
+    backfill.indexOf("async function reserveNextTask("),
+  );
+  const eligibility = acquire.slice(
+    acquire.indexOf("SELECT id::text,cutoff_at,backfill_before_at"),
+    acquire.indexOf("const job = jobs.rows[0]"),
+  );
+
+  assert.match(backfill, /PROVIDER_UPSTREAM_AUTO_RESUME_COOLDOWN_SECONDS = 6 \* 60 \* 60/);
+  assert.match(
+    eligibility,
+    /\$1::boolean[\s\S]*status='paused'[\s\S]*pause_reason='provider_upstream_error'[\s\S]*updated_at<=now\(\)-\(\$2::int\*interval '1 second'\)/,
+  );
+  assert.match(
+    eligibility,
+    /\[input\.autoResumeProviderUpstreamError, PROVIDER_UPSTREAM_AUTO_RESUME_COOLDOWN_SECONDS\]/,
+  );
+  assert.deepEqual(
+    [...eligibility.matchAll(/pause_reason='([^']+)'/g)].map((match) => match[1]),
+    ["provider_upstream_error"],
+  );
+  assert.doesNotMatch(
+    eligibility,
+    /pause_reason\s+(?:IN|LIKE|ILIKE)|pause_reason='(?:admin_paused|uncertain_paid_page|provider_not_found|provider_invalid_response|job_credit_cap_reached|job_credit_cap_exceeded)'/i,
+  );
+
+  const uncertainCheck = acquire.indexOf("attempt_token IS NOT NULL");
+  const transitionToRunning = acquire.indexOf("SET status='running'");
+  assert.ok(uncertainCheck >= 0 && transitionToRunning > uncertainCheck);
+  assert.match(acquire, /pause_reason='uncertain_paid_page'/);
+
+  assert.match(
+    reconcile,
+    /processSocialFetchBackfill\(\{\s*maxPages: 3,\s*autoResumeProviderUpstreamError: true,\s*\}\)/,
+  );
+  assert.doesNotMatch(admin, /autoResumeProviderUpstreamError/);
+  assert.match(
+    backfill,
+    /autoResumeProviderUpstreamError: input\.autoResumeProviderUpstreamError === true/,
+  );
+});
+
 test("historical persistence is explicitly silent even on existing fresh canonical rows", () => {
   const events = source("lib/social-events.ts");
   const backfill = source("lib/social-fetch-backfill.ts");
@@ -588,7 +635,7 @@ test("the small history batch runs only after current social posts are persisted
   const reconcile = source("app/api/social/reconcile/route.ts");
   const currentLoop = reconcile.indexOf("for (const item of normalizedEvents)");
   const currentRecord = reconcile.indexOf("await recordSocialEvent(event)", currentLoop);
-  const backfill = reconcile.indexOf("await processSocialFetchBackfill({ maxPages: 3 })");
+  const backfill = reconcile.indexOf("await processSocialFetchBackfill({");
   assert.ok(currentLoop >= 0 && currentRecord > currentLoop && backfill > currentRecord);
 });
 
