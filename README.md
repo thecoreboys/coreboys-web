@@ -4,6 +4,8 @@ The public-facing landing page for **The Core Boys** — a six-person creator
 group. This is a Next.js 15 / React 19 / Tailwind v4 site with a Three.js hero
 scene, GSAP-driven manifesto reveal, and a live Twitch status integration.
 
+![The Core Boys site preview](./public/embed-preview.png)
+
 > Tagline: **Create. Own. Run. Everything.**
 
 ## Stack
@@ -150,3 +152,7 @@ on it.
 ## Theming
 
 See [`THEMING.md`](./THEMING.md).
+
+## Attribution
+
+Built and maintained by [MDCran](https://github.com/MDCran).
