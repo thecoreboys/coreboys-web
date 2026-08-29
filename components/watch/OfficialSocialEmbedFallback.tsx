@@ -23,14 +23,6 @@ function processInstagramEmbeds() {
   (window as InstagramEmbedWindow).instgrm?.Embeds?.process?.();
 }
 
-function NotificationLimitation() {
-  return (
-    <p className={styles.embedLimitation}>
-      This public profile view updates from the platform. Creator alerts use CORE&apos;s public-feed monitor when available.
-    </p>
-  );
-}
-
 /**
  * TikTok exposes no documented manual process function. Re-run its documented
  * embed.js once after every set of creator blockquotes mounts so one CORE page
@@ -66,9 +58,6 @@ function TikTokCreatorFallback({ rail }: { rail: CuratedChannelRail }) {
 
   return (
     <div className={styles.embedFallback} data-ingest-state={rail.ingestState ?? "unknown"}>
-      <p className={styles.embedNotice} role="status">
-        Showing TikTok&apos;s official public Creator Profile Embed, which can display up to 10 recent public videos.
-      </p>
       <div className={styles.tiktokEmbedFrame}>
         <blockquote
           className="tiktok-embed"
@@ -85,7 +74,6 @@ function TikTokCreatorFallback({ rail }: { rail: CuratedChannelRail }) {
           </section>
         </blockquote>
       </div>
-      <NotificationLimitation />
     </div>
   );
 }
@@ -114,14 +102,8 @@ function InstagramPublicFallback({ rail }: { rail: CuratedChannelRail }) {
     );
   }
 
-  const postCount = embeds.filter((embed) => embed.kind !== "profile").length;
   return (
     <div className={styles.embedFallback} data-ingest-state={rail.ingestState ?? "unknown"}>
-      <p className={styles.embedNotice} role="status">
-        Showing Instagram&apos;s official public embed
-        {postCount ? ` plus ${postCount} configured public post${postCount === 1 ? "" : "s"}/Reel${postCount === 1 ? "" : "s"}.` : "."}
-        {" "}Instagram&apos;s profile embed is the live public fallback while CORE&apos;s monitor indexes individual posts and Reels.
-      </p>
       <div className={styles.instagramEmbedGrid}>
         {embeds.map((embed) => (
           <div className={styles.instagramEmbedFrame} key={embed.key} data-instagram-embed-kind={embed.kind}>
@@ -144,7 +126,6 @@ function InstagramPublicFallback({ rail }: { rail: CuratedChannelRail }) {
         onLoad={processEmbeds}
         onReady={processEmbeds}
       />
-      <NotificationLimitation />
     </div>
   );
 }

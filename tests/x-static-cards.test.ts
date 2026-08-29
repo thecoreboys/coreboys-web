@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const railPath = new URL("../components/watch/XTweetsRail.tsx", import.meta.url);
+const railStylesPath = new URL("../components/watch/XTweetsRail.module.css", import.meta.url);
 const hoverPath = new URL("../components/watch/XPostHoverPreview.tsx", import.meta.url);
 const embedPath = new URL("../components/x/XPostEmbed.tsx", import.meta.url);
 const timelinePath = new URL("../components/x/XProfileTimeline.tsx", import.meta.url);
@@ -36,4 +37,19 @@ test("Watch home renders cached X posts as native cards without embeds or visito
   assert.match(timeline, /Show latest posts/);
   assert.match(timeline, /data\.dnt = "true"|dataset\.dnt = "true"/);
   assert.match(widgets, /platform\.twitter\.com\/widgets\.js/);
+});
+
+test("hydrated quotes render as compact native posts and only confirmed misses show a fallback", async () => {
+  const rail = await readFile(railPath, "utf8");
+  const styles = await readFile(railStylesPath, "utf8");
+
+  assert.match(rail, /function XQuotePreview/);
+  assert.match(rail, /quote\.media/);
+  assert.match(rail, /quote\.entities/);
+  assert.match(rail, /unavailableQuote/);
+  assert.match(rail, /Quoted post unavailable/);
+  assert.doesNotMatch(rail, /Quote from \$\{quoted\.handle\}/);
+  assert.match(styles, /\.quoteCard/);
+  assert.match(styles, /\.quoteMediaGrid/);
+  assert.match(styles, /\.quoteUnavailable/);
 });

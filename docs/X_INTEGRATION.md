@@ -52,6 +52,20 @@ Do not use Community `1864772098331496685` for `core`. Its owner is
 is intentional and prevents an unrelated Community from being presented as
 official.
 
+### Shared-feed refresh health
+
+The GitHub `cron-x-feed` workflow is the only recurring roster-fetcher. It
+runs every five minutes against the canonical production origin and fails with
+the safe server response body in the Actions log. A visitor refresh never
+triggers an X request.
+
+The deployed container must receive all of the following GitHub secrets:
+`X_BEARER_TOKEN`, `X_API_CREDIT_BALANCE_USD`, `X_API_MONTHLY_CEILING_USD`,
+`X_API_READ_POST_UNIT_USD`, and `X_API_READ_USER_UNIT_USD`. The two read-price
+values are intentionally required by the spend gate; without them a refresh
+fails safely with `budget_price_missing` before contacting X. Admin → X shows
+the snapshot freshness, last attempt, and safe failure label for recovery.
+
 Paid reads and writes fail closed unless declared credits, a positive monthly
 ceiling, and the relevant current unit estimate are configured. Native writes
 also require `X_NATIVE_ACTIONS_ENABLED=true` and OAuth client credentials. Keep

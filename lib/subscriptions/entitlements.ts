@@ -43,6 +43,7 @@ export type AccountSubscriptionState = {
     status: SubscriptionStatus | "free";
     source: EffectiveSubscriptionSource;
     storedPlanId: PlanId | null;
+    hasManagedSubscription: boolean;
     currentPeriodEnd: string | null;
     trialEndsAt: string | null;
     cancelAtPeriodEnd: boolean;
@@ -69,6 +70,7 @@ export type EntitlementDecision = {
 };
 
 const ACTIVE_STATUSES = new Set<SubscriptionStatus>(["active", "trialing"]);
+const TERMINAL_SUBSCRIPTION_STATUSES = new Set<SubscriptionStatus>(["canceled", "expired"]);
 
 const METER_FEATURE: Readonly<Record<MeterId, FeatureId>> = {
   semantic_queries_monthly: "search.semantic",
@@ -168,6 +170,10 @@ export function resolveSubscriptionSnapshot(input: {
       status,
       source,
       storedPlanId: snapshot.subscription?.planId ?? null,
+      hasManagedSubscription: Boolean(
+        snapshot.subscription?.externalContractRef
+        && !TERMINAL_SUBSCRIPTION_STATUSES.has(snapshot.subscription.status),
+      ),
       currentPeriodEnd: snapshot.subscription?.currentPeriodEnd ?? null,
       trialEndsAt: snapshot.subscription?.trialEndsAt ?? null,
       cancelAtPeriodEnd: snapshot.subscription?.cancelAtPeriodEnd ?? false,

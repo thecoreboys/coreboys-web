@@ -110,7 +110,9 @@ export function redirectToMyListSignIn(returnTo?: string) {
   const safeReturn = requested.startsWith("/") && !requested.startsWith("//") && !requested.includes("\\")
     ? requested
     : "/";
-  window.location.assign(`/login?next=${encodeURIComponent(safeReturn)}`);
+  // Saving is account-scoped. Keep viewers in their current context and let
+  // the shared route-free dialog handle sign-in rather than navigating away.
+  openAuthModal({ mode: "login", next: safeReturn });
 }
 
 export function readHiddenMembers(): string[] {
@@ -128,3 +130,4 @@ export function toggleHiddenMember(slug: string): string[] {
   localStorage.setItem(HIDDEN, JSON.stringify(next));
   return next;
 }
+import { openAuthModal } from "@/lib/auth/modal";

@@ -4,7 +4,7 @@ import { PricingExperience } from "@/components/marketing/PricingExperience";
 export const metadata: Metadata = {
   title: "Support the Site",
   description:
-    "CORE membership starts at $3 per month and helps pay for the independent site. Public content remains free.",
+    "Choose a monthly CORE membership amount to help pay for the independent site. Public content remains free.",
   robots: { index: false, follow: false },
 };
 

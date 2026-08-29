@@ -79,6 +79,7 @@ function emptySourceMessage(rail: CuratedChannelRail): string {
     return `This ${platform} profile link needs to be fixed before public content can load.`;
   }
   if (rail.ingestState === "not_configured") {
+    if (rail.platform === "instagram" || rail.platform === "tiktok") return `${platform} public profile embeds are available.`;
     return `${platform}'s automatic feed is not available.`;
   }
   if (rail.ingestState === "scope_missing") {

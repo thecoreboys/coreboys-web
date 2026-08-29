@@ -6,16 +6,13 @@ import {
   Accessibility,
   ArrowUpRight,
   Eye,
-  Gauge,
-  Lock,
   Palette,
   Play,
   Radio,
   ShieldCheck,
-  SlidersHorizontal,
-  Users,
 } from "lucide-react";
 import { Toggle } from "@/components/base/toggle/toggle";
+import { NativeSelect } from "@/components/base/select/select-native";
 import { usePlayer, type AccessibilityPreset, type QualityPreference } from "@/components/providers/PlayerProvider";
 import { useTheme, type Accent, type Theme } from "@/components/providers/ThemeProvider";
 import type { AutoplayMode } from "@/lib/watch/workspace";
@@ -61,12 +58,6 @@ type PlayerSettings = {
   mixAudio: boolean;
   maxActivePlayers: number;
 };
-
-type StaffContext = {
-  displayName: string;
-  role: "admin" | "member_manager";
-  memberSlug: string | null;
-} | null;
 
 const LANDING_OPTIONS: ReadonlyArray<{ value: LandingPage; label: string }> = [
   { value: "/watch", label: "Watch" },
@@ -173,7 +164,6 @@ export function AccountSettingsHub() {
   const [settings, setSettings] = useState<AccountSettings>(() => defaultSettings(theme, accent));
   const [ready, setReady] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [staff, setStaff] = useState<StaffContext>(null);
   const [radioSettings, setRadioSettings] = useState<RadioAudioSettings>(() => readRadioAudioSettings());
 
   const persist = useCallback(async (next: AccountSettings) => {
@@ -268,10 +258,7 @@ export function AccountSettingsHub() {
     const controller = new AbortController();
     void (async () => {
       try {
-        const [preferencesResponse, staffResponse] = await Promise.all([
-          fetch("/api/account/workspaces?kind=account-settings", { credentials: "same-origin", signal: controller.signal }),
-          fetch("/api/account/staff-context", { credentials: "same-origin", signal: controller.signal }),
-        ]);
+        const preferencesResponse = await fetch("/api/account/workspaces?kind=account-settings", { credentials: "same-origin", signal: controller.signal });
         if (preferencesResponse.ok) {
           const data = await preferencesResponse.json() as { items?: Array<{ name: string; payload: unknown }> };
           const stored = data.items?.find((item) => item.name === "experience")?.payload;
@@ -306,10 +293,6 @@ export function AccountSettingsHub() {
           }
         } else {
           applyExperience(defaultSettings(theme, accent));
-        }
-        if (staffResponse.ok) {
-          const data = await staffResponse.json() as { staff?: StaffContext };
-          setStaff(data.staff ?? null);
         }
       } catch (error) {
         if ((error as { name?: string }).name !== "AbortError") applyExperience(defaultSettings(theme, accent));
@@ -419,12 +402,6 @@ export function AccountSettingsHub() {
         </div>
       </section>
 
-      <section id="staff" className="scroll-mt-24 overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
-        <SectionHeader icon={Lock} eyebrow="Creator & admin" title="Community management" detail="Staff access is a separate protected sign-in. Fan account settings never grant community management permissions." />
-        <div className="border-t border-secondary p-5 sm:p-6">
-          {staff ? <StaffTools staff={staff} /> : <div className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary"><p className="text-sm font-semibold text-primary">No staff session connected</p><p className="mt-1 text-sm leading-6 text-tertiary">Sign in to the protected Studio or admin area to manage a member community. Access is checked on every request.</p><Link href="/admin/sign-in" className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-secondary px-3 text-sm font-semibold text-secondary hover:bg-secondary"><ArrowUpRight className="size-4" aria-hidden />Staff sign in</Link></div>}
-        </div>
-      </section>
     </div>
   );
 }
@@ -442,7 +419,7 @@ function ChoiceGroup({ label, value, onChange, options }: { label: string; value
 }
 
 function SelectRow({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: ReadonlyArray<{ value: string; label: string }> }) {
-  return <label className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary"><span className="text-sm font-semibold text-primary">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="mt-3 min-h-10 w-full rounded-lg border border-secondary bg-secondary px-3 text-sm font-semibold text-secondary outline-none focus:border-brand-secondary">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <div className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary"><NativeSelect label={label} value={value} onChange={(event) => onChange(event.target.value)} options={[...options]} /></div>;
 }
 
 function RangeRow({ label, value, min, max, step, format, onChange }: { label: string; value: number; min: number; max: number; step: number; format: (value: number) => string; onChange: (value: number) => void }) {
@@ -451,9 +428,4 @@ function RangeRow({ label, value, min, max, step, format, onChange }: { label: s
 
 function LinkRow({ label, detail, href }: { label: string; detail: string; href: string }) {
   return <Link href={href as never} className="group flex min-h-20 items-center justify-between gap-4 rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary transition hover:bg-primary_hover"><div><p className="text-sm font-semibold text-primary">{label}</p><p className="mt-1 text-xs leading-5 text-tertiary">{detail}</p></div><ArrowUpRight className="size-4 shrink-0 text-tertiary transition group-hover:text-brand-secondary" aria-hidden /></Link>;
-}
-
-function StaffTools({ staff }: { staff: Exclude<StaffContext, null> }) {
-  const memberLabel = staff.memberSlug ? `Assigned to ${staff.memberSlug}` : "House-wide access";
-  return <div className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary"><p className="text-sm font-semibold text-primary">{staff.role === "admin" ? "Administrator" : "Member manager"}</p><p className="mt-1 text-sm text-tertiary">{staff.displayName} · {memberLabel}</p><div className="mt-4 flex flex-wrap gap-2"><Link href="/studio" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-primary px-3 text-sm font-semibold text-brand-secondary hover:bg-brand-primary_alt"><SlidersHorizontal className="size-4" aria-hidden />Open Studio</Link>{staff.role === "admin" ? <><Link href="/admin" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-secondary px-3 text-sm font-semibold text-secondary hover:bg-secondary"><Gauge className="size-4" aria-hidden />Admin</Link><Link href="/admin/accounts" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-secondary px-3 text-sm font-semibold text-secondary hover:bg-secondary"><Users className="size-4" aria-hidden />Manage staff</Link></> : null}</div></div>;
 }

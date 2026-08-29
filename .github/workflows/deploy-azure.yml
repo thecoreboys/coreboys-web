@@ -36,6 +36,49 @@ jobs:
         with:
           version: 10
 
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate application before deployment
+        run: |
+          set -Eeuo pipefail
+          pnpm typecheck
+          pnpm test
+
+      - name: Verify Stripe supporter readiness
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_MEMBERSHIP_ENABLED: ${{ vars.STRIPE_MEMBERSHIP_ENABLED || 'false' }}
+          STRIPE_MEMBERSHIP_OPERATIONS_REQUIRED: ${{ vars.STRIPE_MEMBERSHIP_OPERATIONS_REQUIRED || 'false' }}
+          STRIPE_MEMBERSHIP_WEBHOOK_SECRET: ${{ secrets.STRIPE_MEMBERSHIP_WEBHOOK_SECRET }}
+          NEXT_PUBLIC_SITE_URL: https://thecoreboys.com
+        run: |
+          set -Eeuo pipefail
+          if [[ "$STRIPE_MEMBERSHIP_ENABLED" != "true" && "$STRIPE_MEMBERSHIP_ENABLED" != "false" ]]; then
+            echo "STRIPE_MEMBERSHIP_ENABLED must be the repository variable true or false." >&2
+            exit 1
+          fi
+          if [[ "$STRIPE_MEMBERSHIP_OPERATIONS_REQUIRED" != "true" && "$STRIPE_MEMBERSHIP_OPERATIONS_REQUIRED" != "false" ]]; then
+            echo "STRIPE_MEMBERSHIP_OPERATIONS_REQUIRED must be the repository variable true or false." >&2
+            exit 1
+          fi
+          if [[ -n "$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" && ! "$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" =~ ^pk_(test|live)_.+ ]]; then
+            echo "The public Stripe key must be empty or start with pk_test_ or pk_live_; refusing to expose an invalid key in the browser image." >&2
+            exit 1
+          fi
+          if [[ "$STRIPE_MEMBERSHIP_ENABLED" == "true" && "$STRIPE_MEMBERSHIP_OPERATIONS_REQUIRED" != "true" ]]; then
+            echo "STRIPE_MEMBERSHIP_OPERATIONS_REQUIRED must be true before supporter checkout can be enabled." >&2
+            exit 1
+          fi
+          if [[ "$STRIPE_MEMBERSHIP_ENABLED" == "true" ]]; then
+            node scripts/check-billing-setup.mjs --membership-only --strict
+          elif [[ "$STRIPE_MEMBERSHIP_OPERATIONS_REQUIRED" == "true" ]]; then
+            node scripts/check-billing-setup.mjs --membership-only --operations-only --strict
+          else
+            echo "Supporter membership has not launched; checkout and paid-period operations are disabled."
+          fi
+
       - name: Sign in to Azure with OIDC
         uses: azure/login@v2
         with:
@@ -46,6 +89,7 @@ jobs:
       - name: Build immutable image in Azure Container Registry
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
         run: |
           set -Eeuo pipefail
           az acr build \
@@ -56,6 +100,7 @@ jobs:
             --build-arg NEXT_PUBLIC_API_URL=https://thecoreboys.com \
             --build-arg NEXT_PUBLIC_SITE_URL=https://thecoreboys.com \
             --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" \
+            --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" \
             .
 
       - name: Apply additive production database migrations
@@ -82,7 +127,6 @@ jobs:
             process.exit(1);
           }
           NODE
-          pnpm install --frozen-lockfile
           pnpm db:apply-web-migrations
 
       - name: Configure production secrets and environment
@@ -108,6 +152,12 @@ jobs:
           SITE_ACCESS_CODE: ${{ secrets.SITE_ACCESS_CODE }}
           SITE_ACCESS_COOKIE_SECRET: ${{ secrets.SITE_ACCESS_COOKIE_SECRET }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_MEMBERSHIP_ENABLED: ${{ vars.STRIPE_MEMBERSHIP_ENABLED || 'false' }}
+          STRIPE_MEMBERSHIP_WEBHOOK_SECRET: ${{ secrets.STRIPE_MEMBERSHIP_WEBHOOK_SECRET }}
+          LOB_API_KEY: ${{ secrets.LOB_API_KEY }}
           SOCIAL_FETCH_API_KEY: ${{ secrets.SOCIAL_FETCH_API_KEY }}
           SOCIAL_NOTIFICATIONS_DELIVERY_ENABLED: ${{ secrets.SOCIAL_NOTIFICATIONS_DELIVERY_ENABLED }}
           SPACES_BUCKET: ${{ secrets.SPACES_BUCKET }}
@@ -167,6 +217,7 @@ jobs:
             "NODE_ENV=production"
             "NEXT_PUBLIC_API_URL=https://thecoreboys.com"
             "NEXT_PUBLIC_SITE_URL=https://thecoreboys.com"
+            "STRIPE_MEMBERSHIP_ENABLED=${STRIPE_MEMBERSHIP_ENABLED}"
             "SOCIAL_WEBHOOK_BASE_URL=https://thecoreboys.com"
             "INSTAGRAM_API_MODE=${INSTAGRAM_API_MODE}"
             "META_GRAPH_API_VERSION=${META_GRAPH_API_VERSION}"
@@ -204,6 +255,11 @@ jobs:
           add_secret site-access-code SITE_ACCESS_CODE "$SITE_ACCESS_CODE"
           add_secret site-access-cookie-secret SITE_ACCESS_COOKIE_SECRET "$SITE_ACCESS_COOKIE_SECRET"
           add_secret next-public-clerk-publishable-key NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
+          add_secret stripe-secret-key STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY"
+          add_secret next-public-stripe-publishable-key NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY "$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
+          add_secret stripe-webhook-secret STRIPE_WEBHOOK_SECRET "$STRIPE_WEBHOOK_SECRET"
+          add_secret stripe-membership-webhook-secret STRIPE_MEMBERSHIP_WEBHOOK_SECRET "$STRIPE_MEMBERSHIP_WEBHOOK_SECRET"
+          add_secret lob-api-key LOB_API_KEY "$LOB_API_KEY"
           add_secret social-fetch-api-key SOCIAL_FETCH_API_KEY "$SOCIAL_FETCH_API_KEY"
           add_secret social-notifications-enabled SOCIAL_NOTIFICATIONS_DELIVERY_ENABLED "$SOCIAL_NOTIFICATIONS_DELIVERY_ENABLED"
           add_secret spaces-bucket SPACES_BUCKET "$SPACES_BUCKET"

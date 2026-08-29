@@ -5,18 +5,36 @@ on:
     - cron: "17 */6 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: coreboys-media-intelligence
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
       - name: Sync, backfill, clean up, and publish media search
         env:
-          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          APP_URL: https://thecoreboys.com
           SECRET: ${{ secrets.MEDIA_INTELLIGENCE_CRON_SECRET || secrets.METRICS_CRON_SECRET }}
         run: |
-          set -e
-          curl -fsS -X POST \
+          set -Eeuo pipefail
+          if [[ -z "${SECRET:-}" ]]; then
+            echo "A media-intelligence cron secret is required." >&2
+            exit 1
+          fi
+          target="${APP_URL%/}/api/media-intelligence/catalog-sync"
+          echo "Refreshing the searchable media catalog at ${target}"
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 240 \
+            -X POST \
             -H "content-type: application/json" \
+            -H "accept: application/json" \
             -H "x-media-intelligence-secret: $SECRET" \
             --data '{"action":"maintenance","maxJobs":100,"maxArchivePages":8,"archivePageSize":50,"retentionLimit":250}' \
-            "$APP_URL/api/media-intelligence/catalog-sync"
+            -w "\nHTTP %{http_code}\n" \
+            "$target"

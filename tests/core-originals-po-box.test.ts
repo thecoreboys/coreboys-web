@@ -15,6 +15,17 @@ test("CORE PO Box Openings is available in both Originals data paths", () => {
   assert.ok(statSync(asset).size < 500_000, "the home-rail poster should stay below 500 KB");
 });
 
+test("CORE X VEGAS is available in both Originals data paths", () => {
+  const home = read("components/watch/WatchHome.tsx");
+  const originals = read("lib/core-originals.ts");
+  const asset = "public/brand/events-series-challenges/core-x-vegas.webp";
+
+  assert.match(home, /CORE X VEGAS/);
+  assert.match(home, /core-x-vegas\.webp/);
+  assert.match(originals, /\["core-x-vegas", "CORE X VEGAS"/);
+  assert.ok(statSync(asset).size < 500_000, "the home-rail poster should stay below 500 KB");
+});
+
 test("seeded Originals remain reachable when the database is unavailable", () => {
   const originals = read("lib/core-originals.ts");
 

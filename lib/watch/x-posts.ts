@@ -34,6 +34,23 @@ export type WatchHomeXPostEntity = {
   imageUrl?: string;
 };
 
+export type WatchHomeXPostQuote = {
+  statusId: string;
+  statusUrl: string;
+  text: string;
+  authorName?: string;
+  authorHandle: string;
+  authorProfileUrl: string;
+  authorAvatarUrl?: string;
+  media: WatchHomeXPostMedia[];
+  entities: WatchHomeXPostEntity[];
+};
+
+export type WatchHomeXPostUnavailableQuote = {
+  statusId: string;
+  statusUrl: string;
+};
+
 /**
  * Serializable, render-safe view of a member X post. `text` is plain text;
  * this contract intentionally has no HTML/embed field. Consumers should render
@@ -56,16 +73,9 @@ export type WatchHomeXPost = {
   };
   media: WatchHomeXPostMedia[];
   entities: WatchHomeXPostEntity[];
-  quote?: {
-    statusId: string;
-    statusUrl: string;
-    text: string;
-    authorName?: string;
-    authorHandle: string;
-    authorProfileUrl: string;
-    authorAvatarUrl?: string;
-    imageUrl?: string;
-  };
+  quote?: WatchHomeXPostQuote;
+  /** Present only when X confirms a quote is deleted or protected. */
+  unavailableQuote?: WatchHomeXPostUnavailableQuote;
 };
 
 export type WatchHomeXPostOptions = {
@@ -411,20 +421,57 @@ function quoteContent(item: WatchItem): WatchHomeXPost["quote"] | undefined {
   const quote = item.x?.quote;
   if (!quote) return undefined;
   const reference = parseXStatus(quote.statusUrl);
-  const text = identityText(quote.text);
   const handle = normalizedHandle(quote.authorHandle);
   const profileUrl = safeHttpsUrl(quote.authorProfileUrl);
-  if (!reference || !text || !handle || !profileUrl) return undefined;
+  if (!reference || !handle || !profileUrl) return undefined;
+  const clean = sanitizePostText(quote.text);
+  const sourceMedia = quote.media?.length
+    ? quote.media
+    : quote.imageUrl
+      ? [{ mediaKey: "legacy-image", kind: "image" as const, thumbnailUrl: quote.imageUrl }]
+      : [];
+  const media = sourceMedia.flatMap((item) => {
+    const thumbnailUrl = safeHttpsUrl(item.thumbnailUrl);
+    if (!thumbnailUrl) return [];
+    const width = Number.isFinite(item.width) && (item.width ?? 0) > 0 ? item.width! : null;
+    const height = Number.isFinite(item.height) && (item.height ?? 0) > 0 ? item.height! : null;
+    const orientation = width && height
+      ? height > width * 1.12
+        ? "portrait" as const
+        : width > height * 1.12
+          ? "landscape" as const
+          : "square" as const
+      : "landscape" as const;
+    return [{
+      id: `x-quote-${reference.statusId}-${item.mediaKey}`,
+      kind: item.kind,
+      thumbnailUrl,
+      mediaUrl: null,
+      orientation,
+      width,
+      height,
+    }];
+  });
+  if (!clean.text && !media.length) return undefined;
   return {
     statusId: reference.statusId,
     statusUrl: reference.sourceUrl,
-    text,
+    text: clean.text,
     authorName: identityText(quote.authorName) ?? undefined,
     authorHandle: handle,
     authorProfileUrl: profileUrl,
     authorAvatarUrl: safeHttpsUrl(quote.authorAvatarUrl) ?? undefined,
-    imageUrl: safeHttpsUrl(quote.imageUrl) ?? undefined,
+    media,
+    entities: normalizedEntities(quote.text, clean.offsets, quote.entities),
   };
+}
+
+function unavailableQuoteContent(item: WatchItem): WatchHomeXPost["unavailableQuote"] | undefined {
+  const reference = item.x?.quoteReference;
+  if (!reference?.unavailable || !/^\d{5,25}$/.test(reference.statusId)) return undefined;
+  const statusUrl = safeHttpsUrl(reference.statusUrl);
+  if (!statusUrl) return undefined;
+  return { statusId: reference.statusId, statusUrl };
 }
 
 /**
@@ -515,6 +562,7 @@ export function selectWatchHomeXPosts(
       media: media ? [media] : [],
       entities: content.entities,
       quote: quoteContent(item),
+      unavailableQuote: unavailableQuoteContent(item),
       mediaKeys,
     });
   }

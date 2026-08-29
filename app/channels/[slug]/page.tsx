@@ -5,13 +5,15 @@ import "../../guide/guide.css";
 import { WatchChrome } from "@/components/watch/WatchChrome";
 import { buildBroadcastHistoryFallback } from "@/lib/watch/airtime-history";
 import { loadAirtimeDailyArchive } from "@/lib/watch/airtime-archive";
-import { NetworkChannelPage } from "@/components/watch/NetworkChannelPage";
+import { NetworkChannelPage, type ChannelCrewMember } from "@/components/watch/NetworkChannelPage";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { GROUP } from "@/lib/group";
-import { MEMBERS_BY_SLUG } from "@/lib/members";
-import { getGroupPhotos, getMemberPhotos } from "@/lib/asset-index";
+import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
+import { getCrewPortrait, getGroupPhotos, getMemberPhotos } from "@/lib/asset-index";
+import { getCrewRoleLabel } from "@/lib/crew";
 import { getMemberGalleryPhotos } from "@/lib/member-gallery";
 import { loadTwitchTrackerAnalytics } from "@/lib/twitchtracker-snapshots";
+import { getCreatorSocialAvatarMap } from "@/lib/watch/creator-profile-avatars";
 import { socialCredentialDiagnosticFor } from "@/lib/watch/social-credentials";
 import { getXCommunityForMemberSlug } from "@/lib/x/config";
 import { selectWatchHomeXPosts } from "@/lib/watch/x-posts";
@@ -92,7 +94,7 @@ async function channelSourceDiagnostics(
       accountRef: source.handle || source.url,
     });
   }
-  const diagnostics = await Promise.all(
+  return Promise.all(
     ingestible.map(async ({ platform, accountRef }) => {
       const status = await socialCredentialDiagnosticFor(platform, accountRef);
       return {
@@ -102,7 +104,6 @@ async function channelSourceDiagnostics(
       } satisfies CuratedChannelSourceDiagnostic;
     }),
   );
-  return diagnostics;
 }
 
 export async function generateMetadata({ params, searchParams }: RouteProps): Promise<Metadata> {
@@ -150,6 +151,21 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
     byMember: catalog.byMember,
     byPlatform: { ...catalog.byPlatform, x: ownerXItems },
   }, { limit: 8, perMember: 8 });
+  const socialAvatarByUrl = await getCreatorSocialAvatarMap(
+    channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] ?? null : null,
+    hub.all,
+  );
+  // This is the same canonical assignment that powers the member About page.
+  // CORE Network shows the complete house crew; individual channels only show
+  // the people assigned to that creator.
+  const team: ChannelCrewMember[] = CREW
+    .filter((crew) => channel.memberSlug === null || crew.worksWith.includes(channel.memberSlug))
+    .map((crew) => ({
+      slug: crew.slug,
+      name: crew.name,
+      roleLabel: getCrewRoleLabel(crew),
+      portrait: getCrewPortrait(crew.slug),
+    }));
 
   return (
     <WatchChrome catalog={catalog}>
@@ -167,6 +183,8 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
         xCommunityKey={xCommunity?.key ?? "core"}
         ownerXPosts={ownerXPosts}
         galleryPhotos={galleryPhotos}
+        team={team}
+        socialAvatarByUrl={socialAvatarByUrl}
       />
     </WatchChrome>
   );

@@ -9,9 +9,11 @@ import {
   Users01,
   Film01,
   BarChart01,
+  CreditCard01,
   Link01,
   Mail01,
   Trophy01,
+  Trash01,
 } from "@untitledui/icons";
 import { AuthGate, SignOutButton } from "@/components/admin/AuthGate";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
@@ -22,6 +24,12 @@ export const metadata: Metadata = {
 };
 
 const TILES = [
+  {
+    href: "/admin/billing",
+    title: "Supporter billing",
+    desc: "Set contribution limits and notices, review 30-day proceeds and subscriptions, schedule safe renewals, and issue audited refunds.",
+    Icon: CreditCard01,
+  },
   {
     href: "/admin/ai-usage",
     title: "AI usage controls",
@@ -63,6 +71,12 @@ const TILES = [
     title: "Staff accounts",
     desc: "Create admins and assign member managers to one community Studio.",
     Icon: Users01,
+  },
+  {
+    href: "/admin/account-deletions",
+    title: "Account deletion requests",
+    desc: "Review requests and schedule deletion after billing is cancelled.",
+    Icon: Trash01,
   },
   {
     href: "/admin/photos",
@@ -111,6 +125,12 @@ const TILES = [
     title: "Fanzone review",
     desc: "Approve / deny photos submitted to the fan wall.",
     Icon: Heart,
+  },
+  {
+    href: "/admin/logo-submissions",
+    title: "Logo submissions",
+    desc: "Review logo directions, revise their public credits, and choose which files are public.",
+    Icon: Image01,
   },
   {
     href: "/admin/postcards",

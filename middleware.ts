@@ -26,6 +26,9 @@ const TRUSTED_INTEGRATION_PATHS = [
   "/api/social/x/refresh",
   "/api/social/webhooks/",
   "/api/streams/poll",
+  "/api/metrics/snapshot",
+  "/api/metrics/twitchtracker/snapshot",
+  "/api/media-intelligence/catalog-sync",
   "/api/auth/verify-email",
 ] as const;
 

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalLayout title="Privacy policy" effectiveDate="2026-08-21" kind="privacy">
+    <LegalLayout title="Privacy policy" effectiveDate="2026-08-28" kind="privacy">
       <p>
         <strong>thecoreboys.com</strong> is an{" "}
         <strong>unofficial site</strong> about CORE. It is not
@@ -35,10 +35,11 @@ export default function PrivacyPage() {
 
       <h3>Server logs</h3>
       <p>
-        Our hosting provider (Vercel) records standard request logs: IP
-        address, user-agent, request path, timestamp, response status,
-        and a Vercel-issued request ID. These logs are retained for up to
-        30 days for security and operations.
+        Our production hosting provider, Microsoft Azure, may process standard
+        connection and diagnostic data such as IP address, user-agent, request
+        path, timestamp, response status, and service request identifiers. We
+        retain application and platform logs only as configured and reasonably
+        needed for security, reliability, debugging, or legal obligations.
       </p>
 
       <h3>Analytics</h3>
@@ -82,6 +83,13 @@ export default function PrivacyPage() {
         If you create a CORE account we store your email, a bcrypt password
         hash, display name, and consent timestamp. Sessions live in an
         HttpOnly cookie.
+      </p>
+      <h3>Optional payments and billing</h3>
+      <p>
+        If you choose to support the site, Stripe processes your payment. We receive and store the Stripe customer and subscription references, subscription status, amount, currency, renewal or cancellation status, invoice/receipt links, and limited transaction identifiers needed for support, reconciliation, and fraud prevention. We do not store full payment-card numbers, CVCs, or bank credentials on our servers.
+      </p>
+      <p>
+        Stripe may process your name, email, billing address, and payment method under its own privacy policy. We use billing data to provide receipts and invoices, show your next charge, manage cancellations and refunds, meet accounting/tax obligations, and notify you about material recurring-price changes where required by law.
       </p>
       <h3>Connected platforms (Twitch, YouTube, X, TikTok, Instagram)</h3>
       <p>
@@ -176,10 +184,11 @@ export default function PrivacyPage() {
 
       <h2>International transfers</h2>
       <p>
-        Our hosting (Vercel) and analytics (Google) operate
-        infrastructure globally. By using the site, you consent to data
-        being processed in jurisdictions that may have different privacy
-        laws than your own.
+        Our hosting provider (Microsoft Azure), analytics provider (Google),
+        and payment provider (Stripe) may process data in regions where they or
+        their subprocessors operate. Where required, those providers use their
+        published cross-border transfer safeguards. Privacy rights available
+        under applicable law are not waived by using the site.
       </p>
 
       <h2>Children</h2>

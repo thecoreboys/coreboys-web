@@ -210,7 +210,7 @@ export const PLANS: Readonly<Record<PlanId, PlanDefinition>> = {
     name: "CORE Membership",
     description: "One monthly membership for the enhanced CORE player, private community spaces, and Passport customization.",
     rank: 1,
-    planningPrice: { currency: "USD", monthlyCents: 300, label: "$3 / month", status: "planning_only" },
+    planningPrice: { currency: "USD", monthlyCents: 500, label: "$5 / month", status: "planning_only" },
     features: PLUS_FEATURES,
     limits: {
       semantic_queries_monthly: 0,
@@ -319,7 +319,7 @@ export const BILLING_FOUNDATION = {
   checkoutAvailable: true,
   chargesEnabled: true,
   deploymentReady: true,
-  minimumMonthlyCents: 300,
+  minimumMonthlyCents: 500,
   message: "Supporter memberships are optional monthly payments for independent app development and operating costs. Cancel anytime from Billing.",
 } as const;
 

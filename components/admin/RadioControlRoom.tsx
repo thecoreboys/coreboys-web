@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { RadioJokeBook } from "./RadioJokeBook";
 
 type NetworkSlug = "core" | "adapt" | "ron" | "lacy" | "marlon" | "jason" | "silky";
 type CueKind = "tune_in" | "live_takeover" | "intermission" | "outro";
@@ -65,7 +66,7 @@ function slugify(value: string) {
   return next || `cora-cue-${Date.now()}`;
 }
 
-export function RadioControlRoom() {
+export function RadioControlRoom({ elevenLabsVoiceId }: { elevenLabsVoiceId: string }) {
   const [data, setData] = useState<Snapshot>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -151,6 +152,7 @@ export function RadioControlRoom() {
       <section className="rounded-xl border border-brand/30 bg-brand-primary_alt p-5 text-sm text-secondary">
         <p className="font-semibold text-primary">Saved recordings only</p>
         <p className="mt-1 max-w-3xl leading-relaxed">This control room never generates speech on page load or per listener. Add an already-rendered, approved recording once; the site rotates that saved asset for everyone. Drafts and disabled assets are never served publicly.</p>
+        <p className="mt-3 text-xs leading-relaxed text-tertiary">DJ Cora production voice: ElevenLabs <code className="rounded bg-primary px-1.5 py-0.5 text-[11px] text-primary">{elevenLabsVoiceId}</code>. Render and review a cue before uploading it here.</p>
       </section>
 
       {message ? <div role="status" className="rounded-lg border border-secondary bg-primary px-4 py-3 text-sm text-secondary">{message}</div> : null}
@@ -179,6 +181,8 @@ export function RadioControlRoom() {
           <button className={buttonClass} disabled={busy}>Add saved recording</button>
         </form>
       </section>
+
+      <RadioJokeBook />
 
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-semibold text-primary">Cue catalog</h2><p className="mt-1 text-sm text-tertiary">{data.assets.filter((asset) => asset.status === "approved" && asset.enabled).length} active approved recordings across {data.pools.length} pools.</p></div></div>

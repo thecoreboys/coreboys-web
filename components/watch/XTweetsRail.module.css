@@ -23,9 +23,12 @@
 .filters button:hover,.filters button:focus-visible { border-color:color-mix(in srgb,var(--ink) 32%,transparent); color:var(--ink); outline:none; }
 .filters button[aria-pressed="true"] { border-color:var(--ink); background:var(--ink); color:var(--bg); }
 
-.grid { display:grid; grid-auto-flow:row dense; grid-template-columns:repeat(auto-fit,minmax(min(100%,17.5rem),1fr)); align-items:start; gap:.82rem; margin-inline:calc(clamp(1.25rem,3vw,2.5rem) * -1); padding:.15rem clamp(1.25rem,3vw,2.5rem) .85rem; }
-.cell { min-width:0; }
-@media (min-width:1080px) { .cell[data-featured="true"] { grid-column:span 2; } }
+/* A regular CSS grid sizes every row to its tallest card. A photo or video
+   post then leaves a large black hole beneath every shorter neighbor. Use
+   independent column stacks so every card nests directly beneath the prior
+   one, while keeping the DOM order intact for keyboard and screen readers. */
+.grid { columns:17rem auto; column-gap:.82rem; margin-inline:calc(clamp(1.25rem,3vw,2.5rem) * -1); padding:.15rem clamp(1.25rem,3vw,2.5rem) .85rem; }
+.cell { display:inline-block; width:100%; min-width:0; break-inside:avoid; margin:0 0 .82rem; vertical-align:top; }
 .postCard { --member-accent:#db0368; position:relative; display:flex; min-width:0; flex-direction:column; gap:.85rem; overflow:hidden; border:1px solid color-mix(in srgb,var(--ink) 14%,transparent); border-radius:1rem; background:linear-gradient(150deg,color-mix(in srgb,var(--member-accent) 5%,var(--bg)) 0%,color-mix(in srgb,var(--ink) 3%,var(--bg)) 72%); color:var(--ink); padding:1rem; box-shadow:0 .55rem 1.5rem rgba(0,0,0,.08); transition:border-color 170ms ease,box-shadow 170ms ease,transform 170ms ease; }
 .postCard::before { position:absolute; inset:0 auto auto 1rem; width:2.8rem; height:2px; border-radius:0 0 999px 999px; background:var(--member-accent); content:""; }
 .newBadge { position:absolute; z-index:2; top:.78rem; right:3.35rem; border:1px solid color-mix(in srgb,var(--member-accent) 62%,#fff 20%); border-radius:999px; background:var(--member-accent); color:#fff; padding:.22rem .42rem; font-size:.53rem; font-weight:820; letter-spacing:.09em; line-height:1; text-transform:uppercase; box-shadow:0 .28rem .7rem color-mix(in srgb,var(--member-accent) 30%,transparent); }
@@ -47,6 +50,51 @@
 .postText { display:-webkit-box; overflow:hidden; overflow-wrap:anywhere; -webkit-box-orient:vertical; -webkit-line-clamp:6; color:var(--ink); font-size:.79rem; font-weight:530; line-height:1.5; white-space:pre-wrap; }
 .postText a { color:#1d9bf0; font-weight:650; }
 .postText a:hover { text-decoration:underline; text-underline-offset:.16em; }
+
+/* The quote is a real cached post, not a provider widget. Keep it visibly
+   nested without making it compete with the parent card. */
+.quoteCard { display:grid; min-width:0; gap:.56rem; border:1px solid color-mix(in srgb,var(--ink) 15%,transparent); border-radius:.78rem; background:color-mix(in srgb,var(--ink) 3%,var(--bg)); padding:.7rem; }
+.quoteHeader { display:grid; min-width:0; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.48rem; }
+.quoteHeader > a { display:grid; width:1.72rem; height:1.72rem; place-items:center; overflow:hidden; border-radius:50%; background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--ink-dim); }
+.quoteHeader > a:last-child { width:1.65rem; height:1.65rem; margin-left:auto; background:transparent; transition:background 150ms ease,color 150ms ease; }
+.quoteHeader > a:last-child:hover { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--ink); }
+.quoteHeader > a > img { width:100%; height:100%; object-fit:cover; }
+.quoteHeader > a > svg { width:.76rem; height:.76rem; }
+.quoteHeader > span { display:flex; min-width:0; flex-direction:column; line-height:1.16; }
+.quoteHeader > span a { width:fit-content; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.quoteHeader strong { font-size:.67rem; font-weight:760; }
+.quoteHeader > span a:last-child { margin-top:.1rem; color:var(--ink-dim); font-size:.56rem; }
+.quoteText { display:-webkit-box; overflow:hidden; overflow-wrap:anywhere; -webkit-box-orient:vertical; -webkit-line-clamp:4; color:var(--ink); font-size:.68rem; font-weight:530; line-height:1.42; white-space:pre-wrap; }
+.quoteText a { color:#1d9bf0; font-weight:650; }
+.quoteText a:hover { text-decoration:underline; text-underline-offset:.16em; }
+.quoteLinks { display:grid; gap:.36rem; }
+.quoteLinks .linkPreview { gap:.48rem; border-radius:.6rem; }
+.quoteLinks .linkPreview > img { width:4.4rem; min-height:3.35rem; flex-basis:4.4rem; }
+.quoteLinks .linkPreviewIcon { width:1.85rem; height:1.85rem; flex-basis:1.85rem; margin:.45rem 0 .45rem .1rem; }
+.quoteLinks .linkPreviewCopy { gap:.1rem; padding:.42rem 0; }
+.quoteLinks .linkPreviewCopy strong { font-size:.62rem; }
+.quoteLinks .linkPreviewCopy small,.quoteLinks .linkPreviewCopy em { font-size:.53rem; }
+.quoteLinks .linkPreviewExternal,.quoteLinks .linkPreviewPlay { margin-right:.52rem; }
+.quoteMediaGrid { display:grid; height:clamp(7.75rem,10vw,10.5rem); min-width:0; overflow:hidden; border:1px solid color-mix(in srgb,var(--ink) 13%,transparent); border-radius:.62rem; background:color-mix(in srgb,var(--ink) 6%,var(--bg)); gap:2px; }
+.quoteMediaGrid[data-count="1"] { height:auto; max-height:21rem; aspect-ratio:var(--x-quote-media-ratio,16 / 9); }
+.quoteMediaGrid[data-count="2"],.quoteMediaGrid[data-count="4"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.quoteMediaGrid[data-count="3"] { grid-template:repeat(2,minmax(0,1fr))/repeat(2,minmax(0,1fr)); }
+.quoteMediaGrid[data-count="3"] > a:first-child { grid-row:1 / -1; }
+.quoteMediaGrid[data-count="4"] { grid-template-rows:repeat(2,minmax(0,1fr)); }
+.quoteMediaGrid > a { position:relative; display:grid; min-width:0; min-height:0; overflow:hidden; place-items:center; background:color-mix(in srgb,var(--ink) 7%,var(--bg)); }
+.quoteMediaGrid[data-count="1"] > a { grid-column:1 / -1; }
+.quoteMediaGrid img { width:100%; height:100%; object-fit:cover; transition:transform 220ms ease; }
+.quoteMediaGrid > a:hover img { transform:scale(1.016); }
+.quoteVideoBadge { position:absolute; right:.42rem; bottom:.42rem; display:grid; width:1.35rem; height:1.35rem; place-items:center; border:1px solid rgba(255,255,255,.22); border-radius:50%; background:rgba(0,0,0,.72); color:#fff; backdrop-filter:blur(8px); }
+.quoteVideoBadge svg { width:.67rem; height:.67rem; fill:currentColor; }
+.quoteUnavailable { display:grid; min-width:0; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.5rem; border:1px dashed color-mix(in srgb,var(--ink) 19%,transparent); border-radius:.7rem; background:color-mix(in srgb,var(--ink) 3%,var(--bg)); color:var(--ink-dim); padding:.6rem .66rem; }
+.quoteUnavailable > svg { width:.9rem; height:.9rem; }
+.quoteUnavailable > span { display:flex; min-width:0; flex-direction:column; gap:.08rem; }
+.quoteUnavailable strong { color:var(--ink); font-size:.63rem; font-weight:720; }
+.quoteUnavailable small { overflow:hidden; font-size:.55rem; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
+.quoteUnavailable > a { display:grid; width:1.55rem; height:1.55rem; place-items:center; border-radius:50%; transition:background 150ms ease,color 150ms ease; }
+.quoteUnavailable > a:hover { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--ink); }
+.quoteUnavailable > a svg { width:.7rem; height:.7rem; }
 
 .linkPreviews { display:grid; gap:.4rem; }
 .linkPreview { display:flex; min-width:0; align-items:stretch; gap:.64rem; overflow:hidden; border:1px solid color-mix(in srgb,var(--ink) 13%,transparent); border-radius:.72rem; background:color-mix(in srgb,var(--ink) 3%,var(--bg)); color:var(--ink); transition:border-color 150ms ease,background 150ms ease,transform 150ms ease; }
@@ -84,10 +132,12 @@
 .viewLink svg { width:.68rem; height:.68rem; }
 .viewLink:hover { text-decoration:underline; text-underline-offset:.18em; }
 
-@media (max-width:1120px) { .mediaGrid { height:clamp(10.5rem,21vw,13.5rem); } }
+@media (max-width:1120px) { .mediaGrid { height:clamp(10.5rem,21vw,13.5rem); } .quoteMediaGrid { height:clamp(7.75rem,15vw,10.5rem); } }
 @media (max-width:760px) {
-  .grid { grid-template-columns:1fr; gap:.72rem; }
+  .grid { columns:1; }
+  .cell { margin-bottom:.72rem; }
   .mediaGrid { height:clamp(10.5rem,52vw,13.5rem); }
+  .quoteMediaGrid { height:clamp(8rem,44vw,12rem); }
 }
-@media (prefers-reduced-motion:reduce) { .spaceCard,.filters button,.postCard,.postMark,.mediaTile img { transition:none; } .spaceCard:hover,.spaceCard:focus-visible,.postCard:hover { transform:none; } .mediaTile:hover img { transform:none; } }
+@media (prefers-reduced-motion:reduce) { .spaceCard,.filters button,.postCard,.postMark,.mediaTile img,.quoteMediaGrid img { transition:none; } .spaceCard:hover,.spaceCard:focus-visible,.postCard:hover { transform:none; } .mediaTile:hover img,.quoteMediaGrid > a:hover img { transform:none; } }
 @media (forced-colors:active) { .spaceCard,.filters button,.postCard,.mediaGrid { border-color:CanvasText; } .verified { border:1px solid CanvasText; } }

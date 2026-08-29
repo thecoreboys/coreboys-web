@@ -30,6 +30,8 @@ import { useTheme } from "@/components/providers/ThemeProvider";
 import { MEMBERS_BY_SLUG } from "@/lib/members";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
+import { CoreWordmark } from "@/components/brand/CoreWordmark";
+import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSupporterBillingControls";
 
 /**
  * Global top navigation. Sticky, glass-blurred at scroll > 8px.
@@ -73,6 +75,17 @@ export function TopNav({
   );
   const { theme, toggle: toggleTheme } = useTheme();
   const { user, loading: authLoading, logout } = useAuth();
+  const supporterControls = useSupporterBillingControls();
+  const supporterPrice = supporterControls?.renewalsDisabledAt
+    ? "Closed"
+    : supporterControls
+      ? `${supporterPriceLabel(supporterControls.minimumAmountCents)}+`
+      : "Monthly";
+  const supporterAriaLabel = supporterControls?.renewalsDisabledAt
+    ? "View CORE membership information; new recurring support is closed"
+    : supporterControls
+      ? `Support the CORE website from ${supporterPriceLabel(supporterControls.minimumAmountCents)} per month`
+      : "Explore CORE website membership";
 
   const openAuth = (mode: "login" | "signup" = "login") => {
     openAuthModal({ mode, next: `${pathname}${searchParams.size ? `?${searchParams}` : ""}` });
@@ -155,8 +168,8 @@ export function TopNav({
           aria-label="CORE — watch"
           className="group inline-flex w-fit min-w-0 shrink-0 items-center gap-2 cursor-pointer"
         >
-          <span className="font-logo text-[22px] leading-none text-[color:var(--ink)] transition-transform group-hover:-translate-y-px sm:text-[24px] md:text-[26px]">
-            CORE
+          <span className="inline-flex" style={{ fontSize: "clamp(2.25rem, 2.75vw, 2.75rem)" }}>
+            <CoreWordmark className="text-[color:var(--ink)] transition-transform group-hover:-translate-y-px" />
           </span>
         </Link>
 
@@ -261,16 +274,26 @@ export function TopNav({
                                 "linear-gradient(180deg, rgba(8,8,10,0.14) 8%, rgba(8,8,10,0.14) 38%, rgba(8,8,10,0.96) 100%)",
                             }}
                           />
-                          <Image
-                            src={network.artwork}
-                            alt=""
-                            width={150}
-                            height={64}
-                            className={cn(
-                              "absolute left-1/2 top-[35%] h-12 w-[88%] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_3px_10px_rgba(0,0,0,0.8)] transition duration-300 group-hover:scale-105",
-                              network.slug === "marlon" && "scale-[1.32] group-hover:scale-[1.39]",
-                            )}
-                          />
+                          {network.slug === "core" ? (
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute left-1/2 top-[35%] inline-flex -translate-x-1/2 -translate-y-1/2 text-[color:var(--ink)] drop-shadow-[0_3px_10px_rgba(0,0,0,0.8)] transition duration-300 group-hover:scale-105"
+                              style={{ fontSize: "clamp(2.15rem, 3.2vw, 3rem)" }}
+                            >
+                              <CoreWordmark />
+                            </span>
+                          ) : (
+                            <Image
+                              src={network.artwork}
+                              alt=""
+                              width={150}
+                              height={64}
+                              className={cn(
+                                "absolute left-1/2 top-[35%] h-12 w-[88%] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_3px_10px_rgba(0,0,0,0.8)] transition duration-300 group-hover:scale-105",
+                                network.slug === "marlon" && "scale-[1.32] group-hover:scale-[1.39]",
+                              )}
+                            />
+                          )}
                           <span className="absolute inset-x-3 bottom-3 flex flex-col leading-snug">
                             <span className="text-sm font-bold tracking-tight text-on-image">
                               {network.name}
@@ -309,14 +332,14 @@ export function TopNav({
           <Link
             href="/upgrade"
             data-cursor-hint="Explore member benefits"
-            aria-label="Support the CORE website from three dollars per month"
+            aria-label={supporterAriaLabel}
             className="nav-membership-cta group relative isolate hidden min-h-10 items-center gap-2 overflow-hidden rounded-lg px-3 text-xs font-bold text-white transition-[transform,box-shadow] duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-200 lg:inline-flex"
           >
             <span className="grid size-5 place-items-center rounded-md bg-white/15 ring-1 ring-inset ring-white/20">
               <Gem size={13} aria-hidden />
             </span>
             <span className="whitespace-nowrap">Support the site</span>
-            <span className="hidden text-[10px] font-semibold text-white/70 xl:inline">$3+</span>
+            <span className="hidden text-[10px] font-semibold text-white/70 xl:inline">{supporterPrice}</span>
           </Link>
 
           {/* LIVE / OFFLINE pill — opens member-picker modal when live.
@@ -436,7 +459,7 @@ export function TopNav({
                       <AccountMenuLink
                         href="/account/plan"
                         icon={Gem}
-                        label="Plans"
+                        label="Billing"
                         active={pathname.startsWith("/account/plan")}
                         onSelect={() => setAccountOpen(false)}
                       />
@@ -549,7 +572,7 @@ export function TopNav({
             >
               <span aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_120%,rgba(255,89,177,0.74),transparent_48%),linear-gradient(135deg,rgba(124,17,83,0.96),rgba(55,17,82,0.96))]" />
               <span className="inline-flex items-center gap-2"><Gem size={16} aria-hidden /> Support the site</span>
-              <span className="text-xs font-medium text-white/75">$3+</span>
+              <span className="text-xs font-medium text-white/75">{supporterPrice}</span>
             </Link>
 
             {/* Account + theme controls — mirror the desktop right rail so
@@ -595,7 +618,7 @@ export function TopNav({
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
                   >
                     <Gem size={16} aria-hidden />
-                    Plans
+                    Billing
                   </Link>
                 </div>
               ) : (

@@ -9,7 +9,9 @@ import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { MEMBERS } from "@/lib/members";
 import { HouseWeekPulse } from "@/components/watch/MemberPulse";
 import { Button } from "@/components/base/buttons/button";
+import { BillingSummaryCard } from "@/components/account/BillingSummaryCard";
 import { CreditCard01, Settings01, Trophy01 } from "@untitledui/icons";
+import { publicDisplayName } from "@/lib/profile-display";
 
 export default function AccountPage() {
   const { user, loading, logout } = useAuth();
@@ -34,14 +36,14 @@ export default function AccountPage() {
 
   return (
     <>
-      <main className="mx-auto max-w-3xl px-6 py-12 md:py-20">
+      <main className="mx-auto max-w-5xl px-5 py-10 sm:px-6 lg:px-8 lg:py-16">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
-              Membership
+              Account
             </p>
-            <h1 className="mt-4 font-display text-[32px] font-semibold tracking-[-0.03em] text-[color:var(--ink)] md:text-[48px]">
-              {user.displayName}
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--ink)] md:text-4xl">
+              {publicDisplayName(user.displayName)}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -76,6 +78,7 @@ export default function AccountPage() {
         </p>
         <p className="mt-3 text-sm text-[color:var(--ink-dim)]">{user.email}</p>
         <HouseWeekPulse className="mt-3" />
+        <BillingSummaryCard />
 
         <AccountFanZone
           members={MEMBERS.map((m) => ({ slug: m.slug, stageName: m.stageName }))}

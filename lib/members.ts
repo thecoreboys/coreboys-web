@@ -51,6 +51,8 @@ type WebExtras = {
   youtubeChannelId?: string;
   /** Optional public PO box — drives the fan-mail postcard on /about/[slug]. */
   poBox?: PoBox;
+  /** Corrects a published public date when the bundled shared roster is stale. */
+  birthDate?: SharedMember["birthDate"];
 
   // Extended optional fields — surfaced on /about/[slug] when present and
   // editable from /admin/people. Phase 4: persisted in
@@ -120,6 +122,7 @@ const EXTRAS: Record<string, WebExtras> = {
   },
   adapt: {
     stageName: "Adapt",
+    birthDate: "1997-06-05",
     portrait: "/members/adapt/499956978_18510367990012207_3921953249872508742_n.jpg",
     twitchLogin: "adapt",
     comm: { name: "Flock", logo: "/comms/adapt.png" },

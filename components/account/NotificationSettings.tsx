@@ -62,7 +62,7 @@ const CATEGORY_META: ReadonlyArray<{
   {
     key: "community",
     title: "Community & drops",
-    description: "Fan polls, events, merch drops, and account updates.",
+    description: "Fan polls, events, new releases, and account updates.",
     icon: Users01,
   },
   {

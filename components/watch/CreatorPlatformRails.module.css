@@ -318,8 +318,12 @@
 }
 
 .embedFallback {
+  box-sizing: border-box;
   width: calc(100% - 2rem);
+  max-width: calc(100% - 2rem);
+  min-width: 0;
   margin: 0 1rem;
+  overflow: hidden;
   padding: clamp(.85rem, 2vw, 1.25rem);
   border: 1px solid rgba(255, 255, 255, .1);
   border-radius: .85rem;
@@ -353,11 +357,15 @@
 
 .tiktokEmbedFrame {
   width: min(100%, 720px);
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
 }
 
 .tiktokEmbedFrame :global(.tiktok-embed) {
-  width: 100%;
+  width: 100% !important;
+  min-width: min(288px, 100%) !important;
+  max-width: 100% !important;
   margin: 0 auto;
 }
 

@@ -473,13 +473,29 @@ export function dispatchNetworkLiveTakeover(event: RadioNetworkLiveTakeoverEvent
   window.dispatchEvent(new CustomEvent<RadioNetworkLiveTakeoverEvent>(RADIO_NETWORK_LIVE_TAKEOVER_EVENT, { detail: event }));
 }
 
-/** Preloads only static asset metadata. It never starts playback or calls a provider. */
+// Keep a small set of media elements alive so their recorded files stay warm
+// across route changes. This is a browser cache only: it neither starts
+// playback nor calls a provider/TTS service.
+const warmedCueAudio = new Map<string, HTMLAudioElement>();
+
+/** Preloads approved static recordings. It never starts playback or calls a provider. */
 export function preloadRadioCues(cues: readonly Pick<RadioCue, "audioUrl">[]) {
   if (!inBrowser()) return;
   for (const cue of cues.slice(0, 8)) {
     if (!isApprovedRadioAudioUrl(cue.audioUrl)) continue;
+    const source = cue.audioUrl.trim();
+    if (warmedCueAudio.has(source)) continue;
     const audio = new Audio();
-    audio.preload = "metadata";
-    audio.src = cue.audioUrl;
+    audio.preload = "auto";
+    audio.src = source;
+    warmedCueAudio.set(source, audio);
+    // The catalog can contain rotating approved alternatives. Bound retained
+    // elements without evicting the seven immutable fallback recordings.
+    if (warmedCueAudio.size > 24) {
+      const oldestRotatingCue = [...warmedCueAudio.keys()].find((url) => (
+        url !== source && !url.startsWith("/audio/network-tunes/")
+      ));
+      if (oldestRotatingCue) warmedCueAudio.delete(oldestRotatingCue);
+    }
   }
 }

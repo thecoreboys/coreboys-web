@@ -1,6 +1,7 @@
 import type { PassportCosmetic, PublicPassportProfile } from "@/lib/passport/types";
 import { channelLabel, formatCompact } from "@/components/passport/passport-utils";
 import { passportXpForLevel } from "@/lib/passport/policy";
+import { publicDisplayName } from "@/lib/profile-display";
 
 function rarityClass(rarity: string) {
   if (rarity === "legendary") return "border-amber-300/35 bg-amber-300/10 text-amber-100";
@@ -22,6 +23,7 @@ function cosmeticLabel(cosmetic: PassportCosmetic | null) {
 }
 
 export function PublicPassportShowcase({ passport }: { passport: PublicPassportProfile }) {
+  const displayName = publicDisplayName(passport.profile.displayName);
   const visibleAchievements = passport.achievements.filter((achievement) => !achievement.secret || achievement.earned);
   const loadout = passport.identity.loadout;
   const cosmetic = (kind: PassportCosmetic["kind"]) =>
@@ -54,7 +56,7 @@ export function PublicPassportShowcase({ passport }: { passport: PublicPassportP
               style={{ borderColor: cosmeticAccent(frame) ?? accent, boxShadow: `0 0 0 4px ${accent}20` }}
               aria-hidden="true"
             >
-              {passport.profile.displayName.trim().charAt(0).toLocaleUpperCase() || "C"}
+              {displayName.charAt(0).toLocaleUpperCase() || "C"}
             </span>
             <div className="min-w-0">
               <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: accent }}>
@@ -64,7 +66,7 @@ export function PublicPassportShowcase({ passport }: { passport: PublicPassportP
                 className="mt-2 inline-flex max-w-full rounded-full border px-3 py-1 text-sm font-semibold"
                 style={{ borderColor: `${accent}80`, backgroundColor: `${accent}20`, color: accent }}
               >
-                <span className="truncate">{passport.profile.displayName}</span>
+                <span className="truncate">{displayName}</span>
               </span>
               <h2 id="passport-heading" className="mt-2 text-2xl font-semibold tracking-tight text-primary">
                 {activeTitle}
@@ -76,7 +78,7 @@ export function PublicPassportShowcase({ passport }: { passport: PublicPassportP
             Level {passport.profile.level}
           </span>
         </div>
-        <p className="mt-4 text-sm text-tertiary">Moments, achievements, and channel history chosen for this profile.</p>
+        <p className="mt-4 text-sm text-tertiary">Verified records, milestones, and channel history chosen for this profile.</p>
         {equippedVisuals.length ? (
           <div className="mt-4 flex flex-wrap gap-2" aria-label="Equipped Passport identity">
             {equippedVisuals.map((item) => <span key={item.code} className="rounded-full border border-secondary bg-primary px-2.5 py-1 text-[11px] font-semibold text-secondary"><span className="capitalize">{item.kind.replace("_", " ")}</span> · {item.name}</span>)}

@@ -240,7 +240,10 @@ export function MultiPlayerStage({
     setMobileSidebarOpen(false);
   }, []);
   const expandedMultiview = subscription.hasFeature("multiview.expanded");
-  const savedLayoutsAllowed = subscription.hasFeature("multiview.saved_layouts");
+  // Saving a personal room should not be confused with the paid player-count
+  // upgrade. A signed-in fan can always return to their own layout.
+  const savedLayoutsAllowed = subscription.signedIn;
+  const savedLayoutsLabel = subscription.signedIn ? "your account" : "a free account";
   const tileLimit = initialLiveRoom?.tileLimit ?? (expandedMultiview ? 12 : 2);
   const lockedLiveSlots = initialLiveRoom?.lockedSlots ?? [];
 
@@ -545,10 +548,11 @@ export function MultiPlayerStage({
 
   async function save() {
     if (!savedLayoutsAllowed) {
-      showFeatureNotice(
-        "multiview.saved_layouts",
-        `${subscription.requiredPlanName("multiview.saved_layouts")} saves reusable rooms across devices.`,
-      );
+      setNotice({
+        text: "Sign in to save this room to your account.",
+        actionHref: "/login?next=/multiview",
+        actionLabel: "Sign in",
+      });
       return;
     }
     const name = layoutName.trim() || `My ${player.tiles.length || 1}-player layout`;
@@ -692,12 +696,13 @@ export function MultiPlayerStage({
       <div className="mx-auto max-w-[1880px] px-3 py-4 sm:px-5 lg:px-7">
         <header className="mb-3 flex min-h-12 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/7 ring-1 ring-white/10">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,.22),transparent_40%),linear-gradient(145deg,rgba(232,0,105,.9),rgba(104,42,184,.72))] shadow-[0_12px_30px_rgba(232,0,105,.22)] ring-1 ring-white/20">
               <LayoutGrid className="size-4 text-white/70" aria-hidden />
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="truncate text-xs font-semibold tracking-tight text-white/85">{liveRoom || authoritativeLiveRoom ? "CORE Live Room" : "CORE Multiview"}</p>
+                <p className="hidden text-[9px] font-bold uppercase tracking-[.16em] text-white/38 sm:block">Multiview desk</p>
+                <p className="truncate text-sm font-semibold tracking-tight text-white">{liveRoom || authoritativeLiveRoom ? "CORE Live Room" : "Your screening room"}</p>
                 <span className="rounded-full bg-white/7 px-2 py-0.5 text-[9px] tabular-nums text-white/45">
                   {authoritativeLiveRoom
                     ? `${player.tiles.length} playable${lockedLiveSlots.length ? ` · ${lockedLiveSlots.length} locked` : ""}`
@@ -713,7 +718,7 @@ export function MultiPlayerStage({
                   </Link>
                 ) : null}
               </div>
-              <p className="hidden truncate text-[10px] text-white/35 sm:block">{liveRoom || authoritativeLiveRoom ? "Every available CORE live stream and its chat, in one room." : `${player.layoutPreset === "freeform" ? "Freeform room" : WORKSPACE_PRESETS.find((entry) => entry.id === player.layoutPreset)?.description ?? "A cinematic room"} · ${audioLead ? `Audio: ${audioLead.item.memberLabel}` : player.tiles.length ? "Choose an audio lead" : "Add a player to begin"}`}</p>
+              <p className="hidden truncate text-[10px] text-white/42 sm:block">{liveRoom || authoritativeLiveRoom ? "Every available CORE live stream and its chat, in one room." : `${player.layoutPreset === "freeform" ? "Custom layout" : WORKSPACE_PRESETS.find((entry) => entry.id === player.layoutPreset)?.description ?? "A cinematic room"} · ${audioLead ? `Audio lead: ${audioLead.item.memberLabel}` : player.tiles.length ? "Choose an audio lead" : "Add a stream to begin"}`}</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -736,7 +741,7 @@ export function MultiPlayerStage({
               className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-xs font-semibold shadow-xs-skeuomorphic ring-1 ring-inset outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-[.98] md:min-h-10 ${setupOpen ? "bg-white text-black ring-white/90 hover:bg-white/90" : "bg-white/5 text-white/75 ring-white/12 hover:bg-white/10 hover:text-white hover:ring-white/20"}`}
             >
               <SlidersHorizontal className="size-3.5" aria-hidden />
-              <span>Customize</span>
+              <span>Room studio</span>
             </button>
             <IconControlTooltip
               title="Open side panel"
@@ -867,8 +872,8 @@ export function MultiPlayerStage({
           onLayoutName={setLayoutName}
           onSave={() => void save()}
           canSaveLayouts={savedLayoutsAllowed}
-          savedLayoutsHref={subscription.featureHref("multiview.saved_layouts")}
-          savedLayoutsPlan={subscription.requiredPlanName("multiview.saved_layouts")}
+          savedLayoutsHref={subscription.signedIn ? "/account" : "/login?next=/multiview"}
+          savedLayoutsPlan={savedLayoutsLabel}
           liveCount={Math.min(currentLive.length, tileLimit)}
           onAdd={() => { setSetupOpen(false); openSources(); }}
           onFill={() => { fillLive(); setSetupOpen(false); }}
@@ -1060,8 +1065,15 @@ function WorkspaceSidebar({
       role={mobileOpen ? "dialog" : undefined}
       aria-modal={mobileOpen ? "true" : undefined}
       aria-label="Details, Up next, and chat panel"
-      className={`${mobileOpen ? "fixed inset-x-3 bottom-3 z-[80] flex h-[min(72dvh,38rem)]" : "hidden"} min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0e0e11] shadow-[0_28px_100px_rgba(0,0,0,.72)] ${desktopClasses}`}
+      className={`${mobileOpen ? "fixed inset-x-3 bottom-3 z-[80] flex h-[min(72dvh,38rem)]" : "hidden"} min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(160deg,rgba(28,28,34,.98),rgba(12,12,16,.98)_46%,rgba(9,9,12,.98))] shadow-[0_28px_100px_rgba(0,0,0,.72)] ${desktopClasses}`}
     >
+      <div className="hidden shrink-0 items-center justify-between border-b border-white/8 px-3 py-2.5 xl:flex">
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-[.15em] text-white/38">Room companion</p>
+          <p className="mt-0.5 text-[10px] text-white/62">Details, queue, and separate chats.</p>
+        </div>
+        <span className="grid size-7 place-items-center rounded-lg bg-white/6 text-white/50 ring-1 ring-white/10"><PanelRight className="size-3.5" aria-hidden /></span>
+      </div>
       <div className="flex shrink-0 items-center gap-1 border-b border-white/8 p-2">
         <div role="tablist" aria-label="Multiview sidebar" className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl bg-white/[0.035] p-1">
           {SIDEBAR_TABS.map((tab, index) => {
@@ -1232,6 +1244,14 @@ function DetailsPanel({
   onReplace: (tileId: string, opener?: HTMLElement | null) => void;
 }) {
   const player = usePlayer();
+  const makeFocusedMain = () => {
+    if (!focused) return;
+    for (const tile of player.tiles) {
+      const pinned = tile.id === focused.id;
+      if (tile.pinned !== pinned) player.updateTile(tile.id, { pinned });
+    }
+    player.focusTile(focused.id, { takeAudio: false });
+  };
   if (!focused) {
     return <div className="grid h-full min-h-52 place-items-center p-6 text-center text-xs text-white/38">Add a player to see its details.</div>;
   }
@@ -1260,7 +1280,7 @@ function DetailsPanel({
           </div>
         </div>
         <div className="mt-2.5 grid grid-cols-2 gap-2" aria-label="Focused player actions">
-          <button type="button" onClick={() => player.focusTile(focused.id, { takeAudio: false })} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-white px-2 text-[10px] font-semibold text-black transition hover:bg-white/88 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Radio className="size-3.5" aria-hidden /> Make main</button>
+          <button type="button" onClick={makeFocusedMain} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-white px-2 text-[10px] font-semibold text-black transition hover:bg-white/88 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Radio className="size-3.5" aria-hidden /> Make main</button>
           <button type="button" onClick={(event) => onReplace(focused.id, event.currentTarget)} className="min-h-10 rounded-lg px-2 text-[10px] font-semibold text-white/68 ring-1 ring-white/12 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Replace</button>
           <button type="button" onClick={() => player.updateTile(focused.id, { fit: focused.fit === "cover" ? "contain" : "cover" })} className="min-h-9 rounded-lg px-2 text-[10px] font-medium text-white/52 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white">{focused.fit === "cover" ? "Fit video" : "Fill tile"}</button>
           {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-2 text-[10px] font-medium text-white/52 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white">Open source <ExternalLink className="size-3" aria-hidden /></a> : <span />}
@@ -1318,7 +1338,7 @@ function EmptyStage({ liveCount, onAdd, onFill }: { liveCount: number; onAdd: ()
         <p className="mt-2 text-sm leading-6 text-white/45">Start with one title. Add more when you want them—the advanced grid stays out of the way until then.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button type="button" onClick={onAdd} className="min-h-11 rounded-xl bg-white px-5 text-sm font-semibold text-black">Add a player</button>
-          {liveCount ? <button type="button" onClick={onFill} className="min-h-11 rounded-xl px-5 text-sm font-semibold text-white ring-1 ring-white/15">Watch {liveCount} live channel{liveCount === 1 ? "" : "s"}</button> : <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-xl px-5 text-sm font-semibold text-white ring-1 ring-white/15">No one is live · Refresh</button>}
+          {liveCount ? <button type="button" onClick={onFill} className="min-h-11 rounded-xl px-5 text-sm font-semibold text-white ring-1 ring-white/15">Watch live channels</button> : <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-xl px-5 text-sm font-semibold text-white ring-1 ring-white/15">No one is live · Refresh</button>}
         </div>
       </div>
     </section>
@@ -1358,7 +1378,7 @@ function roomTileStyle(tile: WorkspaceTile, density = 12): React.CSSProperties {
  */
 function TheaterRoomSurface({
   tiles,
-  focusedId,
+  focusedId: _focusedId,
   activeIds,
   passportCreditTileId,
   maximizedTileId,
@@ -1388,7 +1408,10 @@ function TheaterRoomSurface({
   onFeedback: (item: Playable, value: WatchFeedbackValue | null) => void;
 }) {
   const player = usePlayer();
-  const main = tiles.find((tile) => tile.id === focusedId) ?? tiles[0] ?? null;
+  // Selection drives details and audio, but never moves the room under the
+  // viewer. A pinned tile is the deliberate main view; otherwise the first
+  // source keeps the main slot until the user promotes another one.
+  const main = tiles.find((tile) => tile.pinned) ?? tiles[0] ?? null;
   const companions = tiles.filter((tile) => tile.id !== main?.id);
   const mainMember = main
     ? MEMBERS.find((entry) => entry.slug === main.item.memberSlug || entry.twitchLogin.toLowerCase() === main.item.twitchLogin?.toLowerCase())
@@ -1655,10 +1678,19 @@ type PlayerTileRuntime = Pick<
   | "removeTile"
   | "setMaximizedTileId"
   | "updateTile"
->;
+> & {
+  makeMain: (id: string, options?: { takeAudio?: boolean }) => void;
+};
 
 function PlayerTile(props: PlayerTileProps) {
   const player = usePlayer();
+  const makeMain = useCallback((id: string, options?: { takeAudio?: boolean }) => {
+    for (const candidate of player.tiles) {
+      const pinned = candidate.id === id;
+      if (candidate.pinned !== pinned) player.updateTile(candidate.id, { pinned });
+    }
+    player.focusTile(id, options);
+  }, [player.focusTile, player.tiles, player.updateTile]);
   const actionsRef = useRef({
     onReplace: props.onReplace,
     onDragStart: props.onDragStart,
@@ -1691,6 +1723,7 @@ function PlayerTile(props: PlayerTileProps) {
     removeTile: player.removeTile,
     setMaximizedTileId: player.setMaximizedTileId,
     updateTile: player.updateTile,
+    makeMain,
   }), [
     player.audioDescription,
     player.captionsEnabled,
@@ -1704,6 +1737,7 @@ function PlayerTile(props: PlayerTileProps) {
     player.removeTile,
     player.setMaximizedTileId,
     player.updateTile,
+    makeMain,
   ]);
 
   return <PlayerTileSurface {...props} {...stableActions} player={runtime} />;
@@ -2008,6 +2042,23 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     ? nativeCandidate
     : null;
   const shape = contentShape(tile.item);
+  const theaterAspect = theater && !mobile
+    ? shape === "portrait"
+      ? "9 / 16"
+      : shape === "square"
+        ? "1 / 1"
+        : "16 / 9"
+    : undefined;
+  // Theater grid cells may be any shape.  The cell owns the layout; this
+  // inner frame owns the provider's native presentation ratio.  Keeping those
+  // concerns separate prevents a 16:9 Twitch or YouTube player from being
+  // stretched by a tall companion cell, while still allowing the CORE control
+  // overlay to use the whole cell.
+  const mediaFrameStyle: React.CSSProperties = shape === "portrait"
+    ? { height: "100%", width: "auto", maxWidth: "100%", aspectRatio: "9 / 16" }
+    : shape === "square"
+      ? { height: "100%", width: "auto", maxWidth: "100%", aspectRatio: "1 / 1" }
+      : { width: "100%", height: "auto", maxHeight: "100%", aspectRatio: "16 / 9" };
 
   // Saved rooms created before muted multiview autoplay was enforced can
   // restore an audible first tile. Browsers reject that first autoplay start,
@@ -2100,7 +2151,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       ref={shellRef}
       style={{
         ...style,
-        aspectRatio: mobile || theater ? undefined : shape === "portrait" ? "9 / 16" : "16 / 9",
+        aspectRatio: mobile ? undefined : theater ? undefined : theaterAspect ?? (shape === "portrait" ? "9 / 16" : "16 / 9"),
         alignSelf: theater ? "stretch" : "start",
       }}
       onDragOver={(event) => event.preventDefault()}
@@ -2132,6 +2183,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         </button>
       ) : photo ? (
         <div className="absolute inset-0 isolate overflow-hidden bg-[#070709]">
+          <div style={mediaFrameStyle} className="absolute left-1/2 top-1/2 overflow-hidden bg-black -translate-x-1/2 -translate-y-1/2">
           <img
             src={photo}
             alt=""
@@ -2139,9 +2191,11 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
             className="absolute inset-[-4%] h-[108%] w-[108%] scale-110 object-cover opacity-30 blur-2xl"
           />
           <img src={photo} alt={tile.item.title} className="absolute inset-0 z-10 h-full w-full object-contain" />
+          </div>
         </div>
       ) : native ? (
-        <video
+        <div style={mediaFrameStyle} className="absolute left-1/2 top-1/2 overflow-hidden bg-black -translate-x-1/2 -translate-y-1/2">
+          <video
           ref={videoRef}
           src={native}
           poster={tile.item.poster || undefined}
@@ -2209,8 +2263,10 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
             />
           ))}
         </video>
+        </div>
       ) : src ? (
-        <iframe
+        <div style={mediaFrameStyle} className="absolute left-1/2 top-1/2 overflow-hidden bg-black -translate-x-1/2 -translate-y-1/2">
+          <iframe
           ref={iframeRef}
           title={tile.item.title}
           src={src}
@@ -2230,6 +2286,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           }}
           className={`pointer-events-none absolute inset-0 h-full w-full ${tile.fit === "cover" ? "scale-[1.02]" : ""}`}
         />
+        </div>
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-[#101014] p-6 text-center">
           <div>
@@ -2277,12 +2334,12 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
             <GripVertical className="size-4" aria-hidden />
           </button>
         </IconControlTooltip>
-        <IconControlTooltip title="Make main player" description="Focus this player without changing the room layout." placement="bottom">
+        <IconControlTooltip title="Make main player" description="Put this player in the main slot without restarting it." placement="bottom">
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              player.focusTile(tile.id, { takeAudio: false });
+              player.makeMain(tile.id, { takeAudio: false });
             }}
             className="pointer-events-auto min-h-11 min-w-0 flex-1 cursor-pointer rounded-lg px-1.5 py-0.5 text-left outline-focus-ring transition duration-100 ease-linear hover:-translate-y-px hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 active:translate-y-0 active:scale-[.995] md:min-h-0"
             aria-label={`Make ${tile.item.title} the main player`}
@@ -2336,8 +2393,12 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           className="absolute right-2 top-14 z-40 max-h-[calc(100%-4rem)] w-56 overflow-y-auto overscroll-contain rounded-xl border border-white/15 bg-[#16161a]/97 p-1.5 text-xs shadow-2xl backdrop-blur-xl [scrollbar-width:thin] md:top-12 md:max-h-[calc(100%-3.5rem)]"
           onClick={(event) => event.stopPropagation()}
         >
-          <MenuButton icon={Radio} label="Make main + take audio" onClick={() => player.focusTile(tile.id, { takeAudio: true })} />
-          <MenuButton icon={tile.pinned ? PinOff : Pin} label={tile.pinned ? "Unpin player" : "Pin player"} onClick={() => player.updateTile(tile.id, { pinned: !tile.pinned })} />
+          <MenuButton icon={Radio} label="Make main + take audio" onClick={() => player.makeMain(tile.id, { takeAudio: true })} />
+          <MenuButton
+            icon={tile.pinned ? PinOff : Pin}
+            label={tile.pinned ? "Unpin main player" : "Pin as main player"}
+            onClick={() => tile.pinned ? player.updateTile(tile.id, { pinned: false }) : player.makeMain(tile.id, { takeAudio: false })}
+          />
           <MenuButton icon={LayoutGrid} label={tile.fit === "cover" ? "Fit whole video" : "Fill tile"} onClick={() => player.updateTile(tile.id, { fit: tile.fit === "cover" ? "contain" : "cover" })} />
           <MenuButton
             icon={Plus}
@@ -2419,10 +2480,10 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
             />
             <TileButton
               label="Make main"
-              description="Focus this player without changing the room grid."
+              description="Place this player in the main slot without restarting it."
               icon={Radio}
-              onClick={() => player.focusTile(tile.id, { takeAudio: false })}
-              active={focused}
+              onClick={() => player.makeMain(tile.id, { takeAudio: false })}
+              active={tile.pinned}
             />
           </div>
           <span className="pointer-events-none rounded-full bg-black/55 px-2 py-1 text-[9px] font-medium text-white/60 ring-1 ring-white/10">CORE controls</span>
@@ -2977,12 +3038,12 @@ function studioTiles(snapshot: StudioWorkspaceSnapshot): RoomLayoutTile[] {
   const density = studioDensity(snapshot);
   const raw = snapshot.tiles.map((tile) => ({ id: tile.id, rect: roomTileRect(tile, density, density) }));
   // Mirror the Theater surface exactly while a preset is still untouched:
-  // changing the focused source should show it in the cinematic slot before a
-  // user starts a direct manipulation. Once any geometry is edited, the
-  // saved rectangles take over and stay literal.
+  // the pinned main source owns the cinematic slot, while simple selection
+  // only changes details and audio. Once any geometry is edited, the saved
+  // rectangles take over and stay literal.
   return roomLayoutMatchesPreset(snapshot.preset, raw, density)
     ? resolvePresetRoomLayout(snapshot.preset, raw, {
-        focusedId: snapshot.focusedTileId,
+        focusedId: snapshot.tiles.find((tile) => tile.pinned)?.id ?? snapshot.tiles[0]?.id ?? null,
         snapDensity: density,
       })
     : raw;
@@ -3567,7 +3628,7 @@ function RoomStudio({
           <aside className={`order-3 min-h-0 shrink-0 overflow-y-auto border-t border-white/8 bg-[#101014] transition-[max-height] lg:border-l lg:border-t-0 ${inspectorOpen ? "max-h-[42dvh] lg:max-h-none" : "max-h-12 lg:max-h-none"}`}>
             <div className={`flex min-h-12 items-center gap-2 border-b border-white/8 px-3 ${inspectorOpen ? "justify-between" : "justify-center"}`}><p className={inspectorOpen ? "text-[10px] font-semibold text-white/72" : "sr-only"}>Inspector</p><button type="button" aria-expanded={inspectorOpen} onClick={() => setInspectorOpen((value) => !value)} className="rounded-lg px-2 py-1 text-[9px] font-semibold text-white/45 hover:bg-white/8 hover:text-white">{inspectorOpen ? "Collapse" : "Open"}</button></div>
             {inspectorOpen ? <div className="p-3"><div className="grid grid-cols-5 rounded-xl bg-white/[.035] p-1 ring-1 ring-white/8">{(["layout", "chat", "playback", "audio", "saved"] as StudioTab[]).map((entry) => <button key={entry} type="button" onClick={() => setTab(entry)} aria-pressed={tab === entry} className={`min-h-9 rounded-lg px-1 text-[9px] font-semibold capitalize transition ${tab === entry ? "bg-white text-black" : "text-white/42 hover:text-white"}`}>{entry === "playback" ? "Play" : entry}</button>)}</div>
-              {tab === "layout" ? <div className="mt-4 space-y-3"><div><p className="text-xs font-semibold">{activeTile ? activeTile.item.memberLabel : "Theater layout"}</p><p className="mt-1 text-[10px] leading-4 text-white/42">Select a view to move, resize, promote, or remove it.</p></div><SettingRange label={`Snap density · ${density}`} min={4} max={24} value={density} onBegin={beginInspectorEdit} onChange={(value) => updateDraft((current) => ({ ...current, snapDensity: value, columns: value }))} onCommit={commitInspectorEdit} />{activeTile ? <><button type="button" onClick={() => setDraftAndCommit({ ...draftRef.current, focusedTileId: activeTile.id })} className="min-h-10 w-full rounded-xl bg-white px-3 text-left text-[10px] font-semibold text-black">Make main</button><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setTileRect(activeTile.id, { width: studioTileRect(activeTile, draftRef.current).width - 1 / density })} className="min-h-10 rounded-xl text-[10px] font-semibold text-white/65 ring-1 ring-white/10 hover:bg-white/8">Narrower</button><button type="button" onClick={() => setTileRect(activeTile.id, { width: studioTileRect(activeTile, draftRef.current).width + 1 / density })} className="min-h-10 rounded-xl text-[10px] font-semibold text-white/65 ring-1 ring-white/10 hover:bg-white/8">Wider</button></div><button type="button" onClick={() => { const before = cloneStudioSnapshot(draftRef.current); const next = { ...before, tiles: before.tiles.filter((tile) => tile.id !== activeTile.id), focusedTileId: before.tiles.find((tile) => tile.id !== activeTile.id)?.id ?? null }; setSelected(next.focusedTileId ?? "chat"); setDraftAndCommit(next); }} className="min-h-10 w-full rounded-xl bg-red-500/10 px-3 text-left text-[10px] font-semibold text-red-100 ring-1 ring-red-400/20 hover:bg-red-500/15">Remove player</button></> : null}</div> : null}
+              {tab === "layout" ? <div className="mt-4 space-y-3"><div><p className="text-xs font-semibold">{activeTile ? activeTile.item.memberLabel : "Theater layout"}</p><p className="mt-1 text-[10px] leading-4 text-white/42">Select a view to move, resize, make main, or remove it.</p></div><SettingRange label={`Snap density · ${density}`} min={4} max={24} value={density} onBegin={beginInspectorEdit} onChange={(value) => updateDraft((current) => ({ ...current, snapDensity: value, columns: value }))} onCommit={commitInspectorEdit} />{activeTile ? <><button type="button" onClick={() => setDraftAndCommit({ ...draftRef.current, focusedTileId: activeTile.id, tiles: draftRef.current.tiles.map((tile) => ({ ...tile, pinned: tile.id === activeTile.id })) })} className="min-h-10 w-full rounded-xl bg-white px-3 text-left text-[10px] font-semibold text-black">Make main</button><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setTileRect(activeTile.id, { width: studioTileRect(activeTile, draftRef.current).width - 1 / density })} className="min-h-10 rounded-xl text-[10px] font-semibold text-white/65 ring-1 ring-white/10 hover:bg-white/8">Narrower</button><button type="button" onClick={() => setTileRect(activeTile.id, { width: studioTileRect(activeTile, draftRef.current).width + 1 / density })} className="min-h-10 rounded-xl text-[10px] font-semibold text-white/65 ring-1 ring-white/10 hover:bg-white/8">Wider</button></div><button type="button" onClick={() => { const before = cloneStudioSnapshot(draftRef.current); const next = { ...before, tiles: before.tiles.filter((tile) => tile.id !== activeTile.id), focusedTileId: before.tiles.find((tile) => tile.id !== activeTile.id)?.id ?? null }; setSelected(next.focusedTileId ?? "chat"); setDraftAndCommit(next); }} className="min-h-10 w-full rounded-xl bg-red-500/10 px-3 text-left text-[10px] font-semibold text-red-100 ring-1 ring-red-400/20 hover:bg-red-500/15">Remove player</button></> : null}</div> : null}
               {tab === "chat" ? (
                 <div className="mt-4 space-y-3">
                   <div>

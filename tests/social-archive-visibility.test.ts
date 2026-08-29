@@ -45,11 +45,11 @@ test("six-month social archives use bounded catalog reads and cursor-paged X his
   );
   assert.match(
     catalog,
-    /getCoreFeed\(256\)/,
+    /getCoreFeed\(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT\)/,
   );
   assert.match(
     catalog,
-    /getHouseFeed\(512\)/,
+    /getHouseFeed\(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT\)/,
   );
   assert.match(xArchive, /getPersistedPublicXArchive/);
   assert.match(xArchive, /X_SOCIAL_ARCHIVE_PAGE_SIZE/);

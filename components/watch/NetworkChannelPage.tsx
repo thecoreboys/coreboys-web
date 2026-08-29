@@ -4,7 +4,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChevronRight, Clapperboard, Clock3, Mail, Play, Radio, RotateCcw, Zap } from "lucide-react";
+import { ChevronRight, Clapperboard, Clock3, Mail, Play, Radio, RotateCcw, Volume2, VolumeX, Zap } from "lucide-react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import {
   hasNetworkTuningAudio,
@@ -15,7 +15,9 @@ import {
 import { GuideHistory } from "@/components/watch/GuideHistory";
 import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/lib/watch/content-advisory";
 import { SocialIcon } from "@/components/ui/SocialIcon";
+import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { XCommunityShelf } from "@/components/x/XCommunityShelf";
 import { XTweetsRail } from "./XTweetsRail";
 import { GROUP } from "@/lib/group";
@@ -67,6 +69,13 @@ import {
 } from "@/lib/watch/channels";
 import styles from "./NetworkChannelPage.module.css";
 
+export type ChannelCrewMember = {
+  slug: string;
+  name: string;
+  roleLabel: string;
+  portrait: string | null;
+};
+
 // The page needs one full prior cycle available to locate the real program
 // containing "now". The Guide itself remains the schedule authority; this
 // only bounds the client-side projection used by the hero and compact rail.
@@ -88,6 +97,62 @@ const CHANNEL_TV_PACKAGES: Record<string, { signal: string; transmission: string
   marlon: { signal: "M3 LIVE DESK", transmission: "M3 live desk", treatment: "flash signal" },
   jason: { signal: "NMS CHANNEL", transmission: "NMS neon signal", treatment: "neon signal" },
   silky: { signal: "SLG PRIME", transmission: "SLG prime time", treatment: "gold signal" },
+};
+
+/**
+ * The channel landing warning is also DJ Cora's first visual beat.  Keep the
+ * copy explicit and the framing stable per network. The station ID uses the
+ * community artwork, while the age gate uses the dedicated neutral CoreTV
+ * advisory signal so it remains consistent with Theater.
+ */
+const NETWORK_ADVISORY_VISUALS: Record<NetworkChannel["slug"], {
+  station: string;
+  tuningLine: string;
+  artworkAlt: string;
+  focalPoint: string;
+}> = {
+  core: {
+    station: "CORE Network",
+    tuningLine: "DJ Cora is opening the all-house signal.",
+    artworkAlt: "CORE Network house artwork",
+    focalPoint: "50% 50%",
+  },
+  adapt: {
+    station: "Flock",
+    tuningLine: "DJ Cora is tuning the Flock frequency.",
+    artworkAlt: "Flock community artwork for Adapt's network",
+    focalPoint: "50% 50%",
+  },
+  ron: {
+    station: "Stable",
+    tuningLine: "DJ Cora is bringing the Stable signal online.",
+    artworkAlt: "Stable community artwork for StableRonaldo's network",
+    focalPoint: "50% 50%",
+  },
+  lacy: {
+    station: "Thugs",
+    tuningLine: "DJ Cora is patching in the Thugs transmission.",
+    artworkAlt: "Thugs community artwork for Lacy's network",
+    focalPoint: "50% 50%",
+  },
+  marlon: {
+    station: "M3",
+    tuningLine: "DJ Cora is opening the M3 live desk.",
+    artworkAlt: "M3 community artwork for Marlon's network",
+    focalPoint: "50% 50%",
+  },
+  jason: {
+    station: "NMS",
+    tuningLine: "DJ Cora is lighting the NMS channel.",
+    artworkAlt: "NMS community artwork for JasonTheWeen's network",
+    focalPoint: "50% 50%",
+  },
+  silky: {
+    station: "SLG",
+    tuningLine: "DJ Cora is catching the SLG city line.",
+    artworkAlt: "SLG community artwork for Silky's network",
+    focalPoint: "50% 50%",
+  },
 };
 
 function channelTvPackage(slug: string) {
@@ -160,11 +225,19 @@ type ChannelSocialLink = {
   url: string;
   handle?: string;
   label?: string;
-  /** Creator-owned profile image used instead of a generic platform tile. */
+  /**
+   * The public avatar returned by this exact platform.  This deliberately
+   * stays undefined when a provider cannot be resolved: showing the member
+   * portrait in every unresolved tile makes it look as though each account
+   * has the same profile picture.
+   */
   avatarUrl?: string;
 };
 
-function channelSocialLinks(channel: NetworkChannel): ChannelSocialLink[] {
+function channelSocialLinks(
+  channel: NetworkChannel,
+  socialAvatarByUrl: Readonly<Record<string, string>>,
+): ChannelSocialLink[] {
   const member = channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] : null;
   if (member) {
     return member.socials
@@ -174,7 +247,7 @@ function channelSocialLinks(channel: NetworkChannel): ChannelSocialLink[] {
         url: social.url,
         handle: social.handle,
         label: social.label,
-        avatarUrl: member.portrait,
+        avatarUrl: socialAvatarByUrl[social.url],
       }));
   }
   return Object.entries(GROUP.socials)
@@ -183,8 +256,48 @@ function channelSocialLinks(channel: NetworkChannel): ChannelSocialLink[] {
       platform: platform as ChannelSocialPlatform,
       url: social.url,
       handle: social.handle,
-      avatarUrl: channel.artwork,
+      avatarUrl: socialAvatarByUrl[social.url],
     }));
+}
+
+/**
+ * An account card must never substitute the creator's editorial portrait for
+ * a missing provider image.  It either shows the avatar fetched for that
+ * exact account or a recognizable, platform-coloured official-profile mark.
+ * The error boundary is local to the image so an expired CDN URL also falls
+ * back cleanly without leaving a broken image glyph in the tile.
+ */
+function ChannelSocialAvatar({ social }: { social: ChannelSocialLink }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [social.avatarUrl]);
+  const imageSrc = imageFailed ? undefined : social.avatarUrl;
+
+  return (
+    <span
+      className={styles.connectedAccountAvatar}
+      data-platform={social.platform}
+      data-has-image={imageSrc ? "true" : "false"}
+      aria-hidden="true"
+    >
+      {imageSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageSrc}
+          alt=""
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <span className={styles.connectedAccountFallback}>
+          <SocialIcon platform={social.platform} size={18} />
+        </span>
+      )}
+      <span className={styles.connectedAccountPlatformMark}>
+        <SocialIcon platform={social.platform} size={11} />
+      </span>
+    </span>
+  );
 }
 
 function curatedSourceLabel(channel: NetworkChannel, social: ChannelSocialLink): string {
@@ -398,6 +511,35 @@ function PlatformMark({ platform }: { platform: WatchPlatform }) {
   );
 }
 
+function NetworkAdvisoryArtwork({
+  channel,
+  showNetworkArt,
+}: {
+  channel: NetworkChannel;
+  /** Network art is reserved for the Cora station ID; the age gate has its own neutral advisory visual. */
+  showNetworkArt: boolean;
+}) {
+  const visual = NETWORK_ADVISORY_VISUALS[channel.slug];
+  const artworkSrc = showNetworkArt ? channel.backdrop : "/watch/advisory/coretv-mature-audience-station-v2.png";
+  const artworkAlt = showNetworkArt ? visual.artworkAlt : "CoreTV mature audience advisory artwork";
+
+  return (
+    <div className={styles.heroPreviewAdvisoryArtwork} data-network={showNetworkArt ? channel.slug : "advisory"} aria-label={artworkAlt} role="img">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={artworkSrc} alt={artworkAlt} style={showNetworkArt ? { objectPosition: visual.focalPoint } : undefined} />
+      {showNetworkArt ? <span className={styles.heroPreviewAdvisoryArtworkVeil} aria-hidden="true" /> : null}
+      {showNetworkArt ? (
+        <div className={styles.heroPreviewAdvisoryStation} aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={channel.artwork} alt="" />
+          <span>{visual.station}</span>
+          <small>DJ Cora is tuning in</small>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ChannelOnNowPreview({
   channel,
   entry,
@@ -405,7 +547,6 @@ function ChannelOnNowPreview({
   progress,
   autoStart,
   onActivate,
-  onAutoStartBlocked,
   onProgramBoundary,
 }: {
   channel: NetworkChannel;
@@ -414,18 +555,24 @@ function ChannelOnNowPreview({
   progress: number;
   autoStart: boolean;
   onActivate: () => void;
-  onAutoStartBlocked?: () => void;
   /** Lets the linear channel advance on an actual media end without a timer gap. */
   onProgramBoundary?: () => void;
 }) {
   const slotRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const twitchMountRef = useRef<HTMLDivElement>(null);
+  const nativeVideoRef = useRef<HTMLVideoElement>(null);
+  const twitchPlayerRef = useRef<ChannelTwitchInstance | null>(null);
   const advisoryAudioRef = useRef<HTMLAudioElement | null>(null);
   const reactId = useId();
   const twitchMountId = `channel-hero-twitch-${reactId.replace(/[^a-z0-9_-]/gi, "")}`;
   const nativeAutoplayAttemptedRef = useRef(false);
   const playbackStartedRef = useRef(false);
+  const retryBlockedTimerRef = useRef<number | null>(null);
+  // Muted playback is the only cross-browser autoplay-safe starting state.
+  // Viewers can restore sound with the owned control after the stream starts.
+  const mutedRef = useRef(true);
+  const explicitMuteChoiceRef = useRef(false);
   const player = usePlayer();
   const reducedMotion = useReducedMotion();
   const playable = useMemo(() => itemToPlayable(entry.item), [entry.item]);
@@ -437,13 +584,33 @@ function ChannelOnNowPreview({
   const [loaded, setLoaded] = useState(false);
   const [frameReadyToken, setFrameReadyToken] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(true);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [advisoryReady, setAdvisoryReady] = useState(!autoStart);
-  const [advisoryNeedsGesture, setAdvisoryNeedsGesture] = useState(false);
   const [waitingForTuningAudio, setWaitingForTuningAudio] = useState(false);
   // This component is keyed to the program window, so the embed starts at the
   // live clock once and then plays naturally instead of reloading every tick.
   const [previewStartSeconds] = useState(initialStartSeconds);
+
+  const setHeroMuted = useCallback((next: boolean) => {
+    mutedRef.current = next;
+    setMuted(next);
+  }, []);
+
+  const postFrameMuted = useCallback((next: boolean, requestPlay = false) => {
+    const target = frameRef.current?.contentWindow;
+    if (!target) return;
+    if (playable?.youtubeId) {
+      target.postMessage(JSON.stringify({ event: "listening", id: `core-channel-${entry.key}` }), "*");
+      target.postMessage(JSON.stringify({ event: "command", func: next ? "mute" : "unMute", args: [] }), "*");
+      if (requestPlay) target.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
+      return;
+    }
+    if (entry.item.platform === "tiktok") {
+      target.postMessage({ "x-tiktok-player": true, type: next ? "mute" : "unmute" }, "*");
+      if (requestPlay) target.postMessage({ "x-tiktok-player": true, type: "play" }, "*");
+    }
+  }, [entry.item.platform, entry.key, playable?.youtubeId]);
 
   useEffect(() => {
     setHost({ parent: window.location.hostname, origin: window.location.origin });
@@ -491,11 +658,10 @@ function ChannelOnNowPreview({
   const startAdvisory = useCallback(() => {
     const audio = advisoryAudioRef.current;
     if (!audio) return;
-    void audio.play().then(() => setAdvisoryNeedsGesture(false)).catch(() => {
+    void audio.play().catch(() => {
       // Audible autoplay is routinely rejected even though muted video is
       // allowed. The advisory must never strand a 24/7 channel on a poster;
       // keep the visual notice briefly, then continue into muted playback.
-      setAdvisoryNeedsGesture(false);
       window.setTimeout(() => setAdvisoryReady(true), 1_400);
     });
   }, []);
@@ -509,8 +675,12 @@ function ChannelOnNowPreview({
       setWaitingForTuningAudio(false);
       return;
     }
+    // Tuning is an entry transition, not part of the once-per-session
+    // advisory. Even when the advisory has already been acknowledged, keep
+    // the hero provider unmounted until DJ Cora's station ID is finished.
+    const needsAdvisory = !hasAcknowledgedContentAdvisory();
+    if (needsAdvisory) acknowledgeContentAdvisory();
     setAdvisoryReady(false);
-    setAdvisoryNeedsGesture(false);
     setWaitingForTuningAudio(hasNetworkTuningAudio());
     let disposed = false;
     let audio: HTMLAudioElement | null = null;
@@ -518,12 +688,15 @@ function ChannelOnNowPreview({
       await waitForNetworkTuningAudio();
       if (disposed) return;
       setWaitingForTuningAudio(false);
+      if (!needsAdvisory) {
+        setAdvisoryReady(true);
+        return;
+      }
       audio = new Audio("/brand/content-advisory.mp3");
       audio.preload = "auto";
       advisoryAudioRef.current = audio;
       const complete = () => {
         setAdvisoryReady(true);
-        setAdvisoryNeedsGesture(false);
       };
       audio.addEventListener("ended", complete, { once: true });
       audio.addEventListener("error", complete, { once: true });
@@ -586,13 +759,19 @@ function ChannelOnNowPreview({
     setLoaded(false);
     setFrameReadyToken(0);
     setPlaying(false);
+    setHeroMuted(true);
     setAutoplayBlocked(false);
     playbackStartedRef.current = false;
     nativeAutoplayAttemptedRef.current = false;
-  }, [directVideoUrl, frameSrc]);
+    explicitMuteChoiceRef.current = false;
+  }, [directVideoUrl, frameSrc, setHeroMuted]);
 
   const markPlaying = useCallback(() => {
     playbackStartedRef.current = true;
+    if (retryBlockedTimerRef.current !== null) {
+      window.clearTimeout(retryBlockedTimerRef.current);
+      retryBlockedTimerRef.current = null;
+    }
     setLoaded(true);
     setPlaying(true);
     setAutoplayBlocked(false);
@@ -601,12 +780,52 @@ function ChannelOnNowPreview({
   const markAutoplayBlocked = useCallback(() => {
     if (playbackStartedRef.current) return;
     setAutoplayBlocked(true);
-    if (autoStart) onAutoStartBlocked?.();
-  }, [autoStart, onAutoStartBlocked]);
+    // Keep the exact scheduled item mounted. A blocked autoplay gets an
+    // owned retry/sound action instead of silently substituting another
+    // program from later in the 24/7 rotation.
+  }, []);
+
+  const setProviderMuted = useCallback((next: boolean, requestPlay = false) => {
+    setHeroMuted(next);
+    try {
+      const video = nativeVideoRef.current;
+      if (video) {
+        video.muted = next;
+        if (requestPlay) void video.play().then(markPlaying).catch(markAutoplayBlocked);
+      }
+      twitchPlayerRef.current?.setMuted?.(next);
+      if (requestPlay) twitchPlayerRef.current?.play?.();
+    } catch {
+      // The provider can be replacing its own iframe. The next retry or a
+      // deliberate viewer click will reapply the desired mute state.
+    }
+    postFrameMuted(next, requestPlay);
+  }, [markAutoplayBlocked, markPlaying, postFrameMuted, setHeroMuted]);
+
+  const toggleHeroMute = useCallback(() => {
+    explicitMuteChoiceRef.current = true;
+    setProviderMuted(!mutedRef.current, true);
+  }, [setProviderMuted]);
+
+  const retryHeroPlayback = useCallback(() => {
+    // This is a real viewer gesture, so retry the original program with
+    // sound. It must not alter the 24/7 schedule or substitute another item.
+    explicitMuteChoiceRef.current = true;
+    setAutoplayBlocked(false);
+    setProviderMuted(false, true);
+    if (retryBlockedTimerRef.current !== null) window.clearTimeout(retryBlockedTimerRef.current);
+    retryBlockedTimerRef.current = window.setTimeout(() => {
+      if (!playbackStartedRef.current) setAutoplayBlocked(true);
+    }, 3_000);
+  }, [setProviderMuted]);
+
+  useEffect(() => () => {
+    if (retryBlockedTimerRef.current !== null) window.clearTimeout(retryBlockedTimerRef.current);
+  }, []);
 
   const requestNativeAutoplay = useCallback((media: HTMLVideoElement) => {
     setLoaded(true);
-    media.muted = true;
+    media.muted = mutedRef.current;
     if (!media.paused) {
       markPlaying();
       return;
@@ -626,9 +845,9 @@ function ChannelOnNowPreview({
     let disposed = false;
     let instance: ChannelTwitchInstance | null = null;
     let playbackAttempts = 0;
-    const maxPlaybackAttempts = 16;
     let playbackHealthTimer: number | null = null;
     let recoveryBlockedTimer: number | null = null;
+    const maxPlaybackAttempts = 16;
     const retryTimers = new Set<number>();
     const clearRetries = () => {
       for (const timer of retryTimers) window.clearTimeout(timer);
@@ -641,19 +860,19 @@ function ChannelOnNowPreview({
       setLoaded(true);
       return true;
     };
-    const requestPlayback = () => {
+    const requestPlayback = (forceMuted = mutedRef.current) => {
       if (disposed || !instance || playbackStartedRef.current || playbackAttempts >= maxPlaybackAttempts) return;
       playbackAttempts += 1;
       prepareIframe();
-      instance.setMuted?.(true);
+      instance.setMuted?.(forceMuted || mutedRef.current);
       instance.play?.();
     };
-    const scheduleRetries = (delays: readonly number[]) => {
+    const scheduleRetries = (delays: readonly number[], forceMuted = mutedRef.current) => {
       const available = Math.max(0, maxPlaybackAttempts - playbackAttempts - retryTimers.size);
       for (const delay of delays.slice(0, available)) {
         const timer = window.setTimeout(() => {
           retryTimers.delete(timer);
-          requestPlayback();
+          requestPlayback(forceMuted);
         }, delay);
         retryTimers.add(timer);
       }
@@ -683,7 +902,12 @@ function ChannelOnNowPreview({
       if (!autoStart || document.visibilityState !== "visible" || !slotIsVisible()) return;
       clearRetries();
       playbackAttempts = 0;
-      scheduleRetries([120, 700, 1_800, 3_200, 5_200, 7_500]);
+      // A provider-owned resume is not a new viewer gesture. Keep it
+      // browser-safe unless the viewer explicitly chose audible playback.
+      if (!explicitMuteChoiceRef.current) {
+        setHeroMuted(true);
+      }
+      scheduleRetries([120, 700, 1_800, 3_200, 5_200, 7_500], true);
       if (recoveryBlockedTimer !== null) window.clearTimeout(recoveryBlockedTimer);
       recoveryBlockedTimer = window.setTimeout(() => {
         if (!disposed && playerIsPaused() === true) markAutoplayBlocked();
@@ -725,17 +949,18 @@ function ChannelOnNowPreview({
           options.time = `${hours}h${minutes}m${seconds}s`;
         }
         instance = new api.Player(twitchMountId, options);
+        twitchPlayerRef.current = instance;
         prepareIframe();
-        scheduleRetries([250, 750, 1_500, 2_800, 4_400, 6_500, 9_000]);
+        scheduleRetries([250, 750, 1_500, 2_800, 4_400, 6_500, 9_000], true);
         instance.addEventListener(api.Player.READY, () => {
-          if (!disposed) scheduleRetries([0, 600, 1_500, 2_800, 4_800]);
+          if (!disposed) scheduleRetries([0, 600, 1_500, 2_800, 4_800], true);
         });
         instance.addEventListener(api.Player.PLAYING, () => {
           if (disposed) return;
           clearRetries();
           window.clearTimeout(blockedTimer);
           if (recoveryBlockedTimer !== null) window.clearTimeout(recoveryBlockedTimer);
-          instance?.setMuted?.(true);
+          instance?.setMuted?.(mutedRef.current);
           markPlaying();
           if (playbackHealthTimer !== null) window.clearTimeout(playbackHealthTimer);
           playbackHealthTimer = window.setTimeout(() => {
@@ -750,10 +975,11 @@ function ChannelOnNowPreview({
           clearRetries();
           prepareIframe();
           // Twitch can emit this while its iframe or an ad is still settling.
-          // Keep the scheduled program mounted and retry muted rather than
-          // replacing the player with a false unavailable state.
+          // Keep the exact scheduled program mounted and retry in the
+          // browser-safe muted state instead of replacing it with a prompt.
+          if (!explicitMuteChoiceRef.current) setHeroMuted(true);
           playbackAttempts = 0;
-          scheduleRetries([250, 800, 1_800, 3_200, 5_200, 7_500]);
+          scheduleRetries([250, 800, 1_800, 3_200, 5_200, 7_500], true);
         });
         instance.addEventListener(api.Player.OFFLINE, () => {
           if (disposed) return;
@@ -783,22 +1009,23 @@ function ChannelOnNowPreview({
       window.removeEventListener("focus", resumeWhenVisible);
       observer.disconnect();
       instance?.destroy?.();
+      if (twitchPlayerRef.current === instance) twitchPlayerRef.current = null;
       mount.replaceChildren();
     };
-  }, [autoStart, host, markAutoplayBlocked, markPlaying, onProgramBoundary, playable, previewStartSeconds, twitchMountId, usesTwitchSdk]);
+  }, [autoStart, host, markAutoplayBlocked, markPlaying, onProgramBoundary, playable, previewStartSeconds, setHeroMuted, twitchMountId, usesTwitchSdk]);
 
   useEffect(() => {
     if (!frameSrc || frameReadyToken === 0) return;
-    const requestProviderAutoplay = () => {
+    const requestProviderAutoplay = (forceMuted = mutedRef.current) => {
       if (playbackStartedRef.current) return;
       const target = frameRef.current?.contentWindow;
       if (!target) return;
       if (playable?.youtubeId) {
         target.postMessage(JSON.stringify({ event: "listening", id: `core-channel-${entry.key}` }), "*");
-        target.postMessage(JSON.stringify({ event: "command", func: "mute", args: [] }), "*");
+        target.postMessage(JSON.stringify({ event: "command", func: forceMuted || mutedRef.current ? "mute" : "unMute", args: [] }), "*");
         target.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
       } else if (entry.item.platform === "tiktok") {
-        target.postMessage({ "x-tiktok-player": true, type: "mute" }, "*");
+        target.postMessage({ "x-tiktok-player": true, type: forceMuted || mutedRef.current ? "mute" : "unmute" }, "*");
         target.postMessage({ "x-tiktok-player": true, type: "play" }, "*");
       }
     };
@@ -807,8 +1034,11 @@ function ChannelOnNowPreview({
     // it frequently found no contentWindow and never retried. Start after the
     // actual load event, then cover provider API boot without remounting the
     // current scheduled program.
-    requestProviderAutoplay();
-    const attempts = [180, 650, 1_400, 2_800].map((delay) => window.setTimeout(requestProviderAutoplay, delay));
+    requestProviderAutoplay(true);
+    const attempts = [180, 650, 1_400, 2_800].map((delay) => window.setTimeout(
+      () => requestProviderAutoplay(true),
+      delay,
+    ));
     const blockedTimer = window.setTimeout(() => {
       markAutoplayBlocked();
     }, 12_000);
@@ -857,7 +1087,7 @@ function ChannelOnNowPreview({
   return (
     <section
       ref={slotRef}
-      className={`${styles.heroPreview} ${loaded ? styles.heroPreviewLoaded : ""} ${autoStart && usesTwitchSdk ? styles.heroPreviewProviderAutoplay : ""}`.trim()}
+      className={`${styles.heroPreview} ${loaded ? styles.heroPreviewLoaded : ""} ${autoStart && usesTwitchSdk && playing ? styles.heroPreviewProviderAutoplay : ""}`.trim()}
       aria-label={`${channel.name} 24/7 on now`}
       data-autoplay={autoStart ? (playing ? "playing" : autoplayBlocked ? "blocked" : "pending") : "preference"}
     >
@@ -870,13 +1100,18 @@ function ChannelOnNowPreview({
         />
         {directVideoUrl ? (
           <video
+            ref={nativeVideoRef}
             src={directVideoUrl}
             autoPlay
-            muted
+            muted={muted}
             playsInline
             preload="metadata"
             onCanPlay={(event) => requestNativeAutoplay(event.currentTarget)}
             onPlaying={markPlaying}
+            onVolumeChange={(event) => {
+              const nextMuted = event.currentTarget.muted || event.currentTarget.volume === 0;
+              if (nextMuted !== mutedRef.current) setHeroMuted(nextMuted);
+            }}
             onEnded={onProgramBoundary}
             onError={markAutoplayBlocked}
           />
@@ -905,10 +1140,30 @@ function ChannelOnNowPreview({
         <strong>{live ? "Live now" : "On now"}</strong>
         <span>{channel.name} 24/7</span>
       </div>
+      {advisoryReady && playable ? (
+        <button
+          type="button"
+          className={styles.heroPreviewSound}
+          aria-pressed={!muted}
+          aria-label={`${muted ? "Turn sound on for" : "Mute"} ${entry.item.title}`}
+          title={muted ? "Turn sound on" : "Mute"}
+          onClick={toggleHeroMute}
+        >
+          {muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
+          <span>{muted ? "Sound off" : "Sound on"}</span>
+        </button>
+      ) : null}
       {!playing ? (
-        <div className={styles.heroPreviewCenter} aria-hidden="true">
-          <span><Play size={23} fill="currentColor" /></span>
-        </div>
+        autoplayBlocked ? (
+          <button type="button" className={styles.heroPreviewRetry} onClick={retryHeroPlayback}>
+            <Play size={16} fill="currentColor" aria-hidden="true" />
+            Try playback
+          </button>
+        ) : (
+          <div className={styles.heroPreviewCenter} aria-hidden="true">
+            <span><Play size={23} fill="currentColor" /></span>
+          </div>
+        )
       ) : null}
       <div className={styles.heroPreviewCopy} aria-hidden="true">
         <span className={styles.heroPreviewKicker}>
@@ -918,7 +1173,7 @@ function ChannelOnNowPreview({
           <em>{channel.name} 24/7</em>
         </span>
         <strong>{entry.item.title}</strong>
-        <span>{autoplayBlocked ? "Signal unavailable · opening next program" : playing ? "Signal live" : "Establishing signal"} · {watchAttributionLabel(entry.item)} · {mediaTypeLabel(entry.item)}</span>
+        <span>{autoplayBlocked ? "Signal unavailable · retry playback" : playing ? "Signal live" : "Establishing signal"} · {watchAttributionLabel(entry.item)} · {mediaTypeLabel(entry.item)}</span>
       </div>
       {!live ? (
         <span className={styles.heroPreviewProgress} aria-hidden="true">
@@ -929,19 +1184,14 @@ function ChannelOnNowPreview({
         <button type="button" className={styles.heroPreviewAction} aria-label={actionLabel} onClick={onActivate} />
       ) : null}
       {!advisoryReady ? (
-        <div className={styles.heroPreviewAdvisory} role="status" aria-live="assertive">
-          <div>
-            <span>Viewer advisory</span>
-            <strong>The following program is intended for audiences ages 13 and older.</strong>
-            <p>Viewer discretion is advised.</p>
-            {waitingForTuningAudio ? (
+        <div className={styles.heroPreviewAdvisory} role="status" aria-live="assertive" aria-label={waitingForTuningAudio ? "DJ Cora is tuning the channel." : "Mature audience advisory. The following program is intended for audiences ages 13 and older. Viewer discretion is advised."}>
+          <NetworkAdvisoryArtwork channel={channel} showNetworkArt={waitingForTuningAudio} />
+          {waitingForTuningAudio ? (
+            <div className={styles.heroPreviewAdvisoryContent}>
+              <small className={styles.heroPreviewAdvisoryTuningLine}>{NETWORK_ADVISORY_VISUALS[channel.slug].tuningLine}</small>
               <button type="button" onClick={skipNetworkTuningAudio}>Skip DJ Cora</button>
-            ) : advisoryNeedsGesture ? (
-              <button type="button" onClick={startAdvisory}>Play advisory</button>
-            ) : (
-              <small>Starting program…</small>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -963,14 +1213,14 @@ export function NetworkChannelRail({
   const headingId = isHomeShelf ? "home-network-channel-heading" : "network-channel-heading";
   const channels = useMemo(() => {
     const order = new Map(preferredMemberSlugs.map((slug, index) => [slug, index]));
-    return [...NETWORK_CHANNELS].sort((left, right) => {
+    return NETWORK_CHANNELS.filter((channel) => !isHomeShelf || channel.slug !== "core").sort((left, right) => {
       if (left.memberSlug === null) return -1;
       if (right.memberSlug === null) return 1;
       const leftRank = order.get(left.memberSlug) ?? Number.MAX_SAFE_INTEGER;
       const rightRank = order.get(right.memberSlug) ?? Number.MAX_SAFE_INTEGER;
       return leftRank - rightRank;
     });
-  }, [preferredMemberSlugs]);
+  }, [isHomeShelf, preferredMemberSlugs]);
   return (
     <section
       id={isHomeShelf ? "core-channels" : undefined}
@@ -1020,7 +1270,11 @@ export function NetworkChannelRail({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={channel.backdrop} alt="" className={styles.homeChannelBackdrop} />
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={channel.artwork} alt="" className={styles.homeChannelArtwork} />
+            {channel.slug === "core" ? (
+              <CoreWordmark className={styles.homeCoreWordmark} />
+            ) : (
+              <img src={channel.artwork} alt="" className={styles.homeChannelArtwork} />
+            )}
             <span className={styles.homeChannelCopy}>
               <strong>{channel.name}</strong>
               <small>{channel.host}</small>
@@ -1046,6 +1300,8 @@ export function NetworkChannelPage({
   xCommunityKey,
   ownerXPosts,
   galleryPhotos,
+  team,
+  socialAvatarByUrl,
 }: {
   channel: NetworkChannel;
   mode: NetworkChannelMode;
@@ -1056,18 +1312,26 @@ export function NetworkChannelPage({
   twitchTracker: TwitchTrackerChannelSnapshot[];
   airtimeFallback: AirtimeHistorySession[];
   archivedDaily: AirtimeDailyRecord[];
-  sourceDiagnostics: CuratedChannelSourceDiagnostic[];
+  /** Token-free server diagnostics for official Instagram and TikTok feeds. */
+  sourceDiagnostics: readonly CuratedChannelSourceDiagnostic[];
   xCommunityKey: XCommunityKey;
   ownerXPosts: WatchHomeXPost[];
   /** Curated server-side photo selection shared with the creator's /about page. */
   galleryPhotos: readonly string[];
+  /** Canonical crew roster scoped to this channel's creator. */
+  team: readonly ChannelCrewMember[];
+  /** Official per-platform profile images keyed by the social profile URL. */
+  socialAvatarByUrl: Readonly<Record<string, string>>;
 }) {
   const router = useRouter();
   const player = usePlayer();
   const viewer = useBrowserTimeZone();
   const member = channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] : null;
   const memberAge = member ? ageFromIso(member.birthDate) : null;
-  const socialLinks = useMemo(() => channelSocialLinks(channel), [channel]);
+  const socialLinks = useMemo(
+    () => channelSocialLinks(channel, socialAvatarByUrl),
+    [channel, socialAvatarByUrl],
+  );
   const sourceDescriptors = useMemo(
     () => curatedSources(channel, socialLinks, sourceDiagnostics, hub.all),
     [channel, hub.all, socialLinks, sourceDiagnostics],
@@ -1080,13 +1344,8 @@ export function NetworkChannelPage({
     () => hub.all.filter((item) => item.platform !== "x"),
     [hub.all],
   );
-  const connectedPlatformCount = useMemo(
-    () => new Set(hub.all.map((item) => item.platform)).size,
-    [hub.all],
-  );
   const parsedNow = Date.parse(serverNow);
   const [now, setNow] = useState(Number.isFinite(parsedNow) ? parsedNow : 0);
-  const [autoplayFallbackKey, setAutoplayFallbackKey] = useState<string | null>(null);
   const [completedLiveInterruptions, setCompletedLiveInterruptions] = useState<CompletedLiveInterruption[]>([]);
   /**
    * This only remembers the previously rendered 24/7 program. It deliberately
@@ -1275,28 +1534,11 @@ export function NetworkChannelPage({
     void announceAfterStationId();
     return () => { cancelled = true; };
   }, [channel, continuousEntry, mode, player.current]);
-  const autoplayFallbackEntry = useMemo(() => {
-    if (!continuousEntry) return null;
-    const candidates = continuousSchedule.slice(1).filter((entry) => (
-      entry.key !== continuousEntry.key
-      && entry.item.platform !== "twitch"
-      && Boolean(itemToPlayable(entry.item))
-    ));
-    return candidates.find((entry) => entry.item.platform === "youtube") ?? candidates[0] ?? null;
-  }, [continuousEntry, continuousSchedule]);
-  const previewEntry = autoplayFallbackKey
-    ? continuousSchedule.find((entry) => entry.key === autoplayFallbackKey) ?? continuousEntry
-    : continuousEntry;
+  // A 24/7 channel must stay on the scheduled program even if a provider
+  // rejects autoplay. The hero owns its retry + sound controls rather than
+  // replacing the title with a later queue item behind the viewer's back.
+  const previewEntry = continuousEntry;
   const displayedCurrent = mode === "continuous" && previewEntry ? previewEntry.item : current;
-  const autoplayFallbackEntryKey = autoplayFallbackEntry?.key ?? null;
-  useEffect(() => {
-    setAutoplayFallbackKey(null);
-  }, [channel.slug, continuousEntry?.key, mode]);
-  const handleAutoStartBlocked = useCallback(() => {
-    if (mode === "continuous" && autoplayFallbackEntryKey) {
-      setAutoplayFallbackKey(autoplayFallbackEntryKey);
-    }
-  }, [autoplayFallbackEntryKey, mode]);
   const advanceHeroSchedule = useCallback(() => {
     // Native media tells us its exact end point. Refreshing the shared clock
     // here removes the otherwise-visible one-second handoff gap; the schedule
@@ -1331,13 +1573,14 @@ export function NetworkChannelPage({
   const continuousProgress = previewEntry
     ? Math.min(1, Math.max(0, (now - previewEntry.startsAt) / (previewEntry.endsAt - previewEntry.startsAt)))
     : 0;
-  const continuousCurrentProgress = continuousEntry
-    ? Math.min(1, Math.max(0, (now - continuousEntry.startsAt) / (continuousEntry.endsAt - continuousEntry.startsAt)))
-    : 0;
   const onAirEntry = mode === "continuous" ? continuousEntry : currentEntry;
-  const onAirProgress = mode === "continuous" ? continuousCurrentProgress : progress;
-  const hasRealOnAirWindow = onAirEntry?.current === true
-    && (onAirEntry.item.kind === "live" || onAirEntry.item.format === "live");
+  // A current provider live stream has no authoritative end. The 24/7
+  // scheduler keeps an internal forecast only to preserve the interrupted
+  // rotation; never expose that forecast as a duration, progress meter, or
+  // countdown to viewers.
+  const hasOpenEndedLiveOnAir = onAirEntry?.current === true && isLiveMedia(onAirEntry.item);
+  const hasContinuousLiveInterruption = mode === "continuous"
+    && Boolean(continuousEntry && isLiveMedia(continuousEntry.item));
   const tuneLabel = tuned
     ? "On air · restart"
     : mode === "live" && displayedCurrent !== null && displayedCurrent.kind !== "live"
@@ -1353,6 +1596,7 @@ export function NetworkChannelPage({
     if (!selectedEntry || !continuousItems.length) return;
     const previewPlayable = itemToPlayable(selectedEntry.item);
     const scheduledItems = continuousSchedule.map((entry) => entry.item);
+    const selectedLive = isLiveMedia(selectedEntry.item);
     const channelWithAiring = previewPlayable ? {
       ...continuousContext,
       airing: {
@@ -1360,10 +1604,11 @@ export function NetworkChannelPage({
         network: channel.name,
         channel: "24/7",
         startsAt: new Date(selectedEntry.startsAt).toISOString(),
-        endsAt: new Date(selectedEntry.endsAt).toISOString(),
-        status: selectedEntry.item.kind === "live" || selectedEntry.item.format === "live"
-          ? "live" as const
-          : "published" as const,
+        // The linear guide's projected handoff is implementation detail for
+        // a real live broadcast. Omitting it prevents every player surface
+        // from presenting an invented ending time.
+        ...(selectedLive ? {} : { endsAt: new Date(selectedEntry.endsAt).toISOString() }),
+        status: selectedLive ? "live" as const : "published" as const,
         continuous: true,
       },
     } : continuousContext;
@@ -1411,8 +1656,12 @@ export function NetworkChannelPage({
               aria-label={`Tune to ${entry.name}`}
               title={`${entry.name} · ${entry.host}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={entry.artwork} alt="" />
+              {entry.slug === "core" ? (
+                <CoreWordmark className={styles.dialCoreWordmark} />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={entry.artwork} alt="" />
+              )}
               <span>{entry.name}</span>
             </Link>
           ))}
@@ -1429,8 +1678,12 @@ export function NetworkChannelPage({
         </div>
         {/* Large, intentionally translucent station bug: the backdrop remains
             the star while every channel still gets a recognizable broadcast identity. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className={styles.heroBug} src={channel.artwork} alt="" aria-hidden />
+        {channel.slug === "core" ? (
+          <CoreWordmark className={`${styles.heroBug} ${styles.heroCoreWordmark}`} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={styles.heroBug} src={channel.artwork} alt="" aria-hidden />
+        )}
         {isCreatorBirthday && member ? (
           <div className={styles.birthdayHeroCelebration} role="status" aria-label={`Happy birthday, ${member.stageName}!`}>
             <span className={styles.birthdayHeroBalloon} aria-hidden />
@@ -1441,8 +1694,12 @@ export function NetworkChannelPage({
         ) : null}
         <div className={styles.heroCopy}>
           <div className={styles.identity}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className={styles.identityLogo} src={channel.artwork} alt="" />
+            {channel.slug === "core" ? (
+              <CoreWordmark className={styles.identityCoreWordmark} />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className={styles.identityLogo} src={channel.artwork} alt="" />
+            )}
             <span>
               <span className={styles.eyebrow}>{tvPackage.signal}</span>
               <strong>{channel.name}</strong>
@@ -1486,23 +1743,20 @@ export function NetworkChannelPage({
             progress={mode === "continuous" ? continuousProgress : progress}
             autoStart
             onActivate={mode === "continuous" ? tuneContinuous : () => tune(heroPreviewEntry.item)}
-            onAutoStartBlocked={handleAutoStartBlocked}
             onProgramBoundary={mode === "continuous" ? advanceHeroSchedule : undefined}
           />
         ) : null}
       </header>
 
-      {hasRealOnAirWindow && onAirEntry ? (
+      {hasOpenEndedLiveOnAir && onAirEntry ? (
         <div className={styles.onAirBar}>
-          <span style={{ width: `${Math.round(onAirProgress * 100)}%` }} />
           <div>
             <strong>LIVE</strong>
             <span>
               {viewer.ready
-                ? `${timeLabel(onAirEntry.startsAt, viewer.locale, viewer.timeZone)}–${timeLabel(onAirEntry.endsAt, viewer.locale, viewer.timeZone)} ${zoneLabel(viewer.locale, viewer.timeZone, onAirEntry.startsAt)}`
-                : "Local time"}
+                ? `Live since ${timeLabel(onAirEntry.startsAt, viewer.locale, viewer.timeZone)} ${zoneLabel(viewer.locale, viewer.timeZone, onAirEntry.startsAt)}`
+                : "Live now"}
             </span>
-            <small>{Math.max(1, Math.round((onAirEntry.endsAt - now) / 60_000))} min remaining</small>
           </div>
         </div>
       ) : null}
@@ -1522,7 +1776,9 @@ export function NetworkChannelPage({
             ) : continuousSchedule.length ? (
               <span className={styles.loopBadge}>
                 <Clock3 size={12} aria-hidden />
-                {viewer.ready
+                {hasContinuousLiveInterruption
+                  ? "Live interruption active"
+                  : viewer.ready
                   ? `Scheduled through ${timeLabel(continuousSchedule[continuousSchedule.length - 1]!.endsAt, viewer.locale, viewer.timeZone)}`
                   : "Upcoming schedule"}
               </span>
@@ -1534,10 +1790,8 @@ export function NetworkChannelPage({
               <div className={styles.continuousGuideToolbar}>
                 <span><Radio size={12} aria-hidden /> Timeline · local time</span>
                 <span>
-                  {continuousEntry && (continuousEntry.item.kind === "live" || continuousEntry.item.format === "live")
-                    ? viewer.ready
-                      ? `Live now · rotation resumes ${timeLabel(continuousEntry.endsAt, viewer.locale, viewer.timeZone)}`
-                      : "Live now · rotation resumes after broadcast"
+                  {hasContinuousLiveInterruption
+                    ? "Live now · rotation paused"
                     : "Drag to browse the scheduled rotation"}
                 </span>
               </div>
@@ -1678,11 +1932,46 @@ export function NetworkChannelPage({
                   name: member.stageName,
                   accent: member.accent,
                   avatarUrl: member.portrait,
-                  href: `/about/${member.slug}`,
+                  href: `/channels/${member.slug}`,
                 },
               ]}
             />
           </div>
+        </section>
+      ) : null}
+
+      {team.length > 0 ? (
+        <section className={styles.teamSection} aria-labelledby="channel-team-heading">
+          <div className={styles.teamSectionHeading}>
+            <div>
+              <span className={styles.eyebrow}>Behind the camera</span>
+              <h2 id="channel-team-heading">{member ? `${member.stageName}'s crew.` : "The CORE crew."}</h2>
+            </div>
+            <p>
+              The people who help make this channel happen.
+            </p>
+          </div>
+          <ul className={styles.teamGrid}>
+            {team.map((crew) => (
+              <li key={crew.slug}>
+                <Link href={`/crew/${crew.slug}` as never} className={styles.teamCard}>
+                  <span className={styles.teamPortrait}>
+                    {crew.portrait ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={crew.portrait} alt="" />
+                    ) : (
+                      <span aria-hidden>{crew.name.split(" ").map((part) => part[0]).filter(Boolean).slice(0, 2).join("")}</span>
+                    )}
+                  </span>
+                  <span className={styles.teamCardCopy}>
+                    <small>{crew.roleLabel}</small>
+                    <strong>{crew.name}</strong>
+                    <span>View profile <ChevronRight size={13} aria-hidden /></span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
@@ -1729,10 +2018,6 @@ export function NetworkChannelPage({
               <h2 id="channel-hub-heading">
                 {channel.memberSlug === null ? "Everything across CORE" : `Everything from ${channel.host}`}
               </h2>
-              <p>
-                {hub.all.length} latest item{hub.all.length === 1 ? "" : "s"} from {connectedPlatformCount} active
-                platform{connectedPlatformCount === 1 ? "" : "s"} · {socialLinks.length} connected source{socialLinks.length === 1 ? "" : "s"}.
-              </p>
               {member ? (
                 <dl className={styles.creatorProfileMeta} aria-label={`${member.stageName} profile details`}>
                   <div>
@@ -1755,11 +2040,6 @@ export function NetworkChannelPage({
               ) : null}
             </div>
           </div>
-          {member ? (
-            <Link href={`/about/${member.slug}` as never} className={styles.profileLink}>
-              Full member profile <ChevronRight size={15} aria-hidden />
-            </Link>
-          ) : null}
         </div>
 
         {member?.managementEmail ? (
@@ -1779,6 +2059,7 @@ export function NetworkChannelPage({
 
         {socialLinks.length ? (
           <div className={styles.connectedAccounts} aria-label={`${channel.host} official platform profiles`}>
+            <p className={styles.officialProfilesLabel}>Official profiles</p>
             {socialLinks.map((social) => (
               <a
                 key={`${social.platform}:${social.url}`}
@@ -1786,17 +2067,12 @@ export function NetworkChannelPage({
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.connectedAccount}
+                aria-label={`Open ${CHANNEL_SOCIAL_LABEL[social.platform]} ${social.label ?? social.handle ?? "official profile"}`}
               >
-                <span className={styles.connectedAccountAvatar} aria-hidden="true">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={social.avatarUrl ?? channel.artwork} alt="" />
-                  <span className={styles.connectedAccountPlatformMark}>
-                    <SocialIcon platform={social.platform} size={11} />
-                  </span>
-                </span>
+                <ChannelSocialAvatar social={social} />
                 <span className={styles.connectedAccountCopy}>
                   <strong>{CHANNEL_SOCIAL_LABEL[social.platform]}</strong>
-                  <small>{social.label ?? social.handle ?? "Official profile"}</small>
+                  <small>Official profile · {social.label ?? social.handle ?? channel.host}</small>
                 </span>
                 <ChevronRight size={15} aria-hidden />
               </a>

@@ -8,7 +8,12 @@ import {
   type GuideNetworkGroup,
   type GuideNetworkRow,
 } from "@/lib/watch/channels";
+import { liveTimelineEndMs } from "@/lib/watch/live-schedule";
 import { itemToPlayable } from "@/lib/watch/playable";
+import {
+  theaterGuideProgramExpandedWidth,
+  theaterGuideProgramWidth,
+} from "@/lib/watch/theater-guide-layout";
 import type { WatchItem, WatchPlatform } from "@/lib/watch/types";
 import { DragScrollRail } from "./DragScrollRail";
 
@@ -47,7 +52,10 @@ type TimelineEntry = {
   now?: boolean;
 };
 
-const ROW_HEIGHT = 86;
+// Give cover art and a two-line title a dependable lane. Tiny timeline blocks
+// remain time-positioned, but their card never collapses into an unreadable
+// thumbnail-only target.
+const ROW_HEIGHT = 104;
 const MINUTES_WIDTH = 1.16;
 const SCHEDULE_REFRESH_MS = 30 * 1_000;
 
@@ -73,8 +81,11 @@ function isProgramInRow(program: GuideProgram, row: GuideNetworkRow): boolean {
 function endOf(program: TimelineEntry, now: number): number {
   const start = Date.parse(program.startsAt);
   const explicit = program.endsAt ? Date.parse(program.endsAt) : NaN;
+  // A provider can leave an old scheduled/VOD end attached to a stream that
+  // remains live. Resolve live before accepting an explicit end so its card
+  // cannot slip behind the Now marker while the broadcast is still on air.
+  if (program.status === "live") return liveTimelineEndMs(start, explicit, now);
   if (Number.isFinite(explicit) && explicit > start) return explicit;
-  if (program.status === "live") return Math.max(now + 60 * 60_000, start + 30 * 60_000);
   if (program.continuous) return start + 15 * 60_000;
   if (program.item?.durationSeconds) return start + program.item.durationSeconds * 1_000;
   return start + 20 * 60_000;
@@ -250,11 +261,29 @@ export function TheaterNetworkGuide({ onReturn }: { onReturn: () => void }) {
                     const start = Date.parse(entry.startsAt);
                     const end = endOf(entry, safeNow);
                     const left = Math.max(0, ((Math.max(start, rangeStart) - rangeStart) / 60_000) * MINUTES_WIDTH);
-                    const width = Math.max(84, Math.min(260, ((Math.min(end, rangeEnd) - Math.max(start, rangeStart)) / 60_000) * MINUTES_WIDTH || 150));
+                    const durationWidth = ((Math.min(end, rangeEnd) - Math.max(start, rangeStart)) / 60_000) * MINUTES_WIDTH || 150;
+                    const hasArtwork = Boolean(entry.thumbnailUrl);
+                    const isLive = entry.status === "live";
+                    const width = theaterGuideProgramWidth({ title: entry.title, durationWidth, hasArtwork, isLive });
+                    const expandedWidth = theaterGuideProgramExpandedWidth({ title: entry.title, durationWidth, hasArtwork, isLive });
                     const active = Boolean(entry.item && itemToPlayable(entry.item)?.key === player.current?.key);
                     const entryIsNow = start <= safeNow && safeNow < end;
                     const entryIsPast = !entryIsNow && end <= safeNow;
-                    return <button key={entry.id} type="button" className={`theater-network-guide-program is-${entry.status}${entryIsNow ? " is-now" : ""}${entryIsPast ? " is-past" : ""}${active ? " is-active" : ""}`} style={{ left, width }} onClick={() => tune(row, entry)} title={entry.title}>
+                    // The visible program label is the accessible name. Do not add a
+                    // native `title` attribute here: it produces the browser/Windows
+                    // tooltip on hover, which clashes with the Theater UI.
+                    return <button
+                      key={entry.id}
+                      type="button"
+                      className={`theater-network-guide-program is-${entry.status}${entryIsNow ? " is-now" : ""}${entryIsPast ? " is-past" : ""}${active ? " is-active" : ""}`}
+                      style={{
+                        left,
+                        "--theater-guide-program-width": `${width}px`,
+                        "--theater-guide-program-expanded-width": `${expandedWidth}px`,
+                      } as CSSProperties}
+                      onClick={() => tune(row, entry)}
+                      aria-label={`${entryIsNow || entry.status === "live" ? "Live now" : `Starts ${clock(start)}`}: ${entry.title}. Tune to this program.`}
+                    >
                       {entry.thumbnailUrl ? <img src={entry.thumbnailUrl} alt="" /> : null}
                       <span><i>{entryIsNow || entry.status === "live" ? "LIVE" : clock(start)}</i><strong>{entry.title}</strong></span>
                     </button>;

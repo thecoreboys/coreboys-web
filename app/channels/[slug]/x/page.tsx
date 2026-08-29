@@ -53,6 +53,9 @@ function archivePost(item: FeedItem, channel: NetworkChannel): WatchHomeXPost | 
   if (!Number.isFinite(published) || !text) return null;
 
   const thumbnailUrl = safeHttpsUrl(item.thumbnailUrl);
+  const xAuthorAvatar = safeHttpsUrl(item.x?.authorAvatarUrl);
+  const xAuthorName = item.x?.authorName?.trim();
+  const xAuthorHandle = item.x?.authorHandle?.trim();
   const width = Number.isFinite(item.width) && (item.width ?? 0) > 0 ? item.width! : null;
   const height = Number.isFinite(item.height) && (item.height ?? 0) > 0 ? item.height! : null;
   const orientation = width && height
@@ -71,12 +74,15 @@ function archivePost(item: FeedItem, channel: NetworkChannel): WatchHomeXPost | 
     publishedAt: new Date(published).toISOString(),
     author: {
       slug: channel.memberSlug ?? "core",
-      label: item.authorLabel === "X" ? channel.host : item.authorLabel,
-      handle: `@${handle}`,
-      portrait: channel.artwork,
-      profileUrl: `https://x.com/${handle}`,
+      label: xAuthorName || (item.authorLabel === "X" ? channel.host : item.authorLabel),
+      handle: xAuthorHandle ? `@${xAuthorHandle.replace(/^@/, "")}` : `@${handle}`,
+      // X's profile image is authoritative for an X post. The channel art is
+      // only a last-resort placeholder for older archive rows without X user
+      // metadata, never the default avatar for a hydrated tweet.
+      portrait: xAuthorAvatar ?? channel.artwork,
+      profileUrl: safeHttpsUrl(item.x?.authorProfileUrl) ?? `https://x.com/${handle}`,
       accent: channel.accent,
-      verified: false,
+      verified: item.x?.verified === true,
     },
     media: thumbnailUrl ? [{
       id: `${item.id}-media`,

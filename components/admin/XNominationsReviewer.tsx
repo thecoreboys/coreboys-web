@@ -10,6 +10,16 @@ type Usage = {
   cache: { entries: number; fresh: number; hits: number };
   actions: Record<string, number>;
   readiness: Record<string, boolean | number | string>;
+  snapshot: {
+    state: "fresh" | "stale" | "empty" | "unavailable";
+    refreshedAt: string | null;
+    attemptedAt: string | null;
+    lastError: string | null;
+    itemCount: number;
+    ageMinutes: number | null;
+    refreshIntervalMinutes: number;
+    publicMaxAgeHours: number;
+  };
 };
 
 export function XNominationsReviewer() {
@@ -70,6 +80,19 @@ export function XNominationsReviewer() {
             <Metric label="Pending reservations" value={`$${usage.summary.pendingReservedUsd.toFixed(2)}`} />
             <Metric label="Remaining safety gate" value={`$${usage.summary.remainingGateUsd.toFixed(2)}`} />
             <Metric label="Fresh cache entries" value={`${usage.cache.fresh}/${usage.cache.entries}`} />
+          </div>
+          <div className={`mt-3 rounded-xl border p-4 text-xs ${usage.snapshot.state === "fresh" ? "border-secondary bg-primary text-tertiary" : "border-error-subtle bg-error-primary text-error-primary"}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <strong className="text-primary">Shared roster feed: {usage.snapshot.state}</strong>
+              <span>{usage.snapshot.itemCount} cached posts · refresh target every {usage.snapshot.refreshIntervalMinutes} min</span>
+            </div>
+            <p className="mt-1">
+              {usage.snapshot.refreshedAt
+                ? `Last successful refresh ${new Date(usage.snapshot.refreshedAt).toLocaleString()}${usage.snapshot.ageMinutes !== null ? ` (${usage.snapshot.ageMinutes} min ago)` : ""}.`
+                : "No successful roster refresh has been recorded yet."}
+            </p>
+            {usage.snapshot.lastError ? <p className="mt-1 font-semibold">Latest refresh failure: {usage.snapshot.lastError}</p> : null}
+            {usage.snapshot.state !== "fresh" ? <p className="mt-1">Check the Actions cron log and the production X read-price, credit, and bearer settings; visitor pages never call X directly.</p> : null}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-secondary bg-primary p-4 text-xs text-tertiary">
             <span>Declared credits: ${usage.summary.declaredCreditBalanceUsd.toFixed(2)} · Monthly cap: ${usage.summary.monthlyCeilingUsd.toFixed(2)} · Cache hits: {usage.cache.hits}</span>

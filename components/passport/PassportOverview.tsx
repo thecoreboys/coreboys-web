@@ -33,7 +33,7 @@ export function PassportOverview({
   claiming,
 }: {
   passport: PassportDashboard;
-  onNavigate: (tab: "memories" | "achievements" | "identity" | "exchange") => void;
+  onNavigate: (tab: "memories" | "achievements" | "identity") => void;
   onClaimPresence: (eventId: string) => Promise<unknown>;
   onClaimQuest: (questCode: string) => Promise<unknown>;
   onClaimCommunityGoal: (goalCode: string) => Promise<unknown>;
@@ -63,16 +63,16 @@ export function PassportOverview({
                     ? "Memory claimed"
                     : "Awaiting certification";
             const statusCopy = event.claimState === "ready"
-              ? "Your verified presence is ready. Add the Attendance Card and eligible Moment Cards to your Passport."
+              ? "Your attendance is verified. Add the available event record to your Passport."
               : event.claimState === "claimed"
-                ? "Your attendance and eligible Moment Cards are safely recorded in your Memory Book."
+                ? "Your attendance and available event records are saved in your Memory Book."
                 : event.claimState === "pending_certification"
                   ? `${Math.floor(event.watchSeconds / 60)} minutes recorded. Permanent rewards unlock only after an independent operator certifies the event.`
-                  : "Watch meaningfully to qualify for this event's Attendance Card and marked Moment Cards.";
+                  : "Complete the qualifying activity to receive an event record."
             return <article key={event.id}>
               <span className="passport-live-dot" aria-hidden="true" />
               <div><span>{statusLabel} · {channelLabel(event.channelSlug)}</span><h2>{event.title}</h2><p>{statusCopy}</p><LiveScore event={event} /></div>
-              {event.canClaim ? <button type="button" className="passport-button passport-button--primary" disabled={claiming} onClick={() => void onClaimPresence(event.id).catch(() => {})}><Sparkles aria-hidden="true" /> {claiming ? "Claiming…" : "Claim memory"}</button> : watchable ? <Link href={(safePassportInternalHref(event.externalRef) ?? "/guide") as never} className="passport-button passport-button--primary"><Radio aria-hidden="true" /> Watch live</Link> : event.claimState === "claimed" ? <span className="passport-claimed"><Check aria-hidden="true" /> Claimed</span> : <span className="passport-inline-note">Certification pending</span>}
+              {event.canClaim ? <button type="button" className="passport-button passport-button--primary" disabled={claiming} onClick={() => void onClaimPresence(event.id).catch(() => {})}><Sparkles aria-hidden="true" /> {claiming ? "Saving…" : "Save record"}</button> : watchable ? <Link href={(safePassportInternalHref(event.externalRef) ?? "/guide") as never} className="passport-button passport-button--primary"><Radio aria-hidden="true" /> Watch live</Link> : event.claimState === "claimed" ? <span className="passport-claimed"><Check aria-hidden="true" /> Saved</span> : <span className="passport-inline-note">Verification pending</span>}
             </article>;
           })}
         </section>
@@ -80,14 +80,14 @@ export function PassportOverview({
 
       <section className="passport-stats" aria-label="Passport stats">
         <article><span><Trophy aria-hidden="true" /></span><div><strong>Level {passport.globalProgress.level}</strong><small>{formatCompact(passport.globalProgress.xp)} global XP</small></div></article>
-        <article><span><BookOpen aria-hidden="true" /></span><div><strong>{passport.recap.cardsCollected}</strong><small>Moment Cards</small></div></article>
+              <article><span><BookOpen aria-hidden="true" /></span><div><strong>{passport.recap.cardsCollected}</strong><small>Verified records</small></div></article>
         <article><span><Award aria-hidden="true" /></span><div><strong>{earnedAchievements.length}</strong><small>Achievements</small></div></article>
-        <article><span><Sparkles aria-hidden="true" /></span><div><strong>{formatCompact(passport.profile.sparks)}</strong><small>Cosmetic Sparks</small></div></article>
+              <article><span><Sparkles aria-hidden="true" /></span><div><strong>{formatCompact(passport.profile.sparks)}</strong><small>Sparks balance</small></div></article>
       </section>
 
       <section className="passport-global-progress">
         <div className="passport-level-orbit"><span>LEVEL</span><strong>{passport.globalProgress.level}</strong></div>
-        <div><span className="passport-kicker"><Zap aria-hidden="true" /> CORE Passport</span><h2>{passport.profile.displayTitle ?? "Your story is in motion."}</h2><p>Global XP grows through meaningful watching, community participation, collections, and channel stories.</p><div className="passport-progress passport-progress--large"><span style={{ width: `${passport.globalProgress.percent}%` }} /></div><footer><span>{passport.globalProgress.xp.toLocaleString("en-US")} XP</span><span>{Math.max(0, passport.globalProgress.nextLevelXp - passport.globalProgress.xp).toLocaleString("en-US")} to Level {passport.globalProgress.level + 1}</span></footer></div>
+          <div><span className="passport-kicker"><Zap aria-hidden="true" /> CORE Passport</span><h2>{passport.profile.displayTitle ?? "Progress overview"}</h2><p>XP is added when CORE records eligible viewing, participation, or collection activity.</p><div className="passport-progress passport-progress--large"><span style={{ width: `${passport.globalProgress.percent}%` }} /></div><footer><span>{passport.globalProgress.xp.toLocaleString("en-US")} XP</span><span>{Math.max(0, passport.globalProgress.nextLevelXp - passport.globalProgress.xp).toLocaleString("en-US")} to Level {passport.globalProgress.level + 1}</span></footer></div>
       </section>
 
       <div className="passport-goals-recap">
@@ -102,14 +102,14 @@ export function PassportOverview({
         </section>
         <section className="passport-recap-card">
           <span className="passport-kicker"><CalendarDays aria-hidden="true" /> Your recent recap</span>
-          <h2>A season only you lived.</h2>
-          <div><span><BookOpen aria-hidden="true" /><strong>{passport.recap.cardsCollected}</strong><small>cards</small></span><span><Radio aria-hidden="true" /><strong>{passport.recap.eventsAttended}</strong><small>events</small></span><span><Award aria-hidden="true" /><strong>{passport.recap.achievementsEarned}</strong><small>badges</small></span><span><Clock3 aria-hidden="true" /><strong>{Math.round(passport.recap.watchSeconds / 3_600)}</strong><small>hours</small></span></div>
-          <p>{passport.recap.channelsExplored} communities explored. Every completed memory stays in your Passport.</p>
+          <h2>Account activity</h2>
+          <div><span><BookOpen aria-hidden="true" /><strong>{passport.recap.cardsCollected}</strong><small>records</small></span><span><Radio aria-hidden="true" /><strong>{passport.recap.eventsAttended}</strong><small>events</small></span><span><Award aria-hidden="true" /><strong>{passport.recap.achievementsEarned}</strong><small>milestones</small></span><span><Clock3 aria-hidden="true" /><strong>{Math.round(passport.recap.watchSeconds / 3_600)}</strong><small>hours watched</small></span></div>
+          <p>{passport.recap.channelsExplored} communities recorded. Counts update only when activity is verified.</p>
         </section>
       </div>
 
       <section className="passport-overview-section">
-        <header><div><span className="passport-kicker"><Flame aria-hidden="true" /> Channel loyalty</span><h2>Every community has its own story.</h2></div></header>
+          <header><div><span className="passport-kicker"><Flame aria-hidden="true" /> Community activity</span><h2>Activity by community</h2></div></header>
         <div className="passport-channel-grid">
           {passport.channels.map((channel) => (
             <article key={channel.channelSlug} style={{ "--channel-accent": channelAccent(channel.channelSlug) } as React.CSSProperties}>
@@ -121,7 +121,7 @@ export function PassportOverview({
       </section>
 
       <section className="passport-overview-section">
-        <header><div><span className="passport-kicker"><BookOpen aria-hidden="true" /> Memory Wall</span><h2>The moments you can prove you lived.</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("memories")}>Open Memory Book <ChevronRight aria-hidden="true" /></button></header>
+          <header><div><span className="passport-kicker"><BookOpen aria-hidden="true" /> Verified records</span><h2>Recent activity records</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("memories")}>Open Memory Book <ChevronRight aria-hidden="true" /></button></header>
         {recentCards.length ? <div className="memory-book-grid memory-book-grid--featured">{recentCards.slice(0, 4).map((card) => <MomentCardTile key={card.id} card={card} onOpen={() => setSelectedCard(card)} />)}</div> : <div className="passport-empty passport-empty--small"><BookOpen aria-hidden="true" /><h3>Your first card is waiting.</h3><p>Join a qualifying CORE event to begin your Memory Book.</p></div>}
       </section>
 
@@ -143,7 +143,7 @@ export function PassportOverview({
         </section>
       </div>
 
-      <PassportDialog open={Boolean(selectedCard)} title={selectedCard?.name ?? "Moment Card"} description="The verified story behind this card." onClose={() => setSelectedCard(null)} wide>
+      <PassportDialog open={Boolean(selectedCard)} title={selectedCard?.name ?? "Verified record"} description="The verified details behind this record." onClose={() => setSelectedCard(null)} wide>
         {selectedCard ? <MomentCardBack card={selectedCard} /> : null}
       </PassportDialog>
     </div>

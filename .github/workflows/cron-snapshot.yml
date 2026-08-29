@@ -9,30 +9,55 @@ on:
     - cron: "0 3 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: coreboys-metric-snapshot
+  cancel-in-progress: false
+
 jobs:
   snapshot:
     runs-on: ubuntu-latest
     steps:
       - name: POST /api/metrics/snapshot
         env:
-          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          APP_URL: https://thecoreboys.com
           SECRET: ${{ secrets.METRICS_CRON_SECRET }}
         run: |
-          set -e
-          echo "Hitting $APP_URL/api/metrics/snapshot"
-          curl -fsS -X POST \
+          set -Eeuo pipefail
+          if [[ -z "${SECRET:-}" ]]; then
+            echo "METRICS_CRON_SECRET is not configured." >&2
+            exit 1
+          fi
+          target="${APP_URL%/}/api/metrics/snapshot"
+          echo "Refreshing social metrics at ${target}"
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 90 \
+            -X POST \
             -H "x-cron-secret: $SECRET" \
+            -H "accept: application/json" \
             -w "\nHTTP %{http_code}\n" \
-            "$APP_URL/api/metrics/snapshot"
+            "$target"
 
       - name: POST /api/metrics/twitchtracker/snapshot
         env:
-          APP_URL: ${{ secrets.METRICS_APP_URL }}
+          APP_URL: https://thecoreboys.com
           SECRET: ${{ secrets.METRICS_CRON_SECRET }}
         run: |
-          set -e
-          echo "Hitting $APP_URL/api/metrics/twitchtracker/snapshot"
-          curl -fsS -X POST \
+          set -Eeuo pipefail
+          if [[ -z "${SECRET:-}" ]]; then
+            echo "METRICS_CRON_SECRET is not configured." >&2
+            exit 1
+          fi
+          target="${APP_URL%/}/api/metrics/twitchtracker/snapshot"
+          echo "Refreshing TwitchTracker metrics at ${target}"
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 90 \
+            -X POST \
             -H "x-cron-secret: $SECRET" \
+            -H "accept: application/json" \
             -w "\nHTTP %{http_code}\n" \
-            "$APP_URL/api/metrics/twitchtracker/snapshot"
+            "$target"

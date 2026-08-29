@@ -11,6 +11,7 @@ import type {
   PassportPrivacyLevel,
 } from "@/lib/passport/types";
 import { passportScope } from "@/hooks/usePassport";
+import { NativeSelect } from "@/components/base/select/select-native";
 import { MomentCardBack, MomentCardTile } from "./MomentCard";
 import { PassportDialog } from "./PassportDialog";
 import { channelLabel } from "./passport-utils";
@@ -72,15 +73,15 @@ export function PassportIdentity({
         <div>
           <span className="passport-kicker"><IdCard aria-hidden="true" /> Identity studio</span>
           <h2>Wear the memories you earned.</h2>
-          <p>Your authority markers always remain separate. These titles, cards, themes, and badges are personal expression—not staff permissions.</p>
+          <p>Your account permissions are separate. These appearance settings only change how your profile is shown.</p>
         </div>
       </section>
 
       <section className="passport-identity-section">
-        <header><div><h3>Profile showcase</h3><p>Pick up to three cards and three earned badges for your public Memory Wall.</p></div><button type="button" className="passport-button passport-button--primary" disabled={pending} onClick={() => void onSaveShowcase(showcaseCards, showcaseBadges).catch(() => {})}><Save aria-hidden="true" /> Save showcase</button></header>
+        <header><div><h3>Profile showcase</h3><p>Choose up to three verified records and three earned milestones for your public profile.</p></div><button type="button" className="passport-button passport-button--primary" disabled={pending} onClick={() => void onSaveShowcase(showcaseCards, showcaseBadges).catch(() => {})}><Save aria-hidden="true" /> Save showcase</button></header>
         <div className="passport-showcase-layout">
           <div>
-            <h4>Featured Moment Cards <span>{showcaseCards.length}/3</span></h4>
+            <h4>Featured records <span>{showcaseCards.length}/3</span></h4>
             <div className="passport-showcase-search">
               <label><Search aria-hidden="true" /><span className="sr-only">Search full card collection</span><input value={showcaseQuery} onChange={(event) => { setShowcaseQuery(event.target.value); setShowcaseLimit(24); }} placeholder="Search your full collection" /></label>
               <small>{matchingShowcaseCards.length} matching cards</small>
@@ -91,7 +92,7 @@ export function PassportIdentity({
             {matchingShowcaseCards.length > showcaseLimit ? <button type="button" className="passport-button passport-button--small passport-showcase-more" onClick={() => setShowcaseLimit((current) => current + 24)}>Show more cards</button> : null}
           </div>
           <div>
-            <h4>Badge sash <span>{showcaseBadges.length}/3</span></h4>
+            <h4>Featured milestones <span>{showcaseBadges.length}/3</span></h4>
             <div className="passport-badge-picker">
               {earned.map((achievement) => {
                 const selected = showcaseBadges.includes(achievement.code);
@@ -123,7 +124,7 @@ export function PassportIdentity({
 
       <PrivacyEditor value={privacyDraft} onChange={setPrivacyDraft} onSave={onSavePrivacy} pending={pending} />
 
-      <PassportDialog open={Boolean(selectedCard)} title={selectedCard?.name ?? "Moment Card"} onClose={() => setSelectedCard(null)} wide>
+      <PassportDialog open={Boolean(selectedCard)} title={selectedCard?.name ?? "Verified record"} onClose={() => setSelectedCard(null)} wide>
         {selectedCard ? <MomentCardBack card={selectedCard} /> : null}
       </PassportDialog>
     </div>
@@ -183,7 +184,7 @@ function LoadoutEditor({
           <CosmeticSelect label="Nameplate" value={draft.nameplateCode} options={cosmeticOptions(cosmetics, "nameplate", scope)} onChange={(value) => set("nameplateCode", value)} />
           <CosmeticSelect label="Avatar frame" value={draft.frameCode} options={cosmeticOptions(cosmetics, "frame", scope)} onChange={(value) => set("frameCode", value)} />
           <CosmeticSelect label="Theme" value={draft.themeCode} options={cosmeticOptions(cosmetics, "theme", scope)} onChange={(value) => set("themeCode", value)} />
-          <label><span>Featured card</span><select value={draft.featuredCardId ?? ""} onChange={(event) => set("featuredCardId", event.target.value || null)}><option value="">No featured card</option>{eligibleCards.map((card) => <option key={card.id} value={card.id}>{card.name} · #{card.serialNumber ?? "—"}</option>)}</select></label>
+          <NativeSelect label="Featured record" value={draft.featuredCardId ?? ""} onChange={(event) => set("featuredCardId", event.target.value || null)} options={[{ value: "", label: "No featured record" }, ...eligibleCards.map((card) => ({ value: card.id, label: `${card.name} · #${card.serialNumber ?? "—"}` }))]} size="sm" />
         </div>
         <fieldset className="passport-inline-picker"><legend>Chat badges · pick 3</legend>{achievements.map((achievement) => { const selected = draft.badgeCodes.includes(achievement.code); return <button key={achievement.code} type="button" aria-pressed={selected} className={selected ? "is-selected" : ""} onClick={() => set("badgeCodes", selected ? draft.badgeCodes.filter((code) => code !== achievement.code) : [...draft.badgeCodes, achievement.code].slice(-3))}>{achievement.name}</button>; })}</fieldset>
         <fieldset className="passport-inline-picker"><legend>Reaction pack</legend>{cosmeticOptions(cosmetics, "reaction", scope).map((reaction) => { const selected = draft.reactionCodes.includes(reaction.code); return <button key={reaction.code} type="button" aria-pressed={selected} className={selected ? "is-selected" : ""} onClick={() => set("reactionCodes", selected ? draft.reactionCodes.filter((code) => code !== reaction.code) : [...draft.reactionCodes, reaction.code].slice(-6))}>{reaction.name}</button>; })}</fieldset>
@@ -194,7 +195,7 @@ function LoadoutEditor({
 }
 
 function CosmeticSelect({ label, value, options, onChange }: { label: string; value: string | null; options: PassportCosmetic[]; onChange: (value: string | null) => void }) {
-  return <label><span>{label}</span><select value={value ?? ""} onChange={(event) => onChange(event.target.value || null)}><option value="">Default</option>{options.map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}</select></label>;
+  return <NativeSelect label={label} value={value ?? ""} onChange={(event) => onChange(event.target.value || null)} options={[{ value: "", label: "Default" }, ...options.map((option) => ({ value: option.code, label: option.name }))]} size="sm" />;
 }
 
 const PRIVACY_OPTIONS: Array<{ value: PassportPrivacyLevel; label: string; copy: string }> = [
@@ -214,7 +215,7 @@ function PrivacyEditor({ value, onChange, onSave, pending }: { value: PassportPr
     <section className="passport-identity-section passport-privacy">
       <header><div><h3><ShieldCheck aria-hidden="true" /> Privacy</h3><p>You decide who can see each part of your Passport. These choices never affect eligibility.</p></div><button type="button" className="passport-button passport-button--primary" disabled={pending} onClick={() => void onSave(value).catch(() => {})}><Save aria-hidden="true" /> Save privacy</button></header>
       <div className="passport-privacy-grid">
-        {rows.map((row) => <label key={row.key}><span className="passport-privacy__icon">{value[row.key] === "private" ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</span><span><strong>{row.label}</strong><small>{row.copy}</small></span><select value={value[row.key]} onChange={(event) => onChange({ ...value, [row.key]: event.target.value as PassportPrivacyLevel })} aria-label={`${row.label} visibility`}>{PRIVACY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>)}
+        {rows.map((row) => <div key={row.key} className="passport-privacy__row"><span className="passport-privacy__icon">{value[row.key] === "private" ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</span><span><strong>{row.label}</strong><small>{row.copy}</small></span><NativeSelect aria-label={`${row.label} visibility`} value={value[row.key]} onChange={(event) => onChange({ ...value, [row.key]: event.target.value as PassportPrivacyLevel })} options={PRIVACY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))} size="sm" /></div>)}
       </div>
     </section>
   );

@@ -529,6 +529,19 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
   -webkit-text-stroke: 0;
 }
 
+/* CORE's station identity: Barlow Condensed 700 italic. Scoped to the real
+   wordmark rather than generic UI labels. */
+.core-wordmark {
+  display: inline-block;
+  font-family: var(--font-core-wordmark), "Barlow Condensed", Impact, sans-serif;
+  font-size: 1em;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: .82;
+  white-space: nowrap;
+}
+
 @theme {
   /* Premium dark corporate. 100T / Misfits / Vercel-grade neutrals. */
   --color-bg: #08080a;
@@ -2327,9 +2340,10 @@ html.lenis body {
 .cinematic-route-transition__object.is-light { color:rgba(255,255,255,.88); }.cinematic-route-transition__object.is-warm { color:#ffd266; }
 .cinematic-route-transition__content { position:relative; display:flex; width:min(30rem,calc(100vw - 3rem)); flex-direction:column; align-items:center; text-align:center; animation:cinematic-content-in .48s cubic-bezier(.16,1,.3,1) both; }
 .cinematic-route-transition__logo { width:min(12rem,42vw); height:4.6rem; object-fit:contain; filter:drop-shadow(0 .8rem 1.5rem rgba(0,0,0,.5)); }
+.cinematic-route-transition__wordmark { display:block; color:#fff; font-size:clamp(3rem,10vw,5.25rem); letter-spacing:-.09em; line-height:.85; filter:drop-shadow(0 .8rem 1.5rem rgba(0,0,0,.5)); }
 .cinematic-route-transition__mark { width:1.2rem; height:1.2rem; margin-bottom:1rem; border-radius:999px; background:var(--cinematic-accent); box-shadow:0 0 0 .38rem color-mix(in srgb,var(--cinematic-accent) 18%,transparent),0 0 2.1rem var(--cinematic-accent); }
 .cinematic-route-transition__eyebrow { margin-top:.85rem; color:color-mix(in srgb,var(--cinematic-accent) 44%,white); font-size:.66rem; font-weight:800; letter-spacing:.17em; text-transform:uppercase; }
-.cinematic-route-transition strong { margin-top:.55rem; max-width:100%; overflow:hidden; font-size:clamp(2rem,6vw,4.2rem); font-weight:820; letter-spacing:-.075em; line-height:.92; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 .7rem 2rem rgba(0,0,0,.64); }
+.cinematic-route-transition strong { margin-top:.55rem; max-width:100%; font-size:clamp(2rem,6vw,4.2rem); font-weight:820; letter-spacing:-.075em; line-height:.92; text-wrap:balance; text-shadow:0 .7rem 2rem rgba(0,0,0,.64); }
 .cinematic-route-transition__signal { display:flex; gap:.35rem; margin-top:1.2rem; }.cinematic-route-transition__signal i { width:2.15rem; height:.16rem; border-radius:999px; background:rgba(255,255,255,.22); overflow:hidden; }.cinematic-route-transition__signal i:first-child { background:var(--cinematic-accent); box-shadow:0 0 .8rem var(--cinematic-accent); }.cinematic-route-transition__signal i:nth-child(2) { animation:cinematic-signal .55s ease-in-out .1s infinite alternate; }.cinematic-route-transition__signal i:nth-child(3) { animation:cinematic-signal .55s ease-in-out .25s infinite alternate; }
 .cinematic-route-transition__loader { display:flex; width:min(18rem,70vw); align-items:center; justify-content:space-between; gap:1rem; margin-top:1.05rem; color:rgba(255,255,255,.76); font-size:.62rem; font-weight:760; letter-spacing:.1em; text-transform:uppercase; }
 .cinematic-route-transition__loader-label { display:inline-flex; min-width:0; align-items:center; gap:.42rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2364,19 +2378,18 @@ html[data-watch-motion="calm"] .cinematic-route-transition,html[data-watch-motio
   place-items: center;
   overflow: hidden;
   padding: 1.5rem;
-  background:
-    radial-gradient(circle at 50% 35%, rgba(255, 18, 111, .22), transparent 27rem),
-    radial-gradient(circle at 12% 92%, rgba(138, 40, 255, .13), transparent 30rem),
-    #050507;
+  background: #050507;
   color: #fff;
 }
+.access-gate-house-art { position:absolute; z-index:-4; inset:0; background:url("/group/thecoreboys.jpg") center/cover no-repeat; filter:saturate(.9) contrast(1.03) brightness(.56); transform:scale(1.04); }
+.access-gate-shell::after { position:absolute; z-index:-3; inset:0; content:""; background:linear-gradient(90deg,rgba(3,3,5,.76),rgba(3,3,5,.4) 52%,rgba(3,3,5,.72)),linear-gradient(0deg,rgba(3,3,5,.72),transparent 62%),radial-gradient(circle at 50% 42%,rgba(255,29,110,.15),transparent 43%); pointer-events:none; }
 .access-gate-shell::before {
   position: absolute;
   z-index: -2;
   inset: -35%;
   background: conic-gradient(from 80deg, transparent, rgba(255, 24, 117, .18), transparent 29%, rgba(130, 53, 255, .11), transparent 63%);
   content: "";
-  animation: access-gate-drift 18s linear infinite;
+  display: none;
 }
 .access-gate-scan {
   position: absolute;
@@ -2391,8 +2404,12 @@ html[data-watch-motion="calm"] .cinematic-route-transition,html[data-watch-motio
 .access-gate-orbit-one { width: min(72vw, 58rem); aspect-ratio: 1; transform: rotate(-18deg) scaleY(.35); }
 .access-gate-orbit-two { width: min(52vw, 42rem); aspect-ratio: 1; transform: rotate(31deg) scaleY(.38); }
 .access-gate-card {
+  display: flex;
+  min-height: min(34rem, calc(100dvh - 3rem));
+  flex-direction: column;
+  justify-content: center;
   width: min(100%, 31rem);
-  padding: clamp(1.6rem, 5vw, 3.2rem);
+  padding: clamp(1.75rem, 5vw, 3.35rem);
   border: 1px solid rgba(255,255,255,.13);
   border-radius: 1.5rem;
   background: linear-gradient(145deg, rgba(24, 20, 29, .9), rgba(7, 7, 10, .8));
@@ -2400,18 +2417,22 @@ html[data-watch-motion="calm"] .cinematic-route-transition,html[data-watch-motio
   text-align: center;
   backdrop-filter: blur(24px) saturate(1.25);
 }
-.access-gate-eyebrow { display: inline-flex; align-items: center; gap: .5rem; margin: 0 0 1rem; color: rgba(255,255,255,.64); font: 750 .7rem/1 var(--font-inter-tight), sans-serif; letter-spacing: .15em; text-transform: uppercase; }
-.access-gate-eyebrow span { width: .45rem; height: .45rem; border-radius: 50%; background: #ff176e; box-shadow: 0 0 1rem #ff176e; }
-.access-gate-card h1 { margin: 0; font: 850 clamp(2.15rem, 7vw, 3.75rem)/.92 var(--font-inter-tight), sans-serif; letter-spacing: -.065em; text-wrap: balance; }
-.access-gate-copy { margin: 1rem auto 1.75rem; color: rgba(255,255,255,.56); font-size: .94rem; }
-.access-gate-form { display: grid; gap: .75rem; }
-.access-gate-form label { color: rgba(255,255,255,.72); font: 700 .72rem/1 var(--font-inter-tight), sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.access-gate-wordmark { display: block; margin: 0 auto 1.15rem; color: #fff; font-size: clamp(3.6rem, 14vw, 5.15rem); filter: drop-shadow(0 .55rem 1.15rem rgba(255, 23, 110, .28)); }
+.access-gate-eyebrow { margin:0 0 .72rem; color:rgba(255,255,255,.76); font:800 .68rem/1 var(--font-inter-tight),sans-serif; letter-spacing:.18em; text-transform:uppercase; }
+.access-gate-copy { max-width:25rem; margin:0 auto 1.85rem; color:rgba(255,255,255,.78); font-size:.95rem; line-height:1.5; }
+.access-gate-form { display: grid; gap: .82rem; text-align: left; }
+.access-gate-form-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.access-gate-form label { color: rgba(255,255,255,.8); font: 700 .72rem/1 var(--font-inter-tight), sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.access-gate-form-heading span { color: rgba(255,255,255,.42); font: 750 .68rem/1 var(--font-inter-tight), sans-serif; letter-spacing: .06em; }
+.access-gate-code-field { position: relative; }
 .access-gate-form input {
   width: 100%;
   min-height: 4.35rem;
   border: 1px solid rgba(255,255,255,.14);
   border-radius: .9rem;
   outline: 0;
+  position: relative;
+  z-index: 1;
   background: rgba(0,0,0,.38);
   box-shadow: inset 0 1px 1rem rgba(0,0,0,.3);
   color: #fff;
@@ -2421,12 +2442,28 @@ html[data-watch-motion="calm"] .cinematic-route-transition,html[data-watch-motio
   text-indent: .55em;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
+.access-gate-code-slots { position: absolute; z-index: 0; inset: 50% 1.5rem auto; display: grid; grid-template-columns: repeat(6, 1fr); gap: .6rem; pointer-events: none; transform: translateY(-50%); }
+.access-gate-code-slots i { display: block; height: .2rem; border-radius: 999px; background: rgba(255,255,255,.14); box-shadow: inset 0 1px rgba(255,255,255,.05); transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+.access-gate-code-slots i[data-filled="true"] { background: #ff4b99; box-shadow: 0 0 .7rem rgba(255,38,129,.72); transform: scaleY(1.35); }
 .access-gate-form input:focus { border-color: #ff3c89; box-shadow: 0 0 0 3px rgba(255, 32, 119, .15), 0 0 2rem rgba(255, 24, 112, .16); }
-.access-gate-form button { min-height: 3.35rem; border: 0; border-radius: .9rem; background: linear-gradient(105deg, #fff, #ffe4ef); color: #08080a; font: 850 .85rem/1 var(--font-inter-tight), sans-serif; cursor: pointer; box-shadow: 0 .8rem 2.2rem rgba(255, 24, 112, .15); transition: transform 150ms ease, opacity 150ms ease; }
-.access-gate-form button:not(:disabled):hover { transform: translateY(-2px); }
+.access-gate-form button { min-height: 3.45rem; border: 0; border-radius: .95rem; background: linear-gradient(105deg, #fff, #ffe4ef 46%, #ffc5e1); color: #08080a; font: 850 .85rem/1 var(--font-inter-tight), sans-serif; cursor: pointer; box-shadow: 0 .8rem 2.2rem rgba(255, 24, 112, .15); transition: transform 150ms ease, opacity 150ms ease, box-shadow 150ms ease; }
+.access-gate-form button:not(:disabled):hover { box-shadow: 0 1.1rem 2.6rem rgba(255, 24, 112, .26); transform: translateY(-2px); }
 .access-gate-form button:disabled { cursor: not-allowed; opacity: .38; }
-.access-gate-form p { min-height: 1.15rem; margin: .15rem 0 0; color: rgba(255,255,255,.38); font-size: .68rem; }
+.access-gate-form p { min-height: 0; margin: 0; color: rgba(255,255,255,.38); font-size: .68rem; }
+.access-gate-form p:empty { display:none; }
 .access-gate-form input[aria-invalid="true"] { border-color: #ff3f70; }
 .access-gate-form input[aria-invalid="true"] ~ p { color: #ff8aaa; }
+.access-gate-footnote { margin: 1.25rem 0 0; color: rgba(255,255,255,.34); font-size: .7rem; line-height: 1.45; }
+.access-gate-intro { position:fixed; z-index:20; inset:0; display:grid; place-items:center; overflow:hidden; background:#050507; animation:access-gate-intro-out .42s cubic-bezier(.76,0,.24,1) .5s both; pointer-events:none; }
+.access-gate-intro::before { position:absolute; inset:0; content:""; background:radial-gradient(ellipse at 50% 50%,rgba(255,32,119,.34),transparent 28%),linear-gradient(90deg,rgba(255,32,119,.15),transparent 35%,rgba(75,156,255,.18)); animation:access-gate-intro-flash .64s cubic-bezier(.16,1,.3,1) both; }
+.access-gate-intro-wordmark { position:relative; color:#fff; font-size:clamp(9rem,42vw,48rem); line-height:.7; letter-spacing:-.11em; filter:drop-shadow(0 0 2rem rgba(255,37,122,.54)); animation:access-gate-intro-wordmark .72s cubic-bezier(.16,1,.3,1) both; }
+.access-gate-intro-beam { position:absolute; width:86vmax; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.94),transparent); box-shadow:0 0 1.7rem rgba(255,42,126,.92); }
+.access-gate-intro-beam-one { transform:rotate(-12deg); animation:access-gate-intro-beam .58s ease-out both; }
+.access-gate-intro-beam-two { transform:rotate(18deg); animation:access-gate-intro-beam .58s .07s ease-out both reverse; }
+@keyframes access-gate-intro-wordmark { from { opacity:0; transform:scale(.4); filter:blur(1.5rem) drop-shadow(0 0 0 rgba(255,37,122,0)); } 62% { opacity:1; transform:scale(1.035); } to { opacity:1; transform:scale(1); } }
+@keyframes access-gate-intro-beam { from { opacity:0; scale:.25 1; } 45% { opacity:1; } to { opacity:0; scale:1 1; } }
+@keyframes access-gate-intro-flash { from { opacity:0; } 45% { opacity:1; } to { opacity:.72; } }
+@keyframes access-gate-intro-out { to { opacity:0; visibility:hidden; } }
 @keyframes access-gate-drift { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .access-gate-shell::before { animation: none; } }
+@media (max-width: 420px) { .access-gate-card { padding: 1.55rem 1.25rem; border-radius: 1.25rem; } .access-gate-code-slots { inset-inline: 1.25rem; gap: .38rem; } }
+@media (prefers-reduced-motion: reduce) { .access-gate-shell::before { animation: none; } .access-gate-code-slots i { transition: none; } .access-gate-intro,.access-gate-intro::before,.access-gate-intro-wordmark,.access-gate-intro-beam { animation:none; } }

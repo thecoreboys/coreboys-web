@@ -6,8 +6,14 @@ import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
 import { Toggle } from "@/components/base/toggle/toggle";
 import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
+import { PlatformLogo, PLATFORM_BRAND } from "@/components/clips/PlatformLogo";
 import { LinkExternal01, RefreshCcw01, Trophy01 } from "@untitledui/icons";
+import {
+  connectedAccountError,
+  readConnectedAccountResponse,
+} from "./connected-account-request";
 
 type CatalogItem = {
   key: string;
@@ -62,6 +68,27 @@ type Card = {
   };
 };
 
+type AccountNotice = {
+  message: string;
+  tone: "success" | "error";
+};
+
+type ConnectionsPayload = {
+  catalog?: CatalogItem[];
+  connections?: Connection[];
+};
+
+type LoyaltyPayload = {
+  card?: Card | null;
+  publicCard?: boolean;
+  publicSlug?: string | null;
+  favoriteMember?: string | null;
+};
+
+type SyncPayload = {
+  results?: Array<{ provider: string; ok: boolean; error?: string }>;
+};
+
 export function ConnectedAccounts({
   members,
 }: {
@@ -75,12 +102,16 @@ export function ConnectedAccounts({
   const [publicSlug, setPublicSlug] = useState("");
   const [favorite, setFavorite] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [notice, setNotice] = useState<AccountNotice | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const oauthFlash = useMemo(() => {
     const oauth = search.get("oauth");
     const provider = search.get("provider") ?? "account";
-    if (oauth === "ok") return `Connected ${provider}. Pulling your CORE loyalty now.`;
+    if (oauth === "ok") return `Connected ${provider} and completed the first sync.`;
+    if (oauth === "sync-error")
+      return `Connected ${provider}, but its first sync failed. Use Sync now or reconnect if the error persists.`;
     if (oauth === "denied") return `You cancelled the ${provider} connect.`;
     if (oauth === "linked")
       return `That ${provider} account is already linked to another CORE profile. Sign in there, or disconnect it first.`;
@@ -91,16 +122,42 @@ export function ConnectedAccounts({
   }, [search]);
 
   const load = useCallback(async () => {
-    const [c, l] = await Promise.all([
-      fetch("/api/account/connections", { credentials: "same-origin" }).then((r) => r.json()),
-      fetch("/api/account/loyalty", { credentials: "same-origin" }).then((r) => r.json()),
-    ]);
-    setCatalog(c.catalog ?? []);
-    setConnections(c.connections ?? []);
-    setCard(l.card ?? null);
-    setPublicCard(Boolean(l.publicCard));
-    setPublicSlug(l.publicSlug ?? "");
-    setFavorite(l.favoriteMember ?? "");
+    setLoading(true);
+    try {
+      const [connectionsResponse, loyaltyResponse] = await Promise.all([
+        fetch("/api/account/connections", { credentials: "same-origin" }),
+        fetch("/api/account/loyalty", { credentials: "same-origin" }),
+      ]);
+      const [connectionsPayload, loyaltyPayload] = await Promise.all([
+        readConnectedAccountResponse<ConnectionsPayload>(
+          connectionsResponse,
+          "Connected accounts could not be loaded.",
+        ),
+        readConnectedAccountResponse<LoyaltyPayload>(
+          loyaltyResponse,
+          "Loyalty details could not be loaded.",
+        ),
+      ]);
+      if (!Array.isArray(connectionsPayload.catalog) || !Array.isArray(connectionsPayload.connections)) {
+        throw new Error("The connected-account response was incomplete. Try again.");
+      }
+      if (!loyaltyPayload.card || typeof loyaltyPayload.card !== "object") {
+        throw new Error("The loyalty response was incomplete. Try again.");
+      }
+      setCatalog(connectionsPayload.catalog ?? []);
+      setConnections(connectionsPayload.connections ?? []);
+      setCard(loyaltyPayload.card ?? null);
+      setPublicCard(Boolean(loyaltyPayload.publicCard));
+      setPublicSlug(loyaltyPayload.publicSlug ?? "");
+      setFavorite(loyaltyPayload.favoriteMember ?? "");
+      setLoadError(null);
+      return true;
+    } catch (error) {
+      setLoadError(connectedAccountError(error, "Connected account details could not be loaded."));
+      return false;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -112,9 +169,23 @@ export function ConnectedAccounts({
       return;
     }
     setBusy(`off-${provider}`);
+    setNotice(null);
     try {
-      await fetch(`/api/oauth/${provider}`, { method: "DELETE", credentials: "same-origin" });
-      await load();
+      const response = await fetch(`/api/oauth/${provider}`, { method: "DELETE", credentials: "same-origin" });
+      const result = await readConnectedAccountResponse<{ ok?: boolean }>(
+        response,
+        `Couldn’t disconnect ${provider}.`,
+      );
+      if (result.ok !== true) throw new Error(`Couldn’t confirm that ${provider} was disconnected.`);
+      const refreshed = await load();
+      setNotice(refreshed
+        ? { message: `Disconnected ${provider}.`, tone: "success" }
+        : { message: `Disconnected ${provider}, but the updated account list could not be loaded.`, tone: "error" });
+    } catch (error) {
+      setNotice({
+        message: connectedAccountError(error, `Couldn’t disconnect ${provider}. Try again.`),
+        tone: "error",
+      });
     } finally {
       setBusy(null);
     }
@@ -122,19 +193,36 @@ export function ConnectedAccounts({
 
   async function syncNow() {
     setBusy("sync");
+    setNotice(null);
     try {
       const response = await fetch("/api/account/sync", { method: "POST", credentials: "same-origin" });
-      const result = (await response.json().catch(() => null)) as {
-        results?: Array<{ provider: string; ok: boolean; error?: string }>;
-      } | null;
-      await load();
-      const failures = result?.results?.filter((entry) => !entry.ok) ?? [];
-      setFlash(
-        failures.length
-          ? `${failures.map((entry) => entry.provider).join(", ")} need attention. Reconnect or try again.`
-          : "Synced.",
+      const result = await readConnectedAccountResponse<SyncPayload>(
+        response,
+        "Connected accounts could not be synced.",
       );
-      window.setTimeout(() => setFlash(null), failures.length ? 6000 : 2000);
+      if (!Array.isArray(result.results)) {
+        throw new Error("The sync response was incomplete. No success was recorded.");
+      }
+      const refreshed = await load();
+      const failures = result.results.filter((entry) => !entry.ok);
+      if (failures.length) {
+        setNotice({
+          message: `${failures.map((entry) => entry.provider).join(", ")} need attention. Reconnect or try again.`,
+          tone: "error",
+        });
+      } else if (!result.results.length) {
+        setNotice({ message: "No active connected accounts were available to sync.", tone: "error" });
+      } else if (!refreshed) {
+        setNotice({ message: "Sync finished, but refreshed account details could not be loaded.", tone: "error" });
+      } else {
+        setNotice({ message: "Connected accounts synced.", tone: "success" });
+        window.setTimeout(() => setNotice(null), 2000);
+      }
+    } catch (error) {
+      setNotice({
+        message: connectedAccountError(error, "Connected accounts could not be synced. Try again."),
+        tone: "error",
+      });
     } finally {
       setBusy(null);
     }
@@ -142,8 +230,9 @@ export function ConnectedAccounts({
 
   async function savePrefs() {
     setBusy("prefs");
+    setNotice(null);
     try {
-      await fetch("/api/account/loyalty", {
+      const response = await fetch("/api/account/loyalty", {
         method: "PATCH",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
@@ -153,8 +242,18 @@ export function ConnectedAccounts({
           publicSlug: publicSlug || null,
         }),
       });
-      setFlash("Saved.");
-      window.setTimeout(() => setFlash(null), 2000);
+      const result = await readConnectedAccountResponse<{ ok?: boolean }>(
+        response,
+        "Your card settings could not be saved.",
+      );
+      if (result.ok !== true) throw new Error("The server did not confirm your saved card settings.");
+      setNotice({ message: "Saved.", tone: "success" });
+      window.setTimeout(() => setNotice(null), 2000);
+    } catch (error) {
+      setNotice({
+        message: connectedAccountError(error, "Your card settings could not be saved. Try again."),
+        tone: "error",
+      });
     } finally {
       setBusy(null);
     }
@@ -174,67 +273,84 @@ export function ConnectedAccounts({
         <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-primary">Connected accounts</h2>
           <div className="flex items-center gap-2">
-            {flash ? <span className="text-xs font-medium text-brand-secondary">{flash}</span> : null}
+            {loading && catalog.length ? <span className="text-xs text-quaternary" role="status">Refreshing…</span> : null}
             <Button
               color="secondary"
               size="sm"
               iconLeading={RefreshCcw01}
               onClick={() => void syncNow()}
-              isDisabled={busy === "sync" || connections.length === 0}
+              isDisabled={loading || busy === "sync" || connections.length === 0}
             >
               Sync now
             </Button>
           </div>
         </div>
-        <p className="mb-5 text-sm text-tertiary">
-          Link your platforms to personalize CORE TV, your loyalty card, and live notifications.
-          CORE only acts as you when you deliberately submit a Twitch chat or YouTube
-          comment/live-chat message. Every other connection is read-only. Disconnect wipes that
-          provider’s tokens and inferred stats.
+        <p className="mb-4 text-sm text-tertiary">
+          Connect a platform to sync available profile, subscription, and on-site playback data. Disconnecting removes its tokens.
         </p>
-        <p className="mb-4 text-xs text-quaternary">
-          You must be 13+ to connect a platform account. We ask only the scopes listed on each
-          row — no tweet-as-you, no YouTube upload.
-        </p>
+        {notice ? (
+          <p
+            className={`mb-4 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ${
+              notice.tone === "error"
+                ? "bg-error-primary text-error-primary ring-error_subtle"
+                : "bg-success-primary text-success-primary ring-success_subtle"
+            }`}
+            role={notice.tone === "error" ? "alert" : "status"}
+          >
+            {notice.message}
+          </p>
+        ) : null}
+        {loadError ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-error-primary px-3 py-2 ring-1 ring-inset ring-error_subtle" role="alert">
+            <p className="text-sm font-medium text-error-primary">{loadError}</p>
+            <Button color="secondary" size="sm" onClick={() => void load()} isDisabled={loading}>
+              Try again
+            </Button>
+          </div>
+        ) : null}
         <ul className="flex flex-col divide-y divide-[color:var(--color-border-secondary)]">
+          {loading && !catalog.length ? (
+            <li className="py-4 text-sm text-tertiary" role="status">Loading connected accounts…</li>
+          ) : null}
           {catalog.map((p) => {
             const conn = byProvider.get(p.key);
+            const syncNeedsAttention = Boolean(conn?.lastSyncError);
             return (
               <li key={p.key} className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="size-2.5 rounded-full" style={{ background: p.color }} aria-hidden />
+                    <span className="grid size-8 place-items-center rounded-lg bg-primary ring-1 ring-inset ring-secondary" style={{ color: PLATFORM_BRAND[p.key as keyof typeof PLATFORM_BRAND] }} aria-hidden><PlatformLogo platform={p.key as keyof typeof PLATFORM_BRAND} size={16} /></span>
                     <span className="text-sm font-medium text-secondary">{p.label}</span>
                     {conn ? (
-                      <Badge color={conn.status === "active" ? "success" : "warning"} size="sm">
-                        {conn.status === "active" ? `@${conn.username ?? "connected"}` : conn.status}
+                      <Badge color={conn.status === "active" && !syncNeedsAttention ? "success" : "warning"} size="sm">
+                        {conn.status === "active"
+                          ? `@${conn.username ?? "connected"}${syncNeedsAttention ? " · sync issue" : ""}`
+                          : conn.status}
                       </Badge>
                     ) : p.connectable ? (
-                      p.configured ? null : (
-                        <Badge color="gray" size="sm">Needs app keys</Badge>
+                      p.configured ? null : p.key === "instagram" ? (
+                        <Badge color="success" size="sm">Public embeds</Badge>
+                      ) : (
+                        <Badge color="gray" size="sm">Not configured</Badge>
                       )
                     ) : (
                       <Badge color="gray" size="sm">Coming soon</Badge>
                     )}
                   </div>
-                  <p className="mt-1 max-w-xl text-xs text-quaternary">{p.why}</p>
                   <p className="mt-0.5 text-xs font-medium text-tertiary">
-                    {p.interactionLabel}
+                    {p.watchHistorySync.supported ? p.interactionLabel : "Read-only connection"}
                     {conn && p.scopes.some((scope) => !conn.scopes.includes(scope))
                       ? " · reconnect to approve updated permissions"
                       : ""}
                   </p>
-                  {p.interactionNote ? (
-                    <p className="mt-0.5 max-w-xl text-xs text-quaternary">{p.interactionNote}</p>
-                  ) : null}
                   <p className="mt-1 max-w-xl text-xs text-quaternary">
-                    <span className="font-semibold text-tertiary">{p.watchHistorySync.label}.</span>{" "}
-                    {p.watchHistorySync.detail}
+                    <span className="font-semibold text-tertiary">{p.watchHistorySync.supported ? "Watch history sync" : "On-site watch history"}.</span>{" "}
+                    {p.watchHistorySync.supported ? p.watchHistorySync.detail : "Playback on CORE is tracked here; this provider does not share viewer history with third-party apps."}
                   </p>
-                  {conn?.lastSyncAt ? (
+                  {conn?.lastSyncAt || conn?.lastSyncError ? (
                     <p className="mt-0.5 text-xs text-quaternary">
-                      Last sync {new Date(conn.lastSyncAt).toLocaleString()}
-                      {conn.lastSyncError ? ` · ${conn.lastSyncError}` : ""}
+                      {conn.lastSyncAt ? `Last sync ${new Date(conn.lastSyncAt).toLocaleString()}` : "Not synced yet"}
+                      {conn.lastSyncError ? ` · Sync error: ${conn.lastSyncError}` : ""}
                     </p>
                   ) : null}
                 </div>
@@ -304,21 +420,15 @@ export function ConnectedAccounts({
             placeholder="your-name"
             hint="Letters, numbers, dashes."
           />
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-secondary">Favorite member</span>
-            <select
-              value={favorite}
-              onChange={(e) => setFavorite(e.target.value)}
-              className="rounded-lg bg-primary px-3 py-2 text-sm text-primary ring-1 ring-inset ring-secondary"
-            >
-              <option value="">Auto from your activity</option>
-              {members.map((m) => (
-                <option key={m.slug} value={m.slug}>
-                  {m.stageName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <NativeSelect
+            label="Favorite member"
+            value={favorite}
+            onChange={(e) => setFavorite(e.target.value)}
+            options={[
+              { value: "", label: "Auto from your activity" },
+              ...members.map((m) => ({ value: m.slug, label: m.stageName })),
+            ]}
+          />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button color="primary" size="sm" onClick={() => void savePrefs()} isDisabled={busy === "prefs"}>
@@ -341,14 +451,6 @@ function LoyaltyPanel({
   members: Array<{ slug: string; stageName: string }>;
 }) {
   const fav = members.find((m) => m.slug === card.favoriteSlug);
-  const [perk, setPerk] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/account/perk", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { code?: string } | null) => setPerk(d?.code ?? null))
-      .catch(() => {});
-  }, [card.houseStatus]);
   return (
     <section className="rounded-2xl bg-secondary p-6 shadow-xl ring-1 ring-inset ring-secondary">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -451,22 +553,10 @@ function LoyaltyPanel({
       </div>
 
       <div className="mt-5 rounded-xl border border-secondary bg-primary p-4">
-        <p className="text-sm font-semibold text-primary">House merch perk</p>
+        <p className="text-sm font-semibold text-primary">Weekly activity</p>
         <p className="mt-1 text-xs text-tertiary">
-          Super Fans get a checkout code. This is a CORE code — not Twitch watch time.
+          Review your recent activity and keep your connected accounts in sync.
         </p>
-        {perk ? (
-          <p
-            className="mt-3 inline-block rounded-xl px-4 py-2 font-mono text-md font-semibold tracking-[0.18em] text-white"
-            style={{
-              background: "var(--core-glow)",
-            }}
-          >
-            {perk}
-          </p>
-        ) : (
-          <p className="mt-2 text-sm text-quaternary">Hit House Super (3 Twitch subs or house YT + 2 member YTs) to unlock.</p>
-        )}
         <Button href={"/account/digest" as never} size="sm" color="secondary" className="mt-3">
           This week’s recap
         </Button>

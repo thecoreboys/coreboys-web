@@ -58,7 +58,7 @@ test("plan feature sets inherit monotonically", () => {
 test("catalog sells independent software utility rather than content", () => {
   assert.equal(BILLING_FOUNDATION.checkoutAvailable, true);
   assert.equal(BILLING_FOUNDATION.chargesEnabled, true);
-  assert.equal(BILLING_FOUNDATION.minimumMonthlyCents, 300);
+  assert.equal(BILLING_FOUNDATION.minimumMonthlyCents, 500);
   assert.match(INDEPENDENT_SERVICE_DISCLOSURES.affiliation, /Not affiliated/i);
   assert.match(INDEPENDENT_SERVICE_DISCLOSURES.paymentPurpose, /not access to creator content/i);
   assert.match(INDEPENDENT_SERVICE_DISCLOSURES.publicContentAccess, /remain available without a paid/i);
@@ -127,7 +127,30 @@ test("expired periods and trials cannot keep paid entitlements", () => {
   const state = resolveSubscriptionSnapshot({ snapshot: expired, now: new Date("2026-08-20T00:00:00.000Z") });
   assert.equal(state.account.effectivePlanId, "free");
   assert.equal(state.account.status, "active");
+  assert.equal(state.account.hasManagedSubscription, false);
   assert.equal(entitlementDecision(state, "workspace.team").allowed, false);
+});
+
+test("a non-entitled Stripe contract still routes to billing recovery", () => {
+  const snapshot: SubscriptionStorageSnapshot = {
+    ...emptySnapshot(),
+    subscription: {
+      planId: "plus",
+      status: "past_due",
+      source: "future_billing",
+      billingInterval: "month",
+      currentPeriodStart: "2026-08-01T00:00:00.000Z",
+      currentPeriodEnd: "2026-09-01T00:00:00.000Z",
+      trialEndsAt: null,
+      cancelAtPeriodEnd: false,
+      externalCustomerRef: "cus_test",
+      externalContractRef: "sub_test",
+    },
+  };
+  const state = resolveSubscriptionSnapshot({ snapshot, now: new Date("2026-08-20T00:00:00.000Z") });
+  assert.equal(state.account.effectivePlanId, "free");
+  assert.equal(state.account.source, "free");
+  assert.equal(state.account.hasManagedSubscription, true);
 });
 
 test("development override requires every local safety condition", () => {
@@ -165,6 +188,6 @@ test("migration and account route preserve a server-side billing boundary", () =
   assert.doesNotMatch(route, /getStripe|stripe/);
   assert.match(stripe, /Server-only Stripe client/);
   assert.match(checkout, /mode: "subscription"/);
-  assert.match(checkout, /MEMBERSHIP_MINIMUM_CENTS/);
+  assert.match(checkout, /supporterAmountAllowed/);
   assert.match(webhook, /constructEvent/);
 });

@@ -62,8 +62,8 @@ export function MemoryBook({
       <section className="passport-section-heading">
         <div>
           <span className="passport-kicker"><BookOpen aria-hidden="true" /> Digital Memory Book</span>
-          <h2>Every official memory, kept together.</h2>
-          <p>Open a card for its story, verified provenance, personal stat line, and the exact replay moment.</p>
+          <h2>Your verified records, kept together.</h2>
+          <p>Open a record to see its source, earned date, account history, and replay details when available.</p>
         </div>
         <div className="passport-segment" aria-label="Memory book view">
           <button type="button" className={view === "grid" ? "is-active" : ""} onClick={() => setView("grid")} aria-pressed={view === "grid"}><Grid2X2 aria-hidden="true" /> Grid</button>
@@ -143,8 +143,8 @@ export function MemoryBook({
 
       <PassportDialog
         open={Boolean(selectedCard)}
-        title={selectedCard?.name ?? "Moment Card"}
-        description="The verified story behind this card."
+        title={selectedCard?.name ?? "Verified record"}
+        description="The verified details behind this record."
         onClose={() => setSelectedCard(null)}
         wide
       >
@@ -170,7 +170,7 @@ function Albums({
         <div>
           <span className="passport-kicker"><Sparkles aria-hidden="true" /> Collection albums</span>
           <h2>Complete the whole story.</h2>
-          <p>Sets span creators, seasons, events, and major chapters in CORE history.</p>
+          <p>Collections group records by creator, event, and other categories tracked by CORE.</p>
         </div>
       </div>
       <div className="passport-album-grid">

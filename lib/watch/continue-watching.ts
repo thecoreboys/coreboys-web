@@ -138,3 +138,26 @@ export function buildWatchHeroItems(
   }
   return hero;
 }
+
+const HERO_TWITCH_BROADCAST_LIMIT = 3;
+
+/** Recent embeddable Twitch archives that can play inside the home hero. */
+export function selectTwitchHeroBroadcasts(
+  broadcasts: readonly WatchItem[],
+  limit = HERO_TWITCH_BROADCAST_LIMIT,
+): WatchItem[] {
+  return [...broadcasts]
+    .filter((item) =>
+      item.platform === "twitch" &&
+      item.kind === "vod" &&
+      item.embeddable !== false &&
+      item.previewStrategy !== "external" &&
+      item.previewStrategy !== "image" &&
+      Boolean(item.twitch?.vodId),
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.publishedAt ?? 0).getTime() - new Date(left.publishedAt ?? 0).getTime(),
+    )
+    .slice(0, Math.max(0, limit));
+}

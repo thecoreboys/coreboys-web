@@ -33,14 +33,6 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    ".next-dev-3000/types/**/*.ts",
-    ".next-dev-3003-approved/types/**/*.ts",
-    ".next-dev-3003-social/types/**/*.ts",
-    ".next-dev-3003/types/**/*.ts",
-    ".next-dev-3010-ai/types/**/*.ts",
-    ".next-dev-3010-guide/types/**/*.ts",
-    ".next-dev-3010-qa/types/**/*.ts",
-    ".next-dev-3010/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts"
   ],
