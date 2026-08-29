@@ -21,16 +21,45 @@ import { DragScrollRail } from "./DragScrollRail";
 import { WatchSelect } from "./WatchSelect";
 import { useWatchContextMenu } from "./WatchContextMenu";
 
-const warmedHoverEmbeds = new Set<string>();
+const MAX_WARMED_HOVER_ORIGINS = 6;
+const MAX_WARMED_HOVER_STILLS = 10;
 const warmedHoverOrigins = new Set<string>();
+const warmedHoverStills = new Map<string, HTMLImageElement>();
+
+type NavigatorWithConnection = Navigator & {
+  connection?: { saveData?: boolean; effectiveType?: string };
+};
+
+function rememberCapped(set: Set<string>, value: string, limit: number) {
+  if (set.has(value)) return false;
+  while (set.size >= limit) {
+    const oldest = set.values().next().value;
+    if (typeof oldest !== "string") break;
+    set.delete(oldest);
+  }
+  set.add(value);
+  return true;
+}
+
+function avoidsPreviewWarm(dataSaver: boolean) {
+  if (typeof window === "undefined" || dataSaver || document.visibilityState === "hidden") return true;
+  const connection = (navigator as NavigatorWithConnection).connection;
+  return connection?.saveData === true || ["slow-2g", "2g"].includes(connection?.effectiveType ?? "");
+}
+
+function avoidsMotionWarm(dataSaver: boolean, motionEnabled: boolean) {
+  return avoidsPreviewWarm(dataSaver) ||
+    !motionEnabled ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 /**
- * Warm the provider document during the short intentional-hover delay. The
- * actual preview remains unmounted until that delay passes, so it stays quiet
- * and provider UI never flashes, but its DNS/TLS/document work is already in
- * the browser cache when the preview opens.
+ * Start the provider handshake without fetching a second copy of the embed.
+ * HoverPreview mounts its real frame invisibly during the intent delay, so the
+ * same provider instance can be revealed rather than relying on a cross-origin
+ * document prefetch that browsers are not required to reuse for an iframe.
  */
-function prewarmHoverEmbed(item: WatchItem, startSeconds = 0) {
+function preconnectHoverEmbed(item: WatchItem, startSeconds = 0) {
   if (typeof window === "undefined" || item.embeddable === false) return;
   if (item.previewStrategy === "external" || item.previewStrategy === "image") return;
   if (!(["youtube", "twitch", "tiktok", "instagram"] as string[]).includes(item.platform)) return;
@@ -41,15 +70,14 @@ function prewarmHoverEmbed(item: WatchItem, startSeconds = 0) {
     origin: window.location.origin,
     muted: true,
     controls: false,
-    autoplay: true,
+    autoplay: false,
     startSeconds,
   });
   if (!src) return;
 
   try {
     const origin = new URL(src).origin;
-    if (!warmedHoverOrigins.has(origin)) {
-      warmedHoverOrigins.add(origin);
+    if (rememberCapped(warmedHoverOrigins, origin, MAX_WARMED_HOVER_ORIGINS)) {
       const connection = document.createElement("link");
       connection.rel = "preconnect";
       connection.href = origin;
@@ -59,14 +87,27 @@ function prewarmHoverEmbed(item: WatchItem, startSeconds = 0) {
   } catch {
     // Invalid provider URLs are handled by the normal preview fallback.
   }
+}
 
-  if (warmedHoverEmbeds.has(src)) return;
-  warmedHoverEmbeds.add(src);
-  const documentHint = document.createElement("link");
-  documentHint.rel = "prefetch";
-  documentHint.as = "document";
-  documentHint.href = src;
-  document.head.appendChild(documentHint);
+function warmHoverStill(item: WatchItem, urgent: boolean) {
+  if (typeof window === "undefined") return;
+  const src = item.backdrop || item.poster;
+  if (!src) return;
+  const existing = warmedHoverStills.get(src);
+  if (existing) {
+    if (urgent) existing.fetchPriority = "high";
+    return;
+  }
+  const image = new Image();
+  image.decoding = "async";
+  image.fetchPriority = urgent ? "high" : "low";
+  image.src = src;
+  warmedHoverStills.set(src, image);
+  while (warmedHoverStills.size > MAX_WARMED_HOVER_STILLS) {
+    const oldest = warmedHoverStills.keys().next().value;
+    if (typeof oldest !== "string") break;
+    warmedHoverStills.delete(oldest);
+  }
 }
 
 export function watchDisplayLabel(item: WatchItem) {
@@ -97,6 +138,7 @@ export function PosterCard({
   onToggleQueue,
   moment,
   hoverAutoplay = false,
+  preloadOnApproach = false,
   onPlay,
 }: {
   item: WatchItem;
@@ -110,10 +152,13 @@ export function PosterCard({
   onToggleQueue?: (item: WatchItem) => void;
   moment?: { title: string; seconds: number };
   hoverAutoplay?: boolean;
+  /** Warm the next short's still/provider connection as it nears a home rail. */
+  preloadOnApproach?: boolean;
   onPlay?: (item: WatchItem, context: readonly WatchItem[]) => void;
 }) {
   const [saved, setSaved] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
   const [previewClosing, setPreviewClosing] = useState(false);
   const [previewKeyboard, setPreviewKeyboard] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -121,6 +166,7 @@ export function PosterCard({
   const closeTimer = useRef<number | null>(null);
   const actionHovered = useRef(false);
   const previewRef = useRef(false);
+  const previewVisibleRef = useRef(false);
   const previewKeyboardRef = useRef(false);
   const suppressKeyboardOpenRef = useRef(false);
   const restoreFocusFrame = useRef<number | null>(null);
@@ -168,8 +214,38 @@ export function PosterCard({
   const shortSourceLabel = shortFormPlatformLabel(item);
   const playable = isPhoto ? null : itemToPlayable(item);
   const fallbackHref = item.sourceUrl || item.href;
+  const motionEnabled = player.previewAutoplay || hoverAutoplay || item.platform === "twitch";
   previewRef.current = preview;
+  previewVisibleRef.current = previewVisible;
   previewKeyboardRef.current = previewKeyboard;
+
+  useEffect(() => {
+    if (!preloadOnApproach || !cardRef.current || avoidsPreviewWarm(player.dataSaver)) return;
+    const card = cardRef.current;
+    const rail = card.closest<HTMLElement>("[data-drag-scroll-root='true']");
+    if (!rail || typeof IntersectionObserver === "undefined") return;
+    let warmTimer: number | null = null;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      // The margin catches roughly the next few portrait cards. Only still
+      // imagery and one of four provider origins are warmed while scrolling;
+      // the real embed remains gated on deliberate pointer/focus intent.
+      warmTimer = window.setTimeout(() => {
+        warmTimer = null;
+        if (avoidsPreviewWarm(player.dataSaver)) return;
+        warmHoverStill(item, false);
+        if (!avoidsMotionWarm(player.dataSaver, motionEnabled)) {
+          preconnectHoverEmbed(item, moment?.seconds ?? positionSeconds);
+        }
+      }, 40);
+    }, { root: rail, rootMargin: "0px 90% 0px 10%", threshold: 0.01 });
+    observer.observe(card);
+    return () => {
+      observer.disconnect();
+      if (warmTimer != null) window.clearTimeout(warmTimer);
+    };
+  }, [item, moment?.seconds, motionEnabled, player.dataSaver, positionSeconds, preloadOnApproach]);
 
   useEffect(() => {
     const sync = (event?: Event) => {
@@ -200,9 +276,18 @@ export function PosterCard({
       openTimer.current = null;
       closeTimer.current = null;
       if (!previewRef.current) return;
+      if (!previewVisibleRef.current) {
+        previewRef.current = false;
+        setPreview(false);
+        setPreviewKeyboard(false);
+        return;
+      }
       setPreviewClosing(true);
       closeTimer.current = window.setTimeout(() => {
+        previewRef.current = false;
+        previewVisibleRef.current = false;
         setPreview(false);
+        setPreviewVisible(false);
         setPreviewClosing(false);
         setPreviewKeyboard(false);
         closeTimer.current = null;
@@ -215,12 +300,18 @@ export function PosterCard({
   function cancelClose() {
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
-    if (preview) setPreviewClosing(false);
+    if (previewVisibleRef.current) setPreviewClosing(false);
   }
 
   function cancelPreviewOpen() {
     if (openTimer.current) window.clearTimeout(openTimer.current);
     openTimer.current = null;
+    if (previewRef.current && !previewVisibleRef.current) {
+      previewRef.current = false;
+      setPreview(false);
+      setPreviewVisible(false);
+      setPreviewKeyboard(false);
+    }
   }
 
   function enterCardAction() {
@@ -262,19 +353,39 @@ export function PosterCard({
     ) {
       return;
     }
-    if (preview || openTimer.current || hasCardActionHover()) return;
-    // Start warming the provider before the hover delay finishes, so the
-    // visible iframe can render nearly immediately once it is allowed open.
-    prewarmHoverEmbed(item, moment?.seconds ?? positionSeconds);
+    if (previewRef.current || openTimer.current || hasCardActionHover()) return;
+    const mayWarmMotion = !avoidsMotionWarm(player.dataSaver, motionEnabled);
+    if (!avoidsPreviewWarm(player.dataSaver)) warmHoverStill(item, true);
+    if (mayWarmMotion) preconnectHoverEmbed(item, moment?.seconds ?? positionSeconds);
+    const mountDuringIntent = !(item.platform === "x" && item.kind === "post");
+    // Mount the real preview immediately but keep it inert and invisible during
+    // the intent delay. YouTube/TikTok can finish booting with autoplay off;
+    // activation then promotes that same iframe instead of loading it twice.
+    if (mountDuringIntent) {
+      previewRef.current = true;
+      previewVisibleRef.current = false;
+      setPreviewVisible(false);
+      setPreviewClosing(false);
+      setPreview(true);
+    }
     openTimer.current = window.setTimeout(() => {
       openTimer.current = null;
       if (
         hasCardActionHover() ||
         cardRef.current?.closest("[data-drag-scroll-active='true']")
-      ) return;
+      ) {
+        previewRef.current = false;
+        setPreview(false);
+        return;
+      }
+      if (!mountDuringIntent) {
+        previewRef.current = true;
+        setPreview(true);
+      }
+      previewVisibleRef.current = true;
       setPreviewClosing(false);
+      setPreviewVisible(true);
       setPreviewKeyboard(keyboard);
-      setPreview(true);
       trackHover(item.id, item.kind, item.memberSlug);
       if (youtubeId && youtubeId !== item.id) {
         trackHover(youtubeId, "youtube", item.memberSlug);
@@ -284,11 +395,21 @@ export function PosterCard({
 
   function hidePreview() {
     cancelPreviewOpen();
-    if (!preview) return;
+    if (!previewRef.current) return;
     cancelClose();
+    if (!previewVisibleRef.current) {
+      previewRef.current = false;
+      setPreview(false);
+      setPreviewVisible(false);
+      setPreviewKeyboard(false);
+      return;
+    }
     setPreviewClosing(true);
     closeTimer.current = window.setTimeout(() => {
+      previewRef.current = false;
+      previewVisibleRef.current = false;
       setPreview(false);
+      setPreviewVisible(false);
       setPreviewClosing(false);
       setPreviewKeyboard(false);
       closeTimer.current = null;
@@ -298,7 +419,10 @@ export function PosterCard({
   function dismissKeyboardPreview() {
     cancelPreviewOpen();
     cancelClose();
+    previewRef.current = false;
+    previewVisibleRef.current = false;
     setPreview(false);
+    setPreviewVisible(false);
     setPreviewClosing(false);
     setPreviewKeyboard(false);
     if (restoreFocusFrame.current != null) window.cancelAnimationFrame(restoreFocusFrame.current);
@@ -333,8 +457,12 @@ export function PosterCard({
   return (
     <article
       ref={cardRef}
-      className={`watch-poster group/poster is-${shape} is-platform-${item.platform} ${item.format === "photo" ? "is-photo" : ""} ${live ? "is-live" : ""} ${focused ? "is-focus" : ""} ${preview ? "is-preview-open" : ""} ${previewClosing ? "is-preview-closing" : ""} ${done ? "is-watched" : ""}`}
+      className={`watch-poster group/poster is-${shape} is-platform-${item.platform} ${item.format === "photo" ? "is-photo" : ""} ${live ? "is-live" : ""} ${focused ? "is-focus" : ""} ${previewVisible ? "is-preview-open" : ""} ${previewClosing ? "is-preview-closing" : ""} ${done ? "is-watched" : ""}`}
       onMouseEnter={() => {
+        tuneStation();
+        showPreview(false);
+      }}
+      onPointerEnter={() => {
         tuneStation();
         showPreview(false);
       }}
@@ -557,7 +685,8 @@ export function PosterCard({
           saved={saved}
           context={context}
           anchorRef={cardRef}
-          active={!previewClosing}
+          active={previewVisible && !previewClosing}
+          preloadOnly={!previewVisible && !previewClosing}
           onPreviewEnter={cancelClose}
           onPreviewLeave={hidePreview}
           feedback={feedback}
@@ -704,6 +833,7 @@ export function Shelf({
   onFeedback,
   moments,
   hoverAutoplay = false,
+  preloadUpcoming = false,
 }: {
   title: string;
   kicker?: string;
@@ -715,6 +845,8 @@ export function Shelf({
   onFeedback?: (item: WatchItem, value: WatchFeedbackValue | null) => void;
   moments?: Record<string, { title: string; seconds: number } | undefined>;
   hoverAutoplay?: boolean;
+  /** Preload lightweight preview resources just ahead of horizontal scroll. */
+  preloadUpcoming?: boolean;
 }) {
   if (items.length === 0) return null;
   // A rail is a content-format surface, not a creator surface. When the user
@@ -747,6 +879,7 @@ export function Shelf({
             onFeedback={onFeedback}
             moment={moments?.[item.id]}
             hoverAutoplay={hoverAutoplay}
+            preloadOnApproach={preloadUpcoming}
           />
         ))}
       </DragScrollRail>

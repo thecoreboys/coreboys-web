@@ -113,7 +113,7 @@ face, logo, catchphrase, or implied endorsement. They must show this disclosure:
 | Plan | Local target | Intended software value |
 | --- | ---: | --- |
 | Free | $0 | Public viewing, Guide, basic search, one My List, accessibility/privacy essentials |
-| Plus | $3/month | Sync, longer history, advanced lists, alerts, saved search, personalization |
+| Plus | $5/month | Sync, longer history, advanced lists, alerts, saved search, personalization |
 | Pro | $7/month | Expanded multiview, smart channels, rooms, unlimited AI discovery, automation |
 | Local lifetime | $49 once | Local-first Plus/Pro utility without hosted delivery costs; exact limits TBD |
 | Authorized Business | $49–149/month | Tools only for a content owner who has authorized their own sources |

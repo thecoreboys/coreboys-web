@@ -15,7 +15,6 @@ type Digest = {
   vodPlays: number;
   chatsSent: number;
   houseStatus: string;
-  perkCode: string | null;
   note: string;
 };
 
@@ -67,11 +66,6 @@ export default function WeeklyDigestPage() {
             ))}
           </ul>
         )}
-        {digest?.perkCode ? (
-          <p className="mt-6 text-sm text-secondary">
-            Merch perk: <span className="font-mono font-semibold text-brand-secondary">{digest.perkCode}</span>
-          </p>
-        ) : null}
         <p className="mt-6 text-xs text-quaternary">{digest?.note}</p>
         <Button href={"/account" as never} size="md" color="secondary" className="mt-8">
           Back to account

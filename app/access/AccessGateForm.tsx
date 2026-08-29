@@ -43,26 +43,34 @@ export function AccessGateForm({ next }: { next: string | null }) {
 
   return (
     <form onSubmit={submit} className="access-gate-form">
-      <label htmlFor="site-access-code">Six-digit access code</label>
-      <input
-        id="site-access-code"
-        name="code"
-        type="password"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        pattern="[0-9]{6}"
-        maxLength={6}
-        value={code}
-        autoFocus
-        onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-        aria-invalid={Boolean(error)}
-        aria-describedby="site-access-status"
-      />
+      <div className="access-gate-form-heading">
+        <label htmlFor="site-access-code">Access code</label>
+        <span aria-hidden>{code.length}/6</span>
+      </div>
+      <div className="access-gate-code-field">
+        <input
+          id="site-access-code"
+          name="code"
+          type="password"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9]{6}"
+          maxLength={6}
+          value={code}
+          autoFocus
+          onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          aria-invalid={Boolean(error)}
+          aria-describedby="site-access-status"
+        />
+        <span className="access-gate-code-slots" aria-hidden>
+          {Array.from({ length: 6 }, (_, index) => <i key={index} data-filled={index < code.length} />)}
+        </span>
+      </div>
       <button type="submit" disabled={code.length !== 6 || submitting}>
-        {submitting ? "Checking…" : "Enter CORE"}
+        {submitting ? "Checking code…" : "Continue"}
       </button>
       <p id="site-access-status" role="status" aria-live="polite">
-        {error || "Private preview · Access attempts are rate limited."}
+        {error}
       </p>
     </form>
   );

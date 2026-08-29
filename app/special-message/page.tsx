@@ -32,56 +32,18 @@ const toolkit = [
   {
     number: "01",
     title: "Software & Engineering",
-    body: "I build full-stack products, custom Java mods and plugins, and the systems behind streaming and digital experiences. I like taking a messy idea and making it dependable.",
+    body: "I build full-stack products, custom Java mods and plugins, and the systems behind streaming and digital experiences. I like taking a crazy idea and making it a reality.",
   },
   {
     number: "02",
     title: "Production & A/V",
-    body: "I have worked with cameras, lenses, lighting, soundboards, live events, microphones, editing, and the Adobe suite. I understand both the creative idea and the technical setup it needs.",
+    body: "I have worked with cameras, lenses, lighting, soundboards, live events, microphones, editing, and the full Adobe suite. I understand both the creative idea and the technical setup it needs.",
   },
   {
     number: "03",
     title: "Hardware & IT",
-    body: "I build hardline water-cooled computers, fly FAA-registered drones, troubleshoot technical problems, and keep learning until the whole system works—not just one part of it.",
+    body: "I build enterprise servers and custom gaming desktops, fly FAA-registered drones, troubleshoot technical problems, and keep learning until the whole system works, not just one part of it.",
   },
-] as const;
-
-const chapterLinks = [
-  ["01", "How I started", "#beginning"],
-  ["02", "Creator years", "#creator-work"],
-  ["03", "The hard years", "#hard-years"],
-  ["04", "Why CORE", "#why-core"],
-  ["05", "What I built", "#what-i-built"],
-  ["06", "Thank you", "#thank-you"],
-] as const;
-
-const creatorCircle = [
-  ["Lubcubs Gaming", "Gaming studio"],
-  ["SSundee", "Gaming creator"],
-  ["TommyInnit", "Minecraft creator"],
-  ["Unspeakable", "Gaming creator"],
-  ["Gavin", "Gaming creator"],
-  ["Nico", "Gaming creator"],
-  ["Slogo", "Gaming creator"],
-  ["MooseCraft", "Gaming creator"],
-  ["PokeFind", "Minecraft server"],
-  ["Plixel", "Minecraft server"],
-  ["BeckBroJack", "Minecraft creator"],
-  ["Ccrizzic", "Gaming creator"],
-  ["Cash", "Gaming creator"],
-  ["100 Media", "Development team"],
-  ["TubNet", "Minecraft server"],
-  ["Shark", "Gaming creator"],
-  ["Stroie", "Gaming creator"],
-  ["Bendie", "Gaming creator"],
-  ["Crainer", "Gaming creator"],
-  ["Lynixity", "Gaming creator"],
-  ["TheaGaming", "Gaming creator"],
-  ["Jelly", "Gaming creator"],
-  ["DoctorBenx", "Gaming creator"],
-  ["EpicStun", "Gaming creator"],
-  ["Army Reserve", "Organization"],
-  ["IBM", "Technology partner"],
 ] as const;
 
 export default function SpecialMessagePage() {
@@ -115,10 +77,6 @@ export default function SpecialMessagePage() {
                   want to share where I came from, why that work mattered to me, and why I
                   spent so much time building something for this community.
                 </p>
-                <div className={styles.byline}>
-                  <span>Written honestly</span>
-                  <span>Built with gratitude</span>
-                </div>
               </div>
 
               <aside className={styles.frontPageAside} aria-label="Edition note">
@@ -160,21 +118,8 @@ export default function SpecialMessagePage() {
             </ol>
             <figcaption className={styles.heroCaption}>
               <span>Origin story</span>
-              <p>
-                This begins when I was 11 and ends with the site in front of you now.
-                Everything is here in the order it happened.
-              </p>
             </figcaption>
           </figure>
-
-          <nav className={styles.chapterNav} aria-label="Message chapters">
-            {chapterLinks.map(([number, label, href]) => (
-              <a href={href} key={href}>
-                <span>{number}</span>
-                {label}
-              </a>
-            ))}
-          </nav>
 
           <section id="beginning" className={styles.chapter}>
             <div className={styles.chapterLabel}>
@@ -186,16 +131,27 @@ export default function SpecialMessagePage() {
               <p className={styles.previously}>The beginning</p>
               <h2>I was always the kid behind the scenes.</h2>
               <p className={styles.dropCap}>
-                I started programming when I was 11. One of my first big ideas was trying to
-                buy web hosting so I could sell tickets to my own knock-off basketball team,
-                the Cranberry Crush. I got in trouble for the hosting part, but the instinct
-                behind it never really left me.
+                I started programming when I was 11. The idea for one of my first sites came
+                from a Miami Heat game. My dad bought the tickets as a Christmas and birthday
+                gift, then found out the seller had scammed him. Somehow, it still became a
+                blessing: I met Udonis Haslem, shot free throws after the game with Norris
+                Cole and the Heat&apos;s Big Three — LeBron James, Dwyane Wade, and Chris Bosh —
+                and even got to hold championship rings. It made me think about how a ticket
+                could lead to a real memory.
               </p>
               <p>
-                Not long after that, I started playing Minecraft on an iPad with friends. I
-                went from playing the game to making maps, learning Java, and building mods
-                and plugins. I loved the feeling of taking something that only existed in my
-                head and turning it into something other people could use and enjoy.
+                That stuck with me. One of my first big ideas was trying to buy web hosting so
+                I could make a ticket site for my own knock-off basketball team, the Cranberry
+                Crush. I got in trouble for the hosting part, but the instinct behind it never
+                really left me.
+              </p>
+              <p>
+                My introduction to Minecraft happened at a soccer field. Another kid&apos;s dad
+                brought iPads for us to use, and I was fortunate enough to get one and play.
+                I slowly but surely got Minecraft on PC, then learned how to moderate servers,
+                build maps, develop in Java, and make mods and plugins. I kept following the
+                next thing I was curious about, and every step pulled me further into making
+                things other people could use and enjoy.
               </p>
             </div>
 
@@ -212,7 +168,7 @@ export default function SpecialMessagePage() {
 
           <section id="creator-work" className={`${styles.chapter} ${styles.creatorChapter}`}>
             <div className={styles.chapterLabel}>
-              <span>Part 02 / 2018—21</span>
+              <span>Part 02 / 2018 to 2021</span>
               <p>The creator years</p>
             </div>
 
@@ -220,7 +176,7 @@ export default function SpecialMessagePage() {
               <p className={styles.previously}>Minecraft opened a real door</p>
               <h2>I got to build for creators I had grown up watching.</h2>
               <p>
-                That Minecraft work led me to{" "}
+                Minecraft work opened the door to{" "}
                 <a
                   className={styles.creatorInlineLink}
                   href="https://www.youtube.com/@Lubcubs"
@@ -229,7 +185,7 @@ export default function SpecialMessagePage() {
                 >
                   Lubcubs Gaming
                 </a>
-                . From 2018 through 2021, I helped make projects for{" "}
+                . Between 2018 and 2021, I also helped with projects for{" "}
                 <a
                   className={styles.creatorInlineLink}
                   href="https://www.youtube.com/channel/UCpGdL9Sn3Q5YWUH2DVUW1Ug"
@@ -247,13 +203,13 @@ export default function SpecialMessagePage() {
                 >
                   GamingWithJen
                 </a>
-                , and other creators whose work had shaped a lot of childhoods.
+                , and other creators I had watched for years.
               </p>
               <p>
-                I was happiest behind the scenes. Someone would bring in a weird or funny
-                idea, and I would figure out the Java, maps, mods, or plugins needed to make
-                it real. That taught me that I did not need to be the person in front of the
-                camera to help create something an audience remembers.
+                I was usually behind the scenes. Someone would bring in a strange or funny
+                idea, and I would work out the Java, maps, mods, or plugins needed to make it
+                happen. It showed me that you can contribute to something people love without
+                being the person on camera.
               </p>
 
               <div className={styles.creatorProfiles} aria-label="Creators I worked for">
@@ -272,7 +228,7 @@ export default function SpecialMessagePage() {
                     sizes="80px"
                   />
                   <span>
-                    <small>Creator work / 2018—21</small>
+                    <small>Creator work / 2018 to 2021</small>
                     <strong>PopularMMOs</strong>
                     <em>Official channel ↗</em>
                   </span>
@@ -293,38 +249,19 @@ export default function SpecialMessagePage() {
                     sizes="80px"
                   />
                   <span>
-                    <small>Creator work / 2018—21</small>
+                    <small>Creator work / 2018 to 2021</small>
                     <strong>GamingWithJen</strong>
                     <em>Official channel ↗</em>
                   </span>
                 </a>
               </div>
 
-              <section className={styles.creatorCircle} aria-labelledby="creator-circle-heading">
-                <div className={styles.creatorCircleHeading}>
-                  <span>Creator &amp; project circle</span>
-                  <h3 id="creator-circle-heading">The wider world around the work.</h3>
-                  <p>
-                    Separate from the two featured channels above, these are the creators,
-                    studios, servers, and teams that belong to this chapter of the story.
-                  </p>
-                </div>
-
-                <ul>
-                  {creatorCircle.map(([name, type]) => (
-                    <li key={name}>
-                      <strong>{name}</strong>
-                      <span>{type}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
             </div>
 
             <aside className={styles.marginFile}>
-              <span className={styles.marginFileKicker}>What changed</span>
+              <span className={styles.marginFileKicker}>A career in the making</span>
               <strong>Player → builder</strong>
-              <p>The game I loved became the place where technical work met an audience.</p>
+              <p>I started out playing. Before long, I was the one building the maps, servers, and ideas.</p>
               <a
                 className={styles.redUnderline}
                 href="https://www.youtube.com/@Lubcubs"
@@ -338,7 +275,7 @@ export default function SpecialMessagePage() {
 
           <section id="hard-years" className={`${styles.chapter} ${styles.chapterDark}`}>
             <div className={styles.chapterLabel}>
-              <span>Part 03 / 2020—college</span>
+              <span>Part 03 / 2020 to college</span>
               <p>The hard years</p>
             </div>
 
@@ -348,18 +285,19 @@ export default function SpecialMessagePage() {
               <p>
                 First, COVID hit while I was still in high school. After high school, I moved
                 away to college. Then, while I was trying to adjust to college and adulthood,
-                my parents divorced.
+                my parents divorced, and my health spiraled.
               </p>
               <p>
-                It was a lot of change close together. I live with chronic anxiety, and even
-                as a neurotypical person, those years made it hard to feel grounded. My
-                confidence took a real hit, communication became even harder, and there were
-                long stretches where I felt stuck and unsure of what I was supposed to do next.
+                It was a lot of change close together. I live with chronic anxiety and am
+                neurotypical, and those years made it hard to feel grounded. My confidence took a real hit,
+                communication got harder, and there were long stretches where I felt stuck and
+                unsure of what I was supposed to do next.
               </p>
               <p>
-                I kept building when I could. I worked behind the scenes on productions,
-                learned more about cameras, lighting, audio, and editing, and tried to hold
-                on to the part of me that still wanted to make things.
+                I kept developing ideas when I could. I assisted with sound production,
+                lighting, video production, camera work, audio, editing, computer systems,
+                and software development. It gave me a place to stay creative and keep
+                learning how to turn an idea into something real.
               </p>
             </div>
 
@@ -376,7 +314,7 @@ export default function SpecialMessagePage() {
 
           <section id="why-core" className={styles.chapter}>
             <div className={styles.chapterLabel}>
-              <span>Part 04 / College—now</span>
+              <span>Part 04 / College to now</span>
               <p>Why CORE mattered</p>
             </div>
 
@@ -384,11 +322,12 @@ export default function SpecialMessagePage() {
               <p className={styles.previously}>The honest reason for this website</p>
               <h2>CORE made the days I felt most alone feel less lonely.</h2>
               <p className={styles.dropCap}>
-                There are days when people go through the motions but do not feel connected to
-                their own lives. During those years, CORE was something I could come back to.
-                The streams gave me something to look forward to, a reason to laugh when I
-                had not had much to laugh about, and a reminder that the day did not have to
-                end the way it started.
+                There were days when I woke up already exhausted, went through the motions,
+                and did not really feel like myself. During that time, CORE was something I
+                could come back to. A stream, a clip, or even a dumb joke could give me
+                something to look forward to and make a hard day feel a little lighter. It
+                did not fix everything, but it reminded me that I could still laugh and that
+                tomorrow might feel different.
               </p>
               <p>
                 Some readers may know that feeling too: scrolling because the quiet feels too
@@ -397,14 +336,14 @@ export default function SpecialMessagePage() {
                 day ends. Creative work reaches people in ways its makers may never get to see.
               </p>
               <p>
-                That is why I wanted to give some of that energy back. I did not want to
-                just say this community helped me; I wanted to build something that made the
-                streams, clips, creator information, and memories easier to come back to.
+                That is why I made this. I did not want to only say that this community helped
+                me. I wanted to make something useful: a place where the streams, clips, and
+                memories are easier to find again.
               </p>
               <p>
-                When V1 went offline on July 31, 2026, I had a choice: let the idea disappear
-                with it, or build it again with more care. I chose to rebuild it. The site on
-                this page is V2.
+                When V1 went offline on July 31, 2026, my free college server credits with
+                DigitalOcean had expired. I had a choice: let the idea disappear with it, or
+                build it again with more care. I chose to rebuild it. The site on this page is V2.
               </p>
             </div>
 
@@ -434,10 +373,9 @@ export default function SpecialMessagePage() {
               <p className={styles.eyebrow}>Part 05 / What I can actually do</p>
               <h2>This is the kind of work I love doing.</h2>
               <p>
-                I am a software engineer, but I have never stayed in one lane. I love the
-                point where code, production, hardware, and a creative idea all meet. I am
-                usually the person who wants to understand the entire setup and help wherever
-                the gap is.
+                I am a software engineer, but I do not stay in one lane. I like the point where
+                code, production, hardware, and creative ideas meet. That mix is where I feel
+                most creative.
               </p>
             </div>
 
@@ -450,6 +388,8 @@ export default function SpecialMessagePage() {
                 </section>
               ))}
             </div>
+
+            <PanoramaViewer />
           </section>
 
           <section id="receipts" className={styles.receiptsSection}>
@@ -464,13 +404,7 @@ export default function SpecialMessagePage() {
               </p>
             </header>
 
-            <details className={styles.evidenceDrawer} open>
-              <summary>
-                <span>Project archive</span>
-                <strong>The work behind the story</strong>
-                <em>Computer builds, project files, video, dubbing, and drone work</em>
-              </summary>
-
+            <div className={styles.evidenceDrawer}>
               <div className={styles.evidenceDrawerBody}>
 
                 <div className={styles.workbenchSpread}>
@@ -482,7 +416,7 @@ export default function SpecialMessagePage() {
                   height={1298}
                   sizes="(max-width: 760px) 100vw, 66vw"
                 />
-                <figcaption>Workshop file 01 / loop under construction</figcaption>
+                <figcaption>Loop under construction</figcaption>
               </figure>
 
               <figure className={styles.workbenchInset}>
@@ -494,17 +428,18 @@ export default function SpecialMessagePage() {
                   height={1000}
                   sizes="(max-width: 760px) 62vw, 28vw"
                 />
-                <figcaption>Workshop file 02 / lights on</figcaption>
+                <figcaption>Lights on</figcaption>
               </figure>
 
               <div className={styles.workbenchCopy}>
                 <span>Built by hand</span>
-                <h3>I like work where every small detail affects the whole system.</h3>
+                <h3>I like work where everything has to work together.</h3>
                 <p>
-                  Hardline tubing, custom cooling blocks, a distribution plate, cable
-                  routing, leak testing, and the patience to rebuild a loop when one angle is
-                  wrong. I approach software and production the same way: understand the
-                  whole system, be patient, and care about the parts most people never see.
+                  Building a hardline loop makes you care about the stuff most people never
+                  notice: tubing runs, custom blocks, cable routing, leak tests, even whether
+                  one bend sits right. If something is off, I redo it. That is how I work in
+                  software and production too — learn the whole setup, take my time, and make
+                  sure the details hold up.
                 </p>
               </div>
 
@@ -544,8 +479,8 @@ export default function SpecialMessagePage() {
                   <span>Project case study / U.S. Army Reserve</span>
                 </div>
                 <div className={styles.mercuryCopy}>
-                  <p className={styles.eyebrow}>Army Reserve Mercury / project</p>
-                  <h3>A project for better notifications, forms, and faster paths to pay.</h3>
+                  <p className={styles.eyebrow}>A project I built / Army Reserve Mercury</p>
+                  <h3>I built a better path for Army Reserve notifications and pay.</h3>
                   <dl className={styles.caseStudySteps}>
                     <div>
                       <dt>Problem</dt>
@@ -557,7 +492,7 @@ export default function SpecialMessagePage() {
                     <div>
                       <dt>Contribution</dt>
                       <dd>
-                        I created a web and mobile notification system, pitched a redesigned
+                        For this project, I created a web and mobile notification system, pitched a redesigned
                         interface, and proved out form automation.
                       </dd>
                     </div>
@@ -605,24 +540,28 @@ export default function SpecialMessagePage() {
                 <p>
                   This Spanish-language proof of concept uses a CORE backyard episode to
                   explore how existing content could reach viewers beyond the English-speaking
-                  audience—and make the archive more welcoming across countries and languages.
+                  audience and make the archive more welcoming across countries and languages.
                 </p>
                 <span className={styles.dubbingStamp}>Escuchar en español</span>
               </div>
               <figure>
-                <AutoLoopVideo
-                  src="/special-message/evidence/core-backyard-es-dubbed.mp4"
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
                   poster="/special-message/evidence/core-backyard-dub-poster.webp"
-                />
+                >
+                  <source src="/special-message/evidence/core-backyard-es-dubbed.mp4" type="video/mp4" />
+                  Your browser does not support this video.
+                </video>
                 <figcaption>
-                  Proof of concept / Spanish-language version / original CORE backyard footage
+                  Press play to hear the Spanish-language version of the original CORE backyard footage.
                 </figcaption>
               </figure>
                 </article>
 
-                <PanoramaViewer />
               </div>
-            </details>
+            </div>
           </section>
 
           <p className={styles.continuedNote}>Continued / one last thing I want to say clearly</p>
@@ -630,21 +569,40 @@ export default function SpecialMessagePage() {
           <section id="thank-you" className={`${styles.chapter} ${styles.chapterProof}`}>
             <div className={styles.chapterLabel}>
               <span>Part 06 / What I hope</span>
-              <p>Thank you—and an open door</p>
+              <p>Thank you and an open door</p>
             </div>
 
             <div className={styles.storyCopy}>
               <h2>I hope this starts a conversation.</h2>
               <p>
-                I built this because I wanted to make something real out of how much CORE and
-                its community have meant to me. If it helps someone see that, enjoy a part of
-                it, or gives the community something worth returning to, I will be proud of it.
+                I built this because CORE and its community have meant a lot to me. If it gives
+                someone something fun to come back to or helps the community feel a little more
+                connected, I will be proud of it.
               </p>
+              <div className={styles.supportNote}>
+                <span>A practical note</span>
+                <p>
+                  Keeping this site running is expensive. Azure hosting, storage buckets,
+                  databases, Redis, social-fetch listeners waiting for new posts, API fees, and
+                  the AI usage behind the DJ Cora experience all add up. If you would like to
+                  help, please consider supporting the site for at least $3 a month — or whatever
+                  amount feels right to you. I am hoping it can at least pay for itself. If it can
+                  do more than that, it would mean the world to me.
+                </p>
+                <p>
+                  I am also in a difficult place personally. I am at risk of losing my housing,
+                  have no contact with my mother, and have been couch surfing. I do not want to
+                  put pressure on the people helping me, which is why I am asking here instead.
+                </p>
+              </div>
               <div className={styles.openDoor}>
                 <p>
-                  If anyone on CORE&apos;s technical or creative side—including Bepsy, Woj, Drew,
-                  or Sixty—sees something here and thinks I could help solve a real problem, I
-                  would be excited to listen, learn, and show what I can do.
+                  If anyone at CORE would like to talk about a potential position, buying the site
+                  or domain, or putting my skills to use, please reach out to me on X at{" "}
+                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">
+                    @berryeyu
+                  </a>
+                  .
                 </p>
               </div>
               <p className={styles.craftClosing}>
@@ -680,8 +638,8 @@ export default function SpecialMessagePage() {
               </div>
               <p>
                 I built this not only so CORE has a real home when someone searches for it. I
-                wanted one owned place where every member, community, live moment, and memory
-                could keep living together.
+                wanted one place where every member, community, live moment, and memory could
+                live together.
               </p>
             </header>
 
@@ -697,11 +655,11 @@ export default function SpecialMessagePage() {
                   />
                 </div>
                 <figcaption>
-                  <span>01 / The front door</span>
-                  <h3>One home for the whole house.</h3>
+                  <span>01 / Home</span>
+                  <h3>Start with what is live right now.</h3>
                   <p>
-                    More than a profile link: a real front door for new fans, the community,
-                    and anyone looking for CORE online.
+                    The home page leads with the live moment, then takes people to Originals,
+                    clips, posts, and each CORE community.
                   </p>
                 </figcaption>
               </figure>
@@ -717,11 +675,11 @@ export default function SpecialMessagePage() {
                   />
                 </div>
                 <figcaption>
-                  <span>02 / The living guide</span>
-                  <h3>A record, not just a scroll.</h3>
+                  <span>02 / Guide</span>
+                  <h3>See what is live, then filter the rest.</h3>
                   <p>
-                    Live streams, broadcasts, videos, Shorts, TikToks, and Instagram all have
-                    a place after the moment passes.
+                    The Guide puts live streams first and lets people narrow the timeline by
+                    format, platform, or member.
                   </p>
                 </figcaption>
               </figure>
@@ -730,18 +688,18 @@ export default function SpecialMessagePage() {
                 <div className={styles.platformScreenVisual}>
                   <Image
                     src="/special-message/app-screens/now-playing-guide.png"
-                    alt="The CORE in-player guide for the SLG Network, with current programming and live details."
+                    alt="The CORE theater view with Adapt's stream and the live chat panel open."
                     width={1265}
                     height={710}
                     sizes="(max-width: 720px) calc(100vw - 2rem), 50vw"
                   />
                 </div>
                 <figcaption>
-                  <span>03 / The guide stays with you</span>
-                  <h3>Every network has a living schedule.</h3>
+                  <span>03 / Theater</span>
+                  <h3>Keep the stream and chat together.</h3>
                   <p>
-                    The guide can live beside the player, so viewers can move through each
-                    network&apos;s live, video, short-form, and 24/7 programming with context.
+                    Theater keeps the player, details, Up Next, and chat in the same viewing
+                    space instead of sending people through separate pages.
                   </p>
                 </figcaption>
               </figure>
@@ -757,11 +715,11 @@ export default function SpecialMessagePage() {
                   />
                 </div>
                 <figcaption>
-                  <span>04 / Every network has a world</span>
-                  <h3>Different communities, one connected home.</h3>
+                  <span>04 / Flock network</span>
+                  <h3>A dedicated place for each community.</h3>
                   <p>
-                    Dedicated network pages and 24/7 programming let each member&apos;s world feel
-                    intentional, while still connecting the entire house.
+                    Each network has its own 24/7 channel, programming modes, creator details,
+                    and connected activity from across the web.
                   </p>
                 </figcaption>
               </figure>
@@ -769,14 +727,12 @@ export default function SpecialMessagePage() {
 
             <div className={styles.platformPurpose}>
               <p>
-                For CORE, this is an owned platform that can give future brands and sponsors a
-                clearer place to understand the community, while bringing together
-                admin-controlled, aggregate reach across connected social accounts.
+                For CORE, it is one home base: a clear place for the community, future
+                collaborators, and anyone trying to understand what the group is building.
               </p>
               <p>
-                For viewers, it is entertainment 24/7, 365 days a year: one place for every
-                platform, every member, and the memories that would otherwise be lost in a
-                social feed.
+                For viewers, it is one place to find every member, every platform, and the
+                moments that would otherwise disappear in a feed.
               </p>
               <strong>Create. Own. Run. Everything. Own the platform.</strong>
             </div>
@@ -798,19 +754,17 @@ export default function SpecialMessagePage() {
               <p className={styles.eyebrow}>The end / for everyone watching</p>
               <h2>For anyone who needed a little light on a hard day.</h2>
               <p>
-                People rarely know what someone is carrying when they open a stream: grief, a
-                toxic or abusive relationship, anxiety, depression, addiction, or a night when
-                they are struggling to see a way forward. A lot of people in chat have lived
-                through more than anyone can see.
+                You rarely know why someone opens a stream. Sometimes they want a laugh.
+                Sometimes they just want a room that feels alive when their own day does not.
               </p>
               <p>
-                CORE did not have to know anyone&apos;s individual story to make a difference. The
-                laughs, the streams, and the community gave people a place to breathe, feel
-                less alone, and hold on through hard days. This page is a thank-you for the
-                comfort that people have found here.
+                CORE may never know what someone is carrying when they press play. But a laugh,
+                a stream, or a chat that feels like company can change the shape of a night. It
+                can give someone a breather, a reason to stay a little longer, or something to
+                look forward to tomorrow. This page is my thank-you for every moment like that.
               </p>
               <div className={styles.closingRule} aria-hidden="true" />
-              <strong>A thank-you to the creators, the community, and the reminder that no one is alone.</strong>
+              <strong>Thank you to the creators and the community for making people laugh when they need it.</strong>
             </div>
           </section>
 

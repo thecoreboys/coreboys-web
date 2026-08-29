@@ -169,14 +169,6 @@ export async function ensureFanOauthSchema(): Promise<void> {
       CREATE INDEX IF NOT EXISTS fan_watch_list_user_idx
         ON fan_watch_list (user_id, created_at DESC)
     `);
-    await query(`
-      CREATE TABLE IF NOT EXISTS fan_perk_codes (
-        user_id    text PRIMARY KEY REFERENCES fan_users(id) ON DELETE CASCADE,
-        code       text NOT NULL UNIQUE,
-        tier       text NOT NULL,
-        created_at timestamptz NOT NULL DEFAULT now()
-      )
-    `);
   })().catch((err) => {
     ready = null;
     throw err;

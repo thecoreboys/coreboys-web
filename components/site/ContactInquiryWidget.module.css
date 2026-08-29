@@ -1,0 +1,77 @@
+.widget {
+  position: fixed;
+  z-index: 72;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: max(1rem, env(safe-area-inset-left));
+  display: flex;
+  width: min(18rem, calc(100vw - 2rem));
+  align-items: center;
+  gap: .62rem;
+  padding: .48rem .68rem .48rem .48rem;
+  border: 1px solid rgba(111, 174, 255, .3);
+  border-radius: 999px;
+  color: rgba(239, 247, 255, .78);
+  background: linear-gradient(135deg, rgba(20, 40, 67, .94), rgba(9, 15, 25, .96));
+  box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .28), inset 0 1px rgba(255, 255, 255, .12);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.avatar {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  border: 1px solid rgba(149, 205, 255, .65);
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 43%;
+  box-shadow: 0 0 .8rem rgba(37, 139, 255, .35);
+}
+
+.widget p {
+  min-width: 0;
+  margin: 0;
+  font-size: .68rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.widget a {
+  color: #9dccff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.widget a:hover,
+.widget a:focus-visible {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.xLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: .16rem;
+  color: rgba(239, 247, 255, .9);
+  font-weight: 800;
+}
+
+.xLogo {
+  font-size: .83rem;
+  line-height: 1;
+}
+
+.icon {
+  width: .75rem;
+  height: .75rem;
+  flex: 0 0 auto;
+  color: rgba(182, 214, 248, .58);
+}
+
+@media (max-width: 560px) {
+  .widget {
+    bottom: max(.7rem, env(safe-area-inset-bottom));
+    left: max(.7rem, env(safe-area-inset-left));
+    width: min(17rem, calc(100vw - 1.4rem));
+  }
+}

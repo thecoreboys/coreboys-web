@@ -28,6 +28,7 @@ import {
   type NetworkChannelMode,
 } from "@/lib/watch/channels";
 import { buildContinuousGuideSchedule } from "@/lib/watch/continuous-schedule";
+import { liveTimelineEndMs } from "@/lib/watch/live-schedule";
 import { WatchSelect } from "@/components/watch/WatchSelect";
 import { PosterCard } from "@/components/watch/PosterCard";
 import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
@@ -499,8 +500,10 @@ function continuousPrograms(
 function eventEnd(program: GuideProgram, nowMs: number): number {
   const start = Date.parse(program.startsAt);
   const explicit = program.endsAt ? Date.parse(program.endsAt) : NaN;
+  // Live status is authoritative over a stale provider duration or scheduled
+  // end. A currently live card must continue through Now on every Guide view.
+  if (program.status === "live") return liveTimelineEndMs(start, explicit, nowMs);
   if (Number.isFinite(explicit) && explicit > start) return explicit;
-  if (program.status === "live") return Math.max(nowMs + 60 * 60_000, start + 30 * 60_000);
   if (program.durationSeconds && program.durationSeconds > 0) return start + program.durationSeconds * 1000;
   return start + 15 * 60_000;
 }
@@ -1243,15 +1246,7 @@ export function GuideGrid({
     <div className="guide-v2">
       <header className="guide-v2-header">
         <div>
-          <p className="watch-kicker">Every network · every channel</p>
           <h1 className="watch-title mt-2 text-4xl md:text-6xl">Guide</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[color:var(--ink-dim)] md:text-base">
-            Live streams, scheduled broadcasts, replays, videos, Shorts, TikToks, Instagram posts, and photos—ordered by when they happened.
-          </p>
-        </div>
-        <div className="guide-v2-status" aria-live="polite">
-          <span className={livePrograms.length ? "is-live" : ""} aria-hidden />
-          <strong>{livePrograms.length ? `${livePrograms.length} live` : "House is quiet"}</strong>
         </div>
       </header>
 
@@ -1262,7 +1257,6 @@ export function GuideGrid({
         <section className="guide-live-first" aria-labelledby="guide-live-title">
           <div className="guide-section-heading">
             <div>
-              <p className="watch-kicker">Right now</p>
               <h2 id="guide-live-title">Live now</h2>
             </div>
             {filteredLive.length > 0 ? <span>{filteredLive.length} on air</span> : null}

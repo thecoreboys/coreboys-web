@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error App TypeScript does not enable allowImportingTsExtensions.
-import { buildWatchHeroItems, CONTINUE_WATCHING_CLOCK_SKEW_MS, CONTINUE_WATCHING_TTL_MS, isContinueWatchingMark, selectContinueWatchingItems } from "../lib/watch/continue-watching.ts";
+import { buildWatchHeroItems, CONTINUE_WATCHING_CLOCK_SKEW_MS, CONTINUE_WATCHING_TTL_MS, isContinueWatchingMark, selectContinueWatchingItems, selectTwitchHeroBroadcasts } from "../lib/watch/continue-watching.ts";
 import type { WatchItem } from "../lib/watch/types";
 
 const NOW = Date.parse("2026-08-21T12:00:00.000Z");
@@ -107,6 +107,27 @@ test("keeps the existing hero order and appends no more than three distinct resu
     buildWatchHeroItems([live], resumes, latest).map((entry) => entry.id),
     ["live", "latest", "resume-1", "resume-2", "resume-3"],
   );
+});
+
+test("selects the newest embeddable Twitch broadcasts for the home hero", () => {
+  const twitchVod = (id: string, publishedAt: string, overrides: Partial<WatchItem> = {}) => item(id, {
+    kind: "vod",
+    platform: "twitch",
+    publishedAt,
+    previewStrategy: "embed",
+    embeddable: true,
+    twitch: { vodId: id },
+    ...overrides,
+  });
+  const selected = selectTwitchHeroBroadcasts([
+    twitchVod("older", "2026-08-20T12:00:00Z"),
+    twitchVod("newest", "2026-08-22T12:00:00Z"),
+    twitchVod("middle", "2026-08-21T12:00:00Z"),
+    twitchVod("external", "2026-08-23T12:00:00Z", { previewStrategy: "external" }),
+    item("youtube-vod", { kind: "vod", platform: "youtube" }),
+  ]);
+
+  assert.deepEqual(selected.map((entry) => entry.id), ["newest", "middle", "older"]);
 });
 
 test("continue selection excludes non-resumable formats but permits unknown duration", () => {

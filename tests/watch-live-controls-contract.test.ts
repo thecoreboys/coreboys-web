@@ -18,9 +18,12 @@ test("Theater Twitch live playback uses CORE controls and shields the provider s
   assert.match(player, /data-core-twitch-native-controls-cover/);
 });
 
-test("Twitch startup waits for provider readiness and never mislabels a slow start as a browser failure", () => {
-  assert.match(player, /scheduleStartRequired\(providerBlocked \? 3_500 : 12_000\)/);
+test("Twitch muted autoplay keeps recovering after provider pauses without a retry cutoff", () => {
+  assert.match(player, /scheduleMutedRecovery\(12_000\)/);
+  assert.match(player, /scheduleMutedRecovery\(3_000\)/);
   assert.match(player, /handlersRef\.current\.onStartRequired\(\)/);
+  assert.doesNotMatch(player, /pauseRecoveryCount/);
+  assert.doesNotMatch(player, /autoplayAttemptCount/);
   assert.doesNotMatch(player, /Your browser paused autoplay/);
   assert.doesNotMatch(player, /blockedFallbackTimer/);
 });

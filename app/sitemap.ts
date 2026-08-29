@@ -50,7 +50,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     })),
     ...MEMBERS.map((m) => ({
-      url: `${SITE}/about/${m.slug}`,
+      url: `${SITE}/channels/${m.slug}`,
       lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.8,

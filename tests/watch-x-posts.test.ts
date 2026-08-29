@@ -302,6 +302,7 @@ test("Watch-home X DTO carries snapshot rich-link and quoted-post previews", () 
     authorHandle: "@Someone",
     authorProfileUrl: "https://x.com/Someone",
     authorAvatarUrl: undefined,
-    imageUrl: undefined,
+    media: [],
+    entities: [],
   });
 });

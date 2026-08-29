@@ -330,7 +330,15 @@ export function itemToPlayable(item: WatchItem): Playable | null {
   }
   const kind = (search.get("kind") as WatchItem["kind"] | null) ?? item.kind;
   const liveLogin = /\/watch\/live\/([^/?#]+)/.exec(item.href)?.[1] ?? search.get("login");
-  const yt = youtubeIdFromHref(item.href);
+  // Catalog entries normally carry a canonical YouTube href, but imported
+  // programming can instead expose the official player URL in `embedUrl` or
+  // the source permalink in `sourceUrl`. Resolve all trusted references here
+  // so every surface (hero, channel, Theater, and multiview) gets the same
+  // muted autoplay-capable YouTube embed rather than falling back to an
+  // opaque provider iframe that cannot be controlled by CORE.
+  const yt = [item.sourceUrl, item.embedUrl, item.mediaUrl, item.href]
+    .map((candidate) => youtubeIdFromHref(candidate ?? ""))
+    .find((candidate): candidate is string => Boolean(candidate)) ?? null;
   const id = search.get("id");
   if (item.kind === "tour" && item.format !== "photo" && !yt && !id) return null;
   const photoMedia = item.format === "photo"

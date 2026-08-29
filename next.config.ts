@@ -43,6 +43,18 @@ const config: NextConfig = {
           },
         ],
       },
+      {
+        // Lightweight static artwork used by the home and network surfaces.
+        // Keep it browser/CDN cacheable while allowing planned artwork updates
+        // to propagate on a short, predictable schedule.
+        source: "/brand/:path*.webp",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+          },
+        ],
+      },
     ];
   },
   // The oversized house reel stays outside the application image. All

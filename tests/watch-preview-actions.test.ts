@@ -5,15 +5,15 @@ import test from "node:test";
 const preview = readFileSync(new URL("../components/watch/HoverPreview.tsx", import.meta.url), "utf8");
 const watchCss = readFileSync(new URL("../app/watch/watch.css", import.meta.url), "utf8");
 
-test("portrait hover previews use icon actions with descriptive Untitled UI tooltips", () => {
+test("portrait hover previews use icon actions without redundant play tooltips", () => {
   assert.match(preview, /Button as AriaButton/);
   assert.match(preview, /shape === "portrait" \? "is-icon-only"/);
   assert.match(preview, /title=\{feedback === "not_interested" \? "Undo not interested" : "Not interested"\}/);
   assert.match(preview, /Show fewer recommendations like this title\./);
   assert.match(preview, /title=\{feedback === "like" \? "Unlike" : "Like"\}/);
   assert.match(preview, /Use this title to improve your recommendations\./);
-  assert.match(preview, /title="Play now"/);
-  assert.match(preview, /Open this title in the CORE media player\./);
+  assert.doesNotMatch(preview, /title="Play now"/);
+  assert.doesNotMatch(preview, /Open this title in the CORE media player\./);
   assert.match(preview, /excludeFromTabOrder=\{!keyboardActive\}/);
 });
 

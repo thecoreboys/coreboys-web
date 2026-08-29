@@ -16,6 +16,7 @@ import {
 } from "@/lib/watch/creator-affinity";
 import {
   buildWatchHeroItems,
+  selectTwitchHeroBroadcasts,
   selectContinueWatchingItems,
 } from "@/lib/watch/continue-watching";
 import { selectWatchHomeXPosts, selectWatchHomeXSpaces } from "@/lib/watch/x-posts";
@@ -25,7 +26,6 @@ import { NetworkChannelRail } from "./NetworkChannelPage";
 import { Shelf } from "./PosterCard";
 import { PatreonLockedShelf } from "./PatreonLockedShelf";
 import { XTweetsRail } from "./XTweetsRail";
-import { WatchLegalFooter } from "./WatchLegalFooter";
 import { SupporterCta } from "@/components/marketing/SupporterCta";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import type { CoreOriginal } from "@/lib/core-originals";
@@ -37,21 +37,6 @@ function unique(items: WatchItem[]) {
     seen.add(item.id);
     return true;
   });
-}
-
-function latestUniqueXPosts(items: readonly WatchItem[], limit = 6): WatchItem[] {
-  const seen = new Set<string>();
-  const output: WatchItem[] = [];
-  for (const item of items) {
-    if (item.kind !== "post" || item.format === "live") continue;
-    const match = /\/(?:status)\/(\d{5,25})/i.exec(item.sourceUrl ?? item.href);
-    const key = match?.[1] ?? item.id;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    output.push(item);
-    if (output.length === limit) break;
-  }
-  return output;
 }
 
 /**
@@ -92,13 +77,14 @@ function references(item: WatchItem) {
 }
 
 const FALLBACK_EVENT_POSTERS = [
-  { title: "CORE Rug", src: "/brand/events-series-challenges/core-rug.png" },
-  { title: "Basketball Segments", src: "/brand/events-series-challenges/basketball-segments.png" },
-  { title: "Hot Ones", src: "/brand/events-series-challenges/hot-ones.png" },
-  { title: "Caretakers", src: "/brand/events-series-challenges/caretakers.png" },
-  { title: "StableRonaldo: 99 Kill Lead", src: "/brand/events-series-challenges/stable-99-kill-lead.png" },
-  { title: "JasonTheWeen: Island Survivor", src: "/brand/events-series-challenges/jason-the-ween.png" },
-  { title: "CORE Environment", src: "/brand/events-series-challenges/core-environment.png" },
+  { title: "CORE X VEGAS", src: "/brand/events-series-challenges/core-x-vegas.webp" },
+  { title: "CORE Rug", src: "/brand/events-series-challenges/core-rug.webp" },
+  { title: "Basketball Segments", src: "/brand/events-series-challenges/basketball-segments.webp" },
+  { title: "Hot Ones", src: "/brand/events-series-challenges/hot-ones.webp" },
+  { title: "Caretakers", src: "/brand/events-series-challenges/caretakers.webp" },
+  { title: "StableRonaldo: 99 Kill Lead", src: "/brand/events-series-challenges/stable-99-kill-lead.webp" },
+  { title: "JasonTheWeen: Island Survivor", src: "/brand/events-series-challenges/jason-the-ween.webp" },
+  { title: "CORE Environment", src: "/brand/events-series-challenges/core-environment.webp" },
   { title: "CORE PO Box Openings", src: "/brand/events-series-challenges/core-po-box-openings.webp" },
 ] as const;
 
@@ -135,7 +121,9 @@ function EventsSeriesChallengesRail({ originals }: { originals: CoreOriginal[] }
               <img
                 src={poster.posterUrl}
                 alt={poster.title}
-                loading={index < 3 ? "eager" : "lazy"}
+                loading={index === 0 ? "eager" : "lazy"}
+                decoding="async"
+                fetchPriority={index === 0 ? "high" : "low"}
                 draggable={false}
               />
               <span className="watch-events-series-poster-scrim" aria-hidden="true" />
@@ -297,11 +285,17 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
       mainUploads.find((item) => item.format !== "short") ??
       mainUploads[0] ??
       catalog.billboard;
+    const twitchBroadcasts = selectTwitchHeroBroadcasts(catalog.broadcasts);
     return unique([
+      // Live channels and their newest playable archives stay first so every
+      // home carousel includes Twitch motion instead of relying on an admin
+      // item or a viewer's Continue Watching history to surface it.
+      ...catalog.live,
+      ...twitchBroadcasts,
       ...(catalog.heroFeatured ?? []),
       ...buildWatchHeroItems(catalog.live, continueInHero ? continueItems : [], latestCore),
     ]).slice(0, 12);
-  }, [catalog.billboard, catalog.heroFeatured, catalog.house, catalog.live, continueInHero, continueItems]);
+  }, [catalog.billboard, catalog.broadcasts, catalog.heroFeatured, catalog.house, catalog.live, continueInHero, continueItems]);
 
   const personalized = useMemo(() => {
     if (!recommendationAffinity.personalized) return [];
@@ -318,13 +312,13 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
   }, [map, playable, recommendationAffinity]);
   const latest = useMemo(
     () =>
-      unique([...playable, ...latestUniqueXPosts(catalog.byPlatform.x)])
+      unique(playable)
         .filter((item) => item.kind !== "live" && !item.programming?.community)
         .sort(
           (a, b) =>
             new Date(b.publishedAt ?? 0).getTime() - new Date(a.publishedAt ?? 0).getTime(),
         ),
-    [catalog.byPlatform.x, playable],
+    [playable],
   );
   const longForm = catalog.videos;
   const quickHits = catalog.shorts;
@@ -471,6 +465,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
           title="Shorts, reels & TikToks"
           items={displayedQuickHits}
           variant="vertical"
+          preloadUpcoming
           {...sharedShelfProps}
         />
         <div id="clips" className="scroll-mt-28">
@@ -489,7 +484,6 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
           />
         ))}
       </div>
-      <WatchLegalFooter />
     </>
   );
 }

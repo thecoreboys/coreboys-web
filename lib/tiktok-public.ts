@@ -17,6 +17,12 @@ export type PublicTikTokPost = {
   height?: number;
 };
 
+/** A public profile image accepted only from TikTok's image CDNs. */
+export type PublicTikTokProfileAvatar = {
+  handle: string;
+  avatarUrl: string;
+};
+
 type JsonRecord = Record<string, unknown>;
 
 function record(value: unknown): JsonRecord | null {
@@ -56,6 +62,41 @@ function firstNumber(...values: unknown[]): number | undefined {
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
   }
   return undefined;
+}
+
+function tiktokCdnUrl(value: unknown): string | null {
+  const candidate = string(value);
+  if (!candidate) return null;
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "https:") return null;
+    const host = url.hostname.toLowerCase();
+    const tikTokCdn = host === "tiktokcdn.com"
+      || host.endsWith(".tiktokcdn.com")
+      || host === "tiktokcdn-us.com"
+      || host.endsWith(".tiktokcdn-us.com");
+    return tikTokCdn ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function profileAvatarFromRecord(value: JsonRecord, expectedHandle: string): PublicTikTokProfileAvatar | null {
+  const userInfo = record(value.userInfo);
+  const user = record(value.user) ?? record(userInfo?.user) ?? value;
+  const handle = firstString(user.uniqueId, user.unique_id, user.username)?.replace(/^@/, "").toLowerCase();
+  if (!handle || handle !== expectedHandle) return null;
+
+  const avatar = tiktokCdnUrl(firstString(
+    user.avatarLarger,
+    user.avatarMedium,
+    user.avatarThumb,
+    user.avatar_url,
+    value.avatarLarger,
+    value.avatarMedium,
+    value.avatarThumb,
+  ));
+  return avatar ? { handle, avatarUrl: avatar } : null;
 }
 
 function postFromRecord(value: JsonRecord, expectedHandle: string): PublicTikTokPost | null {
@@ -124,4 +165,38 @@ export function extractPublicTikTokPosts(html: string, handle: string, limit = 2
   // application JSON and impose a strict node budget for predictable work.
   for (const root of jsonScripts(html)) visit(root, { nodes: 12_000 });
   return [...posts.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+}
+
+/**
+ * Extract one attributable profile avatar from TikTok's public hydration
+ * document. The profile handle must match exactly and the image must be
+ * served by a TikTok CDN. This is deliberately metadata-only: no cookies,
+ * browser session, authenticated endpoint, or content scraping is involved.
+ */
+export function extractPublicTikTokProfileAvatar(
+  html: string,
+  handle: string,
+): PublicTikTokProfileAvatar | null {
+  const expectedHandle = handle.replace(/^@+/, "").trim().toLowerCase();
+  if (!expectedHandle || !html) return null;
+
+  let found: PublicTikTokProfileAvatar | null = null;
+  const visit = (value: unknown, remaining: { nodes: number }) => {
+    if (found || remaining.nodes-- <= 0) return;
+    if (Array.isArray(value)) {
+      for (const child of value) visit(child, remaining);
+      return;
+    }
+    const object = record(value);
+    if (!object) return;
+    found = profileAvatarFromRecord(object, expectedHandle);
+    if (found) return;
+    for (const child of Object.values(object)) visit(child, remaining);
+  };
+
+  for (const root of jsonScripts(html)) {
+    visit(root, { nodes: 12_000 });
+    if (found) break;
+  }
+  return found;
 }

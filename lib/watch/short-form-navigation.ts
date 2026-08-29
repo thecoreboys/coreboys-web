@@ -14,6 +14,71 @@ export type ShortFormNavigationTarget<T> = {
   total: number;
 };
 
+export const MAX_SHORT_FORM_PRELOAD_ITEMS = 2;
+
+export type ShortFormPreloadBudgetOptions = {
+  dataSaver: boolean;
+  qualityPreference?: string | null;
+  saveData?: boolean;
+  effectiveType?: string | null;
+  deviceMemoryGb?: number | null;
+  idleReady?: boolean;
+};
+
+/**
+ * Keep one upcoming Short immediately warm, then allow one more provider
+ * frame once the browser has idle capacity. Slow/data-saving connections do
+ * not spend bandwidth on hidden embeds, and low-memory devices never retain
+ * more than the immediate next frame.
+ */
+export function shortFormPreloadBudget({
+  dataSaver,
+  qualityPreference,
+  saveData = false,
+  effectiveType,
+  deviceMemoryGb,
+  idleReady = false,
+}: ShortFormPreloadBudgetOptions): number {
+  if (dataSaver || qualityPreference === "data-saver" || saveData) return 0;
+
+  const connection = effectiveType?.trim().toLowerCase();
+  if (connection === "slow-2g" || connection === "2g") return 0;
+  if (!idleReady || connection === "3g") return 1;
+  if (typeof deviceMemoryGb === "number" && deviceMemoryGb > 0 && deviceMemoryGb <= 2) return 1;
+  return MAX_SHORT_FORM_PRELOAD_ITEMS;
+}
+
+/**
+ * Reconcile a refreshed short-form channel without replacing the object that
+ * is actively playing. Refreshed order wins, while a bounded tail of the
+ * prior window protects against transient partial provider responses.
+ */
+export function mergeRefreshedChannelItems<T extends { key: string }>(
+  previousItems: readonly T[],
+  refreshedItems: readonly T[],
+  currentKey: string,
+): T[] {
+  const previousByKey = new Map(previousItems.map((item) => [item.key, item]));
+  const active = previousByKey.get(currentKey);
+  const previousSize = new Set(previousItems.map((item) => item.key)).size;
+  const refreshedSize = new Set(refreshedItems.map((item) => item.key)).size;
+  const limit = Math.max(previousSize, refreshedSize);
+  if (limit === 0) return [];
+
+  const seen = new Set<string>();
+  const merged: T[] = [];
+  for (const item of [...refreshedItems, ...previousItems]) {
+    if (!item.key || seen.has(item.key)) continue;
+    seen.add(item.key);
+    merged.push(item.key === currentKey && active ? active : item);
+  }
+
+  const bounded = merged.slice(0, limit);
+  if (!active || bounded.some((item) => item.key === currentKey)) return bounded;
+  if (bounded.length < limit) return [...bounded, active];
+  return [...bounded.slice(0, Math.max(0, limit - 1)), active];
+}
+
 /**
  * Keep Theater's vertical navigation limited to playable short-form media.
  * Portrait photos, posts, and live channels remain outside the swipe/scroll

@@ -33,8 +33,10 @@ import {
   isRadioNetworkSlug,
   selectNetworkTuneAsset,
 } from "@/lib/radio/public-catalog";
+import { shouldPlayRecordedNetworkTune } from "@/lib/radio/network-switch";
 import { readRadioAudioSettings } from "@/lib/radio/settings";
 import { NETWORK_CHANNELS, type NetworkChannelSlug } from "@/lib/watch/channels";
+import { CoreWordmark } from "@/components/brand/CoreWordmark";
 
 // Kept broad for existing imperative callers. `routeSpec` only accepts
 // network destinations and `mergeSpec` always normalizes accepted overlays to
@@ -257,7 +259,7 @@ function routeSpec(href: string): TransitionSpec | null {
     return {
       href,
       kind: "network",
-      title: isShorts ? `${network.name} Shorts` : `${network.name} 24/7`,
+      title: isShorts ? `${network.name} Shorts` : network.slug === "core" ? "CORE Network" : `${network.name} 24/7`,
       eyebrow: isShorts ? "Opening short-form channel" : tuningTheme?.eyebrow ?? "Tuning network",
       accent: network.accent,
       artwork: network.artwork,
@@ -299,6 +301,9 @@ export function CinematicRouteTransition() {
       tuningAudio.current.pause();
       tuningAudio.current.dispatchEvent(new Event("ended"));
     }
+    // This is a saved, approved DJ Cora recording. There is deliberately no
+    // Web Audio/TTS layer here, so each listener only reuses a cached static
+    // asset and never creates an audio-generation request.
     const audio = new Audio(asset.audioUrl);
     audio.preload = "auto";
     audio.volume = settings.volume;
@@ -356,7 +361,12 @@ export function CinematicRouteTransition() {
 
   const stage = useCallback((spec: TransitionSpec, destinationPath: string) => {
     clearTimers();
-    playTuningAudio(spec.networkSlug);
+    // A switch between a channel's tabs is still allowed its visual handoff,
+    // but DJ Cora speaks only when the listener truly changes networks. This
+    // also makes an initial render of the current channel silent.
+    if (shouldPlayRecordedNetworkTune(currentRoutePath(), destinationPath)) {
+      playTuningAudio(spec.networkSlug);
+    }
     released.current = false;
     transitionStartedAt.current = performance.now();
     setLeaving(false);
@@ -382,10 +392,7 @@ export function CinematicRouteTransition() {
 
   useEffect(() => () => {
     clearTimers();
-    if (tuningAudio.current) {
-      tuningAudio.current.pause();
-      tuningAudio.current.dispatchEvent(new Event("ended"));
-    }
+    skipNetworkTuningAudio();
   }, [clearTimers]);
 
   useEffect(() => {
@@ -504,7 +511,7 @@ export function CinematicRouteTransition() {
         </div>
       ) : null}
       <div className="cinematic-route-transition__content">
-        {transition.artwork ? <img src={transition.artwork} alt="" className="cinematic-route-transition__logo" /> : <span className="cinematic-route-transition__mark" aria-hidden />}
+        <CoreWordmark className="cinematic-route-transition__wordmark" />
         <span className="cinematic-route-transition__eyebrow">{transition.eyebrow}</span>
         <strong>{transition.title}</strong>
         <span className="cinematic-route-transition__signal"><i /><i /><i /></span>

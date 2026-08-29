@@ -38,6 +38,8 @@ import { gridTileToNormalizedRect } from "@/lib/watch/room-layout";
 import type { ChatViewMode } from "@/lib/chat-layouts";
 import type { PlayerCompanionView } from "@/lib/watch/player-companion";
 import {
+  MAX_SHORT_FORM_PRELOAD_ITEMS,
+  mergeRefreshedChannelItems,
   shortFormNavigationItems,
   shortFormNavigationPosition,
   shortFormPreloadItems,
@@ -230,7 +232,7 @@ export type PlayerContextValue = {
   removeFromQueue: (key: string) => void;
   moveQueueItem: (key: string, direction: -1 | 1) => void;
   playFromQueue: (key: string) => void;
-  refill: (items: Playable[]) => void;
+  refill: (items: Playable[], options?: { channelId?: string }) => void;
 
   // Workspace contract.
   tiles: WorkspaceTile[];
@@ -525,7 +527,10 @@ function layoutTimestamp(layout: { updatedAt?: string } | null | undefined) {
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const subscription = useSubscription();
   const multiviewTileLimit = subscription.hasFeature("multiview.expanded") ? MAX_TILES : 2;
-  const savedLayoutSyncAllowed = subscription.hasFeature("multiview.saved_layouts");
+  // A room belongs to the signed-in viewer. Keep this lightweight and useful:
+  // any account can save/sync its own workspace, while player-count upgrades
+  // remain a separate entitlement.
+  const savedLayoutSyncAllowed = subscription.signedIn;
   const [current, setCurrent] = useState<Playable | null>(null);
   const [queue, setQueue] = useState<Playable[]>([]);
   const [history, setHistory] = useState<Playable[]>([]);
@@ -1744,7 +1749,25 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setMode("mini");
   }, [commitQueue, remember]);
 
-  const refill = useCallback((items: Playable[]) => {
+  const refill = useCallback((items: Playable[], options?: { channelId?: string }) => {
+    const requestedChannelId = options?.channelId?.trim();
+    if (requestedChannelId) {
+      const activeChannel = channelRef.current;
+      const activeItem = currentRef.current;
+      const previousItems = channelItemsRef.current;
+      if (
+        activeChannel?.id !== requestedChannelId
+        || !activeItem
+        || !previousItems.some((item) => item.key === activeItem.key)
+      ) return;
+      const refreshedItems = unique(items);
+      if (!refreshedItems.length) return;
+      const merged = mergeRefreshedChannelItems(previousItems, refreshedItems, activeItem.key);
+      channelItemsRef.current = merged;
+      setChannelItems(merged);
+      commitQueue(channelOrder(merged, activeItem.key));
+      return;
+    }
     if (
       !items.length
       || channelRef.current
@@ -2143,7 +2166,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const shortFormPreloads = useMemo(() => shortFormPreloadItems(
     shortFormSeed,
     current?.key,
-    5,
+    MAX_SHORT_FORM_PRELOAD_ITEMS,
   ), [current?.key, shortFormSeed]);
 
   const value = useMemo<PlayerContextValue>(() => ({

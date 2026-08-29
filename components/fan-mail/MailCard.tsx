@@ -1,6 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { CopyAddress } from "./CopyAddress";
 import { clipboardPayloadFor, type MailMember } from "@/lib/fan-mail";
 import {
@@ -32,7 +31,7 @@ export function MailCard({ member }: { member: MailMember }) {
       aria-label={`Send fan mail to ${member.displayName}`}
       data-postcard-archetype={identity.archetype}
       data-paper-stock={identity.paper.stock}
-      className="paper-card group isolate scroll-mt-32 overflow-hidden border md:scroll-mt-24"
+      className="paper-card group isolate w-full min-w-0 scroll-mt-32 overflow-hidden border md:scroll-mt-24"
       style={
         {
           "--paper-rotate": `${rotate}deg`,
@@ -55,28 +54,7 @@ export function MailCard({ member }: { member: MailMember }) {
       <div className="relative z-10 p-5 sm:p-7">
         <IdentityHero identity={identity} />
 
-        <AddressPanel identity={identity} member={member}>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <CopyAddress payload={payload} />
-            <Link
-              href={`/fan-mail/postcard?to=${member.slug}`}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold shadow-sm transition hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-              style={{
-                background: identity.palette.primary,
-                color: ACTION_INK[identity.archetype],
-                outlineColor: identity.palette.highlight,
-              }}
-            >
-              Send a postcard <span aria-hidden="true">→</span>
-            </Link>
-            <span
-              className="text-[10px] font-bold uppercase tracking-[0.18em]"
-              style={{ color: identity.palette.mutedInk }}
-            >
-              We print &amp; mail it
-            </span>
-          </div>
-        </AddressPanel>
+        <AddressPanel identity={identity} member={member} payload={payload} />
       </div>
     </article>
   );
@@ -121,19 +99,19 @@ function IdentityHero({ identity }: { identity: PostcardIdentity }) {
 
   if (identity.archetype === "creator-trading-card") {
     return (
-      <div className="relative grid gap-6 border-4 border-black bg-[#fff300] p-4 shadow-[8px_8px_0_#111] sm:grid-cols-[152px_1fr] sm:p-5">
+      <div className="relative grid min-w-0 gap-6 border-4 border-black bg-[#fff300] p-4 shadow-[8px_8px_0_#111] sm:grid-cols-[152px_minmax(0,1fr)] sm:p-5">
         <div className="relative min-h-44 overflow-hidden rounded-xl border-4 border-black bg-white shadow-[4px_4px_0_#7657ff]">
           <Image src={identity.media.portrait} alt={`${identity.creatorName} portrait`} fill sizes="152px" className="object-cover" />
           <div className="absolute left-2 top-2 rounded-full border-2 border-black bg-white px-2 py-1 text-[9px] font-black uppercase">First edition</div>
         </div>
-        <div className="flex flex-col justify-between text-black">
+        <div className="min-w-0 flex flex-col justify-between text-black">
           <div className="flex items-start justify-between gap-3">
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em]">NMS player card / 001</p>
             <span className="text-5xl font-black italic leading-none">99</span>
           </div>
           <div>
             <p className="mb-1 text-xs font-black uppercase tracking-[0.2em]" style={{ color: identity.palette.secondary }}>{identity.communityName}</p>
-            <h2 style={fontStyle(identity.typography.display)} className="text-[42px] sm:text-[54px]">{identity.creatorName}</h2>
+            <h2 style={fontStyle(identity.typography.display)} className="min-w-0 break-words [overflow-wrap:anywhere] text-[42px] sm:text-[54px]">{identity.creatorName}</h2>
             <p className="mt-2 inline-block -rotate-1 bg-black px-3 py-1.5 text-xs font-black uppercase tracking-wide text-white">{hero.headline}</p>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[9px] font-black uppercase">
@@ -154,7 +132,7 @@ function IdentityHero({ identity }: { identity: PostcardIdentity }) {
           <p className="font-serif text-3xl font-black uppercase tracking-[-0.06em] sm:text-5xl">Thugs Daily</p>
           <span className="bg-[#e7352b] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white">Late edition</span>
         </div>
-        <div className="grid gap-4 border-b-2 border-[#181512] py-4 sm:grid-cols-[1fr_150px]">
+        <div className="grid gap-4 border-b-2 border-[#181512] py-4 sm:grid-cols-[minmax(0,1fr)_150px]">
           <div>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em]">Exclusive / Fan-mail desk</p>
             <h2 style={fontStyle(identity.typography.display)} className="text-[44px] sm:text-[62px]">Mail desk open for {identity.creatorName}</h2>
@@ -238,7 +216,7 @@ function CreatorSeal({ identity, className = "" }: { identity: PostcardIdentity;
   );
 }
 
-function AddressPanel({ identity, member, children }: { identity: PostcardIdentity; member: MailMember; children: ReactNode }) {
+function AddressPanel({ identity, member, payload }: { identity: PostcardIdentity; member: MailMember; payload: string }) {
   return (
     <div
       className={`mt-7 ${ADDRESS_PANEL_CLASSES[identity.archetype]}`}
@@ -262,7 +240,7 @@ function AddressPanel({ identity, member, children }: { identity: PostcardIdenti
           {member.note}
         </p>
       ) : null}
-      {children}
+      <div className="mt-5"><CopyAddress payload={payload} /></div>
     </div>
   );
 }
@@ -282,7 +260,7 @@ function IdentityTexture({ identity }: { identity: PostcardIdentity }) {
 
 function FallbackMailCard({ member, payload }: { member: MailMember; payload: string }) {
   return (
-    <article id={member.slug} aria-label={`Send fan mail to ${member.displayName}`} className="paper-card scroll-mt-32 md:scroll-mt-24">
+    <article id={member.slug} aria-label={`Send fan mail to ${member.displayName}`} className="paper-card w-full min-w-0 scroll-mt-32 md:scroll-mt-24">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[color:var(--paper-ink-dim)]">Fan-mail destination</p>
       <h2 className="mt-1 font-editorial-serif text-[40px] font-semibold text-[color:var(--paper-ink)] sm:text-[56px]">{member.displayName}</h2>
       <p className="address-block mt-6">
@@ -291,9 +269,6 @@ function FallbackMailCard({ member, payload }: { member: MailMember; payload: st
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <CopyAddress payload={payload} />
-        <Link href={`/fan-mail/postcard?to=${member.slug}`} className="inline-flex min-h-10 items-center rounded-full bg-[color:var(--core)] px-4 py-2 text-[13px] font-semibold text-white">
-          Send a postcard <span aria-hidden="true">→</span>
-        </Link>
       </div>
     </article>
   );
@@ -316,14 +291,6 @@ const ROTATIONS: Record<string, number> = {
   lacy: -0.85,
   marlon: 0.15,
   adapt: -0.6,
-};
-
-const ACTION_INK: Record<PostcardArchetype, string> = {
-  "broadcast-freeze-frame": "#ffffff",
-  "creator-trading-card": "#111111",
-  "newspaper-front-page": "#ffffff",
-  "editorial-magazine": "#101112",
-  "scrapbook-contact-sheet": "#ffffff",
 };
 
 const DESTINATION_LABELS: Record<PostcardArchetype, string> = {

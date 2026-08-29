@@ -1,5 +1,5 @@
 import type { Metadata, Route } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
@@ -43,12 +43,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: member.stageName,
     description: member.bio,
-    alternates: { canonical: `/about/${member.slug}` },
+    alternates: { canonical: `/channels/${member.slug}` },
     openGraph: {
       title: `${member.stageName} — CORE`,
       description: member.bio,
       type: "profile",
-      url: `/about/${member.slug}`,
+      url: `/channels/${member.slug}`,
     },
   };
 }
@@ -57,6 +57,10 @@ const SOCIAL_ORDER: PlatformKey[] = ["twitch", "youtube", "tiktok", "instagram",
 
 export default async function MemberPage({ params }: Params) {
   const { slug } = await params;
+  // Channels are now the canonical member home: live programming, socials,
+  // crew, gallery, and fan mail are all available there. Preserve old links
+  // without maintaining a competing profile page.
+  if (MEMBERS.some((entry) => entry.slug === slug)) redirect(`/channels/${slug}`);
   const member = await getMemberWithProfileOverrides(slug);
   if (!member) notFound();
   const twitchTrackerSummaryPromise = loadMemberTwitchTrackerSummary(slug).catch(() => null);

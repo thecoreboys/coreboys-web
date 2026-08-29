@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "CORE Passport",
-  description: "Your CORE achievements, Moment Cards, channel identity, and digital Memory Book.",
+  description: "Your CORE account activity, verified records, milestones, and profile identity.",
   alternates: { canonical: "/passport" },
   robots: { index: false, follow: false },
 };

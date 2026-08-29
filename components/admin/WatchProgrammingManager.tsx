@@ -120,7 +120,7 @@ export function WatchProgrammingManager() {
 
       <section className={cardClass}>
         <h2 className="text-lg font-semibold text-primary">2. Add a community channel</h2>
-        <p className="mt-1 text-sm text-tertiary">Feature YouTube, TikTok, Instagram, or X creators in any home rail. Choose Auto detect for a mix that should become vertical when it is mostly short-form.</p>
+        <p className="mt-1 text-sm text-tertiary">Feature YouTube, TikTok, Instagram, or X creators in any home rail. A public TikTok handle can fall back to TikTok&apos;s official Creator Profile Embed with up to 10 recent videos; a public Instagram handle can use Meta&apos;s official profile embed.</p>
         <form className="mt-5 space-y-5" onSubmit={(event) => { event.preventDefault(); void createSource(event.currentTarget); }}>
           <div className="grid gap-3 md:grid-cols-4">
             <input className={inputClass} name="name" required placeholder="Display name" />
@@ -136,7 +136,7 @@ export function WatchProgrammingManager() {
 
       <section className={cardClass}>
         <h2 className="text-lg font-semibold text-primary">3. Curate public social media</h2>
-        <p className="mt-1 text-sm text-tertiary">Paste a YouTube video or Short, TikTok, Instagram Reel, or Instagram post URL. Public post embeds work without a creator token, so this keeps a network populated while automatic account sync awaits approval.</p>
+        <p className="mt-1 text-sm text-tertiary">Paste a YouTube video or Short, TikTok, Instagram Reel, or Instagram post URL. Official public embeds work without creator login. Instagram profile embeds are a front-end view, not feed discovery, so add known public post or Reel URLs to render individual posts. Creator alerts use CORE&apos;s public-feed monitor when available.</p>
         <form className="mt-5 space-y-5" onSubmit={(event) => { event.preventDefault(); void createItem(event.currentTarget); }}>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <input className={inputClass} name="url" type="url" required placeholder="YouTube, TikTok, or Instagram URL" />

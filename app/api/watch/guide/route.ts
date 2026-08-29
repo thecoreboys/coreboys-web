@@ -459,7 +459,10 @@ function loadCatalogTimeline(catalog: WatchCatalog): GuideProgram[] {
       title: item.title,
       game: item.subtitle ?? item.live?.game ?? null,
       startsAt,
-      endsAt: seconds ? new Date(startMs + seconds * 1000).toISOString() : null,
+      // A duration attached to a currently live provider item is only an
+      // estimate. Do not expose it as a completed end; the Guide projects a
+      // stable rolling boundary until the provider marks the broadcast over.
+      endsAt: !isLive && seconds ? new Date(startMs + seconds * 1000).toISOString() : null,
       status: isLive ? "live" : isReplay ? "replay" : "published",
       platform: item.platform,
       thumbnailUrl: item.poster || item.backdrop || null,

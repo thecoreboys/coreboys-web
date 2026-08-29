@@ -2,7 +2,7 @@ import "server-only";
 
 import { query } from "@/lib/db";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
-import { allTargets } from "@/lib/oauth/roster";
+import { GROUP } from "@/lib/group";
 import { resolveYouTubeChannelId } from "@/lib/social-feed";
 import { fetchUsersByLogin } from "@/lib/twitch";
 import { formatDurationSeconds, isoDurationSeconds } from "@/lib/youtube-duration";
@@ -13,6 +13,7 @@ import { mediaIntelligenceQuery, withMediaIntelligenceTransaction } from "./sche
 import { runMediaWorkerBatch, type MediaWorkerSummary } from "./worker";
 
 const PROVIDER_TIMEOUT_MS = 20_000;
+const WATCH_ARCHIVE_ITEM_LIMIT = 20_000;
 
 export type MediaArchivePage = {
   items: WatchItem[];
@@ -219,6 +220,49 @@ async function twitchArchiveSources(): Promise<MediaArchiveSource[]> {
 
 const uploadsPlaylistCache = new Map<string, string>();
 
+type YouTubeArchiveTarget = {
+  ref: string;
+  memberSlug: string | null;
+  label: string;
+};
+
+/**
+ * Keep archive ownership as specific as the channel page. A creator can have
+ * Main, Live, VOD, and Clips channels; collapsing them to one member label
+ * makes a full archive impossible to browse source-by-source later.
+ */
+function youtubeArchiveTargets(): YouTubeArchiveTarget[] {
+  const targets: YouTubeArchiveTarget[] = [];
+  const add = (ref: string | undefined, memberSlug: string | null, label: string) => {
+    const normalized = ref?.trim();
+    if (!normalized) return;
+    targets.push({ ref: normalized, memberSlug, label });
+  };
+
+  add(
+    GROUP.socials.youtube.channelId || GROUP.socials.youtube.url || GROUP.socials.youtube.handle,
+    null,
+    GROUP.name,
+  );
+
+  for (const member of MEMBERS) {
+    for (const social of member.socials) {
+      if (social.platform !== "youtube") continue;
+      add(
+        social.url || social.handle || member.youtubeChannelId,
+        member.slug,
+        social.label?.trim() ? `${member.stageName} · ${social.label.trim()}` : member.stageName,
+      );
+    }
+    // Preserve a configured primary ID even if it has not been represented by
+    // a social record yet.
+    if (!member.socials.some((social) => social.platform === "youtube")) {
+      add(member.youtubeChannelId, member.slug, member.stageName);
+    }
+  }
+  return targets;
+}
+
 async function youtubeUploadsPlaylist(channelId: string, key: string): Promise<string> {
   const cached = uploadsPlaylistCache.get(channelId);
   if (cached) return cached;
@@ -239,16 +283,14 @@ async function youtubeArchiveSources(): Promise<MediaArchiveSource[]> {
   const key = process.env.YOUTUBE_API_KEY?.trim();
   if (!key) return [];
   const sources = new Map<string, MediaArchiveSource>();
-  for (const target of allTargets()) {
-    const refs = [...target.youtubeChannelIds, ...target.youtubeHandles];
-    for (const ref of refs) {
-      const channelId = await resolveYouTubeChannelId(ref).catch(() => null);
-      if (!channelId || sources.has(channelId)) continue;
-      sources.set(channelId, {
-        key: `youtube:${channelId}:uploads:v1`,
-        provider: "youtube",
-        memberSlug: target.slug === "house" ? null : target.slug,
-        async fetchPage(cursor, limit) {
+  for (const target of youtubeArchiveTargets()) {
+    const channelId = await resolveYouTubeChannelId(target.ref).catch(() => null);
+    if (!channelId || sources.has(channelId)) continue;
+    sources.set(channelId, {
+      key: `youtube:${channelId}:uploads:v1`,
+      provider: "youtube",
+      memberSlug: target.memberSlug,
+      async fetchPage(cursor, limit) {
           const uploads = await youtubeUploadsPlaylist(channelId, key);
           const playlistParams = new URLSearchParams({
             part: "snippet,contentDetails",
@@ -284,7 +326,7 @@ async function youtubeArchiveSources(): Promise<MediaArchiveSource[]> {
               status?: { embeddable?: boolean; privacyStatus?: string };
             }>;
           } : { items: [] };
-          const member = target.slug === "house" ? null : MEMBERS_BY_SLUG[target.slug];
+          const member = target.memberSlug ? MEMBERS_BY_SLUG[target.memberSlug] : null;
           const items = (details.items ?? []).flatMap((video): WatchItem[] => {
             if (!video.id || video.status?.privacyStatus === "private") return [];
             const durationSeconds = isoDurationSeconds(video.contentDetails?.duration ?? "");
@@ -302,11 +344,11 @@ async function youtubeArchiveSources(): Promise<MediaArchiveSource[]> {
               subtitle: replay ? `${target.label} · Past broadcast` : target.label,
               poster,
               backdrop: `https://i.ytimg.com/vi/${video.id}/maxresdefault.jpg`,
-              memberSlug: target.slug === "house" ? null : target.slug,
+              memberSlug: target.memberSlug,
               memberLabel: member?.stageName ?? target.label,
               accountLabel: target.label,
-              accent: accentFor(target.slug === "house" ? null : target.slug),
-              href: `/theater?kind=youtube&id=${encodeURIComponent(video.id)}&slug=${encodeURIComponent(target.slug)}`,
+              accent: accentFor(target.memberSlug),
+              href: `/theater?kind=youtube&id=${encodeURIComponent(video.id)}&slug=${encodeURIComponent(target.memberSlug ?? "house")}`,
               sourceUrl: `https://www.youtube.com/watch?v=${video.id}`,
               embedUrl: `https://www.youtube-nocookie.com/embed/${video.id}`,
               publishedAt: video.liveStreamingDetails?.actualStartTime ?? video.snippet?.publishedAt,
@@ -322,11 +364,41 @@ async function youtubeArchiveSources(): Promise<MediaArchiveSource[]> {
           });
           const nextCursor = playlist.nextPageToken?.trim() || null;
           return { items, nextCursor, exhausted: !nextCursor };
-        },
-      });
-    }
+      },
+    });
   }
   return [...sources.values()];
+}
+
+/**
+ * The archive worker persists the exact normalized WatchItem it discovered.
+ * Reading it back makes every fully-paginated YouTube uploads playlist part
+ * of the public catalog without replaying the whole provider history during a
+ * visitor request. Absence of the optional archive database is a normal
+ * staged-rollout state and simply returns no historical supplement.
+ */
+export async function loadArchivedYouTubeWatchItems(
+  limit = WATCH_ARCHIVE_ITEM_LIMIT,
+): Promise<WatchItem[]> {
+  const bounded = Math.max(1, Math.min(WATCH_ARCHIVE_ITEM_LIMIT, Math.trunc(limit)));
+  try {
+    const result = await mediaIntelligenceQuery<{ item: WatchItem }>(
+      `SELECT item
+         FROM media_intelligence_assets
+        WHERE active
+          AND platform = 'youtube'
+          AND item IS NOT NULL
+        ORDER BY published_at DESC NULLS LAST, updated_at DESC
+        LIMIT $1`,
+      [bounded],
+    );
+    return result.rows.flatMap(({ item }) => {
+      if (!item || item.platform !== "youtube" || !item.id || !item.title || !item.href) return [];
+      return [item];
+    });
+  } catch {
+    return [];
+  }
 }
 
 async function availableArchiveSources(): Promise<MediaArchiveSource[]> {

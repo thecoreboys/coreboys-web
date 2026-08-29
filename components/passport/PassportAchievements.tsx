@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Award, Check, Clock3, HelpCircle, LockKeyhole, Sparkles, Target, Trophy } from "lucide-react";
 import type { PassportAchievement, PassportCampaign, PassportQuest } from "@/lib/passport/types";
 import { boundedPercent, formatPassportDate, passportQuestProgress, sortAchievements } from "./passport-utils";
+import { NativeSelect } from "@/components/base/select/select-native";
 
 function recordNumber(record: Record<string, unknown>, ...keys: string[]): number {
   for (const key of keys) {
@@ -17,7 +18,7 @@ function rewardLabel(reward: Record<string, unknown>) {
   if (typeof reward.label === "string") return reward.label;
   const xp = recordNumber(reward, "globalXp", "xp", "xpReward");
   const sparks = recordNumber(reward, "sparks", "sparksReward");
-  return [xp ? `${xp} XP` : "", sparks ? `${sparks} Sparks` : ""].filter(Boolean).join(" + ") || "Mystery reward";
+  return [xp ? `${xp} XP` : "", sparks ? `${sparks} Sparks` : ""].filter(Boolean).join(" + ") || "Reward details unavailable";
 }
 
 export function PassportAchievements({
@@ -51,8 +52,8 @@ export function PassportAchievements({
       <section className="passport-section-heading">
         <div>
           <span className="passport-kicker"><Trophy aria-hidden="true" /> Achievements</span>
-          <h2>Your history grows with you.</h2>
-          <p>Attendance, knowledge, collection, and community badges evolve from Bronze to Icon without losing their original earned date.</p>
+          <h2>Milestones from your activity.</h2>
+          <p>Milestones are awarded from verified attendance, viewing, collection, and community activity. Earned dates are kept with each record.</p>
         </div>
       </section>
 
@@ -83,12 +84,12 @@ export function PassportAchievements({
               );
             })}
           </div>
-        ) : <div className="passport-empty passport-empty--small"><Target aria-hidden="true" /><h3>No active quests.</h3><p>New channel stories will appear here when they begin.</p></div>}
+        ) : <div className="passport-empty passport-empty--small"><Target aria-hidden="true" /><h3>No active tasks.</h3><p>Eligible tasks will appear here when they are available.</p></div>}
       </section>
 
       {campaigns.length ? (
         <section className="passport-campaigns">
-          <div className="passport-section-heading"><div><span className="passport-kicker"><Sparkles aria-hidden="true" /> Story campaigns</span><h2>Finish the chapter.</h2></div></div>
+          <div className="passport-section-heading"><div><span className="passport-kicker"><Sparkles aria-hidden="true" /> Activity programs</span><h2>Available programs</h2></div></div>
           <div className="passport-campaign-grid">
             {campaigns.map((campaign) => {
               const linked = quests.filter((quest) => quest.campaignCode === campaign.code);
@@ -107,8 +108,8 @@ export function PassportAchievements({
 
       <section className="passport-achievement-library">
         <header className="passport-filter-bar">
-          <label><span className="sr-only">Achievement family</span><select value={family} onChange={(event) => setFamily(event.target.value)}><option value="all">All badge families</option>{families.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-          <button type="button" className={`passport-filter-toggle ${showLocked ? "is-active" : ""}`} onClick={() => setShowLocked((value) => !value)} aria-pressed={showLocked}><LockKeyhole aria-hidden="true" /> Show locked</button>
+          <NativeSelect aria-label="Milestone family" value={family} onChange={(event) => setFamily(event.target.value)} options={[{ value: "all", label: "All milestone families" }, ...families.map((value) => ({ value, label: value }))]} size="sm" />
+          <button type="button" className={`passport-filter-toggle ${showLocked ? "is-active" : ""}`} onClick={() => setShowLocked((value) => !value)} aria-pressed={showLocked}><LockKeyhole aria-hidden="true" /> {showLocked ? "Hide locked" : "Show locked"}</button>
         </header>
         <div className="passport-achievement-grid">
           {shown.map((achievement) => <AchievementTile key={`${achievement.code}:${achievement.channelSlug ?? "global"}`} achievement={achievement} />)}

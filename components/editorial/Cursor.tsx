@@ -475,7 +475,10 @@ export function Cursor() {
       const hint = hintRef.current;
       const sizeFactor = document.documentElement.dataset.cursorSize === "large" ? 1.28 : 1;
       const scale = (mode === "action" ? 1.12 : mode === "scrub" ? 0.92 : mode === "drag" ? 0.96 : mode === "play" || mode === "pause" ? 1.06 : 1) * (pressed ? 0.88 : 1) * sizeFactor;
-      const rotation = mode === "action" ? -4 : mode === "scrub" ? 90 : mode === "drag" ? -18 * dragDirection : 0;
+      // Range inputs always move left-to-right. Keep the pointer and its ↔
+      // affordance aligned with that axis instead of rotating the whole cursor
+      // into an up/down-looking control.
+      const rotation = mode === "action" ? -4 : mode === "drag" ? -18 * dragDirection : 0;
 
       for (const element of [pointer, aura, trail]) {
         if (!element) continue;

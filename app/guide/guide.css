@@ -103,6 +103,19 @@
   scroll-snap-type: x mandatory;
 }
 
+/* The global watch shelf adds decorative edge spacers for home rails. The
+   guide's live row already sits inside the page gutter, so those spacers
+   create a visible blank strip before the first live card. */
+.guide-live-rail.watch-shelf {
+  padding-inline: 0;
+  scroll-padding-inline: 0;
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 1.4rem), transparent 100%);
+}
+.guide-live-rail.watch-shelf::before,
+.guide-live-rail.watch-shelf::after {
+  display: none;
+}
+
 /* The Guide’s on-air shelf deliberately reuses Home’s media player cards.
    Keeping the shared sizing makes the content feel like one product instead
    of a separate guide-only card system. */
@@ -3396,6 +3409,7 @@
 
 .guide-history-header-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.6rem;
@@ -3494,7 +3508,7 @@
 
 .guide-history-year-row {
   align-items: center;
-  min-height: 5.05rem;
+  min-height: 4.35rem;
   padding: 0.48rem 0;
   border-top: 1px solid rgba(255, 255, 255, 0.055);
 }
@@ -3581,7 +3595,7 @@
 .guide-history-contribution-grid {
   display: grid;
   width: 100%;
-  aspect-ratio: var(--guide-history-weeks) / 7;
+  height: 5.6rem;
   grid-auto-flow: column;
   grid-template-columns: repeat(var(--guide-history-weeks), minmax(0, 1fr));
   grid-template-rows: repeat(7, minmax(0, 1fr));

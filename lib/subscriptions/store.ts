@@ -1,4 +1,5 @@
 import { query, withTransaction } from "@/lib/db";
+import type { PoolClient } from "pg";
 import {
   isAddOnId,
   isLifetimeSku,
@@ -208,7 +209,7 @@ export async function getSubscriptionStorageSnapshot(
   }
 }
 
-export async function upsertStripeSubscription(input: {
+export type StripeSubscriptionProjection = {
   userId: string;
   customerId: string;
   subscriptionId: string;
@@ -216,26 +217,115 @@ export async function upsertStripeSubscription(input: {
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
-}): Promise<void> {
-  await withTransaction(async (client) => {
-    await client.query(
+  providerEventId: string;
+  providerEventCreatedAt: Date;
+  providerEventPriority: number;
+  allowContractReplace: boolean;
+  checkoutAttemptId: string | null;
+  billingConsent?: {
+    termsVersion: string;
+    termsAccepted: boolean;
+    amountCents: number | null;
+    currency: string | null;
+    interval: string | null;
+    acceptedAt: Date;
+  };
+};
+
+export type StripeSubscriptionProjectionResult = { applied: boolean; contractMatched: boolean };
+
+async function applyStripeSubscription(client: PoolClient, input: StripeSubscriptionProjection): Promise<StripeSubscriptionProjectionResult> {
+    const projection = await client.query(
       `INSERT INTO fan_subscriptions (
          user_id, plan_id, status, source, billing_interval, current_period_start,
-         current_period_end, cancel_at_period_end, external_customer_ref, external_plan_ref, external_contract_ref
-       ) VALUES ($1, 'plus', $2, 'future_billing', 'month', $3, $4, $5, $6, 'stripe_supporter_monthly', $7)
+         current_period_end, trial_ends_at, cancel_at_period_end, external_customer_ref, external_plan_ref, external_contract_ref,
+         provider_event_created_at, provider_event_priority, provider_event_id
+       ) VALUES ($1, 'plus', $2, 'future_billing', 'month', $3, $4, NULL, $5, $6, 'stripe_supporter_monthly', $7, $8, $9, $10)
        ON CONFLICT (user_id) DO UPDATE SET
          plan_id = 'plus', status = EXCLUDED.status, source = 'future_billing', billing_interval = 'month',
          current_period_start = EXCLUDED.current_period_start, current_period_end = EXCLUDED.current_period_end,
+         trial_ends_at = NULL,
          cancel_at_period_end = EXCLUDED.cancel_at_period_end,
          external_customer_ref = EXCLUDED.external_customer_ref, external_plan_ref = EXCLUDED.external_plan_ref,
-         external_contract_ref = EXCLUDED.external_contract_ref, updated_at = now()`,
-      [input.userId, input.status, input.currentPeriodStart, input.currentPeriodEnd, input.cancelAtPeriodEnd, input.customerId, input.subscriptionId],
+         external_contract_ref = EXCLUDED.external_contract_ref,
+         provider_event_created_at = EXCLUDED.provider_event_created_at,
+         provider_event_priority = EXCLUDED.provider_event_priority,
+         provider_event_id = EXCLUDED.provider_event_id,
+         updated_at = now()
+       WHERE (
+         fan_subscriptions.external_contract_ref = EXCLUDED.external_contract_ref
+         AND (
+           fan_subscriptions.provider_event_created_at IS NULL
+           OR (EXCLUDED.provider_event_created_at, EXCLUDED.provider_event_priority)
+              >= (fan_subscriptions.provider_event_created_at, fan_subscriptions.provider_event_priority)
+         )
+       ) OR (
+         fan_subscriptions.external_contract_ref IS DISTINCT FROM EXCLUDED.external_contract_ref
+         AND $11::boolean
+         AND $12::uuid IS NOT NULL
+         AND (fan_subscriptions.external_contract_ref IS NULL OR fan_subscriptions.status IN ('canceled', 'expired'))
+         AND EXISTS (
+           SELECT 1
+             FROM supporter_checkout_attempts attempt
+            WHERE attempt.user_id = EXCLUDED.user_id
+              AND attempt.attempt_id = $12::uuid
+              AND attempt.state IN ('creating', 'open', 'completed')
+         )
+       )
+       RETURNING user_id`,
+      [
+        input.userId,
+        input.status,
+        input.currentPeriodStart,
+        input.currentPeriodEnd,
+        input.cancelAtPeriodEnd,
+        input.customerId,
+        input.subscriptionId,
+        input.providerEventCreatedAt,
+        input.providerEventPriority,
+        input.providerEventId,
+        input.allowContractReplace,
+        input.checkoutAttemptId,
+      ],
     );
+    const applied = projection.rowCount === 1;
+    const contractMatched = applied || (await client.query<{ external_contract_ref: string | null }>(
+      `SELECT external_contract_ref FROM fan_subscriptions WHERE user_id = $1`,
+      [input.userId],
+    )).rows[0]?.external_contract_ref === input.subscriptionId;
     await client.query(
       `INSERT INTO fan_subscription_events (user_id, event_type, actor_type, payload)
-       VALUES ($1, 'stripe_subscription_synced', 'future_provider', $2::jsonb)`,
-      [input.userId, JSON.stringify({ subscriptionId: input.subscriptionId, status: input.status, cancelAtPeriodEnd: input.cancelAtPeriodEnd })],
+       VALUES ($1, $2, 'future_provider', $3::jsonb)`,
+      [input.userId, applied ? "stripe_subscription_synced" : "stripe_subscription_event_ignored", JSON.stringify({
+        subscriptionId: input.subscriptionId,
+        status: input.status,
+        cancelAtPeriodEnd: input.cancelAtPeriodEnd,
+        providerEventId: input.providerEventId,
+        providerEventCreatedAt: input.providerEventCreatedAt,
+        applied,
+        contractMatched,
+        ...(input.billingConsent ? { billingConsent: input.billingConsent } : {}),
+      })],
     );
+    return { applied, contractMatched };
+}
+
+export async function upsertStripeSubscription(input: StripeSubscriptionProjection, client?: PoolClient): Promise<StripeSubscriptionProjectionResult> {
+  if (client) return applyStripeSubscription(client, input);
+  return withTransaction((transactionClient) => applyStripeSubscription(transactionClient, input));
+}
+
+export async function withSupporterBillingLock<T>(
+  userId: string,
+  run: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  return withTransaction(async (client) => {
+    const lock = await client.query<{ acquired: boolean }>(
+      `SELECT pg_try_advisory_xact_lock(hashtextextended($1::text, 0)) AS acquired`,
+      [`supporter-billing:${userId}`],
+    );
+    if (lock.rows[0]?.acquired !== true) throw new Error("billing_operation_in_progress");
+    return run(client);
   });
 }
 

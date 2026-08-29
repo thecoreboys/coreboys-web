@@ -2777,6 +2777,15 @@
     pointer-events: none !important;
   }
 
+  /* Twitch only grants reliable autoplay to a visible, unobscured player.
+     Keep its approved SDK surface interactive; the hero's primary Play CTA
+     still opens Theater without placing a transparent button over the embed. */
+  .watch-billboard-live-player.is-preview.is-twitch .watch-billboard-live-mount,
+  .watch-billboard-live-player.is-preview.is-twitch .watch-billboard-live-mount iframe,
+  .lenis.lenis-smooth .watch-billboard-live-player.is-preview.is-twitch .watch-billboard-live-mount iframe {
+    pointer-events: auto !important;
+  }
+
   /* The hero is a CORE preview, never a loose provider embed. This surface
      masks provider chrome, keeps autoplay muted, and hands every interaction
      to the full custom media player. */
@@ -2840,6 +2849,45 @@
     text-transform: uppercase;
   }
 
+  /* This sits above the CORE handoff overlay so a muted autoplay preview can
+     be made audible without opening a second player or exposing Twitch's
+     provider controls. */
+  .watch-billboard-live-sound {
+    position: absolute;
+    right: 0.85rem;
+    bottom: 0.76rem;
+    z-index: 5;
+    display: inline-flex;
+    min-height: 2rem;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    padding: 0.42rem 0.66rem;
+    background: rgba(6, 6, 8, 0.82);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    font-size: 0.62rem;
+    font-weight: 750;
+    letter-spacing: 0.075em;
+    text-transform: uppercase;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+    backdrop-filter: blur(10px);
+  }
+
+  .watch-billboard-live-sound:hover,
+  .watch-billboard-live-sound:focus-visible {
+    border-color: rgba(255, 255, 255, 0.44);
+    background: rgba(22, 22, 26, 0.94);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+
+  .watch-billboard-live-sound:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.92);
+    outline-offset: 3px;
+  }
+
   .watch-billboard-live-core-badge {
     top: 0.85rem;
     left: 0.85rem;
@@ -2860,7 +2908,7 @@
   }
 
   .watch-billboard-live-core-muted {
-    right: 0.85rem;
+    left: 0.85rem;
     bottom: 0.8rem;
     color: rgba(255, 255, 255, 0.64);
   }
@@ -4326,6 +4374,7 @@ html[data-watch-density="theater"] .watch-poster.format-short { width: min(11rem
   transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
 .watch-experience-trigger:hover { border-color: rgba(var(--watch-station-rgb),0.58); background: rgba(22,22,28,0.9); box-shadow: 0 .75rem 1.9rem rgba(0,0,0,.3), 0 0 0 1px rgba(var(--watch-station-rgb),.13); }
+.watch-experience-trigger { display: none; }
 .watch-experience-trigger:focus-visible, .watch-experience-panel button:focus-visible, .watch-experience-panel select:focus-visible { outline: 2px solid rgb(var(--watch-station-rgb)); outline-offset: 2px; }
 .watch-experience-trigger svg { width: 0.95rem; height: 0.95rem; color: rgb(var(--watch-station-rgb)); }
 .watch-experience-trigger > b { display:grid; min-width:1.05rem; height:1.05rem; place-items:center; border-radius:999px; background:rgb(var(--watch-station-rgb)); color:#08080b; font-size:.58rem; font-variant-numeric:tabular-nums; }
@@ -4464,13 +4513,13 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
 .is-tuned .theater-network-guide-channel { box-shadow: inset 3px 0 var(--theater-network-accent, #ff5364); }
 
 .theater-network-guide-track { position: relative; min-width: var(--theater-guide-width); min-height: 100%; background-image: linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px); background-size: calc(60 * 1.16px) 100%; }
-.theater-network-guide-program { position: absolute; top: 0.62rem; bottom: 0.62rem; z-index: 2; display: flex; overflow: hidden; align-items: stretch; border: 1px solid rgba(255,255,255,.14); border-radius: 0.46rem; background: #1a1a21; color: #fff; text-align: left; cursor: pointer; transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
+.theater-network-guide-program { position: absolute; top: 0.55rem; bottom: 0.55rem; z-index: 2; display: flex; width: var(--theater-guide-program-width); min-width: 10.5rem; overflow: hidden; align-items: stretch; border: 1px solid rgba(255,255,255,.14); border-radius: 0.6rem; background: #1a1a21; color: #fff; text-align: left; cursor: pointer; transition: width 180ms cubic-bezier(.2,.8,.2,1), transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
 .theater-network-guide-program:hover,
-.theater-network-guide-program:focus-visible { z-index: 4; border-color: var(--theater-network-accent, #ff5364); transform: translateY(-2px) scale(1.012); box-shadow: 0 0.7rem 1.65rem rgba(0,0,0,.42); outline: none; }
-.theater-network-guide-program img { width: 3.75rem; min-width: 3.75rem; object-fit: cover; opacity: 0.78; }
-.theater-network-guide-program > span { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; padding: 0.28rem 0.4rem; background: linear-gradient(90deg, rgba(18,18,23,.14), rgba(18,18,23,.9)); }
-.theater-network-guide-program i { color: rgba(255,255,255,.7); font-size: 0.48rem; font-style: normal; font-weight: 850; letter-spacing: .08em; }
-.theater-network-guide-program strong { display: -webkit-box; overflow: hidden; margin-top: 0.16rem; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 0.61rem; line-height: 1.2; }
+.theater-network-guide-program:focus-visible { z-index: 4; width: var(--theater-guide-program-expanded-width); border-color: var(--theater-network-accent, #ff5364); transform: translateY(-2px); box-shadow: 0 0.7rem 1.65rem rgba(0,0,0,.42); outline: none; }
+.theater-network-guide-program img { width: 4.35rem; min-width: 4.35rem; object-fit: cover; opacity: 0.84; }
+.theater-network-guide-program > span { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; padding: 0.38rem 0.52rem; background: linear-gradient(90deg, rgba(18,18,23,.1), rgba(18,18,23,.94)); }
+.theater-network-guide-program i { color: rgba(255,255,255,.72); font-size: 0.53rem; font-style: normal; font-weight: 850; letter-spacing: .08em; }
+.theater-network-guide-program strong { display: -webkit-box; overflow: hidden; margin-top: 0.18rem; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 0.72rem; line-height: 1.18; }
 .theater-network-guide-program.is-live,
 .theater-network-guide-program.is-now { border-color: color-mix(in srgb, #ff356e 72%, rgba(255,255,255,.2)); box-shadow: inset 3px 0 #ff356e; }
 .theater-network-guide-program.is-active { border-color: #fff; box-shadow: inset 3px 0 #fff, 0 0 0 1px rgba(255,255,255,.35); }
@@ -4494,7 +4543,9 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   .theater-network-guide-row { grid-template-columns: var(--theater-guide-channel-width) var(--theater-guide-width); }
   .theater-network-guide-board { --theater-guide-channel-width: 8.3rem; }
   .theater-network-guide-channel { padding-inline: .5rem; }
+  .theater-network-guide-program { min-width: 9.25rem; }
   .theater-network-guide-program img { display: none; }
+  .theater-network-guide-program > span { padding-inline: .48rem; }
   .theater-network-guide-header { padding-inline: .75rem; }
   .theater-network-guide-header button { padding-inline: .55rem; }
 }
@@ -8226,3 +8277,19 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
 @keyframes watch-room-signal { 0% { opacity:.7;transform:scale(.72); } 75%,100% { opacity:0;transform:scale(1.45); } }
 @media (max-width:640px) { .watch-together { right:.75rem;bottom:calc(var(--now-playing-h,0px) + .75rem); }.watch-together__panel { max-height:min(34rem,calc(100dvh - 7rem));overflow-y:auto; }.watch-together__trigger { max-width:16rem; } }
 @media (prefers-reduced-motion:reduce) { .watch-together__panel,.watch-together__signal::after { animation:none; } }
+
+/* Keep the DVR focused and product-like instead of cinematic. */
+.watch-my-list-page { background: var(--bg); }
+.watch-my-list-shell, .watch-premium-queue-callout, .watch-named-queues {
+  border-color: var(--rule);
+  border-radius: .9rem;
+  background: var(--bg-elev);
+  box-shadow: none;
+}
+.watch-my-list-shell { padding: clamp(1rem, 2.5vw, 1.5rem); }
+.watch-my-list-eyebrow { color: var(--ink-dim); letter-spacing: .08em; }
+.watch-my-list-browse, .watch-my-list-empty > a { border-color: var(--rule-strong); background: var(--surface); color: var(--ink); }
+.watch-my-list-browse:hover, .watch-my-list-browse:focus-visible,
+.watch-my-list-empty > a:hover, .watch-my-list-empty > a:focus-visible { background: var(--bg); transform: none; }
+.watch-my-list-empty { border-color: var(--rule-strong); background: var(--bg); }
+.watch-premium-queue-callout { background: var(--bg-elev); }

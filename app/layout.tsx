@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { Inter, Inter_Tight } from "next/font/google";
+import { Barlow_Condensed, Inter, Inter_Tight } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { LenisProvider } from "@/components/providers/LenisProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
@@ -19,11 +19,13 @@ import { Grain, Scanlines } from "@/components/editorial/Grain";
 import { Cursor } from "@/components/editorial/Cursor";
 import { TopNav } from "@/components/chrome/TopNav";
 import { LiveRibbon } from "@/components/live/LiveRibbon";
+import { GlobalSiteFooter } from "@/components/chrome/GlobalSiteFooter";
 
 import { GridOverlay } from "@/components/editorial/GridOverlay";
 import { ConsoleEgg } from "@/components/editorial/ConsoleEgg";
 import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
+import { ContactInquiryWidget } from "@/components/site/ContactInquiryWidget";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { CinematicRouteTransition } from "@/components/watch/CinematicRouteTransition";
@@ -44,6 +46,16 @@ const inter = Inter({
 const interTight = Inter_Tight({
   subsets: ["latin"],
   variable: "--font-inter-tight",
+  display: "swap",
+});
+
+// The type-led CORE station wordmark is intentionally separate from the
+// product UI font so labels retain their existing visual rhythm.
+const coreWordmark = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: "700",
+  style: "italic",
+  variable: "--font-core-wordmark",
   display: "swap",
 });
 
@@ -122,7 +134,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang="en"
       data-theme="dark"
-      className={`dark-mode ${inter.variable} ${interTight.variable} ${inter.className}`}
+      className={`dark-mode ${inter.variable} ${interTight.variable} ${coreWordmark.variable} ${inter.className}`}
     >
       <body>
         {accessPage ? children : (
@@ -151,6 +163,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               >
                 {children}
               </main>
+              <GlobalSiteFooter />
                <PersistentPlayer />
                <RadioAudioSystem />
                <WatchTogetherBridge />
@@ -162,6 +175,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <PassportPresenceBridge />
               <PlayerChatCompanion />
               <WatchAlertsBridge />
+              <ContactInquiryWidget />
             </LenisProvider>
             </WatchContextMenuProvider>
             </PlayerProvider>

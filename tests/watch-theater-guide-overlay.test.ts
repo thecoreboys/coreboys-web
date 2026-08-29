@@ -5,6 +5,7 @@ import test from "node:test";
 
 const root = process.cwd();
 const player = readFileSync(resolve(root, "components/watch/PersistentPlayer.tsx"), "utf8");
+const theaterGuide = readFileSync(resolve(root, "components/watch/TheaterNetworkGuide.tsx"), "utf8");
 const css = readFileSync(resolve(root, "app/watch/watch.css"), "utf8");
 
 test("Theater Guide stays inside the existing player frame", () => {
@@ -38,4 +39,9 @@ test("Theater has a top-left back arrow labeled Home", () => {
   assert.match(player, /\{theater && !shortsPage \? \([\s\S]*watch-player-theater-home[\s\S]*<Link[\s\S]*href="\/"[\s\S]*aria-label="Back to Home"[\s\S]*<ArrowLeft[\s\S]*<span>Home<\/span>/);
   assert.match(player, /onClick=\{\(\) => minimize\(\)\}/);
   assert.match(css, /\.watch-player-theater-home\s*\{[^}]*position:\s*absolute;[^}]*top:[^;]+;[^}]*left:[^;]+;/s);
+});
+
+test("Theater Guide program labels do not create native browser tooltips", () => {
+  assert.doesNotMatch(theaterGuide, /onClick=\{\(\) => tune\(row, entry\)\} title=\{entry\.title\}/);
+  assert.match(theaterGuide, /<strong>\{entry\.title\}<\/strong>/);
 });

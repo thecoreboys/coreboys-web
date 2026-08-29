@@ -252,15 +252,21 @@ function parseAccountMap(name, validValue = (value) => Boolean(value.trim())) {
       return { handles: new Set(), valid: false };
     }
     const handles = new Set();
+    let valid = true;
     for (const [handle, entry] of Object.entries(parsed)) {
       const token = typeof entry === "string"
-        ? entry
+          ? entry
         : entry && typeof entry === "object"
-          ? entry.accessToken || entry.token
+          ? entry.accessToken || entry.access_token || entry.token
           : null;
-      if (typeof token === "string" && validValue(token)) handles.add(bareHandle(handle));
+      const normalized = bareHandle(handle);
+      if (typeof token !== "string" || !validValue(token) || !normalized || handles.has(normalized)) {
+        valid = false;
+        continue;
+      }
+      handles.add(normalized);
     }
-    return { handles, valid: true };
+    return { handles, valid };
   } catch {
     return { handles: new Set(), valid: false };
   }

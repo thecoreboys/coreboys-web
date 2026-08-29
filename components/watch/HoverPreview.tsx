@@ -92,6 +92,8 @@ export type HoverPreviewProps = {
   context?: WatchItem[];
   anchorRef: RefObject<HTMLElement | null>;
   active?: boolean;
+  /** Mount media during intent delay without exposing an interactive panel. */
+  preloadOnly?: boolean;
   onPreviewEnter?: () => void;
   onPreviewLeave?: () => void;
   hoverAutoplay?: boolean;
@@ -131,6 +133,7 @@ function MediaHoverPreview({
   context,
   anchorRef,
   active = true,
+  preloadOnly = false,
   onPreviewEnter,
   onPreviewLeave,
   feedback,
@@ -159,11 +162,17 @@ function MediaHoverPreview({
   const pendingSeekRef = useRef<{ targetSeconds: number; expiresAt: number } | null>(null);
   const playbackStartedRef = useRef(false);
   const keyboardFocusTransferredRef = useRef(false);
+  const providerRevealTimerRef = useRef<number | null>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const player = usePlayer();
   const reducedMotion = useReducedMotion();
-  const wantsMotion = (player.previewAutoplay || hoverAutoplay) && !player.dataSaver && !reducedMotion;
+  // A Twitch iframe has no useful still-frame playback API once it is shown.
+  // Promote it to its muted provider-autoplay path on hover, while retaining
+  // the viewer's Data Saver and reduced-motion choices as hard opt-outs.
+  const wantsMotion = (player.previewAutoplay || hoverAutoplay || item.platform === "twitch")
+    && !player.dataSaver
+    && !reducedMotion;
   const sourcePlayable = useMemo(() => itemToPlayable(item), [item]);
   const playable = isPhoto ? null : sourcePlayable;
   const fallbackHref = item.sourceUrl || item.href;
@@ -270,6 +279,9 @@ function MediaHoverPreview({
       origin: host.origin,
       muted: true,
       controls: false,
+      // YouTube and TikTok are promoted through postMessage once intent is
+      // confirmed. Twitch has no equivalent API on this lightweight surface.
+      autoplay: item.platform === "twitch",
       startSeconds: initialSeekSeconds,
     });
   }, [host, initialSeekSeconds, isInstagramPhoto, item.embeddable, item.platform, item.previewStrategy, playable, sourcePlayable, videoSrc, wantsMotion]);
@@ -282,7 +294,7 @@ function MediaHoverPreview({
   );
 
   const requestProviderPlayback = useCallback(() => {
-    if (!iframeSrc || playbackStartedRef.current) return;
+    if (!active || !iframeSrc || playbackStartedRef.current) return;
     const target = frameRef.current?.contentWindow;
     if (!target) return;
     if (playable?.youtubeId) {
@@ -298,16 +310,26 @@ function MediaHoverPreview({
       }
       target.postMessage({ "x-tiktok-player": true, type: "play" }, "*");
     }
-  }, [iframeSrc, initialSeekSeconds, item.id, playable?.platform, playable?.youtubeId]);
+  }, [active, iframeSrc, initialSeekSeconds, item.id, playable?.platform, playable?.youtubeId]);
 
   useEffect(() => {
+    if (providerRevealTimerRef.current != null) {
+      window.clearTimeout(providerRevealTimerRef.current);
+      providerRevealTimerRef.current = null;
+    }
     playbackStartedRef.current = false;
     setReadyMotionSource(null);
     setLoadedStaticFrameSource(null);
+    return () => {
+      if (providerRevealTimerRef.current != null) {
+        window.clearTimeout(providerRevealTimerRef.current);
+        providerRevealTimerRef.current = null;
+      }
+    };
   }, [iframeSrc, videoSrc]);
 
   useEffect(() => {
-    if (!iframeSrc || (!playable?.youtubeId && playable?.platform !== "tiktok")) return;
+    if (!active || !iframeSrc || (!playable?.youtubeId && playable?.platform !== "tiktok")) return;
     const attempts = [250, 800, 1_600].map((delay) => (
       window.setTimeout(requestProviderPlayback, delay)
     ));
@@ -315,6 +337,17 @@ function MediaHoverPreview({
       for (const timer of attempts) window.clearTimeout(timer);
     };
   }, [iframeSrc, playable?.platform, playable?.youtubeId, requestProviderPlayback]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!videoSrc || !video) return;
+    if (!active) {
+      video.pause();
+      return;
+    }
+    video.muted = true;
+    void video.play().catch(() => {});
+  }, [active, videoSrc]);
 
   const syncPlaybackSeconds = useCallback((seconds: number, duration = knownDuration) => {
     if (!Number.isFinite(seconds) || scrubbingRef.current) return;
@@ -419,10 +452,18 @@ function MediaHoverPreview({
       ref={panelRef}
       id={panelId}
       role={keyboardActive ? "dialog" : undefined}
+      aria-hidden={preloadOnly ? true : undefined}
       aria-label={keyboardActive ? `Preview ${item.title}` : undefined}
       aria-describedby={keyboardActive ? keyboardInstructionsId : undefined}
       className={`watch-preview watch-preview-portal is-${shape} is-${item.platform} ${item.format === "photo" ? "is-photo" : ""} ${live ? "is-live" : ""} ${active ? "is-active" : "is-closing"} ${iframeSrc || videoSrc ? "has-motion" : "is-still"}`}
-      style={{ left: position.left, top: position.top, width: position.width }}
+      style={{
+        left: position.left,
+        top: position.top,
+        width: position.width,
+        ...(preloadOnly
+          ? { opacity: 0, visibility: "hidden" as const, pointerEvents: "none" as const }
+          : null),
+      }}
       onMouseEnter={onPreviewEnter}
       onMouseLeave={keyboardActive ? undefined : onPreviewLeave}
       onFocusCapture={onPreviewEnter}
@@ -486,7 +527,7 @@ function MediaHoverPreview({
               ref={videoRef}
               src={videoSrc}
               className={`watch-preview-video watch-preview-motion ${motionReady ? "is-ready" : ""}`}
-              autoPlay
+              autoPlay={active}
               muted
               loop
               playsInline
@@ -530,7 +571,7 @@ function MediaHoverPreview({
               }}
               onCanPlay={(event) => {
                 event.currentTarget.muted = true;
-                void event.currentTarget.play().catch(() => {});
+                if (active) void event.currentTarget.play().catch(() => {});
               }}
             />
           ) : iframeSrc ? (
@@ -549,6 +590,20 @@ function MediaHoverPreview({
                   return;
                 }
                 requestProviderPlayback();
+                if (playable?.platform === "twitch" || playable?.platform === "instagram") {
+                  // Twitch handles muted autoplay from its parameters, while
+                  // Instagram's official Reel embed exposes no playback event
+                  // API. In both cases frame load is the strongest readiness
+                  // signal available. Keep the still for one short paint, then
+                  // reveal the provider surface without claiming play progress.
+                  if (providerRevealTimerRef.current != null) {
+                    window.clearTimeout(providerRevealTimerRef.current);
+                  }
+                  providerRevealTimerRef.current = window.setTimeout(() => {
+                    providerRevealTimerRef.current = null;
+                    setReadyMotionSource(iframeSrc);
+                  }, playable.platform === "instagram" ? 280 : 220);
+                }
               }}
             />
           ) : null}
@@ -776,22 +831,16 @@ function MediaHoverPreview({
             </>
           ) : null}
           {playable ? (
-            <Tooltip
-              title="Play now"
-              description="Open this title in the CORE media player."
-              placement="top"
+            <AriaButton
+              type="button"
+              excludeFromTabOrder={!keyboardActive}
+              className="is-primary"
+              aria-label={`Play ${item.title} now`}
+              onPress={playNow}
             >
-              <AriaButton
-                type="button"
-                excludeFromTabOrder={!keyboardActive}
-                className="is-primary"
-                aria-label={`Play ${item.title} now`}
-                onPress={playNow}
-              >
-                <Play aria-hidden="true" />
-                <span>Play now</span>
-              </AriaButton>
-            </Tooltip>
+              <Play aria-hidden="true" />
+              <span>Play now</span>
+            </AriaButton>
           ) : null}
         </div>
       ) : null}

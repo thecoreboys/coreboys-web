@@ -13,7 +13,7 @@ test("hero carousel previews autoplay behind CORE-owned interaction controls", (
   assert.match(billboard, /autoplay: true,[\s\S]{0,80}muted: true/);
   assert.match(billboard, /api\.Player\.READY[\s\S]{0,180}providerReady = true[\s\S]{0,180}requestPlayback\(\)/);
   assert.match(billboard, /instance\.addEventListener\(api\.Player\.PLAYING/);
-  assert.match(billboard, /func: "mute"[\s\S]{0,240}func: "playVideo"/);
+  assert.match(billboard, /func: nextMuted \? "mute" : "unMute"[\s\S]{0,240}func: "playVideo"/);
   assert.match(billboard, /void loadBillboardTwitch\(\)\.catch/);
   assert.match(billboard, /const maxPlaybackAttempts = 14/);
   assert.match(billboard, /PLAYBACK_BLOCKED[\s\S]{0,1400}schedulePlaybackRetries\(\[350, 900, 1_800, 3_000\]\)/);
@@ -34,4 +34,23 @@ test("live previews keep browser-safe visibility and size gates", () => {
   assert.doesNotMatch(billboard, /current: activePlayer/);
   assert.match(watchCss, /\.watch-billboard-live-player\.is-preview[\s\S]{0,300}min-width: 400px[\s\S]{0,160}min-height: 300px/);
   assert.match(globalCss, /html:has\(\.watch-os\) \.grain-host,[\s\S]{0,120}\.scanlines[\s\S]{0,80}display: none/);
+});
+
+test("the hero uses the Twitch SDK for both live channels and past broadcasts", () => {
+  assert.match(
+    billboard,
+    /item\.platform === "twitch" && !\(\(live && playable\.twitchLogin\) \|\| playable\.vodId\)/,
+  );
+  assert.match(billboard, /const twitchChannel = playable\.kind === "live" \? playable\.twitchLogin : null/);
+  assert.match(billboard, /else if \(twitchVideo\) options\.video = twitchVideo\.startsWith\("v"\) \? twitchVideo : `v\$\{twitchVideo\}`/);
+  assert.match(billboard, /twitchPlayerRef\.current = instance/);
+  assert.match(billboard, /instance\.setMuted\?\.\(mutedRef\.current\)/);
+});
+
+test("hero previews expose an owned sound control after their muted player mounts", () => {
+  assert.match(billboard, /const soundControlReady = isTwitch[\s\S]{0,120}twitchMounted/);
+  assert.match(billboard, /className="watch-billboard-live-sound"/);
+  assert.match(billboard, /func: nextMuted \? "mute" : "unMute"/);
+  assert.match(watchCss, /\.watch-billboard-live-sound \{[\s\S]{0,600}z-index: 5/);
+  assert.match(watchCss, /\.watch-billboard-live-core-muted \{[\s\S]{0,100}left: 0\.85rem/);
 });

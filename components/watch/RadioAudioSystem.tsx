@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { usePlayer } from "@/components/providers/PlayerProvider";
+import { beginCinematicTransition } from "@/components/watch/CinematicRouteTransition";
 import { RadioAudioDirector } from "@/components/watch/RadioAudioDirector";
 import { preloadRadioCues, type RadioCue } from "@/lib/radio-client";
 import {
   RADIO_NETWORK_SLUGS,
   isRadioNetworkSlug,
+  networkTuneCandidates,
   setHydratedPublicRadioAssets,
   type RadioCueAsset,
 } from "@/lib/radio/public-catalog";
@@ -17,6 +20,7 @@ import {
   writeRadioAudioSettings,
   type RadioAudioSettings,
 } from "@/lib/radio/settings";
+import { NETWORK_CHANNELS, resolveNetworkChannel } from "@/lib/watch/channels";
 
 type PublicCatalogResponse = {
   assets?: RadioCueAsset[];
@@ -45,6 +49,8 @@ function asDirectorCue(asset: RadioCueAsset): RadioCue {
  */
 export function RadioAudioSystem() {
   const player = usePlayer();
+  const pathname = usePathname();
+  const router = useRouter();
   const [settings, setSettings] = useState<RadioAudioSettings>(() => readRadioAudioSettings());
   const [catalog, setCatalog] = useState<RadioCue[]>([]);
 
@@ -66,9 +72,14 @@ export function RadioAudioSystem() {
   }, [player.audioDescription]);
 
   useEffect(() => {
-    if (!settings.enabled || settings.dataSaver || player.dataSaver || !catalog.length) return;
-    // Warm one likely recording per pool only. This is static metadata/audio
-    // caching, not playback and never a generation or provider request.
+    if (!settings.enabled || settings.dataSaver || player.dataSaver) return;
+    // The seven immutable station IDs are ready before the optional catalog
+    // request completes. They are static recordings held in the browser cache
+    // only; prewarming them neither plays sound nor calls a voice provider.
+    preloadRadioCues(RADIO_NETWORK_SLUGS.flatMap((network) => networkTuneCandidates(network)));
+    if (!catalog.length) return;
+    // Warm one likely recorded alternative per pool only. This is static
+    // browser caching, not playback and never a generation/provider request.
     const preferred = new Map<string, RadioCue>();
     for (const cue of catalog) {
       const key = `${cue.kind}:${cue.networkSlug ?? "global"}`;
@@ -121,12 +132,40 @@ export function RadioAudioSystem() {
     return network === null || network === undefined || isRadioNetworkSlug(network);
   }), [catalog]);
 
+  const tunedNetwork = useMemo(() => {
+    const activeId = player.channel?.id?.split(":")[0] ?? "";
+    const fromPlayer = activeId ? resolveNetworkChannel(activeId) : null;
+    if (fromPlayer) return fromPlayer.name;
+    const match = /^\/channels\/([^/?#]+)/.exec(pathname);
+    const fromRoute = match ? resolveNetworkChannel(match[1] ?? "") : null;
+    if (fromRoute) return fromRoute.name;
+    return pathname.startsWith("/watch") || pathname.startsWith("/guide") || pathname.startsWith("/theater") || pathname.startsWith("/shorts")
+      ? "CORE Network"
+      : null;
+  }, [pathname, player.channel?.id]);
+  const immersivePlayerPage = pathname.startsWith("/theater") || pathname.startsWith("/multiview");
+
   return (
     <RadioAudioDirector
       enabled={settings.enabled && !player.audioDescription}
       volume={settings.volume}
       captions={settings.captions}
       cueCatalog={activeCatalog}
+      tunedNetwork={tunedNetwork}
+      tunerNetworks={NETWORK_CHANNELS.map(({ slug, name, artwork }) => ({ slug, name, artwork }))}
+      autoCollapse={immersivePlayerPage}
+      onTuneNetwork={(slug) => {
+        const href = `/channels/${slug}?mode=continuous`;
+        // Tuning from Theater/Shorts must leave the immersive player mode;
+        // otherwise the persistent player immediately reopens over the new
+        // channel route after navigation commits.
+        player.minimize();
+        // Tuner navigation is programmatic rather than an anchor click, so
+        // explicitly stage the same saved recording used by every channel
+        // link before changing the route.
+        beginCinematicTransition(href);
+        router.push(href as never);
+      }}
       resolveLiveTakeoverCue={(event, cues) => {
         const raw = event as unknown as {
           network?: { slug?: string };

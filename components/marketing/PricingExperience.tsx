@@ -1,43 +1,56 @@
+"use client";
+
 import Link from "next/link";
-import { Check, ChevronRight, CreditCard, History, LockKeyhole, ShieldCheck, Tv2 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowRight, Check, CreditCard, LockKeyhole, ShieldCheck } from "lucide-react";
 import type { AccountSubscriptionApiResponse } from "@/lib/subscriptions/api-contract";
+import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSupporterBillingControls";
 import { MembershipActions } from "./MembershipActions";
 import styles from "./PricingExperience.module.css";
 
 type AccountPlanPreview = AccountSubscriptionApiResponse["account"];
+const INCLUDED = ["Full access to current CORE beta features", "Multiview rooms, saved layouts, and queues", "Extended history, DVR folders, and notes", "Advanced alerts and account preferences", "Member card customization and profile tools", "Public content remains free for everyone"];
+const FEATURE_FOCUS: Record<string, { title: string; copy: string }> = {
+  "multiview.expanded": { title: "Expanded multiview", copy: "Watch more live channels in one room." },
+  "multiview.saved_layouts": { title: "Saved layouts", copy: "Keep your preferred room setup ready." },
+  "rooms.private": { title: "Private rooms", copy: "Bring your people into one shared watch room." },
+  "notifications.advanced": { title: "Advanced alerts", copy: "Choose what matters and when CORE should notify you." },
+  "dvr.extended_retention": { title: "Extended DVR", copy: "Keep more broadcasts and moments to revisit." },
+};
 
-const MEMBERSHIP_FEATURES = [
-  "Cross-device watch history and resume points",
-  "Cloud DVR lists, folders, private notes, and tags",
-  "Quiet hours and advanced notification controls",
-  "Multiview with saved layouts",
-  "Private watch rooms and shared queues",
-  "Personal watch-time insights and streaks",
-  "Custom themes, keyboard/remote controls, and accessibility presets",
-];
-
-export function PricingExperience({ accountMode = false, displayName, account, accountLoading = false, accountUnavailable = false }: {
-  accountMode?: boolean; displayName?: string; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string;
-}) {
+export function PricingExperience({ accountMode = false, displayName, account, accountLoading = false, accountUnavailable = false, focusFeature }: { accountMode?: boolean; displayName?: string; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string }) {
   const active = account?.source === "subscription" && ["active", "trialing"].includes(account.status);
+  const hasManagedSubscription = Boolean(account?.hasManagedSubscription);
   const configured = Boolean(account?.billingConfigured && !accountUnavailable && account.storageState === "ready");
+  const controls = useSupporterBillingControls();
+  const supportClosed = Boolean(controls?.renewalsDisabledAt);
+  const minimum = controls ? supporterPriceLabel(controls.minimumAmountCents) : null;
+  const joinLabel = supportClosed ? "Recurring support closed" : minimum ? `Join from ${minimum}/mo` : "Join the CORE beta";
+  const requestedFeature = focusFeature ? FEATURE_FOCUS[focusFeature] : undefined;
+
   return <div className={styles.shell}>
-    <section className={styles.hero} aria-labelledby="membership-title"><div className={styles.ambient} aria-hidden="true"><span /><span /><span /></div><div className={styles.heroInner}>
-      {accountMode ? <Link className={styles.backLink} href="/account">Account <ChevronRight aria-hidden="true" /> Membership</Link> : null}
-      <p className={styles.kicker}>From $3 per month · cancel anytime</p><h1 id="membership-title">{accountMode && displayName ? `${displayName}, manage your membership.` : "Help keep CORE online."}</h1>
-      <p className={styles.heroCopy}>Membership pays for hosting, storage, databases, and ongoing development. Public videos, live streams, shorts, photos, Watch, and Guide stay free.</p>
-      {accountMode ? <div className={styles.currentPlan} role="status"><span>Current plan</span><strong>{accountLoading ? "Checking…" : active ? "Member" : "Free"}</strong><small>{account?.cancelAtPeriodEnd ? "Ends after the current billing period" : active ? "Active · thank you" : "No payment method on file"}</small></div> : <Link className={styles.textLink} href="/account/plan">Sign in to join <ChevronRight aria-hidden="true" /></Link>}
-    </div></section>
-    <main className={styles.main}>
-      <section className={styles.notice} aria-labelledby="membership-notice"><LockKeyhole aria-hidden="true" /><div><h2 id="membership-notice">About this membership</h2><p>This supports the independent CORE website and its account tools. It is not a creator subscription and does not pay any featured creator unless the site says so explicitly.</p></div></section>
-      <section className={styles.planSection} aria-labelledby="supporter-title"><div className={styles.sectionHeading}><div><p className={styles.kicker}>CORE membership</p><h2 id="supporter-title">Everything included for $3+ a month.</h2></div><p>Choose any monthly amount from $3. Change or cancel it from your billing page.</p></div>
-        <article className={`${styles.planCard} ${styles.planCardFeatured} ${styles.membershipCard}`}><h3>Membership features</h3><div className={styles.priceLine}><strong>$3+</strong><span>per month</span></div><p className={styles.planDescription}>One plan includes every personal account feature listed below.</p><ul>{MEMBERSHIP_FEATURES.map((feature) => <li key={feature}><span className={styles.check}><Check /></span>{feature}</li>)}</ul>{accountMode ? <MembershipActions active={active} configured={configured} /> : <Link className={styles.primaryCta} href="/account/plan"><CreditCard /> Sign in to join <ChevronRight /></Link>}</article>
+    <header className={styles.cleanHeader}>
+      {accountMode ? <Link className={styles.backLink} href="/account">Account <span aria-hidden="true">/</span> Membership</Link> : null}
+      <p className={styles.kicker}>CORE membership</p>
+      <h1 id="membership-title">{accountMode && displayName ? `${displayName}'s membership` : "Support CORE and get beta access."}</h1>
+      <p className={styles.heroCopy}>{accountMode ? "Manage your CORE membership and billing in one place." : "One membership unlocks the current CORE beta and helps keep the site running."}</p>
+      {requestedFeature ? <FocusCallout feature={requestedFeature} /> : null}
+      {accountMode ? <div className={styles.currentPlan} role="status" aria-live="polite"><span>Current plan</span><strong>{accountLoading ? "Checking…" : active ? "CORE Member" : "Free"}</strong><small>{account?.cancelAtPeriodEnd ? "Ends after this billing period" : active ? "Active" : "No membership yet"}</small></div> : <Link className={styles.primaryCta} href="/account/plan">{joinLabel} <ArrowRight aria-hidden="true" /></Link>}
+    </header>
+
+    <main className={styles.cleanMain}>
+      <section className={styles.cleanGrid} aria-label="Membership details">
+        <article className={`${styles.membershipCard} ${styles.cleanCard}`}>
+          <p className={styles.planEyebrow}>One plan · cancel anytime</p><h2>{supportClosed ? "Support is currently closed" : "CORE Membership"}</h2>
+          <div className={styles.priceLine}><strong>{supportClosed ? "—" : minimum ? `${minimum}+` : "Monthly"}</strong><span>{supportClosed ? "" : "per month"}</span></div>
+          <p className={styles.planDescription}>Choose the amount that works for you. Every member gets the same beta access.</p>
+          <div className={styles.amountSelector}>{accountMode ? <MembershipActions active={hasManagedSubscription} configured={configured} /> : <Link className={styles.primaryCta} href="/account/plan"><CreditCard aria-hidden="true" /> Continue to billing <ArrowRight aria-hidden="true" /></Link>}</div>
+        </article>
+        <aside className={styles.includedCard}><div className={styles.cleanCardIcon}><ShieldCheck aria-hidden="true" /></div><h2>Included with membership</h2><ul>{INCLUDED.map((item) => <li key={item}><Check aria-hidden="true" />{item}</li>)}</ul></aside>
       </section>
-      <section className={styles.utilitySection} aria-labelledby="included-title"><div className={styles.utilityHeading}><div><p className={styles.kicker}>The basics</p><h2 id="included-title">What stays free.</h2></div></div><div className={styles.valueGrid}><Value icon={Tv2} title="All public content" copy="Watch public videos, broadcasts, shorts, photos, Watch, and Guide without paying." /><Value icon={History} title="A free account" copy="Sign in for basic watch history and account settings. Membership adds the advanced tools above." /><Value icon={ShieldCheck} title="Billing you control" copy="Stripe shows the recurring amount before checkout and lets you update or cancel it later." /></div></section>
-      {accountMode ? <section className={styles.finalNotice}><div><p className={styles.kicker}>Billing</p><h2>Cancel whenever you want.</h2><p>You keep membership features through the paid period. Your account and public content remain available after it ends.</p></div></section> : null}
+      <section className={styles.cleanNotice}><LockKeyhole aria-hidden="true" /><div><strong>Public content stays free.</strong><p>Your membership supports CORE development and personal account tools. It is not a subscription to any creator.</p></div></section>
+      <section className={styles.cleanFaq} aria-labelledby="membership-faq"><div><p className={styles.kicker}>Need to know</p><h2 id="membership-faq">Simple billing, no surprises.</h2></div><div className={styles.cleanFaqList}><p><strong>Can I cancel?</strong> Yes. Cancel recurring billing from this page or through the secure billing portal.</p><p><strong>What does beta mean?</strong> CORE is still being built, so features may change as we improve them.</p></div></section>
     </main>
   </div>;
 }
 
-function Value({ icon: Icon, title, copy }: { icon: LucideIcon; title: string; copy: string }) { return <article><span className={styles.valueIcon}><Icon /></span><h3>{title}</h3><p>{copy}</p></article>; }
+function FocusCallout({ feature }: { feature: { title: string; copy: string } }) { return <div className={styles.focusFeature} role="status"><LockKeyhole aria-hidden="true" /><span><small>Selected feature</small><strong>{feature.title}</strong></span><em>{feature.copy}</em></div>; }

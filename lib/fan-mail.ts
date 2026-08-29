@@ -49,7 +49,6 @@ export const MAIL_MEMBERS: readonly MailMember[] = [
     mailRecipient: "JasonTheWeen",
     initial: "J",
     addressLines: ["15701 Sherman Way #7854", "Van Nuys, CA 91409"] as const,
-    note: "Private mailbox at the Van Nuys USPS — packages are fine, oversized boxes may need counter pickup.",
   },
   {
     slug: "lacy",
@@ -64,7 +63,6 @@ export const MAIL_MEMBERS: readonly MailMember[] = [
     mailRecipient: "Marlon (Mar3lg)",
     initial: "M",
     addressLines: ["5609 Yolanda Ave #570730", "Tarzana, CA 91356"] as const,
-    note: "Private mailbox at the Tarzana location.",
   },
   {
     slug: "adapt",

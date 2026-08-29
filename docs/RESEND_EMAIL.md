@@ -37,12 +37,20 @@ the sending domain is verified.
 Do not enable delivery until Resend reports every required record as verified.
 Rotating a leaked API key does not require DNS changes.
 
+## Fan email verification
+
+New fan accounts receive a one-time verification link when mail delivery is
+ready. Signed-in fans can request another link from account notification
+settings. Only a SHA-256 token hash is stored, links expire after 60 minutes,
+and requests are rate-limited. Social email alerts remain unavailable until
+the link has marked `fan_users.email_verified=true`.
+
 ## Consent and dispatch
 
-The explicit `drainResendFanNotificationOutbox()` bridge uses the existing
-FanZone outbox, but no route, worker, or schedule calls it automatically. It
-leaves queued records untouched while delivery is disabled. Before any network
-request, the provider requires both:
+The social notification worker delivers opted-in creator events directly. The
+separate `drainResendFanNotificationOutbox()` bridge for legacy FanZone events
+still has no automatic worker and leaves those records untouched. Before any
+network request, either provider path requires both:
 
 1. a verified account email, and
 2. `email_enabled = true` for the event category in

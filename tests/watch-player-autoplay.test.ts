@@ -11,7 +11,11 @@ import {
 
 const multiview = readFileSync(resolve(process.cwd(), "components/watch/MultiPlayerStage.tsx"), "utf8");
 const channelPage = readFileSync(resolve(process.cwd(), "components/watch/NetworkChannelPage.tsx"), "utf8");
+const channelCss = readFileSync(resolve(process.cwd(), "components/watch/NetworkChannelPage.module.css"), "utf8");
 const billboard = readFileSync(resolve(process.cwd(), "components/watch/Billboard.tsx"), "utf8");
+const billboardCss = readFileSync(resolve(process.cwd(), "app/watch/watch.css"), "utf8");
+const watchHome = readFileSync(resolve(process.cwd(), "components/watch/WatchHome.tsx"), "utf8");
+const xArchive = readFileSync(resolve(process.cwd(), "app/channels/[slug]/x/page.tsx"), "utf8");
 const persistentPlayer = readFileSync(resolve(process.cwd(), "components/watch/PersistentPlayer.tsx"), "utf8");
 
 function playable(overrides: Partial<Playable>): Playable {
@@ -66,11 +70,14 @@ test("Twitch live autoplay requests the browser-safe muted mode", () => {
   assert.equal(url.searchParams.get("muted"), "true");
 });
 
-test("live Twitch mounts without an audible advisory blocking its muted autoplay", () => {
-  assert.match(
-    persistentPlayer,
-    /if \(current\.kind === "live" && current\.platform === "twitch" && !hasTuningAudio\) \{\s*setContentAdvisoryReady\(true\);\s*setContentAdvisoryNeedsGesture\(false\);\s*setWaitingForTuningAudio\(false\);\s*return;/,
-  );
+test("the content advisory is acknowledged once per browser before Twitch muted autoplay", () => {
+  const advisory = readFileSync(resolve(process.cwd(), "lib/watch/content-advisory.ts"), "utf8");
+  assert.match(advisory, /const CONTENT_ADVISORY_STORAGE_KEY = "coretv\.content-advisory-seen\.v2"/);
+  assert.match(advisory, /window\.localStorage\.setItem\(CONTENT_ADVISORY_STORAGE_KEY, "1"\)/);
+  assert.match(persistentPlayer, /hasAcknowledgedContentAdvisory\(\)/);
+  assert.match(persistentPlayer, /acknowledgeContentAdvisory\(\)/);
+  assert.match(persistentPlayer, /shape === "portrait" \? "\/watch\/advisory\/coretv-mature-audience-station-portrait-v2\.png" : "\/watch\/advisory\/coretv-mature-audience-station-v2\.png"/);
+  assert.doesNotMatch(persistentPlayer, /current\.kind === "live" && current\.platform === "twitch" && !hasTuningAudio/);
 });
 
 test("every player surface captures muted autoplay before routing settles", () => {
@@ -99,9 +106,10 @@ test("a paused Twitch mini player upgrades once when Theater opens", () => {
 test("Theater recovers a provider-owned Twitch pause without overriding a manual CORE pause", () => {
   assert.match(persistentPlayer, /const handleProviderPause = \(\) => \{/);
   assert.match(persistentPlayer, /const shouldRecover = handlersRef\.current\.onPaused\(\)/);
-  assert.match(persistentPlayer, /if \(!startMuted \|\| !shouldRecover\) \{\s*manualPause = true/);
+  assert.match(persistentPlayer, /if \(!shouldRecover\) \{\s*manualPause = true/);
+  assert.match(persistentPlayer, /if \(!startMuted\) return/);
   assert.match(persistentPlayer, /for \(const delay of \[120, 650, 1_800\]\)/);
-  assert.match(persistentPlayer, /if \(paused === true && autoplayAttemptCount < 16\)/);
+  assert.match(persistentPlayer, /if \(paused === true\) \{\s*requestAutoplay\(\);\s*scheduleMutedRecovery\(3_000\)/);
   assert.match(persistentPlayer, /if \(positionAdvanced && !playbackStarted\) markPlaybackStarted\(\)/);
   assert.match(persistentPlayer, /if \(!playingRef\.current\) return false/);
 });
@@ -201,17 +209,43 @@ test("network 24/7 Twitch preview verifies and recovers actual paused playback",
   assert.match(channelPage, /isPaused\?: \(\) => boolean/);
   assert.match(channelPage, /return typeof paused === "boolean" \? paused : null/);
   assert.match(channelPage, /instance\.addEventListener\(api\.Player\.PAUSE/);
-  assert.match(channelPage, /scheduleRetries\(\[120, 700, 1_800, 3_200, 5_200, 7_500\]\)/);
+  assert.match(channelPage, /scheduleRetries\(\[120, 700, 1_800, 3_200, 5_200, 7_500\], true\)/);
   assert.match(channelPage, /document\.addEventListener\("visibilitychange", resumeWhenVisible\)/);
 });
 
-test("network 24/7 Twitch preview survives a transient provider autoplay block", () => {
-  assert.match(channelPage, /muted:\s*true/);
+test("network hero starts muted and keeps the scheduled item through provider recovery", () => {
+  assert.match(channelPage, /muted:\s*true,[\s\S]{0,220}autoplay:\s*true/);
   assert.match(channelPage, /const maxPlaybackAttempts = 16/);
-  assert.match(channelPage, /PLAYBACK_BLOCKED[\s\S]{0,420}playbackAttempts = 0;[\s\S]{0,160}scheduleRetries\(\[250, 800, 1_800, 3_200, 5_200, 7_500\]\)/);
-  assert.match(channelPage, /\}, 15_000\)/);
+  assert.match(channelPage, /PLAYBACK_BLOCKED[\s\S]{0,800}scheduleRetries\(\[250, 800, 1_800, 3_200, 5_200, 7_500\], true\)/);
+  assert.doesNotMatch(channelPage, /const mutedFallbackTimer = window\.setTimeout/);
+  assert.match(channelPage, /className=\{styles\.heroPreviewSound\}/);
+  assert.match(channelPage, /className=\{styles\.heroPreviewRetry\}/);
+  assert.match(channelPage, /autoStart && usesTwitchSdk && playing/);
+  assert.match(channelCss, /\.heroPreviewSound\s*\{[\s\S]{0,160}z-index:\s*8/);
+  assert.doesNotMatch(channelPage, /autoplayFallbackEntry/);
+  assert.doesNotMatch(channelPage, /opening next program/);
 });
 
 test("the home billboard yields provider playback to the persistent player", () => {
   assert.match(billboard, /const wantsAutoplay =[\s\S]{0,320}!current &&[\s\S]{0,160}!dataSaver/);
+});
+
+test("the home carousel guarantees live Twitch and recent Twitch broadcasts", () => {
+  assert.match(watchHome, /const twitchBroadcasts = selectTwitchHeroBroadcasts\(catalog\.broadcasts\)/);
+  assert.match(watchHome, /return unique\(\[[\s\S]{0,420}\.\.\.catalog\.live,[\s\S]{0,80}\.\.\.twitchBroadcasts,/);
+  assert.match(billboard, /else if \(twitchVideo\) options\.video = twitchVideo\.startsWith\("v"\)/);
+});
+
+test("the home Twitch hero remains unobscured and interactive for autoplay", () => {
+  assert.match(billboard, /\{!isTwitch \? \(\s*<button[\s\S]{0,180}watch-billboard-live-core-overlay/);
+  assert.match(
+    billboardCss,
+    /\.watch-billboard-live-player\.is-preview\.is-twitch \.watch-billboard-live-mount iframe[\s\S]{0,220}pointer-events: auto !important/,
+  );
+});
+
+test("the X archive prefers X profile metadata for tweet authors", () => {
+  assert.match(xArchive, /const xAuthorAvatar = safeHttpsUrl\(item\.x\?\.authorAvatarUrl\)/);
+  assert.match(xArchive, /portrait: xAuthorAvatar \?\? channel\.artwork/);
+  assert.match(xArchive, /profileUrl: safeHttpsUrl\(item\.x\?\.authorProfileUrl\)/);
 });

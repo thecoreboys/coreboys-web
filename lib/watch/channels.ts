@@ -93,7 +93,7 @@ const CHANNELS: readonly NetworkChannel[] = [
     memberSlug: null,
     description: "The whole house in one continuous channel: live rooms, uploads, replays, and the clips between them.",
     artwork: "/brand/logo-core-white.png",
-    backdrop: "/brand/network-backgrounds/core.png",
+    backdrop: "/brand/network-backgrounds/core.webp",
     accent: "#db0368",
   },
   {
@@ -104,7 +104,7 @@ const CHANNELS: readonly NetworkChannel[] = [
     memberSlug: "adapt",
     description: "Adapt's always-on Flock channel, programmed from live broadcasts, YouTube, and the archive.",
     artwork: "/comms/adapt.png",
-    backdrop: "/brand/network-backgrounds/flock.png",
+    backdrop: "/brand/network-backgrounds/flock.webp",
     accent: "#ef4444",
   },
   {
@@ -115,7 +115,7 @@ const CHANNELS: readonly NetworkChannel[] = [
     memberSlug: "ron",
     description: "Stable live, on demand, and back in rotation around the clock.",
     artwork: "/comms/ron.png",
-    backdrop: "/brand/network-backgrounds/stable.png",
+    backdrop: "/brand/network-backgrounds/stable.webp",
     accent: "#3b82f6",
   },
   {
@@ -126,7 +126,7 @@ const CHANNELS: readonly NetworkChannel[] = [
     memberSlug: "lacy",
     description: "The Thugs channel: Lacy live, full broadcasts, uploads, and short-form intermissions.",
     artwork: "/comms/lacy.png",
-    backdrop: "/brand/network-backgrounds/thugs.png",
+    backdrop: "/brand/network-backgrounds/thugs.webp",
     accent: "#ef4444",
   },
   {
@@ -137,7 +137,7 @@ const CHANNELS: readonly NetworkChannel[] = [
     memberSlug: "marlon",
     description: "M3 programming from Marlon's live room, YouTube catalog, and replay archive.",
     artwork: "/comms/marlon.png",
-    backdrop: "/brand/network-backgrounds/m3.png",
+    backdrop: "/brand/network-backgrounds/m3.webp",
     accent: "#f4f4f5",
   },
   {
@@ -148,7 +148,7 @@ const CHANNELS: readonly NetworkChannel[] = [
     memberSlug: "jason",
     description: "NMS, always moving: Jason live, recent uploads, broadcasts, and shorts.",
     artwork: "/comms/jason.png",
-    backdrop: "/brand/network-backgrounds/nms.png",
+    backdrop: "/brand/network-backgrounds/nms.webp",
     accent: "#fbbf24",
   },
   {
@@ -159,7 +159,7 @@ const CHANNELS: readonly NetworkChannel[] = [
     memberSlug: "silky",
     description: "SLG television, built from Silky's live broadcasts, replays, videos, and reels.",
     artwork: "/comms/silky.png",
-    backdrop: "/brand/network-backgrounds/slg.png",
+    backdrop: "/brand/network-backgrounds/slg.webp",
     accent: "#f59e0b",
   },
 ] as const;

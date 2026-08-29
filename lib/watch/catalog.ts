@@ -2,6 +2,7 @@ import "server-only";
 import { MEMBERS } from "@/lib/members";
 import { GROUP } from "@/lib/group";
 import { getCoreFeed, getHouseFeed, type FeedItem } from "@/lib/social-feed";
+import { PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT } from "@/lib/social-feed-events";
 import {
   buildLiveResponse,
   fetchChannelVideos,
@@ -21,6 +22,7 @@ import { reconcileActiveTwitchArchives } from "./active-twitch-archives";
 import { fetchWatchYoutubeMetadata } from "./youtube-metadata";
 import { markCrossPlatformBroadcastAliases } from "./broadcast-aliases";
 import { registerPassportWatchCatalog } from "@/lib/passport/watch-registry";
+import { loadArchivedYouTubeWatchItems } from "@/lib/media-intelligence/archive";
 import {
   EMPTY_WATCH_PROGRAMMING,
   getProgrammingFeedEntries,
@@ -238,15 +240,27 @@ async function getTwitchBroadcasts(
 export async function getWatchCatalog(): Promise<WatchCatalog> {
   const logins = MEMBERS.map((m) => m.twitchLogin);
   const programming = await getWatchProgrammingSnapshot().catch(() => EMPTY_WATCH_PROGRAMMING);
-  const [liveRes, houseFeed, memberFeed, clips, twitchUsers, programmingEntries] = await Promise.all([
+  const [
+    liveRes,
+    houseFeed,
+    memberFeed,
+    clips,
+    twitchUsers,
+    programmingEntries,
+    archivedYoutube,
+  ] = await Promise.all([
     buildLiveResponse(logins).catch(() => ({ live: [], fetchedAt: new Date().toISOString() })),
-    // These bounds exceed the maximum first page returned by every configured
-    // CORE/member source, preventing one busy platform from starving another.
-    getCoreFeed(256).catch(() => []),
-    getHouseFeed(512).catch(() => []),
+    // Persisted Social Fetch rows are DB-only on public renders. Keep the
+    // six-month TikTok/Instagram archive available to creator rails up to one
+    // shared, explicit ceiling instead of silently truncating it downstream.
+    getCoreFeed(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT).catch(() => []),
+    getHouseFeed(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT).catch(() => []),
     getPublicClips().catch(() => []),
     fetchUsersByLogin(logins).catch(() => ({})),
     getProgrammingFeedEntries(programming).catch(() => []),
+    // The background archive walks every page of each linked YouTube uploads
+    // playlist. A missing archive database is an allowed staged state.
+    loadArchivedYouTubeWatchItems().catch(() => []),
   ]);
   const activeTwitchLogins = new Set(
     liveRes.live
@@ -311,6 +325,12 @@ export async function getWatchCatalog(): Promise<WatchCatalog> {
   );
   const allMembers = normalizeWatchItems(
     enrichedMemberFeed.map(fromFeed).filter((x): x is WatchItem => Boolean(x)),
+  );
+  const archivedHouseItems = normalizeWatchItems(
+    archivedYoutube.filter((item) => item.memberSlug === null),
+  );
+  const archivedMemberItems = normalizeWatchItems(
+    archivedYoutube.filter((item) => item.memberSlug !== null),
   );
   const programmingSourceById = new Map(programming.sources.map((source) => [source.id, source]));
   const programmingRawItems = enrichedProgrammingFeed.flatMap((feed, index): WatchItem[] => {
@@ -398,11 +418,13 @@ export async function getWatchCatalog(): Promise<WatchCatalog> {
   const house = normalizeWatchItems([
     ...live.filter((item) => item.memberSlug === null),
     ...houseFeedItems,
+    ...archivedHouseItems,
     ...(tour ? [tour] : []),
   ]);
   const memberItems = markCrossPlatformBroadcastAliases(normalizeWatchItems([
       ...live.filter((item) => item.memberSlug !== null),
       ...memberFeedItems,
+      ...archivedMemberItems,
       ...twitchBroadcasts,
       ...normalizedCuratedClips.filter((item) => item.memberSlug),
     ]));

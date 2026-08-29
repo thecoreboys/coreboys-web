@@ -41,18 +41,30 @@ function zonedDateParts(date: Date, timeZone: string) {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
-function shiftedDateKey(date: Date, offsetDays: number, timeZone: string): string {
-  const values = zonedDateParts(date, timeZone);
-  const shifted = new Date(Date.UTC(
-    Number(values.year),
-    Number(values.month) - 1,
-    Number(values.day) + offsetDays,
-  ));
-  return [
-    shifted.getUTCFullYear(),
-    String(shifted.getUTCMonth() + 1).padStart(2, "0"),
-    String(shifted.getUTCDate()).padStart(2, "0"),
-  ].join("-");
+/**
+ * Keep the contribution grid on a true Aug–Jul calendar year. Starting on
+ * August 1 lets the leading blank cells place that date beneath its real
+ * weekday, rather than making the graph look like an arbitrary rolling list.
+ */
+function completedAugustYearDateKeys(serverNowMs: number, timeZone: string): string[] {
+  const values = zonedDateParts(new Date(serverNowMs), timeZone);
+  const currentYear = Number(values.year);
+  const currentMonth = Number(values.month);
+  const currentDay = Number(values.day);
+  const hasCompletedCurrentCycle = currentMonth > 7 || (currentMonth === 7 && currentDay === 31);
+  const endYear = hasCompletedCurrentCycle ? currentYear : currentYear - 1;
+  const start = new Date(Date.UTC(endYear - 1, 7, 1));
+  const end = new Date(Date.UTC(endYear, 6, 31));
+  const days: string[] = [];
+
+  for (let cursor = start; cursor <= end; cursor = new Date(cursor.getTime() + 86_400_000)) {
+    days.push([
+      cursor.getUTCFullYear(),
+      String(cursor.getUTCMonth() + 1).padStart(2, "0"),
+      String(cursor.getUTCDate()).padStart(2, "0"),
+    ].join("-"));
+  }
+  return days;
 }
 
 function dateFromKey(key: string): Date {
@@ -140,7 +152,6 @@ export function GuideHistory({
   const {
     sessions: recordedSessions,
     daily: clientDaily,
-    unavailable: observedUnavailable,
     isLoading: observedLoading,
   } = useStreamSessions("31d");
   const timePreferences = useBrowserTimeZone();
@@ -148,10 +159,7 @@ export function GuideHistory({
   const parsedServerNow = Date.parse(serverNow);
   const serverNowMs = Number.isFinite(parsedServerNow) ? parsedServerNow : Date.now();
   const days = useMemo(
-    () => Array.from(
-      { length: 365 },
-      (_, index) => shiftedDateKey(new Date(serverNowMs), index - 364, timePreferences.timeZone),
-    ),
+    () => completedAugustYearDateKeys(serverNowMs, timePreferences.timeZone),
     [serverNowMs, timePreferences.timeZone],
   );
   const calendar = useMemo(() => {
@@ -287,7 +295,7 @@ export function GuideHistory({
     <section className={`guide-history${className ? ` ${className}` : ""}`} aria-labelledby="airtime-history-heading">
       <header className="guide-history-header">
         <div className="guide-history-heading">
-          <span className="watch-kicker">Past 365 days</span>
+          <span className="watch-kicker">August–July archive</span>
           <h2 id="airtime-history-heading">Airtime history</h2>
         </div>
         <div className="guide-history-header-meta">
@@ -302,16 +310,6 @@ export function GuideHistory({
       </header>
 
       <div className="guide-history-body">
-        <p>
-          A full-year archive of Twitch airtime. Each square is one local calendar day; brighter squares mean more time on air.
-        </p>
-
-        {observedUnavailable && archiveDays.size === 0 ? (
-          <p className="guide-history-source-note" role="status">
-            Showing public Twitch broadcast history while the CORE archive reconnects.
-          </p>
-        ) : null}
-
         <div ref={scroller} className="guide-history-year-scroll guide-drag" data-lenis-prevent>
           <div className="guide-history-year" style={gridStyle}>
             <div className="guide-history-month-row" aria-hidden>
@@ -361,7 +359,7 @@ export function GuideHistory({
                   <div
                     className="guide-history-contribution-grid"
                     role="grid"
-                    aria-label={`${member.comm.name} 365-day airtime contribution grid`}
+                    aria-label={`${member.comm.name} August–July airtime contribution grid`}
                   >
                     {calendar.cells.map((day, index) => {
                       if (!day) return <span className="guide-history-cell-empty" key={`blank-${index}`} aria-hidden />;

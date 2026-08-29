@@ -77,8 +77,8 @@ export async function GET(
     await awardPoints(uid, typeof pts === "number" ? pts : 25, String(reason), "oauth", provider);
     // Complete the first sync before returning. `syncProvider` records a
     // provider error without discarding the successfully stored connection.
-    await syncProvider(uid, provider);
-    return bounce(origin, { oauth: "ok", provider });
+    const sync = await syncProvider(uid, provider);
+    return bounce(origin, { oauth: sync.ok ? "ok" : "sync-error", provider });
   } catch (e) {
     if (e instanceof ProviderLinkedElsewhereError) {
       return bounce(origin, { oauth: "linked", provider });

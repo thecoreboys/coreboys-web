@@ -3,6 +3,7 @@ import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { query } from "@/lib/db";
 import { buildLoyaltyCard, listLoyalty, siteWatchStats } from "@/lib/oauth/loyalty";
 import { listConnections } from "@/lib/oauth/connections";
+import { validatePublicHandle } from "@/lib/public-handle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,13 +40,18 @@ export async function PATCH(req: Request) {
   } catch {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
-  const slug =
-    typeof body.publicSlug === "string"
-      ? body.publicSlug
-          .toLowerCase()
-          .replace(/[^a-z0-9-]/g, "")
-          .slice(0, 32)
-      : undefined;
+  const handleResult = typeof body.publicSlug === "string" && body.publicSlug.trim()
+    ? validatePublicHandle(body.publicSlug)
+    : body.publicSlug === null ? { ok: true as const, handle: null } : null;
+  if (handleResult && !handleResult.ok) return NextResponse.json({ error: handleResult.error }, { status: 400 });
+  const slug = handleResult?.ok ? handleResult.handle : undefined;
+  if (slug) {
+    const existing = await query<{ id: string }>(
+      `SELECT id FROM fan_users WHERE lower(public_slug) = lower($1) AND id <> $2 LIMIT 1`,
+      [slug, uid],
+    );
+    if (existing.rows.length) return NextResponse.json({ error: "That handle is already in use." }, { status: 409 });
+  }
   await query(
     `UPDATE fan_users
         SET favorite_member = COALESCE($2, favorite_member),
@@ -56,7 +62,7 @@ export async function PATCH(req: Request) {
       uid,
       body.favoriteMember === undefined ? null : body.favoriteMember,
       body.publicCard === undefined ? null : body.publicCard,
-      slug === undefined ? null : slug || null,
+      slug === undefined ? null : slug,
     ],
   );
   return NextResponse.json({ ok: true });

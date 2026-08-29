@@ -24,8 +24,7 @@ type LinkPreview = {
   label: string;
   description?: string;
   imageUrl?: string;
-  avatarUrl?: string;
-  kind: "youtube" | "x" | "link";
+  kind: "youtube" | "link";
 };
 
 function previewTitleFromUrl(url: URL): string {
@@ -51,22 +50,26 @@ function youtubeId(value: string): string | null {
   } catch { return null; }
 }
 
-function xStatus(value: string): { handle: string; id: string } | null {
+function xStatus(value: string): { id: string } | null {
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase().replace(/^www\./, "");
     if (host !== "x.com" && host !== "twitter.com") return null;
     const match = /^\/([A-Za-z0-9_]{1,15})\/status\/(\d{5,25})/i.exec(url.pathname);
-    const handle = match?.[1];
     const id = match?.[2];
-    return handle && id ? { handle: `@${handle}`, id } : null;
+    return id ? { id } : null;
   } catch { return null; }
 }
 
-function linkPreviews(post: WatchHomeXPost): LinkPreview[] {
+function linkPreviews(
+  entities: readonly WatchHomeXPost["entities"][number][],
+  sourceUrl: string,
+  suppressStatusId?: string,
+  hasMedia = false,
+): LinkPreview[] {
   const seen = new Set<string>();
-  return post.entities.flatMap<LinkPreview>((entity): LinkPreview[] => {
-    if (entity.kind !== "url" || seen.has(entity.href) || entity.href === post.sourceUrl) return [];
+  return entities.flatMap<LinkPreview>((entity): LinkPreview[] => {
+    if (entity.kind !== "url" || seen.has(entity.href) || entity.href === sourceUrl) return [];
     seen.add(entity.href);
     const videoId = youtubeId(entity.href);
     if (videoId) return [{
@@ -76,22 +79,17 @@ function linkPreviews(post: WatchHomeXPost): LinkPreview[] {
     }];
     const quoted = xStatus(entity.href);
     if (quoted) {
-      const quote = post.quote?.statusId === quoted.id ? post.quote : undefined;
-      return [{
-        href: quote?.statusUrl ?? entity.href,
-        kind: "x" as const,
-        label: "Quoted post",
-        title: quote ? `${quote.authorName ?? quote.authorHandle} · ${quote.authorHandle}` : `Quote from ${quoted.handle}`,
-        description: quote?.text,
-        imageUrl: quote?.imageUrl,
-        avatarUrl: quote?.authorAvatarUrl,
-      }];
+      if (quoted.id === suppressStatusId) return [];
+      // Quoted Post data is hydrated with the scheduled X snapshot and is
+      // rendered below as a native nested card. Do not replace it with a
+      // second, generic X link card (or make a browser request for a widget).
+      return [];
     }
     try {
       const url = new URL(entity.href);
       // An opaque t.co URL attached to a photo/video is already represented
       // by the gallery below; it is not useful as a duplicate website card.
-      if (url.hostname.toLowerCase() === "t.co" && post.media.length) return [];
+      if (url.hostname.toLowerCase() === "t.co" && hasMedia) return [];
       return [{
         href: entity.href,
         kind: "link" as const,
@@ -104,22 +102,30 @@ function linkPreviews(post: WatchHomeXPost): LinkPreview[] {
   }).slice(0, 2);
 }
 
-function XPostText({ post }: { post: WatchHomeXPost }) {
+function XPostText({
+  text,
+  entities,
+  className = styles.postText,
+}: {
+  text: string;
+  entities: readonly WatchHomeXPost["entities"][number][];
+  className?: string;
+}) {
   const content: ReactNode[] = [];
   let cursor = 0;
   let hasVisibleCopy = false;
 
-  for (const [index, entity] of post.entities.entries()) {
+  for (const [index, entity] of entities.entries()) {
     if (
       entity.start < cursor ||
       entity.start < 0 ||
       entity.end <= entity.start ||
-      entity.end > post.text.length
+      entity.end > text.length
     ) {
       continue;
     }
     if (entity.start > cursor) {
-      const copy = post.text.slice(cursor, entity.start);
+      const copy = text.slice(cursor, entity.start);
       content.push(copy);
       hasVisibleCopy ||= Boolean(copy.trim());
     }
@@ -136,37 +142,46 @@ function XPostText({ post }: { post: WatchHomeXPost }) {
         target="_blank"
         rel={EXTERNAL_REL}
       >
-        {post.text.slice(entity.start, entity.end)}
+        {text.slice(entity.start, entity.end)}
       </a>,
     );
     hasVisibleCopy = true;
     cursor = entity.end;
   }
 
-  if (cursor < post.text.length) {
-    const copy = post.text.slice(cursor);
+  if (cursor < text.length) {
+    const copy = text.slice(cursor);
     content.push(copy);
     hasVisibleCopy ||= Boolean(copy.trim());
   }
-  return hasVisibleCopy ? <p className={styles.postText}>{content}</p> : null;
+  return hasVisibleCopy ? <p className={className}>{content}</p> : null;
 }
 
-function XLinkPreviews({ post }: { post: WatchHomeXPost }) {
-  const previews = linkPreviews(post);
+function XLinkPreviews({
+  entities,
+  sourceUrl,
+  suppressStatusId,
+  hasMedia = false,
+  className = styles.linkPreviews,
+}: {
+  entities: readonly WatchHomeXPost["entities"][number][];
+  sourceUrl: string;
+  suppressStatusId?: string;
+  hasMedia?: boolean;
+  className?: string;
+}) {
+  const previews = linkPreviews(entities, sourceUrl, suppressStatusId, hasMedia);
   if (!previews.length) return null;
   return (
-    <div className={styles.linkPreviews} aria-label="Links shared in this post">
+    <div className={className} aria-label="Links shared in this post">
       {previews.map((preview) => (
         <a key={preview.href} className={styles.linkPreview} data-kind={preview.kind} href={preview.href} target="_blank" rel={EXTERNAL_REL}>
           {preview.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview.imageUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
-          ) : preview.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className={styles.linkPreviewAvatar} src={preview.avatarUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
           ) : (
             <span className={styles.linkPreviewIcon} aria-hidden="true">
-              {preview.kind === "x" ? <MessageCircle /> : <Link2 />}
+              <Link2 />
             </span>
           )}
           <span className={styles.linkPreviewCopy}>
@@ -178,6 +193,83 @@ function XLinkPreviews({ post }: { post: WatchHomeXPost }) {
         </a>
       ))}
     </div>
+  );
+}
+
+function XQuotePreview({
+  quote,
+  unavailableQuote,
+}: {
+  quote: WatchHomeXPost["quote"];
+  unavailableQuote: WatchHomeXPost["unavailableQuote"];
+}) {
+  if (quote) {
+    const media: Array<(typeof quote.media)[number] & { source: string }> = quote.media.flatMap((entry) => (
+      entry.thumbnailUrl ? [{ ...entry, source: entry.thumbnailUrl }] : []
+    ));
+    const mediaCount = Math.min(4, media.length);
+    const singleMedia = mediaCount === 1 ? media[0] : undefined;
+    const singleMediaRatio = singleMedia?.width && singleMedia?.height
+      ? `${singleMedia.width} / ${singleMedia.height}`
+      : singleMedia?.orientation === "portrait"
+        ? "9 / 16"
+        : singleMedia?.orientation === "square"
+          ? "1 / 1"
+          : "16 / 9";
+    return (
+      <section className={styles.quoteCard} aria-label={`Quoted post from ${quote.authorName ?? quote.authorHandle}`}>
+        <header className={styles.quoteHeader}>
+          <a href={quote.authorProfileUrl} target="_blank" rel={EXTERNAL_REL} aria-label={`Open ${quote.authorName ?? quote.authorHandle} on X`}>
+            {quote.authorAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={quote.authorAvatarUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+            ) : <MessageCircle aria-hidden="true" />}
+          </a>
+          <span>
+            <a href={quote.authorProfileUrl} target="_blank" rel={EXTERNAL_REL}>
+              <strong>{quote.authorName ?? quote.authorHandle}</strong>
+            </a>
+            <a href={quote.authorProfileUrl} target="_blank" rel={EXTERNAL_REL}>{quote.authorHandle}</a>
+          </span>
+          <a href={quote.statusUrl} target="_blank" rel={EXTERNAL_REL} aria-label="View quoted post on X">
+            <ExternalLink aria-hidden="true" />
+          </a>
+        </header>
+        <XPostText text={quote.text} entities={quote.entities} className={styles.quoteText} />
+        <XLinkPreviews
+          entities={quote.entities}
+          sourceUrl={quote.statusUrl}
+          suppressStatusId={quote.statusId}
+          hasMedia={quote.media.length > 0}
+          className={styles.quoteLinks}
+        />
+        {media.length ? (
+          <div
+            className={styles.quoteMediaGrid}
+            data-count={mediaCount}
+            style={mediaCount === 1
+              ? { "--x-quote-media-ratio": singleMediaRatio } as CSSProperties
+              : undefined}
+          >
+            {media.slice(0, 4).map((entry, index) => (
+              <a key={entry.id} href={quote.statusUrl} target="_blank" rel={EXTERNAL_REL} aria-label={`View quoted attachment ${index + 1} on X`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={entry.source} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                {entry.kind === "video" ? <span className={styles.quoteVideoBadge}><Play aria-hidden="true" /></span> : null}
+              </a>
+            ))}
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+  if (!unavailableQuote) return null;
+  return (
+    <section className={styles.quoteUnavailable} aria-label="Quoted post unavailable">
+      <MessageCircle aria-hidden="true" />
+      <span><strong>Quoted post unavailable</strong><small>It may be deleted or protected.</small></span>
+      <a href={unavailableQuote.statusUrl} target="_blank" rel={EXTERNAL_REL} aria-label="Try opening quoted post on X"><ExternalLink aria-hidden="true" /></a>
+    </section>
   );
 }
 
@@ -247,9 +339,16 @@ function XPostCard({ post }: { post: WatchHomeXPost }) {
         </a>
       </header>
 
-      <XPostText post={post} />
+      <XPostText text={post.text} entities={post.entities} />
 
-      <XLinkPreviews post={post} />
+      <XQuotePreview quote={post.quote} unavailableQuote={post.unavailableQuote} />
+
+      <XLinkPreviews
+        entities={post.entities}
+        sourceUrl={post.sourceUrl}
+        suppressStatusId={post.quote?.statusId ?? post.unavailableQuote?.statusId}
+        hasMedia={post.media.length > 0}
+      />
 
       {visibleMedia.length ? (
         <div
@@ -395,6 +494,8 @@ export function XTweetsRail({
               key={post.id}
               className={styles.cell}
               role="listitem"
+              // Preserve the marker for downstream styling/tests; masonry
+              // deliberately does not make featured posts span rows.
               data-featured={post.media.length > 0 && index % 7 === 0 ? "true" : undefined}
             >
               <XPostCard post={post} />

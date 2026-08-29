@@ -50,10 +50,12 @@
   transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 .networkNav a img { width: 1.72rem; height: 1.72rem; border-radius: 50%; object-fit: contain; background: #09090b; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.networkNav a .dialCoreWordmark { width: 1.72rem; color: #fff; font-size: .74rem; letter-spacing: -.08em; text-align: center; text-shadow: 0 1px .35rem rgba(0,0,0,.84); }
 .networkNav a:hover { color: #fff; border-color: rgba(255,255,255,.17); background: rgba(255,255,255,.075); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 .35rem .8rem rgba(0,0,0,.18); transform: translateY(-1px); }
 .networkNav a:active { transform: translateY(0) scale(.96); }
 .networkNav a[aria-current="page"] { color: #fff; border-color: color-mix(in srgb, var(--channel-accent) 66%, rgba(255,255,255,.2)); background: color-mix(in srgb, var(--channel-accent) 23%, #16161a); box-shadow: inset 0 1px rgba(255,255,255,.16), inset 0 0 1.1rem color-mix(in srgb, var(--channel-accent) 20%, transparent), 0 .35rem 1rem color-mix(in srgb, var(--channel-accent) 16%, transparent); }
 .networkNav a[aria-current="page"] img { box-shadow: 0 0 0 2px color-mix(in srgb, var(--channel-accent) 62%, transparent), 0 0 .75rem color-mix(in srgb, var(--channel-accent) 34%, transparent); }
+.networkNav a[aria-current="page"] .dialCoreWordmark { color: #fff; text-shadow: 0 0 .7rem color-mix(in srgb, var(--channel-accent) 55%, transparent); }
 
 .hero {
   position: relative;
@@ -75,6 +77,7 @@
     linear-gradient(0deg, #070708 0%, transparent 58%);
 }
 .heroBug { position: absolute; z-index: -1; top: 14%; right: 3%; width: min(43vw, 39rem); max-width: 100%; height: min(43vw, 30rem); object-fit: contain; opacity: .17; filter: grayscale(1) brightness(1.9) drop-shadow(0 0 3rem color-mix(in srgb, var(--channel-accent) 65%, transparent)); pointer-events: none; transform: rotate(-5deg); }
+.heroCoreWordmark { display: grid; place-items: center; color: #fff; font-size: clamp(7rem, 22vw, 22rem); letter-spacing: -.1em; line-height: .72; text-shadow: 0 0 3rem color-mix(in srgb, var(--channel-accent) 74%, transparent); }
 
 /* Only rendered on a creator's local birthday. The treatment stays entirely
    in the hero, with decorative CSS balloons rather than another media asset. */
@@ -177,6 +180,7 @@
   object-fit: contain;
   filter: drop-shadow(0 8px 16px rgba(0,0,0,.52));
 }
+.identityCoreWordmark { width: clamp(5.5rem, 10vw, 8rem); height: clamp(3.6rem, 6vw, 4.75rem); display: grid; place-items: center; color: #fff; font-size: clamp(2rem, 4vw, 3.25rem); letter-spacing: -.1em; line-height: .72; text-shadow: 0 8px 16px rgba(0,0,0,.52); }
 .identityPortraits {
   position: relative;
   width: 4.6rem;
@@ -389,6 +393,62 @@
   background: color-mix(in srgb, var(--channel-accent) 72%, rgba(5,5,7,.7));
   transform: translate(-50%, -50%) scale(1.08);
 }
+.heroPreviewSound {
+  position: absolute;
+  z-index: 8;
+  top: .82rem;
+  right: .86rem;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: .38rem;
+  padding: 0 .62rem;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  background: rgba(5,5,7,.78);
+  box-shadow: 0 .45rem 1rem rgba(0,0,0,.2), inset 0 1px rgba(255,255,255,.1);
+  color: #fff;
+  cursor: pointer;
+  font-size: .63rem;
+  font-weight: 760;
+  letter-spacing: .035em;
+  line-height: 1;
+  backdrop-filter: blur(12px);
+  transition: border-color .16s ease, background .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.heroPreviewSound:hover {
+  border-color: color-mix(in srgb, var(--channel-accent) 66%, rgba(255,255,255,.5));
+  background: color-mix(in srgb, var(--channel-accent) 28%, rgba(5,5,7,.9));
+  box-shadow: 0 .55rem 1.2rem rgba(0,0,0,.28), 0 0 1rem color-mix(in srgb, var(--channel-accent) 24%, transparent);
+  transform: translateY(-1px);
+}
+.heroPreviewSound:active { transform: translateY(0) scale(.97); }
+.heroPreviewSound:focus-visible,
+.heroPreviewRetry:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--channel-accent) 64%, #fff);
+  outline-offset: 3px;
+}
+.heroPreviewRetry {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  left: 50%;
+  display: inline-flex;
+  min-height: 2.8rem;
+  align-items: center;
+  gap: .48rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(255,255,255,.26);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1rem 2rem rgba(0,0,0,.36);
+  color: #09090b;
+  cursor: pointer;
+  font-size: .75rem;
+  font-weight: 800;
+  transform: translate(-50%, -50%);
+}
+.heroPreviewRetry:hover { background: color-mix(in srgb, #fff 84%, var(--channel-accent)); }
 .heroPreviewCopy { right: 1rem; bottom: 1.05rem; left: 1rem; }
 .heroPreviewCopy strong,
 .heroPreviewCopy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -428,15 +488,85 @@
   inset: 0;
   display: grid;
   place-items: center;
+  overflow: hidden;
   padding: 1.5rem;
-  background:
-    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--channel-accent) 18%, transparent), transparent 48%),
-    rgba(4, 4, 6, .97);
+  background: #050506;
   color: #fff;
   text-align: center;
+  isolation: isolate;
 }
-.heroPreviewAdvisory > div { max-width: 31rem; }
-.heroPreviewAdvisory span {
+.heroPreviewAdvisoryArtwork,
+.heroPreviewAdvisoryArtwork > img,
+.heroPreviewAdvisoryArtworkVeil {
+  position: absolute;
+  inset: 0;
+}
+.heroPreviewAdvisoryArtwork { z-index: -2; overflow: hidden; }
+.heroPreviewAdvisoryArtwork > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: .64;
+  filter: saturate(.92) contrast(1.06) brightness(.66);
+  transform: scale(1.035);
+}
+.heroPreviewAdvisoryArtworkVeil {
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(4,4,6,.95) 0%, rgba(4,4,6,.74) 45%, rgba(4,4,6,.9) 100%),
+    linear-gradient(0deg, rgba(4,4,6,.9) 0%, transparent 62%),
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--channel-accent) 24%, transparent), transparent 56%);
+}
+.heroPreviewAdvisoryStation {
+  position: absolute;
+  z-index: 2;
+  top: 1rem;
+  left: 1rem;
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  max-width: min(15rem, calc(100% - 2rem));
+  align-items: center;
+  gap: .44rem;
+  padding: .4rem .56rem .4rem .42rem;
+  border: 1px solid color-mix(in srgb, var(--channel-accent) 45%, rgba(255,255,255,.22));
+  border-radius: .68rem;
+  background: rgba(5,5,7,.7);
+  box-shadow: 0 .4rem 1.2rem rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.11);
+  text-align: left;
+  backdrop-filter: blur(12px);
+}
+.heroPreviewAdvisoryStation img {
+  grid-row: 1 / span 2;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  border-radius: .4rem;
+  object-fit: contain;
+  background: rgba(0,0,0,.3);
+}
+.heroPreviewAdvisoryStation span,
+.heroPreviewAdvisoryStation small { display: block; }
+.heroPreviewAdvisoryStation span {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255,255,255,.96);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.heroPreviewAdvisoryStation small {
+  grid-column: 2;
+  margin-top: .08rem;
+  color: rgba(255,255,255,.56);
+  font-size: .56rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.heroPreviewAdvisoryContent { position: relative; z-index: 1; max-width: 31rem; }
+.heroPreviewAdvisoryEyebrow {
   display: block;
   margin-bottom: .7rem;
   color: color-mix(in srgb, var(--channel-accent) 78%, #fff);
@@ -447,7 +577,7 @@
 }
 .heroPreviewAdvisory strong { display: block; font-size: clamp(1rem, 2.2vw, 1.55rem); line-height: 1.12; }
 .heroPreviewAdvisory p { margin: .58rem 0 0; color: rgba(255,255,255,.7); font-size: .82rem; }
-.heroPreviewAdvisory small { display: block; margin-top: 1rem; color: rgba(255,255,255,.5); font-size: .68rem; }
+.heroPreviewAdvisoryTuningLine { display: block; margin-top: .7rem; color: rgba(255,255,255,.58); font-size: .64rem; font-weight: 700; letter-spacing: .025em; }
 .heroPreviewAdvisory button {
   margin-top: 1rem;
   padding: .62rem .9rem;
@@ -462,12 +592,18 @@
 }
 .heroPreviewAdvisory button:hover { background: color-mix(in srgb, var(--channel-accent) 56%, #111); }
 
+@media (prefers-reduced-motion: no-preference) {
+  .heroPreviewAdvisoryArtwork > img { animation: advisoryArtworkSettle 5.2s ease-in-out infinite alternate; }
+}
+@keyframes advisoryArtworkSettle {
+  from { transform: scale(1.035) translate3d(-.3%, -.2%, 0); }
+  to { transform: scale(1.07) translate3d(.3%, .2%, 0); }
+}
+
 .onAirBar { position: relative; border-block: 1px solid rgba(255,255,255,.08); background: rgba(13,13,15,.95); }
-.onAirBar > span { position: absolute; inset: 0 auto 0 0; max-width: 100%; background: color-mix(in srgb, var(--channel-accent) 12%, transparent); border-right: 1px solid var(--channel-accent); transition: width .4s linear; }
 .onAirBar > div { position: relative; display: flex; max-width: 100rem; align-items: center; gap: .8rem; margin: auto; padding: .8rem clamp(1rem, 4vw, 3rem); font-size: .72rem; }
 .onAirBar strong { color: var(--channel-accent); letter-spacing: .1em; }
 .onAirBar span { color: rgba(255,255,255,.72); }
-.onAirBar small { margin-left: auto; color: rgba(255,255,255,.42); }
 
 .content {
   display: flex;
@@ -650,6 +786,106 @@
   width: 100%;
 }
 
+/* The creator's existing About page is the roster authority. This compact
+   channel treatment uses the same portraits and roles without pulling the
+   viewer out of the TV layout. */
+.teamSection {
+  width: 100%;
+  padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem);
+  border-top: 1px solid rgba(255,255,255,.09);
+  background:
+    radial-gradient(34rem 16rem at 86% 0%, color-mix(in srgb, var(--channel-accent) 12%, transparent), transparent 72%),
+    rgba(255,255,255,.012);
+}
+.teamSectionHeading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.3rem;
+}
+.teamSectionHeading h2 {
+  margin-top: .38rem;
+  font-size: clamp(1.75rem, 3vw, 2.55rem);
+  letter-spacing: -.055em;
+}
+.teamSectionHeading p {
+  max-width: 20rem;
+  margin: 0;
+  color: rgba(255,255,255,.48);
+  font-size: .76rem;
+  line-height: 1.5;
+  text-align: right;
+}
+.teamGrid {
+  --team-card-width: 15.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.teamGrid > li {
+  /* A crew rail reads as one system when names, roles, and source portraits
+     cannot change a card's footprint. */
+  flex: 0 0 var(--team-card-width);
+  width: var(--team-card-width);
+  max-width: 100%;
+}
+.teamCard {
+  display: grid;
+  grid-template-columns: 5.15rem minmax(0, 1fr);
+  width: 100%;
+  height: 5.75rem;
+  min-height: 5.75rem;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: .9rem;
+  background: #121215;
+  color: #fff;
+  transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.teamCard:hover,
+.teamCard:focus-visible {
+  border-color: color-mix(in srgb, var(--channel-accent) 68%, rgba(255,255,255,.68));
+  box-shadow: 0 1rem 2.4rem rgba(0,0,0,.24), 0 0 1.25rem color-mix(in srgb, var(--channel-accent) 15%, transparent);
+  outline: none;
+  transform: translateY(-3px);
+}
+.teamPortrait {
+  position: relative;
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--channel-accent) 28%, #141418), #080809);
+}
+.teamPortrait::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(8,8,10,.88) 100%);
+  content: "";
+  pointer-events: none;
+}
+.teamPortrait img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.28); transition: filter .4s ease, transform .55s cubic-bezier(.22,1,.36,1); }
+.teamCard:hover .teamPortrait img { filter: grayscale(0); transform: scale(1.04); }
+.teamPortrait > span { color: rgba(255,255,255,.55); font-size: 2rem; font-weight: 850; letter-spacing: -.07em; }
+.teamCardCopy {
+  display: grid;
+  align-content: center;
+  gap: .08rem;
+  min-width: 0;
+  padding: .72rem .84rem;
+  background: #121215;
+}
+.teamCardCopy small { color: color-mix(in srgb, var(--channel-accent) 68%, #fff); font-size: .57rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.teamCardCopy strong { overflow: hidden; font-size: .92rem; letter-spacing: -.015em; text-overflow: ellipsis; white-space: nowrap; }
+.teamCardCopy > span { display: inline-flex; align-items: center; gap: .08rem; margin-top: .1rem; color: rgba(255,255,255,.46); font-size: .62rem; font-weight: 700; }
+.teamCardCopy svg { transition: transform .16s ease; }
+.teamCard:hover .teamCardCopy svg { transform: translateX(2px); }
+
 .mailSection {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -782,6 +1018,15 @@
   gap: .65rem;
   margin-top: 1.35rem;
 }
+.officialProfilesLabel {
+  grid-column: 1 / -1;
+  margin-bottom: -.15rem;
+  color: rgba(255,255,255,.46);
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
 .businessContact {
   display: grid;
   width: min(100%, 29rem);
@@ -843,23 +1088,43 @@
   transform: translateY(-2px);
 }
 .connectedAccountAvatar {
+  --social-avatar-accent: var(--channel-accent);
   position: relative;
   display: grid;
   width: 2.8rem;
   height: 2.8rem;
   place-items: center;
   overflow: visible;
-  border: 1px solid color-mix(in srgb, var(--channel-accent) 42%, rgba(255,255,255,.28));
+  border: 1px solid color-mix(in srgb, var(--social-avatar-accent) 48%, rgba(255,255,255,.28));
   border-radius: 50%;
-  background: #161619;
+  background: color-mix(in srgb, var(--social-avatar-accent) 12%, #161619);
   color: #fff;
-  box-shadow: 0 .35rem .85rem rgba(0,0,0,.26);
+  box-shadow: 0 .35rem .85rem rgba(0,0,0,.26), 0 0 .9rem color-mix(in srgb, var(--social-avatar-accent) 12%, transparent);
 }
+.connectedAccountAvatar[data-platform="youtube"] { --social-avatar-accent: #ff0033; }
+.connectedAccountAvatar[data-platform="tiktok"] { --social-avatar-accent: #25f4ee; }
+.connectedAccountAvatar[data-platform="instagram"] { --social-avatar-accent: #e4405f; }
+.connectedAccountAvatar[data-platform="twitch"] { --social-avatar-accent: #9146ff; }
+.connectedAccountAvatar[data-platform="x"] { --social-avatar-accent: #a9afb9; }
+.connectedAccountAvatar[data-platform="snapchat"] { --social-avatar-accent: #fffc00; }
+.connectedAccountAvatar[data-platform="wikipedia"] { --social-avatar-accent: #d8d8dc; }
 .connectedAccountAvatar > img {
   width: 100%;
   height: 100%;
   border-radius: inherit;
   object-fit: cover;
+}
+.connectedAccountFallback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 30% 24%, color-mix(in srgb, var(--social-avatar-accent) 38%, rgba(255,255,255,.16)), transparent 34%),
+    color-mix(in srgb, var(--social-avatar-accent) 18%, #151519);
+  color: color-mix(in srgb, var(--social-avatar-accent) 82%, #fff);
+  box-shadow: inset 0 1px rgba(255,255,255,.14);
 }
 .connectedAccountPlatformMark {
   position: absolute;
@@ -871,7 +1136,7 @@
   place-items: center;
   border: 2px solid #101012;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--channel-accent) 52%, #17171a);
+  background: color-mix(in srgb, var(--social-avatar-accent) 68%, #17171a);
   color: #fff;
   box-shadow: 0 .15rem .35rem rgba(0,0,0,.42);
 }
@@ -978,6 +1243,17 @@
   transform: translate(-50%, -54%);
   transition: transform .22s ease;
 }
+.homeCoreWordmark {
+  position: absolute;
+  z-index: 2;
+  top: 45%;
+  left: 50%;
+  color: #fff;
+  font-size: clamp(3.75rem, 7vw, 6.5rem);
+  text-shadow: 0 .6rem 1.4rem rgba(0, 0, 0, .7);
+  transform: translate(-50%, -54%);
+  transition: transform .22s ease;
+}
 .homeChannelTile:hover .homeChannelBackdrop,
 .homeChannelTile:focus-visible .homeChannelBackdrop {
   filter: saturate(1.08) contrast(1.08);
@@ -985,6 +1261,10 @@
 }
 .homeChannelTile:hover .homeChannelArtwork,
 .homeChannelTile:focus-visible .homeChannelArtwork {
+  transform: translate(-50%, -54%) scale(1.055);
+}
+.homeChannelTile:hover .homeCoreWordmark,
+.homeChannelTile:focus-visible .homeCoreWordmark {
   transform: translate(-50%, -54%) scale(1.055);
 }
 .homeChannelBadge {
@@ -1066,7 +1346,6 @@
   .schedule button { grid-template-columns: 2.8rem 5.2rem minmax(0,1fr); gap: .6rem; }
   .broadcastSchedule button { grid-template-columns: 5.8rem 5.2rem minmax(0,1fr); }
   .queueAction { display: none; }
-  .onAirBar small { display: none; }
   .railHeading { align-items: flex-start; flex-direction: column; }
   .identityPortraits { width: 4rem; height: 4rem; flex-basis: 4rem; }
   .identityPortrait { width: 4rem; height: 4rem; }
@@ -1074,6 +1353,12 @@
   .channelHubIntro { align-items: flex-start; flex-direction: column; }
   .channelHubPortrait { width: 3.45rem; height: 3.45rem; }
   .connectedAccounts { grid-template-columns: 1fr 1fr; }
+  .teamSectionHeading { align-items: flex-start; flex-direction: column; }
+  .teamSectionHeading p { text-align: left; }
+  .teamGrid { gap: .55rem; }
+  .teamGrid > li { flex-basis: calc(50% - .275rem); }
+  .teamCard { grid-template-columns: 3.7rem minmax(0, 1fr); min-height: 4.35rem; }
+  .teamPortrait { min-height: 4.35rem; }
 }
 
 @media (max-width: 430px) {

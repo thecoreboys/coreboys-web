@@ -25,3 +25,28 @@ export function projectedLiveEndMs(
   return (Math.floor(nowMs / LIVE_SCHEDULE_FORECAST_BUCKET_MS) + 1)
     * LIVE_SCHEDULE_FORECAST_BUCKET_MS;
 }
+
+/**
+ * Resolve the visual end for a broadcast that is still live. Provider records
+ * can retain an old scheduled or estimated end after the stream overruns it;
+ * treating that value as final makes a live card appear in the past. Keep a
+ * valid future end, but once it has elapsed move the forecast to the next
+ * shared bucket so the block always crosses Now and its continuation only
+ * advances at a stable boundary.
+ */
+export function liveTimelineEndMs(
+  startsAtMs: number,
+  reportedEndMs: number | null | undefined,
+  nowMs: number,
+): number {
+  const safeNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const safeStart = Number.isFinite(startsAtMs) ? startsAtMs : safeNow;
+  const safeReportedEnd = Number.isFinite(reportedEndMs) && (reportedEndMs ?? 0) > safeStart
+    ? reportedEndMs!
+    : null;
+  return projectedLiveEndMs(
+    safeStart,
+    safeReportedEnd === null ? 0 : safeReportedEnd - safeStart,
+    safeNow,
+  );
+}

@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { usePlayer, type PlayerAiringContext } from "@/components/providers/PlayerProvider";
 import { contentShape, embedFor, type Playable } from "@/lib/watch/playable";
+import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/lib/watch/content-advisory";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { useMyList } from "@/hooks/useMyList";
@@ -78,6 +79,7 @@ import { useWatchDiscovery } from "@/lib/watch/discovery-state";
 import {
   autoplayCountdownSeconds,
   isShortFormNavigationItem,
+  shortFormPreloadBudget,
 } from "@/lib/watch/short-form-navigation";
 import {
   shouldStartFullPlayerMuted,
@@ -132,6 +134,23 @@ type RemotePlaybackLike = {
 type DeviceVideo = HTMLVideoElement & {
   remote?: RemotePlaybackLike;
   webkitShowPlaybackTargetPicker?: () => void;
+};
+
+type ShortFormNetworkConnection = {
+  saveData?: boolean;
+  effectiveType?: string;
+  addEventListener?: (name: "change", listener: EventListener) => void;
+  removeEventListener?: (name: "change", listener: EventListener) => void;
+};
+
+type ShortFormNavigator = Navigator & {
+  connection?: ShortFormNetworkConnection;
+  deviceMemory?: number;
+};
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
 };
 
 type TwitchApi = {
@@ -256,11 +275,7 @@ function TwitchMedia({
     let startRequiredTimer = 0;
     let readyFallbackTimer = 0;
     let pauseHealthTimer = 0;
-    let pauseRecoveryCount = 0;
-    let providerBlocked = false;
     let manualPause = false;
-    let interactionRequired = false;
-    let autoplayAttemptCount = 0;
     let lastObservedPosition = -1;
     const autoplayTimers: number[] = [];
     void loadTwitch()
@@ -283,7 +298,10 @@ function TwitchMedia({
         // boot can be delayed by Twitch-side interstitials.
         readyFallbackTimer = window.setTimeout(() => {
           if (!disposed && !playbackStarted && !readyRef.current) {
-            handlersRef.current.onStartRequired();
+            // Muted playback is allowed to keep waiting for a delayed Twitch
+            // boot. Do not turn a slow provider mount into a second Play
+            // prompt; CORE is responsible for the only intentional pause.
+            if (!startMuted) handlersRef.current.onStartRequired();
           }
         }, 18_000);
         if (mountRef.current) {
@@ -292,8 +310,7 @@ function TwitchMedia({
           syncProviderInteraction();
         }
         const requestAutoplay = () => {
-          if (!startMuted || disposed || playbackStarted || manualPause || interactionRequired) return;
-          autoplayAttemptCount += 1;
+          if (!startMuted || disposed || playbackStarted || manualPause) return;
           try {
             instance?.setMuted?.(true);
             instance?.play?.();
@@ -301,30 +318,30 @@ function TwitchMedia({
             // Twitch keeps its own visible Play control as the fallback.
           }
         };
-        const scheduleStartRequired = (delay: number) => {
+        const scheduleMutedRecovery = (delay: number) => {
           window.clearTimeout(startRequiredTimer);
           startRequiredTimer = window.setTimeout(() => {
-            if (disposed || playbackStarted || !readyRef.current) return;
+            if (disposed || playbackStarted || !readyRef.current || manualPause) return;
             try {
               // A player that has not sent PLAYING but reports itself active
-              // is still settling an ad or a provider transition. Do not
-              // surface a false interaction prompt in that case.
+              // is still settling an ad or a provider transition. Keep the
+              // CORE UI active and check again instead of exposing provider
+              // controls or abandoning muted autoplay.
               if (instance?.isPaused?.() === false) {
-                scheduleStartRequired(1_500);
+                scheduleMutedRecovery(1_500);
                 return;
               }
             } catch {
               // Some Twitch states do not expose isPaused yet.
             }
-            interactionRequired = true;
-            handlersRef.current.onStartRequired();
+            requestAutoplay();
+            scheduleMutedRecovery(3_000);
           }, delay);
         };
         const markPlaybackStarted = () => {
           if (playbackStarted) return;
           playbackStarted = true;
           manualPause = false;
-          interactionRequired = false;
           for (const timer of autoplayTimers) window.clearTimeout(timer);
           window.clearTimeout(startRequiredTimer);
           window.clearTimeout(readyFallbackTimer);
@@ -334,25 +351,21 @@ function TwitchMedia({
           if (!playbackStarted) return;
           playbackStarted = false;
           const shouldRecover = handlersRef.current.onPaused();
-          if (!startMuted || !shouldRecover) {
+          if (!shouldRecover) {
             manualPause = true;
             return;
           }
+          if (!startMuted) return;
           manualPause = false;
-          pauseRecoveryCount += 1;
-          if (pauseRecoveryCount > 3) {
-            interactionRequired = true;
-            handlersRef.current.onStartRequired();
-            return;
-          }
           // Twitch can briefly report PLAYING and then pause again while an ad,
           // quality handoff, or audience gate settles. A manual CORE pause has
-          // already cleared the parent's play intent and returns false above,
-          // so only an unexpected provider pause is recovered here.
+          // already cleared the parent's play intent and returns false above.
+          // Keep retrying muted playback for unexpected provider pauses; do
+          // not let an arbitrary retry cap leave the room stopped.
           for (const delay of [120, 650, 1_800]) {
             autoplayTimers.push(window.setTimeout(requestAutoplay, delay));
           }
-          scheduleStartRequired(5_500);
+          scheduleMutedRecovery(5_500);
         };
         if (startMuted) {
           for (const delay of [400, 1_000, 2_000, 3_500, 5_500, 7_500]) {
@@ -369,10 +382,10 @@ function TwitchMedia({
             for (const delay of [250, 750, 1_500]) {
               autoplayTimers.push(window.setTimeout(requestAutoplay, delay));
             }
-            // Start the fallback clock only after Twitch confirms the player
+            // Start the recovery loop only after Twitch confirms the player
             // is ready. Network, ad, and mature-content gates can all take
             // longer than a fixed mount-time timeout without being failures.
-            scheduleStartRequired(providerBlocked ? 3_500 : 12_000);
+            scheduleMutedRecovery(12_000);
           }
           const resume = resumeRef.current;
           if (!instance?.seek || !resume.resumeOwner || resumedOwnerRef.current === resume.resumeOwner) return;
@@ -400,14 +413,13 @@ function TwitchMedia({
         instance.addEventListener(api.Player.ENDED, () => handlersRef.current.onEnded());
         instance.addEventListener(api.Player.OFFLINE, () => handlersRef.current.onEnded());
         instance.addEventListener(api.Player.PLAYBACK_BLOCKED, () => {
-          providerBlocked = true;
           if (startMuted) {
-            // Twitch can emit this before READY has fully settled. Keep the
-            // native Play control available and make one more muted attempt;
-            // an audible retry would be blocked by browser policy again.
+            // Twitch can emit this before READY has fully settled. Keep
+            // retrying muted playback; an audible retry would be blocked by
+            // browser policy again.
             requestAutoplay();
             autoplayTimers.push(window.setTimeout(requestAutoplay, 750));
-            if (readyRef.current) scheduleStartRequired(3_500);
+            if (readyRef.current) scheduleMutedRecovery(3_500);
             return;
           }
           // PLAYBACK_BLOCKED does not identify a browser policy failure. It
@@ -424,7 +436,7 @@ function TwitchMedia({
             lastObservedPosition = position;
             if (positionAdvanced && !playbackStarted) markPlaybackStarted();
 
-            if (!startMuted || !readyRef.current || manualPause || interactionRequired) return;
+            if (!startMuted || !readyRef.current || manualPause) return;
             const paused = instance.isPaused?.();
             if (paused === false) {
               // Twitch occasionally misses PLAYING while an ad or quality
@@ -437,8 +449,9 @@ function TwitchMedia({
               handleProviderPause();
               return;
             }
-            if (paused === true && autoplayAttemptCount < 16) {
+            if (paused === true) {
               requestAutoplay();
+              scheduleMutedRecovery(3_000);
             }
           } catch {
             // The Twitch iframe may be between media sessions.
@@ -630,12 +643,16 @@ function guideTimeZone(value: number, viewerTime: BrowserTimeZone) {
 function airingTimeLabel(airing: PlayerAiringContext, viewerTime: BrowserTimeZone): string | null {
   const startsAt = Date.parse(airing.startsAt);
   if (!Number.isFinite(startsAt)) return null;
-  const parsedEnd = airing.endsAt ? Date.parse(airing.endsAt) : NaN;
-  const endsAt = Number.isFinite(parsedEnd) && parsedEnd > startsAt ? parsedEnd : null;
   const day = guideDay(startsAt, viewerTime);
   const start = guideTime(startsAt, viewerTime);
   const point = `${day} · ${start} ${guideTimeZone(startsAt, viewerTime)}`;
+  // Provider live state is open ended. A schedule forecast may still be
+  // attached by an older channel session, but it is never a reliable stream
+  // ending and must not leak into the player metadata.
+  if (airing.status === "live") return `Live now · Started ${point}`;
   if (!airing.continuous && airing.status === "published") return `Posted ${point}`;
+  const parsedEnd = airing.endsAt ? Date.parse(airing.endsAt) : NaN;
+  const endsAt = Number.isFinite(parsedEnd) && parsedEnd > startsAt ? parsedEnd : null;
   const span = endsAt === null
     ? point
     : guideDay(endsAt, viewerTime) === day
@@ -643,9 +660,6 @@ function airingTimeLabel(airing: PlayerAiringContext, viewerTime: BrowserTimeZon
       : `${day} · ${start}–${guideDay(endsAt, viewerTime)} · ${guideTime(endsAt, viewerTime)} ${guideTimeZone(endsAt, viewerTime)}`;
 
   if (airing.continuous) return `Airing ${span}`;
-  if (airing.status === "live") {
-    return endsAt === null ? `Live now · Started ${span}` : `Live now · ${span}`;
-  }
   if (airing.status === "upcoming") return `Airs ${span}`;
   if (airing.status === "replay") return `Aired ${span}`;
   return `Posted ${point}`;
@@ -841,10 +855,15 @@ export function PersistentPlayer() {
   const [guideDetailsCollapsed, setGuideDetailsCollapsed] = useState(false);
   const [guideMenuOpen, setGuideMenuOpen] = useState(false);
   const [contentAdvisoryReady, setContentAdvisoryReady] = useState(false);
-  const [contentAdvisoryNeedsGesture, setContentAdvisoryNeedsGesture] = useState(false);
   const [waitingForTuningAudio, setWaitingForTuningAudio] = useState(false);
   const [playerStageShellHeight, setPlayerStageShellHeight] = useState<number | null>(null);
   const [pagePointerInside, setPagePointerInside] = useState(true);
+  const [shortFormIdleWarmupReady, setShortFormIdleWarmupReady] = useState(false);
+  const [shortFormNetwork, setShortFormNetwork] = useState<{
+    saveData: boolean;
+    effectiveType: string | null;
+    deviceMemoryGb: number | null;
+  }>({ saveData: false, effectiveType: null, deviceMemoryGb: null });
   const [nativeCapabilities, setNativeCapabilities] = useState({
     pip: false,
     remote: false,
@@ -902,10 +921,12 @@ export function PersistentPlayer() {
   const startContentAdvisory = useCallback(() => {
     const audio = contentAdvisoryAudioRef.current;
     if (!audio) return;
-    void audio.play().then(() => setContentAdvisoryNeedsGesture(false)).catch(() => {
+    void audio.play().catch(() => {
       // Audible media cannot begin until a direct viewer gesture in many
-      // browsers. Keep the content safely behind this gate until then.
-      setContentAdvisoryNeedsGesture(true);
+      // browsers. The visual advisory is still shown briefly, but never make
+      // a viewer click through a failed audio autoplay attempt before the
+      // provider can begin its own muted autoplay path.
+      window.setTimeout(() => setContentAdvisoryReady(true), 1_400);
     });
   }, []);
 
@@ -915,20 +936,16 @@ export function PersistentPlayer() {
       setWaitingForTuningAudio(false);
       return;
     }
-    const hasTuningAudio = hasNetworkTuningAudio();
-    // A normal Twitch live route should mount immediately into its muted
-    // autoplay path. An audible advisory cannot reliably start after a route
-    // change, and leaving the provider behind it makes a healthy live stream
-    // look as if autoplay failed. A deliberate network-tuning stinger is the
-    // one exception: it is the requested transition before the 24/7 feed.
-    if (current.kind === "live" && current.platform === "twitch" && !hasTuningAudio) {
+    if (hasAcknowledgedContentAdvisory()) {
       setContentAdvisoryReady(true);
-      setContentAdvisoryNeedsGesture(false);
       setWaitingForTuningAudio(false);
       return;
     }
+    // Count the warning when it is presented, rather than when audio happens
+    // to finish. This keeps it from replaying on later visits as well.
+    acknowledgeContentAdvisory();
+    const hasTuningAudio = hasNetworkTuningAudio();
     setContentAdvisoryReady(false);
-    setContentAdvisoryNeedsGesture(false);
     setWaitingForTuningAudio(hasTuningAudio);
     let disposed = false;
     let audio: HTMLAudioElement | null = null;
@@ -944,7 +961,6 @@ export function PersistentPlayer() {
       contentAdvisoryAudioRef.current = audio;
       const complete = () => {
         setContentAdvisoryReady(true);
-        setContentAdvisoryNeedsGesture(false);
       };
       audio.addEventListener("ended", complete, { once: true });
       audio.addEventListener("error", complete, { once: true });
@@ -974,6 +990,67 @@ export function PersistentPlayer() {
       && (playerPage || mode === "theater")
       && contentShape(current) === "portrait",
   );
+
+  useEffect(() => {
+    const browserNavigator = navigator as ShortFormNavigator;
+    const connection = browserNavigator.connection;
+    const updateNetworkHints = () => {
+      setShortFormNetwork({
+        saveData: Boolean(connection?.saveData),
+        effectiveType: connection?.effectiveType ?? null,
+        deviceMemoryGb: typeof browserNavigator.deviceMemory === "number"
+          ? browserNavigator.deviceMemory
+          : null,
+      });
+    };
+    updateNetworkHints();
+    connection?.addEventListener?.("change", updateNetworkHints);
+    return () => connection?.removeEventListener?.("change", updateNetworkHints);
+  }, []);
+
+  useEffect(() => {
+    if (!shortFormTheaterNavigation || dataSaver || qualityPreference === "data-saver") {
+      setShortFormIdleWarmupReady(false);
+      return;
+    }
+
+    // Mount the next provider immediately. Let the active player finish its
+    // critical boot work before adding a second hidden provider document.
+    const browserWindow = window as IdleWindow;
+    let idleHandle: number | null = null;
+    let timeoutHandle: number | null = null;
+    const cancelPendingWarmup = () => {
+      if (idleHandle !== null) browserWindow.cancelIdleCallback?.(idleHandle);
+      if (timeoutHandle !== null) window.clearTimeout(timeoutHandle);
+      idleHandle = null;
+      timeoutHandle = null;
+    };
+    const finishWarmup = () => {
+      idleHandle = null;
+      timeoutHandle = null;
+      if (document.visibilityState === "visible") setShortFormIdleWarmupReady(true);
+    };
+    const scheduleWarmup = () => {
+      cancelPendingWarmup();
+      if (document.visibilityState !== "visible") return;
+      if (browserWindow.requestIdleCallback) {
+        idleHandle = browserWindow.requestIdleCallback(finishWarmup, { timeout: 1_200 });
+      } else {
+        timeoutHandle = window.setTimeout(finishWarmup, 600);
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") scheduleWarmup();
+      else cancelPendingWarmup();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    scheduleWarmup();
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      cancelPendingWarmup();
+    };
+  }, [dataSaver, qualityPreference, shortFormTheaterNavigation]);
+
   const autoplayIntentRef = useRef<{ itemKey: string; muted: boolean } | null>(null);
   if (current && autoplayIntentRef.current?.itemKey !== current.key) {
     // Capture the initial intent per title. Keeping this stable prevents a
@@ -2345,10 +2422,13 @@ export function PersistentPlayer() {
     const twitch = twitchPlayerRef.current;
     if (!twitch) return;
     try {
-      if (shouldPlay) twitch.play?.();
-      else twitch.pause?.();
+      // Set CORE's intent before notifying Twitch. Its PAUSE event can arrive
+      // immediately, and the embed must treat that event as intentional only
+      // when it originated from this control.
       playingRef.current = shouldPlay;
       setIsPlaying(shouldPlay);
+      if (shouldPlay) twitch.play?.();
+      else twitch.pause?.();
     } catch {
       // Twitch retains its approved controls if the SDK command is rejected.
     }
@@ -2516,8 +2596,22 @@ export function PersistentPlayer() {
     ? current.mediaUrl ?? current.poster ?? current.url
     : null;
   const nativeMedia = nativeSourceSupported ? selectedNativeMedia! : null;
+  const futureShortFormPreloadCount = shortFormPreloadBudget({
+    dataSaver,
+    qualityPreference,
+    saveData: shortFormNetwork.saveData,
+    effectiveType: shortFormNetwork.effectiveType,
+    deviceMemoryGb: shortFormNetwork.deviceMemoryGb,
+    idleReady: shortFormIdleWarmupReady,
+  });
+  const futureShortFormPreloads = shortFormPreloads
+    .slice(0, futureShortFormPreloadCount)
+    // Instagram's official embed cannot be paused while hidden. Warm a Reel
+    // only when it is the immediate next item; YouTube and TikTok may use the
+    // optional second idle slot because their players support pause commands.
+    .filter((item, index) => index === 0 || item.platform !== "instagram");
   const shortFormFrameDeck = !dataSaver && qualityPreference !== "data-saver" && shortFormTheaterNavigation
-    ? [current, ...shortFormPreloads].flatMap((item) => {
+    ? [current, ...futureShortFormPreloads].flatMap((item) => {
         const supportedProvider = Boolean(
           item.youtubeId
           || item.platform === "tiktok"
@@ -2528,6 +2622,10 @@ export function PersistentPlayer() {
           parent,
           origin,
           muted: true,
+          // This URL must remain byte-for-byte stable when a hidden keyed
+          // frame becomes active. YouTube and TikTok start through their
+          // official postMessage APIs after promotion; changing autoplay in
+          // the URL here would reload the iframe and discard the warm state.
           autoplay: false,
           loop: false,
           controls: item.youtubeId ? false : undefined,
@@ -2709,10 +2807,10 @@ export function PersistentPlayer() {
           playerScreen
             ? `watch-player-stage fixed inset-0 z-[80] isolate flex overflow-hidden bg-[#050507] ${isFullscreen ? "p-0" : "p-2 pt-12 md:p-5"}`
             : shape === "portrait"
-              ? "fixed bottom-3 left-3 z-[60] w-[min(15rem,calc(100vw-1.5rem))] transition-[width,transform,opacity] duration-300"
+              ? "fixed bottom-3 left-3 z-[80] w-[min(15rem,calc(100vw-1.5rem))] transition-[width,transform,opacity] duration-300"
               : shape === "square"
-                ? "fixed bottom-3 left-3 z-[60] w-[min(18rem,calc(100vw-1.5rem))] transition-[width,transform,opacity] duration-300"
-                : "fixed bottom-3 left-3 z-[60] w-[min(25rem,calc(100vw-1.5rem))] transition-[width,transform,opacity] duration-300"
+                ? "fixed bottom-3 left-3 z-[80] w-[min(18rem,calc(100vw-1.5rem))] transition-[width,transform,opacity] duration-300"
+                : "fixed bottom-3 left-3 z-[80] w-[min(25rem,calc(100vw-1.5rem))] transition-[width,transform,opacity] duration-300"
         }
       >
         {ambientActive ? (
@@ -3095,10 +3193,12 @@ export function PersistentPlayer() {
                   allowFullScreen
                   referrerPolicy="origin"
                   onLoad={() => {
-                    // Instagram and Twitch clip embeds do not expose reliable
-                    // player events. Count only visible on-site time for those
-                    // sources; this is never represented as provider history.
-                    playingRef.current = usesVisibleTimeProxy(current);
+                    // Loading an Instagram document does not prove its Reel is
+                    // playing; it may still be showing provider UI. Keep that
+                    // opaque transport state unknown.
+                    if (current.platform !== "instagram") {
+                      playingRef.current = usesVisibleTimeProxy(current);
+                    }
                     setPlaybackError(false);
                   }}
                   className="absolute inset-0 h-full w-full"
@@ -3145,7 +3245,8 @@ export function PersistentPlayer() {
                         referrerPolicy="origin"
                         onLoad={() => {
                           if (!active) return;
-                          playingRef.current = usesVisibleTimeProxy(item);
+                          // Instagram does not expose a supported player event
+                          // API, so iframe readiness is only visual readiness.
                           setPlaybackError(false);
                         }}
                         className={`absolute inset-0 h-full w-full transition-opacity duration-100 ${active ? "z-[1] opacity-100" : "pointer-events-none z-0 opacity-0"}`}
@@ -3156,25 +3257,17 @@ export function PersistentPlayer() {
                 </div>
               ) : null}
               </> : (
-                <div className="absolute inset-0 z-30 grid place-items-center overflow-hidden bg-[#06060a] px-6 text-center">
-                  <div aria-hidden className="absolute -left-[18%] top-[-55%] h-[110%] w-[72%] rounded-full bg-fuchsia-500/20 blur-3xl animate-[pulse_4.8s_ease-in-out_infinite]" />
-                  <div aria-hidden className="absolute -bottom-[56%] -right-[20%] h-[120%] w-[74%] rounded-full bg-sky-500/15 blur-3xl animate-[pulse_5.6s_ease-in-out_infinite]" />
-                  <div aria-hidden className="absolute inset-4 rounded-[1.25rem] border border-white/10 bg-[linear-gradient(125deg,rgba(255,255,255,.09),transparent_29%,rgba(255,255,255,.025)_68%,rgba(255,255,255,.10))] shadow-[inset_0_1px_rgba(255,255,255,.18),0_0_50px_rgba(220,38,127,.16)]" />
-                  <div className="relative w-full max-w-xl rounded-2xl border border-white/15 bg-black/30 px-6 py-7 shadow-[0_1.4rem_4rem_rgba(0,0,0,.45),inset_0_1px_rgba(255,255,255,.14)] backdrop-blur-xl md:px-10 md:py-9">
-                    <span aria-hidden className="absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent shadow-[0_0_16px_rgba(244,114,182,.92)]" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-fuchsia-100/75">Viewer advisory</p>
-                    <h2 className="mt-4 bg-gradient-to-b from-white via-fuchsia-50 to-fuchsia-200 bg-clip-text text-3xl font-black leading-[.94] tracking-[-0.055em] text-transparent drop-shadow-[0_0_18px_rgba(244,114,182,.35)] md:text-5xl">The following program is intended for audiences ages 13 and older.</h2>
-                    <p className="mx-auto mt-4 max-w-sm text-sm font-semibold leading-relaxed text-white/75 md:text-base">Viewer discretion is advised.</p>
-                    {waitingForTuningAudio ? (
-                      <button type="button" onClick={skipNetworkTuningAudio} className={`mt-7 min-h-11 rounded-xl border border-white/20 bg-black/30 px-5 text-xs font-extrabold text-white shadow-[0_0_24px_rgba(244,114,182,.22)] ${CONTROL_FEEDBACK}`}>
-                        Skip DJ Cora
-                      </button>
-                    ) : contentAdvisoryNeedsGesture ? (
-                      <button type="button" onClick={startContentAdvisory} className={`mt-7 min-h-11 rounded-xl bg-gradient-to-r from-white via-fuchsia-50 to-sky-100 px-5 text-xs font-extrabold text-black shadow-[0_0_24px_rgba(244,114,182,.34)] ${CONTROL_FEEDBACK} ${PRIMARY_CONTROL_HOVER}`}>
-                        Play advisory
-                      </button>
-                    ) : <p className="mt-7 text-[11px] font-bold uppercase tracking-[0.19em] text-white/45">Starting program…</p>}
-                  </div>
+                <div className="absolute inset-0 z-30 overflow-hidden bg-[#080608]" role="status" aria-label="Mature audience advisory. The following program is intended for audiences ages 13 and older. Viewer discretion is advised.">
+                  <img
+                    src={shape === "portrait" ? "/watch/advisory/coretv-mature-audience-station-portrait-v2.png" : "/watch/advisory/coretv-mature-audience-station-v2.png"}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                  {waitingForTuningAudio ? (
+                    <button type="button" onClick={skipNetworkTuningAudio} className={`absolute bottom-4 right-4 min-h-10 rounded-lg border border-white/20 bg-black/45 px-4 text-[11px] font-extrabold text-white shadow-[0_0_24px_rgba(144,22,52,.28)] backdrop-blur-sm ${CONTROL_FEEDBACK}`}>
+                      Skip DJ Cora
+                    </button>
+                  ) : null}
                 </div>
               )}
               {current.kind !== "live" && nativeMedia && current.platform === "house" ? (
@@ -3252,7 +3345,7 @@ export function PersistentPlayer() {
                   </Tooltip>
                 </div>
               ) : null}
-              {!cleanTwitchFrame ? <PlayerNetworkWatermark channel={channel} compact={!playerScreen} /> : null}
+              {!cleanTwitchFrame && !shortsPage ? <PlayerNetworkWatermark channel={channel} compact={!playerScreen} /> : null}
               {!cleanTwitchFrame && channel ? (
                 <div data-player-channel-badge className={`absolute z-40 flex items-center gap-2 ${playerScreen ? "left-3 top-3 max-w-[calc(100%-8rem)]" : "left-2 top-2 max-w-[calc(100%-6.5rem)]"}`}>
                   {channel ? channel.href ? (
@@ -4159,32 +4252,34 @@ export function PersistentPlayer() {
                           : "Live moves to the front. Your choice keeps playing."}
                       </p>
                     </div>
-                    <div className="mb-2 grid grid-cols-3 gap-1.5">
-                      <div className="relative">
-                        <WatchSelect
-                          ariaLabel="Autoplay mode"
-                          value={autoplayMode}
-                          onChange={(value) => setAutoplayMode(value as typeof autoplayMode)}
-                          options={AUTOPLAY_MODES.map((entry) => ({ id: entry.id, label: entry.label }))}
-                        />
+                    {!shortsPage ? (
+                      <div className="mb-2 grid grid-cols-3 gap-1.5">
+                        <div className="relative">
+                          <WatchSelect
+                            ariaLabel="Autoplay mode"
+                            value={autoplayMode}
+                            onChange={(value) => setAutoplayMode(value as typeof autoplayMode)}
+                            options={AUTOPLAY_MODES.map((entry) => ({ id: entry.id, label: entry.label }))}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewAutoplay(!previewAutoplay)}
+                          aria-pressed={previewAutoplay}
+                          className={`min-h-11 rounded-xl px-2 text-[10px] font-semibold ring-1 ${CONTROL_FEEDBACK} ${previewAutoplay ? "bg-white/15 text-white ring-white/35 shadow-sm hover:bg-white/20 hover:ring-white/45" : `text-white/45 ring-white/10 ${CONTROL_HOVER}`}`}
+                        >
+                          Previews {previewAutoplay ? "on" : "off"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDataSaver(!dataSaver)}
+                          aria-pressed={dataSaver}
+                          className={`min-h-11 rounded-xl px-2 text-[10px] font-semibold ring-1 ${CONTROL_FEEDBACK} ${dataSaver ? "bg-white/15 text-white ring-white/35 shadow-sm hover:bg-white/20 hover:ring-white/45" : `text-white/45 ring-white/10 ${CONTROL_HOVER}`}`}
+                        >
+                          Data saver {dataSaver ? "on" : "off"}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewAutoplay(!previewAutoplay)}
-                        aria-pressed={previewAutoplay}
-                        className={`min-h-11 rounded-xl px-2 text-[10px] font-semibold ring-1 ${CONTROL_FEEDBACK} ${previewAutoplay ? "bg-white/15 text-white ring-white/35 shadow-sm hover:bg-white/20 hover:ring-white/45" : `text-white/45 ring-white/10 ${CONTROL_HOVER}`}`}
-                      >
-                        Previews {previewAutoplay ? "on" : "off"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDataSaver(!dataSaver)}
-                        aria-pressed={dataSaver}
-                        className={`min-h-11 rounded-xl px-2 text-[10px] font-semibold ring-1 ${CONTROL_FEEDBACK} ${dataSaver ? "bg-white/15 text-white ring-white/35 shadow-sm hover:bg-white/20 hover:ring-white/45" : `text-white/45 ring-white/10 ${CONTROL_HOVER}`}`}
-                      >
-                        Data saver {dataSaver ? "on" : "off"}
-                      </button>
-                    </div>
+                    ) : null}
                     <div className="space-y-2">
                       {queue.slice(0, 3).map((item, index) => (
                         <article key={item.key} className="group relative isolate min-h-[4.5rem] overflow-hidden rounded-xl bg-[#17171c] ring-1 ring-white/10 transition hover:ring-white/25">

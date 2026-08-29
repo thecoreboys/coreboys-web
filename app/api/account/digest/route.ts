@@ -11,7 +11,7 @@ export async function GET() {
   const uid = await getCurrentFanUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   await ensureFanOauthSchema();
-  const [watch, facts, chats, perk] = await Promise.all([
+  const [watch, facts, chats] = await Promise.all([
     siteWatchStats(uid),
     listLoyalty(uid),
     query<{ n: string }>(
@@ -19,7 +19,6 @@ export async function GET() {
         WHERE user_id = $1 AND created_at > now() - interval '7 days'`,
       [uid],
     ),
-    query<{ code: string }>(`SELECT code FROM fan_perk_codes WHERE user_id = $1`, [uid]),
   ]);
   const card = buildLoyaltyCard(facts, null, watch);
   return NextResponse.json({
@@ -30,7 +29,6 @@ export async function GET() {
     vodPlays: watch.vodPlays7d,
     chatsSent: Number(chats.rows[0]?.n ?? 0),
     houseStatus: card.houseStatus,
-    perkCode: perk.rows[0]?.code ?? null,
     note: "On-site only. Twitch/YouTube will not give us real watch history.",
   });
 }

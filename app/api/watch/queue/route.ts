@@ -8,6 +8,10 @@ import { query } from "@/lib/db";
 import { listWatchFeedback, type WatchFeedbackRow } from "@/lib/watch/feedback";
 import type { AutoplayMode } from "@/lib/watch/workspace";
 import type { Playable } from "@/lib/watch/playable";
+import {
+  isShortFormQueuePlayable,
+  watchQueueResponseOptions,
+} from "@/lib/watch/queue-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,14 +32,7 @@ export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
     const catalog = await getWatchCatalog();
-    const excluded = new Set(
-      params
-        .get("exclude")
-        ?.split(",")
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .slice(0, 50) ?? [],
-    );
+    const { excluded, shortFormOnly, responseLimit } = watchQueueResponseOptions(params);
     const userId = await getCurrentFanUserId();
     const requestedMode = params.get("mode");
     const mode: AutoplayMode = ["off", "queue", "same-creator", "similar", "live-first", "keep-grid-full"].includes(requestedMode ?? "")
@@ -95,6 +92,7 @@ export async function GET(request: Request) {
     const items = playables
       .filter((item) => {
         if (excluded.has(item.key)) return false;
+        if (shortFormOnly && !isShortFormQueuePlayable(item)) return false;
         if ((feedbackMap.get(`item:${item.key}`) ?? 0) <= -2) return false;
         if (item.memberSlug && (feedbackMap.get(`creator:${item.memberSlug}`) ?? 0) <= -2) return false;
         if ((feedbackMap.get(`platform:${item.platform}`) ?? 0) <= -2) return false;
@@ -159,7 +157,8 @@ export async function GET(request: Request) {
       })
       .sort((a, b) => b.score - a.score)
       .map(({ item }) => item);
-    const response = NextResponse.json({ items });
+    const responseItems = responseLimit === null ? items : items.slice(0, responseLimit);
+    const response = NextResponse.json({ items: responseItems });
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   } catch {

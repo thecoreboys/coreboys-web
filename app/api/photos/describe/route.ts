@@ -73,10 +73,15 @@ export async function POST(req: Request) {
   const ext = path.extname(abs).toLowerCase();
   const mediaType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
   const bytes = readFileSync(abs);
+  if (bytes.length > 15 * 1024 * 1024) {
+    return NextResponse.json({ error: "Image is too large for AI description." }, { status: 413 });
+  }
   const base64 = bytes.toString("base64");
   const reservation = await reserveAiUsage({
     provider: "anthropic", feature: "photo_describe", model: "claude-sonnet-4-6", subjectKey: `admin:${auth.id}`,
-    estimatedInputTokens: Math.max(4_000, Math.ceil(bytes.length / 1_000)), maxOutputTokens: 400,
+    // Reserve well above normal image-token use so concurrent descriptions
+    // cannot overshoot the monthly control before Anthropic returns usage.
+    estimatedInputTokens: Math.max(20_000, Math.ceil(bytes.length / 100)), maxOutputTokens: 400,
   });
   if (!reservation.ok) return NextResponse.json({ error: "AI description is temporarily unavailable." }, { status: reservation.reason === "unavailable" ? 503 : 429 });
 
