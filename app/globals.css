@@ -220,6 +220,18 @@ html[data-cursor-scrolling="true"] .core-agent-cursor-particles,
 html[data-cursor-scrolling="true"] .core-agent-cursor-aura { opacity: 0 !important; }
 html[data-cursor-rapid="true"] .core-agent-cursor-ripple { animation-duration: 170ms; }
 
+/* Keep pointer movement and scrolling responsive on integrated/software GPUs. */
+html[data-performance-profile="conserve"] .core-agent-cursor-aura,
+html[data-performance-profile="conserve"] .core-agent-cursor-trail,
+html[data-performance-profile="conserve"] .core-agent-cursor-particles,
+html[data-performance-profile="conserve"] .core-agent-cursor-station-flash { display: none !important; }
+html[data-performance-profile="conserve"] * { scroll-behavior: auto !important; }
+html[data-performance-profile="conserve"] .watch-player-ambient__art,
+html[data-performance-profile="conserve"] .cinematic-route-transition,
+html[data-performance-profile="conserve"] .cinematic-route-transition::before { animation: none !important; }
+html[data-performance-profile="conserve"] [style*="backdrop-filter"],
+html[data-performance-profile="conserve"] .auth-modal-backdrop { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
 .core-agent-cursor svg {
   display: block;
   width: 100%;

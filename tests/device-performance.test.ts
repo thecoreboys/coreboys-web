@@ -4,6 +4,7 @@ import { devicePerformanceProfile } from "../lib/device-performance";
 
 test("device profile conserves resources on low-power or save-data devices", () => {
   assert.equal(devicePerformanceProfile({ hardwareConcurrency: 2, deviceMemory: 2 }), "conserve");
+  assert.equal(devicePerformanceProfile({ hardwareConcurrency: 8, deviceMemory: 8, gpuWeak: true }), "conserve");
   assert.equal(devicePerformanceProfile({ hardwareConcurrency: 8, deviceMemory: 8, connection: { saveData: true } }), "conserve");
 });
 

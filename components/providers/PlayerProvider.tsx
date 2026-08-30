@@ -35,7 +35,7 @@ import {
   type WorkspaceTile,
 } from "@/lib/watch/workspace";
 import { gridTileToNormalizedRect } from "@/lib/watch/room-layout";
-import { devicePerformanceProfile } from "@/lib/device-performance";
+import { detectWeakGpu, devicePerformanceProfile } from "@/lib/device-performance";
 import type { ChatViewMode } from "@/lib/chat-layouts";
 import type { PlayerCompanionView } from "@/lib/watch/player-companion";
 import {
@@ -724,7 +724,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (subscription.loading || restoredClientStateRef.current) return;
     restoredClientStateRef.current = true;
-    const deviceProfile = devicePerformanceProfile(typeof navigator === "undefined" ? null : navigator);
+    const deviceProfile = devicePerformanceProfile(typeof navigator === "undefined" ? null : { ...navigator, gpuWeak: detectWeakGpu() });
+    if (typeof document !== "undefined") document.documentElement.dataset.performanceProfile = deviceProfile;
     if (deviceProfile === "conserve") {
       setDataSaverState(true);
       dataSaverRef.current = true;
