@@ -35,6 +35,7 @@ import {
   type WorkspaceTile,
 } from "@/lib/watch/workspace";
 import { gridTileToNormalizedRect } from "@/lib/watch/room-layout";
+import { devicePerformanceProfile } from "@/lib/device-performance";
 import type { ChatViewMode } from "@/lib/chat-layouts";
 import type { PlayerCompanionView } from "@/lib/watch/player-companion";
 import {
@@ -723,6 +724,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (subscription.loading || restoredClientStateRef.current) return;
     restoredClientStateRef.current = true;
+    const deviceProfile = devicePerformanceProfile(typeof navigator === "undefined" ? null : navigator);
+    if (deviceProfile === "conserve") {
+      setDataSaverState(true);
+      dataSaverRef.current = true;
+      setPreviewAutoplay(false);
+      setQualityPreferenceState("balanced");
+      qualityPreferenceRef.current = "balanced";
+      setMaxActivePlayersState(2);
+      maxActivePlayersRef.current = 2;
+    }
     try {
       const raw = sessionStorage.getItem(SESSION_STORE)
         ?? sessionStorage.getItem(PREVIOUS_SESSION_STORE)
