@@ -23,7 +23,7 @@ export function devicePerformanceProfile(navigatorLike: NavigatorLike | null | u
 export function detectWeakGpu(): boolean {
   if (typeof document === "undefined") return false;
   const canvas = document.createElement("canvas");
-  const gl = canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl");
+  const gl = (canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
   if (!gl) return true;
   const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
   return !Number.isFinite(maxTextureSize) || maxTextureSize < 4096;
