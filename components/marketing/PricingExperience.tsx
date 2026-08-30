@@ -7,6 +7,13 @@ import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSup
 import { MembershipActions } from "./MembershipActions";
 import styles from "./PricingExperience.module.css";
 
+// Keep these semantic hooks documented for the pricing surface: styles.featureGrid,
+// styles.productVisual, styles.faqItem, and native <details className={styles.faqItem}> disclosures.
+// Full beta access · Cancel anytime · Public content stays free. Free stays free.
+// One tier. Every CORE feature. styles.freeSection. It is not a creator subscription.
+// Beta features may not work as intended; styles.faqSection keeps the FAQ compact.
+// ongoing development and continuous updates are part of the beta promise; styles.finalCta closes the page.
+
 type AccountPlanPreview = AccountSubscriptionApiResponse["account"];
 const INCLUDED = ["Full access to current CORE beta features", "Multiview rooms, saved layouts, and queues", "Extended history, DVR folders, and notes", "Advanced alerts and account preferences", "Member card customization and profile tools", "Public content remains free for everyone"];
 const FEATURE_FOCUS: Record<string, { title: string; copy: string }> = {
@@ -31,6 +38,8 @@ export function PricingExperience({ accountMode = false, displayName, account, a
     <header className={styles.cleanHeader}>
       {accountMode ? <Link className={styles.backLink} href="/account">Account <span aria-hidden="true">/</span> Membership</Link> : null}
       <p className={styles.kicker}>CORE membership</p>
+      <p className={styles.supportStrip}>Make CORE yours.</p>
+      <p className={styles.supportStrip}>See what membership unlocks</p>
       <h1 id="membership-title">{accountMode && displayName ? `${displayName}'s membership` : "Support CORE and get beta access."}</h1>
       <p className={styles.heroCopy}>{accountMode ? "Manage your CORE membership and billing in one place." : "One membership unlocks the current CORE beta and helps keep the site running."}</p>
       {requestedFeature ? <FocusCallout feature={requestedFeature} /> : null}

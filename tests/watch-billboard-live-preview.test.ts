@@ -48,7 +48,7 @@ test("the hero uses the Twitch SDK for both live channels and past broadcasts", 
 });
 
 test("hero previews expose an owned sound control after their muted player mounts", () => {
-  assert.match(billboard, /const soundControlReady = isTwitch[\s\S]{0,120}twitchMounted/);
+  assert.match(billboard, /const soundControlReady = !isTwitch[\s\S]{0,180}loadedSrc/);
   assert.match(billboard, /className="watch-billboard-live-sound"/);
   assert.match(billboard, /func: nextMuted \? "mute" : "unMute"/);
   assert.match(watchCss, /\.watch-billboard-live-sound \{[\s\S]{0,600}z-index: 5/);

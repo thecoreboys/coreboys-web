@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { getFanUserById } from "@/lib/fan-users";
-import { getStripe, stripeSecretKeyMode } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { withTransaction } from "@/lib/db";
 import { getAccountSupporterSubscription } from "@/lib/supporter-billing-account";
 import {
@@ -112,7 +112,6 @@ export async function POST(request: Request) {
   }
 
   const origin = publicSiteOrigin(request);
-  const stripeTestMode = stripeSecretKeyMode(process.env.STRIPE_SECRET_KEY) === "test";
   const expiresAtSeconds = Math.floor(Date.now() / 1000) + 31 * 60;
   let createdSessionId: string | null = null;
   try {
@@ -166,11 +165,9 @@ export async function POST(request: Request) {
             checkout_attempt_id: reservation.attemptId,
           },
         },
-        // Stripe test accounts cannot update account-level Terms settings
-        // (live payload remains: consent_collection: { terms_of_service: "required" }).
-        // The site consent checkbox is mandatory before this request; live
-        // mode additionally collects Stripe's native Terms consent.
-        ...(stripeTestMode ? {} : { consent_collection: { terms_of_service: "required" as const } }),
+        // Require Stripe's native Terms consent in every mode; the site checkbox
+        // is also mandatory before this request is accepted.
+        consent_collection: { terms_of_service: "required" },
         custom_text: {
           submit: { message: `You authorize a recurring $${(parsed.data.amountCents / 100).toFixed(2)} monthly charge until you cancel.` },
         },

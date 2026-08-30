@@ -11,6 +11,9 @@ import {
 } from "@/lib/watch/public-social-embeds";
 import styles from "./CreatorPlatformRails.module.css";
 
+// Official profile embed is the live public fallback; the monitor indexes individual posts and Reels.
+// This public profile view updates from the platform when its embed script is available.
+
 type InstagramEmbedWindow = Window & {
   instgrm?: {
     Embeds?: {
@@ -59,6 +62,7 @@ function TikTokCreatorFallback({ rail }: { rail: CuratedChannelRail }) {
   return (
     <div className={styles.embedFallback} data-ingest-state={rail.ingestState ?? "unknown"}>
       <div className={styles.tiktokEmbedFrame}>
+        <p className={styles.embedNote}>Showing TikTok&apos;s official public Creator Profile Embed.</p>
         <blockquote
           className="tiktok-embed"
           cite={creator.profileUrl}
@@ -119,6 +123,7 @@ function InstagramPublicFallback({ rail }: { rail: CuratedChannelRail }) {
           </div>
         ))}
       </div>
+      <p className={styles.embedNote}>Showing Instagram&apos;s official public embed. Official embeds show up to 10 recent public videos; Creator alerts use CORE&apos;s public-feed monitor when available.</p>
       <Script
         id="instagram-public-embed-script"
         src={INSTAGRAM_EMBED_SCRIPT_SRC}

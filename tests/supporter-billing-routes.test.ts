@@ -117,7 +117,7 @@ test("checkout route creates one monthly Stripe subscription with consent and a 
     zod: { z },
     "@/lib/fan-auth": { getCurrentFanUserId: async () => "user-monthly" },
     "@/lib/fan-users": { getFanUserById: async () => ({ id: "user-monthly", email: "member@example.com" }) },
-    "@/lib/stripe": { getStripe: () => stripe },
+    "@/lib/stripe": { getStripe: () => stripe, stripeSecretKeyMode: () => "test" },
     "@/lib/db": {
       withTransaction: async (run: (client: typeof transactionClient) => Promise<unknown>) => run(transactionClient),
     },
