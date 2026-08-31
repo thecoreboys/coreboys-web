@@ -24,7 +24,9 @@ export class EmailVerificationRateLimitError extends Error {
   }
 }
 
-function publicOrigin(): string {
+/** Canonical public origin for links and redirects. Never trust an internal
+ * request host such as 0.0.0.0 or a local proxy hostname for email flows. */
+export function publicOrigin(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://thecoreboys.com";
   const url = new URL(configured);
   const localHttp = url.protocol === "http:"

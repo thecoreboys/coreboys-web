@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { consumeEmailVerification } from "@/lib/email-verification";
+import { consumeEmailVerification, publicOrigin } from "@/lib/email-verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     console.error("email verification failed", error);
     return false;
   });
-  const destination = new URL("/account/settings", url.origin);
+  const destination = new URL("/account/settings", publicOrigin());
   destination.searchParams.set("email", verified ? "verified" : "invalid");
   return NextResponse.redirect(destination, { status: 303 });
 }
