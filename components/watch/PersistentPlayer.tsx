@@ -3007,6 +3007,19 @@ export function PersistentPlayer() {
                 }
               >
               {contentAdvisoryReady ? <>
+              {/* Keep artwork visible while any provider iframe or Twitch SDK
+                  is loading. It also remains available if the provider fails. */}
+              <img
+                src={current.poster || "/embed-preview.png"}
+                alt=""
+                aria-hidden="true"
+                data-player-media-fallback
+                onError={(event) => {
+                  if (event.currentTarget.src.endsWith("/embed-preview.png")) return;
+                  event.currentTarget.src = "/embed-preview.png";
+                }}
+                className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
+              />
               {imageMedia ? (
                 <div className="absolute inset-0 isolate overflow-hidden bg-[#070709]">
                   <img
