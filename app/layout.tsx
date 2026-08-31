@@ -83,11 +83,28 @@ const embedImage = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "CORE — Create. Own. Run. Everything.",
+    default: "CORE | The Core Boys — Live creators, shows, and videos",
     template: "%s — CORE",
   },
   description:
-    "Six creators. One core. Everything we make, we own. Marlon, StableRonaldo, Adapt, Jason TheWeen, Lacy, and Silky.",
+    "CORE, also known as The Core Boys and CORE Crew: live streams, videos, Shorts, Reels, news, and shows from Marlon, StableRonaldo, Adapt, Jason TheWeen, Lacy, and Silky.",
+  keywords: [
+    "CORE",
+    "The Core Boys",
+    "CORE Crew",
+    "CoreCrew",
+    "creator network",
+    "livestreams",
+    "Twitch creators",
+    "FaZe creators",
+    "Shorts",
+    "Reels",
+  ],
+  applicationName: "CORE",
+  category: "entertainment",
+  creator: "CORE",
+  publisher: "CORE",
+  referrer: "origin-when-cross-origin",
   alternates: { canonical: siteUrl },
   // Favicon comes from the file convention at `app/icon.png` — Next.js
   // emits the <link rel="icon"> automatically.

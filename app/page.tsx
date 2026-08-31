@@ -9,9 +9,18 @@ import "./watch/watch.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Watch",
-  description: "The CORE screening house — live, uploads, and the six networks in one room.",
+  title: "CORE | The Core Boys",
+  description:
+    "Watch CORE live: the home of The Core Boys and CORE Crew creators, with Twitch streams, new videos, Shorts, Reels, and shows in one place.",
+  keywords: ["CORE", "The Core Boys", "CORE Crew", "CoreCrew", "FaZe creators", "live streams"],
   alternates: { canonical: "/" },
+  openGraph: {
+    title: "CORE | The Core Boys",
+    description:
+      "Live streams, videos, Shorts, Reels, and shows from the CORE creator network.",
+    url: "/",
+    type: "website",
+  },
 };
 
 export default async function HomePage() {

@@ -130,7 +130,7 @@ export default async function MemberPage({ params }: Params) {
     "@type": "Person",
     name: member.stageName,
     alternateName: member.realName,
-    url: `https://thecoreboys.com/about/${member.slug}`,
+    url: `https://thecoreboys.com/channels/${member.slug}`,
     description: member.bio,
     ...(member.birthDate ? { birthDate: member.birthDate } : {}),
     sameAs,
