@@ -560,7 +560,9 @@ export function selectWatchHomeXPosts(
         slug: author.slug,
         label: identityText(item.x?.authorName) ?? author.label,
         handle: displayHandle,
-        portrait: safePortrait(item.x?.authorAvatarUrl ?? author.portrait),
+        // X cards must use the account's X avatar, never the CORE/member site
+        // portrait. `safePortrait` accepts only Twimg-hosted profile media.
+        portrait: safePortrait(item.x?.authorAvatarUrl ?? ""),
         profileUrl: profileUrlFor(displayHandle),
         accent: safeAccent(author.accent),
         verified: item.x?.verified === true,
