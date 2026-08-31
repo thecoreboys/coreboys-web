@@ -290,9 +290,17 @@ export default function SpecialMessagePage() {
               </p>
               <p>
                 It was a lot of change close together. I live with chronic anxiety and am
-                neurotypical, and those years made it hard to feel grounded. My confidence took a real hit,
-                communication got harder, and there were long stretches where I felt stuck and
-                unsure of what I was supposed to do next.
+                neurodivergent, and those years made it hard to feel grounded. My confidence took
+                a real hit, communication got harder, and there were long stretches where I felt
+                stuck and unsure of what I was supposed to do next.
+              </p>
+              <p>
+                If you have ever felt like you missed a rule everyone else seemed to understand,
+                or like you were present without quite belonging, I hope you know you are not
+                the only one. People describe that experience in different ways, including
+                Asperger&apos;s, autism, neurodivergence, or chronic anxiety. Whatever words fit,
+                needing more time, more context, or a quieter way into the room does not make you
+                less capable or less deserving of a place in it.
               </p>
               <p>
                 I kept developing ideas when I could. I assisted with sound production,

@@ -5,11 +5,15 @@ import styles from "./special-message.module.css";
 
 type View = {
   yaw: number;
+  pitch: number;
 };
 
-const INITIAL_VIEW: View = { yaw: 0 };
+// The panorama is authored with the Atlantic horizon at yaw 0.
+const INITIAL_VIEW: View = { yaw: 0, pitch: 0 };
 const TURN_SENSITIVITY = 0.006;
+const TILT_SENSITIVITY = 0.005;
 const KEY_STEP = 0.16;
+const MAX_PITCH = 1.2;
 
 function normalizeAngle(angle: number) {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
@@ -19,15 +23,22 @@ function isLookingOceanward(view: View) {
   return Math.abs(normalizeAngle(view.yaw)) < 0.62;
 }
 
+function clampPitch(pitch: number) {
+  return Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch));
+}
+
 export function PanoramaViewer() {
   const canvasMountRef = useRef<HTMLDivElement>(null);
   const renderRef = useRef<(() => void) | null>(null);
   const yawRef = useRef(INITIAL_VIEW.yaw);
+  const pitchRef = useRef(INITIAL_VIEW.pitch);
   const dragRef = useRef({
     active: false,
     pointerId: 0,
     startX: 0,
+    startY: 0,
     yaw: INITIAL_VIEW.yaw,
+    pitch: INITIAL_VIEW.pitch,
   });
   const [view, setView] = useState<View>(INITIAL_VIEW);
   const [dragging, setDragging] = useState(false);
@@ -61,8 +72,9 @@ export function PanoramaViewer() {
 
       const render = () => {
         const yaw = yawRef.current;
-        // The middle of an equirectangular image is the initial, Atlantic-facing view.
-        camera.lookAt(Math.cos(yaw), 0, Math.sin(yaw));
+        const pitch = pitchRef.current;
+        const horizontal = Math.cos(pitch);
+        camera.lookAt(Math.cos(yaw) * horizontal, Math.sin(pitch), Math.sin(yaw) * horizontal);
         renderer.render(scene, camera);
       };
 
@@ -120,15 +132,21 @@ export function PanoramaViewer() {
     };
   }, []);
 
-  function setYaw(yaw: number) {
-    const normalizedYaw = normalizeAngle(yaw);
+  function setViewpoint(next: View) {
+    const normalizedYaw = normalizeAngle(next.yaw);
+    const clampedPitch = clampPitch(next.pitch);
     yawRef.current = normalizedYaw;
-    setView({ yaw: normalizedYaw });
+    pitchRef.current = clampedPitch;
+    setView({ yaw: normalizedYaw, pitch: clampedPitch });
     renderRef.current?.();
   }
 
+  function setYaw(yaw: number) {
+    setViewpoint({ yaw, pitch: view.pitch });
+  }
+
   function resetView() {
-    setYaw(INITIAL_VIEW.yaw);
+    setViewpoint(INITIAL_VIEW);
   }
 
   function stopDragging() {
@@ -156,7 +174,9 @@ export function PanoramaViewer() {
             active: true,
             pointerId: event.pointerId,
             startX: event.clientX,
+            startY: event.clientY,
             yaw: view.yaw,
+            pitch: view.pitch,
           };
           setDragging(true);
         }}
@@ -164,7 +184,10 @@ export function PanoramaViewer() {
           const drag = dragRef.current;
           if (!drag.active || drag.pointerId !== event.pointerId) return;
 
-          setYaw(drag.yaw - (event.clientX - drag.startX) * TURN_SENSITIVITY);
+          setViewpoint({
+            yaw: drag.yaw - (event.clientX - drag.startX) * TURN_SENSITIVITY,
+            pitch: drag.pitch + (event.clientY - drag.startY) * TILT_SENSITIVITY,
+          });
         }}
         onPointerUp={stopDragging}
         onPointerCancel={stopDragging}
@@ -178,6 +201,10 @@ export function PanoramaViewer() {
             nextView = { ...view, yaw: normalizeAngle(view.yaw - KEY_STEP) };
           } else if (event.key === "ArrowRight") {
             nextView = { ...view, yaw: normalizeAngle(view.yaw + KEY_STEP) };
+          } else if (event.key === "ArrowUp") {
+            nextView = { ...view, pitch: clampPitch(view.pitch + KEY_STEP) };
+          } else if (event.key === "ArrowDown") {
+            nextView = { ...view, pitch: clampPitch(view.pitch - KEY_STEP) };
           }
 
           if (!nextView) return;
@@ -215,10 +242,10 @@ export function PanoramaViewer() {
           Ocean view
         </button>
 
-        <span className={styles.panoramaHint}>Drag left or right to look around</span>
+        <span className={styles.panoramaHint}>Drag to look around and tilt up or down</span>
         <span id="panorama-instructions" className={styles.panoramaSrOnly}>
-          Drag left or right to look around the panorama. Use the left and right arrow keys, or Home
-          or R, to reset to the ocean view.
+          Drag horizontally to look around and vertically to tilt up or down. Use the arrow keys,
+          or Home or R, to reset to the ocean view.
         </span>
         <span id="panorama-status" className={styles.panoramaSrOnly} aria-live="polite">
           {isOceanView ? "Facing the Atlantic Ocean: South Florida." : "Looking around South Florida."}
