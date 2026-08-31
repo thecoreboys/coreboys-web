@@ -7,12 +7,12 @@ import { StoryProgress } from "./StoryProgress";
 import styles from "./special-message.module.css";
 
 export const metadata: Metadata = {
-  title: "A Special Message",
+  title: "A Personal Message",
   description:
     "A personal letter about code, creative production, the story behind Coreboys, and a site built to contribute something meaningful.",
   alternates: { canonical: "/special-message" },
   openGraph: {
-    title: "A Special Message",
+    title: "A Personal Message",
     description:
       "An open letter about the story behind this site, the people who inspired it, and why I wanted to contribute it.",
     url: "/special-message",
@@ -63,7 +63,7 @@ export default function SpecialMessagePage() {
               <span className={styles.mastheadMark} aria-hidden="true">
                 C
               </span>
-              <p className={styles.mastheadTitle}>The Coreboys Record</p>
+              <p className={styles.mastheadTitle}>A Personal Message</p>
               <p className={styles.editionNumber}>Vol. 02 / Built with purpose</p>
             </div>
 
