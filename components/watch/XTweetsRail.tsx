@@ -279,16 +279,6 @@ function XPostCard({ post }: { post: WatchHomeXPost }) {
     const source = media.thumbnailUrl ?? (media.kind === "image" ? media.mediaUrl : null);
     return source ? [{ ...media, source }] : [];
   });
-  const mediaCount = Math.min(4, visibleMedia.length);
-  const singleMedia = mediaCount === 1 ? visibleMedia[0] : undefined;
-  const fallbackRatio = singleMedia?.orientation === "portrait"
-    ? "9 / 16"
-    : singleMedia?.orientation === "square"
-      ? "1 / 1"
-      : "16 / 9";
-  const singleMediaRatio = singleMedia?.width && singleMedia?.height
-    ? `${singleMedia.width} / ${singleMedia.height}`
-    : fallbackRatio;
 
   return (
     <article
@@ -305,15 +295,7 @@ function XPostCard({ post }: { post: WatchHomeXPost }) {
           rel={EXTERNAL_REL}
           aria-label={`Open ${post.author.label} on X`}
         >
-          {/* Cached profile metadata; this does not load an X widget or call the X API. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={post.author.portrait}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
-          />
+          <PlatformLogo platform="x" size={18} />
         </a>
         <span className={styles.authorCopy}>
           <a href={post.author.profileUrl} target="_blank" rel={EXTERNAL_REL}>
@@ -350,32 +332,9 @@ function XPostCard({ post }: { post: WatchHomeXPost }) {
         hasMedia={post.media.length > 0}
       />
 
-      {visibleMedia.length ? (
-        <div
-          className={styles.mediaGrid}
-          data-count={mediaCount}
-          style={mediaCount === 1 ? { "--x-media-ratio": singleMediaRatio } as CSSProperties : undefined}
-        >
-          {visibleMedia.slice(0, 4).map((media, index) => (
-            <a
-              key={media.id}
-              className={styles.mediaTile}
-              data-orientation={media.orientation}
-              href={post.sourceUrl}
-              target="_blank"
-              rel={EXTERNAL_REL}
-              aria-label={`View attachment ${index + 1} from ${post.author.label}'s post on X`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={media.source} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
-              {media.kind === "video" ? <span className={styles.videoBadge}><i aria-hidden="true" /> Video</span> : null}
-              {index === 3 && visibleMedia.length > 4 ? (
-                <span className={styles.moreMedia}>+{visibleMedia.length - 4}</span>
-              ) : null}
-            </a>
-          ))}
-        </div>
-      ) : null}
+      {visibleMedia.length ? <div className={styles.postMediaNote} aria-label="Post includes attached media">
+        <PlatformLogo platform="x" size={14} /> <span>Post with media</span>
+      </div> : null}
 
       <footer className={styles.postFooter}>
         <a className={styles.timestamp} href={post.sourceUrl} target="_blank" rel={EXTERNAL_REL}>
