@@ -135,7 +135,7 @@ export default function SpecialMessagePage() {
                 from a Miami Heat game. My dad bought the tickets as a Christmas and birthday
                 gift, then found out the seller had scammed him. Somehow, it still became a
                 blessing: I met Udonis Haslem, shot free throws after the game with Norris
-                Cole and the Heat&apos;s Big Three — LeBron James, Dwyane Wade, and Chris Bosh —
+                Cole and the Heat&apos;s Big Three, LeBron James, Dwyane Wade, and Chris Bosh,
                 and even got to hold championship rings. It made me think about how a ticket
                 could lead to a real memory.
               </p>
@@ -439,7 +439,7 @@ export default function SpecialMessagePage() {
                   Building a hardline loop makes you care about the stuff most people never
                   notice: tubing runs, custom blocks, cable routing, leak tests, even whether
                   one bend sits right. If something is off, I redo it. That is how I work in
-                  software and production too — learn the whole setup, take my time, and make
+                  software and production too. I learn the whole setup, take my time, and make
                   sure the details hold up.
                 </p>
               </div>
@@ -586,7 +586,7 @@ export default function SpecialMessagePage() {
                   Keeping this site running is expensive. Azure hosting, storage buckets,
                   databases, Redis, social-fetch listeners waiting for new posts, API fees, and
                   the AI usage behind the DJ Cora experience all add up. If you would like to
-                  help, please consider supporting the site for at least $3 a month — or whatever
+                  help, please consider supporting the site for at least $3 a month, or whatever
                   amount feels right to you. I am hoping it can at least pay for itself. If it can
                   do more than that, it would mean the world to me.
                 </p>
