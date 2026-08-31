@@ -526,7 +526,11 @@ export function selectWatchHomeXPosts(
     if (!author) continue;
     const displayHandle = author === groupAuthor ? GROUP.socials.x.handle : authorHandle;
 
-    const key = `${author.slug}:${parsed.statusId}`;
+    // X status IDs are globally unique. Deduplicate on the canonical status
+    // itself rather than the local member mapping; ingestion can legitimately
+    // surface the same status once from a roster account and once from a
+    // legacy/member-scoped row.
+    const key = parsed.statusId;
     const media = mediaOf(item);
     const existing = postsByStatus.get(key);
     if (existing) {

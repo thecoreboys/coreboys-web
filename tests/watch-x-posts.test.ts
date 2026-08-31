@@ -137,6 +137,15 @@ test("Watch-home X selector collapses multi-media variants into one status card"
   assert.equal(posts[0]?.media.length, 2);
 });
 
+test("Watch-home X selector deduplicates a status repeated across ingestion scopes", () => {
+  const posts = selectWatchHomeXPosts(catalog([
+    xItem({ id: "x-81234-a", memberSlug: "adapt", title: "Same status", sourceUrl: "https://x.com/FaZeAdapt/status/81234" }),
+    xItem({ id: "x-81234-b", memberSlug: "adapt", title: "Same status", href: "https://twitter.com/FaZeAdapt/status/81234?utm_source=legacy", sourceUrl: "https://twitter.com/FaZeAdapt/status/81234?utm_source=legacy" }),
+  ]), { limit: 48, perMember: 8 });
+
+  assert.deepEqual(posts.map((post) => post.statusId), ["81234"]);
+});
+
 test("Watch-home X selector includes the official CORE account and excludes unknown or unsafe posts", () => {
   const items = [
     xItem({ id: "x-space-99999", memberSlug: "marlon", title: "Space", kind: "live", format: "live", sourceUrl: "https://x.com/i/spaces/99999" }),
