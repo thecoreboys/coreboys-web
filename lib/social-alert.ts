@@ -11,6 +11,7 @@ export type SocialAlert = {
   contentType: SocialContentType;
   title: string;
   body: string | null;
+  avatarUrl: string | null;
   href: string;
   artworkUrl: string | null;
   orientation: AlertOrientation | null;

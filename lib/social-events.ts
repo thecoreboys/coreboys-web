@@ -20,6 +20,7 @@ export type SocialEventInput = {
   body?: string | null;
   href: string;
   artworkUrl?: string | null;
+  avatarUrl?: string | null;
   orientation?: AlertOrientation | null;
   publishedAt: string;
   platformPayload?: Record<string, unknown>;
@@ -34,6 +35,7 @@ type EventRow = {
   content_type: SocialContentType;
   title: string;
   body: string | null;
+  avatar_url: string | null;
   href: string;
   artwork_url: string | null;
   orientation: AlertOrientation | null;
@@ -62,6 +64,7 @@ function rowToAlert(row: EventRow, deliveryId: string, readAt: string | null): S
     contentType: row.content_type,
     title: row.title,
     body: row.body,
+    avatarUrl: row.avatar_url,
     href: row.href,
     artworkUrl: row.artwork_url,
     orientation: row.orientation,
@@ -88,6 +91,7 @@ export function socialEventFromFeedItem(item: FeedItem): SocialEventInput | null
     canonicalId: canonicalSocialEventId(item).slice(0, 300),
     title: bounded(item.title || `${item.authorLabel} posted`, 240),
     body: bounded(item.authorLabel, 160) || null,
+    avatarUrl: validUrl(item.x?.authorAvatarUrl ?? ""),
     href,
     artworkUrl: validUrl(item.thumbnailUrl ?? ""),
     orientation: asOrientation(item),
@@ -98,6 +102,7 @@ export function socialEventFromFeedItem(item: FeedItem): SocialEventInput | null
     // from the canonical provider id/permalink instead.
     platformPayload: {
       authorLabel: item.authorLabel,
+      authorAvatarUrl: validUrl(item.x?.authorAvatarUrl ?? ""),
       sourceUrl: item.sourceUrl ?? item.url,
       canonicalProviderId: item.canonicalProviderId,
       embedUrl: item.embedUrl,
@@ -238,6 +243,7 @@ export async function listSocialAlerts(userId: string, limit = 40, before?: stri
   const cursor = before ? Date.parse(before) : NaN;
   const rows = await query<EventRow & { delivery_id: string; read_at: string | null }>(
     `SELECT e.id::text,e.provider,e.member_slug,e.content_type,e.title,e.body,e.href,e.artwork_url,e.orientation,
+            NULLIF(e.platform_payload->>'authorAvatarUrl','') AS avatar_url,
             e.published_at::text,d.id::text AS delivery_id,d.read_at::text
        FROM social_notification_deliveries d
        JOIN social_content_events e ON e.id=d.event_id

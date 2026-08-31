@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Bell01, Mail01, NotificationBox, VideoRecorder } from "@untitledui/icons";
 import { Toggle } from "@/components/base/toggle/toggle";
 import type { SocialContentType } from "@/lib/social-alert";
+import { useSubscription } from "@/hooks/useSubscription";
+import Link from "next/link";
 
 const types: Array<{ key: SocialContentType; label: string }> = [
   { key: "live", label: "Live" },
@@ -40,6 +42,7 @@ function urlBase64ToUint8Array(value: string) {
 }
 
 export function SocialNotificationSettings({ members }: { members: Array<{ slug: string; stageName: string }> }) {
+  const subscription = useSubscription();
   const [settings, setSettings] = useState<Settings>(defaults);
   const [deliveryReadiness, setDeliveryReadiness] = useState<DeliveryReadiness | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
@@ -75,7 +78,10 @@ export function SocialNotificationSettings({ members }: { members: Array<{ slug:
         headers: { "content-type": "application/json" },
         body: JSON.stringify(next),
       });
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        if (response.status === 403) throw new Error("Email and browser alerts are part of CORE Membership.");
+        throw new Error();
+      }
       const data = await response.json().catch(() => null);
       if (data?.settings) setSettings(data.settings);
       if (data?.readiness) setDeliveryReadiness(data.readiness);
@@ -120,10 +126,10 @@ export function SocialNotificationSettings({ members }: { members: Array<{ slug:
         headers: { "content-type": "application/json" },
         body: JSON.stringify(subscription),
       });
-      if (!result.ok) throw new Error("save");
+      if (!result.ok) throw new Error(result.status === 403 ? "membership" : "save");
       void save({ ...settings, pushEnabled: true });
-    } catch {
-      setMessage("Browser alerts need permission and configured push delivery.");
+    } catch (error) {
+      setMessage(error instanceof Error && error.message === "membership" ? "Browser alerts are included with CORE Membership." : "Browser alerts need permission and configured push delivery.");
     }
   }
 
@@ -138,7 +144,7 @@ export function SocialNotificationSettings({ members }: { members: Array<{ slug:
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         if (response.status === 429 && Number.isFinite(data?.retryAfterSeconds)) {
-          throw new Error(`Try again in ${data.retryAfterSeconds} seconds.`);
+          throw new Error("Verification email already sent. Check your inbox for the latest link.");
         }
         throw new Error("Couldn’t send the verification email.");
       }
@@ -157,15 +163,20 @@ export function SocialNotificationSettings({ members }: { members: Array<{ slug:
 
   if (!ready) return <div className="h-64 animate-pulse rounded-2xl bg-secondary" />;
   const pushUnavailable = deliveryReadiness?.push.ready !== true;
-  const emailUnavailable = deliveryReadiness?.email.ready !== true || !emailVerified;
+  const advancedLocked = !subscription.loading && !subscription.hasFeature("notifications.advanced");
+  const emailUnavailable = advancedLocked || deliveryReadiness?.email.ready !== true || !emailVerified;
   const pushHint = deliveryReadiness?.enabled === false
     ? "Notification delivery is temporarily unavailable"
-    : pushUnavailable
+    : advancedLocked
+      ? "CORE Membership required"
+      : pushUnavailable
       ? "Unavailable until browser delivery is configured"
       : undefined;
   const emailHint = deliveryReadiness?.enabled === false
     ? "Notification delivery is temporarily unavailable"
-    : deliveryReadiness?.email.ready !== true
+    : advancedLocked
+      ? "CORE Membership required"
+      : deliveryReadiness?.email.ready !== true
       ? "Unavailable until email delivery is configured"
     : !emailVerified
       ? "Verify your account email to enable"
@@ -190,9 +201,10 @@ export function SocialNotificationSettings({ members }: { members: Array<{ slug:
       <div className="grid border-y border-secondary sm:grid-cols-2 xl:grid-cols-4">
         <SettingToggle icon={VideoRecorder} label="All alerts" selected={settings.enabled} onChange={(enabled) => void save({ ...settings, enabled })} />
         <SettingToggle icon={Bell01} label="In-app" selected={settings.inAppEnabled} onChange={(inAppEnabled) => void save({ ...settings, inAppEnabled })} />
-        <SettingToggle icon={NotificationBox} label="Browser push" selected={settings.pushEnabled} disabled={pushUnavailable} hint={pushHint} onChange={setPush} />
+        <SettingToggle icon={NotificationBox} label="Browser push" selected={settings.pushEnabled} disabled={advancedLocked || pushUnavailable} hint={pushHint} onChange={setPush} />
         <SettingToggle icon={Mail01} label="Email" selected={settings.emailEnabled} disabled={emailUnavailable} hint={emailHint} onChange={(emailEnabled) => void save({ ...settings, emailEnabled })} />
       </div>
+      {advancedLocked ? <div className="border-b border-secondary px-5 py-3 text-sm text-tertiary">Email and browser alerts are included with <Link href={subscription.featureHref("notifications.advanced") as never} className="font-semibold text-brand-secondary hover:text-brand-secondary_hover">CORE Membership</Link>. In-app alerts remain available to everyone.</div> : null}
       {!emailVerified && deliveryReadiness?.email.configured === true && deliveryReadiness.email.enabled === true && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-secondary px-5 py-3 text-sm text-tertiary">
           <span>Verify your account email before turning on creator-alert emails.</span>

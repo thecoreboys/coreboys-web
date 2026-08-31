@@ -43,6 +43,12 @@ const TILES = [
     Icon: BarChart01,
   },
   {
+    href: "/admin/notifications",
+    title: "Notification tests",
+    desc: "Send a private in-app test alert to a fan account and verify the notification path.",
+    Icon: Mail01,
+  },
+  {
     href: "/admin/originals",
     title: "CORE Originals",
     desc: "Control events, series, challenges, home posters, and the approval-only recommendation queue.",

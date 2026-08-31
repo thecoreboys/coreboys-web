@@ -290,9 +290,7 @@ export function NotificationSettings({
             const emailKey = `${meta.key}:email`;
             const smsKey = `${meta.key}:sms`;
             const advancedNotifications = subscription.hasFeature("notifications.advanced");
-            const premiumLocked = meta.key === "weekly_digest"
-              && !subscription.loading
-              && !advancedNotifications;
+            const premiumLocked = !subscription.loading && !subscription.hasFeature("notifications.advanced");
 
             return (
               <div key={meta.key} className="grid md:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem]">
@@ -333,7 +331,7 @@ export function NotificationSettings({
                     <Toggle
                       size="md"
                       isSelected={preference.emailEnabled}
-                      isDisabled={pending.has(emailKey) || (meta.key === "weekly_digest" && subscription.loading)}
+                      isDisabled={pending.has(emailKey) || subscription.loading}
                       onChange={(enabled) => void updatePreference(meta.key, "email", enabled)}
                       aria-label={`${meta.title} by email`}
                     />
@@ -350,7 +348,7 @@ export function NotificationSettings({
                     <Toggle
                       size="md"
                       isSelected={preference.smsEnabled}
-                      isDisabled={pending.has(smsKey) || (meta.key === "weekly_digest" && subscription.loading)}
+                      isDisabled={pending.has(smsKey) || subscription.loading}
                       onChange={(enabled) => void updatePreference(meta.key, "sms", enabled)}
                       aria-label={`${meta.title} by text message`}
                     />
@@ -358,15 +356,7 @@ export function NotificationSettings({
                 </PreferenceCell>
                 <PreferenceCell label="Push" isLast>
                   <div className="flex items-center gap-2 md:flex-col md:gap-1.5">
-                    <Toggle
-                      size="md"
-                      isSelected={false}
-                      isDisabled
-                      aria-label={`${meta.title} by push notification — coming soon`}
-                    />
-                    <span className="whitespace-nowrap text-[11px] font-semibold text-quaternary">
-                      Coming soon
-                    </span>
+                    <span className="whitespace-nowrap text-[11px] font-semibold text-quaternary">Manage in Creator alerts</span>
                   </div>
                 </PreferenceCell>
               </div>

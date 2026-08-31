@@ -68,10 +68,9 @@ export async function PUT(request: Request) {
   }
 
   const { category, channel, enabled } = parsed.data;
-  // Live alerts, new-content alerts, reminders, and community preferences are
-  // part of the free settings baseline. The scheduled weekly digest is the
-  // only advanced-notification utility in this endpoint.
-  if (category === "weekly_digest") {
+  // In-app creator alerts remain free. External delivery channels are a
+  // membership benefit, enforced here so a client cannot bypass the UI gate.
+  if (channel === "email" || channel === "sms" || category === "weekly_digest") {
     try {
       await requireAccountEntitlement({
         userId,

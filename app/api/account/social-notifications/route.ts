@@ -4,6 +4,7 @@ import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { getSocialNotificationSettings, saveSocialNotificationSettings } from "@/lib/social-events";
 import { getSocialNotificationDeliveryReadiness } from "@/lib/social-delivery";
 import { getFanUserById } from "@/lib/fan-users";
+import { EntitlementDeniedError, requireAccountEntitlement } from "@/lib/subscriptions/entitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,16 @@ export async function PUT(request: Request) {
   if (!userId) return privateJson({ error: "unauthorized" }, { status: 401 });
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return privateJson({ error: "invalid_payload" }, { status: 400 });
+  if (parsed.data.emailEnabled || parsed.data.pushEnabled) {
+    try {
+      await requireAccountEntitlement({ userId, requestHostname: new URL(request.url).hostname, featureId: "notifications.advanced" });
+    } catch (error) {
+      if (error instanceof EntitlementDeniedError) {
+        return privateJson({ error: error.code, featureId: error.featureId, requiredPlanId: error.requiredPlanId, upgradeHref: `/upgrade?feature=${encodeURIComponent(error.featureId)}` }, { status: 403 });
+      }
+      throw error;
+    }
+  }
   await saveSocialNotificationSettings(userId, parsed.data);
   const [settings, user] = await Promise.all([
     getSocialNotificationSettings(userId),
