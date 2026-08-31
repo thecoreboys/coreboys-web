@@ -18,10 +18,13 @@ function safeHandle(value: string | undefined, fallback: string): string {
 
 function safeImage(value: string | undefined): string | null {
   if (!value) return null;
-  if (/^\/(?!\/)[^\u0000-\u001f]*$/.test(value)) return value;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" ? url.toString() : null;
+    const host = url.hostname.toLowerCase();
+    // X profile photos are served from Twimg. Reject local CORE artwork (or
+    // another site's image) so an X post never masquerades as a site account.
+    const isTwimg = host === "twimg.com" || host.endsWith(".twimg.com");
+    return url.protocol === "https:" && isTwimg ? url.toString() : null;
   } catch {
     return null;
   }

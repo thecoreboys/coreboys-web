@@ -295,7 +295,12 @@ function XPostCard({ post }: { post: WatchHomeXPost }) {
           rel={EXTERNAL_REL}
           aria-label={`Open ${post.author.label} on X`}
         >
-          <PlatformLogo platform="x" size={18} />
+          {post.author.portrait.includes("twimg.com/") ? (
+            // The selector only permits Twimg URLs here; never fall back to a
+            // CORE/member site portrait for an X identity.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={post.author.portrait} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+          ) : <PlatformLogo platform="x" size={18} />}
         </a>
         <span className={styles.authorCopy}>
           <a href={post.author.profileUrl} target="_blank" rel={EXTERNAL_REL}>
