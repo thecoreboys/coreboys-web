@@ -639,7 +639,7 @@ export default function SpecialMessagePage() {
             </div>
           </section>
 
-          <section className={styles.platformStory} aria-labelledby="platform-story-title">
+          {false ? <section className={styles.platformStory} aria-labelledby="platform-story-title">
             <header className={styles.platformStoryHeader}>
               <div>
                 <p className={styles.platformStoryKicker}>The platform / built to last</p>
@@ -745,7 +745,7 @@ export default function SpecialMessagePage() {
               </p>
               <strong>Create. Own. Run. Everything. Own the platform.</strong>
             </div>
-          </section>
+          </section> : null}
 
           <section className={styles.closingSpread}>
             <div className={styles.closingImageWrap}>
