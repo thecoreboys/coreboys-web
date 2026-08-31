@@ -3119,10 +3119,8 @@ export function PersistentPlayer() {
                       : ""
                   }
                   startMuted={autoStartMuted || Boolean(activeTwitchArchiveId)}
-                  // Keep the Twitch iframe unobstructed during muted autoplay
-                  // warm-up. CORE controls take over after playback starts or
-                  // when Twitch needs a viewer gesture.
-                  customControls={coreTwitchLiveControls && !twitchAutoplayWarmup}
+                  customControls={/* customControls={coreTwitchLiveControls} is
+                      enabled after the Twitch surface warms. */ coreTwitchLiveControls && !twitchAutoplayWarmup}
                 />
               ) : nativeMedia ? (
                 <video

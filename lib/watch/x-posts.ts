@@ -188,6 +188,17 @@ function safeHttpsUrl(value: string | undefined): string | null {
   }
 }
 
+function safeXAvatar(value: string | undefined): string | null {
+  const url = safeHttpsUrl(value);
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "twimg.com" || host.endsWith(".twimg.com") ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Accept only canonical X/Twitter status permalinks. Media suffixes are
  * intentionally discarded so one four-photo tweet becomes one home card.
@@ -462,7 +473,7 @@ function quoteContent(item: WatchItem): WatchHomeXPost["quote"] | undefined {
     authorName: identityText(quote.authorName) ?? undefined,
     authorHandle: handle,
     authorProfileUrl: profileUrl,
-    authorAvatarUrl: safeHttpsUrl(quote.authorAvatarUrl) ?? undefined,
+    authorAvatarUrl: safeXAvatar(quote.authorAvatarUrl) ?? undefined,
     media,
     entities: normalizedEntities(quote.text, clean.offsets, quote.entities),
   };

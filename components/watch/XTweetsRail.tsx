@@ -337,9 +337,33 @@ function XPostCard({ post }: { post: WatchHomeXPost }) {
         hasMedia={post.media.length > 0}
       />
 
-      {visibleMedia.length ? <div className={styles.postMediaNote} aria-label="Post includes attached media">
-        <PlatformLogo platform="x" size={14} /> <span>Post with media</span>
-      </div> : null}
+      {visibleMedia.length ? (
+        <div
+          className={styles.mediaGrid}
+          data-count={Math.min(4, visibleMedia.length)}
+          style={visibleMedia.length === 1 && visibleMedia[0]?.width && visibleMedia[0]?.height
+            ? { "--x-media-ratio": `${visibleMedia[0].width} / ${visibleMedia[0].height}` } as CSSProperties
+            : undefined}
+          aria-label="Attached media"
+        >
+          {visibleMedia.slice(0, 4).map((media, index) => (
+            <a
+              className={styles.mediaTile}
+              key={media.id}
+              href={post.sourceUrl}
+              target="_blank"
+              rel={EXTERNAL_REL}
+              aria-label={`View attached media ${index + 1} on X`}
+            >
+              {/* X image and video thumbnails are cached by the server. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={media.source} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+              {media.kind === "video" ? <span className={styles.videoBadge}><i aria-hidden="true" /> Video</span> : null}
+              {index === 3 && visibleMedia.length > 4 ? <span className={styles.moreMedia}>+{visibleMedia.length - 4}</span> : null}
+            </a>
+          ))}
+        </div>
+      ) : null}
 
       <footer className={styles.postFooter}>
         <a className={styles.timestamp} href={post.sourceUrl} target="_blank" rel={EXTERNAL_REL}>
