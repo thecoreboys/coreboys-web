@@ -2662,6 +2662,10 @@ export function PersistentPlayer() {
     playerScreen,
     guideLivePlayback,
   });
+  const twitchAutoplayWarmup = coreTwitchLiveControls
+    && !isPlaying
+    && !twitchStartRequired
+    && !playbackError;
   const coreTwitchAtLiveEdge = coreTwitchLiveControls && !twitchDvrActive;
   const liveDvrPreviewPosition = clampLiveDvrPosition(
     liveDvrPreviewSeconds,
@@ -2683,7 +2687,8 @@ export function PersistentPlayer() {
       && (activeAiring.status === "replay" || activeAiring.status === "published")
       && current.kind !== "live",
   );
-  const cleanTwitchFrame = playerScreen && twitchInteractive && !coreTwitchLiveControls;
+  const cleanTwitchFrame = playerScreen && twitchInteractive
+    && (!coreTwitchLiveControls || twitchAutoplayWarmup);
   const modalTheater = theater && !playerPage;
   const ambientMember = MEMBERS.find((member) => (
     member.slug === current.memberSlug
@@ -3114,7 +3119,10 @@ export function PersistentPlayer() {
                       : ""
                   }
                   startMuted={autoStartMuted || Boolean(activeTwitchArchiveId)}
-                  customControls={coreTwitchLiveControls}
+                  // Keep the Twitch iframe unobstructed during muted autoplay
+                  // warm-up. CORE controls take over after playback starts or
+                  // when Twitch needs a viewer gesture.
+                  customControls={coreTwitchLiveControls && !twitchAutoplayWarmup}
                 />
               ) : nativeMedia ? (
                 <video
@@ -3289,7 +3297,7 @@ export function PersistentPlayer() {
                   aria-pressed={isPlaying}
                   className="absolute inset-0 z-[12] cursor-pointer border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/85"
                 />
-              ) : coreTwitchLiveControls ? (
+              ) : coreTwitchLiveControls && !twitchAutoplayWarmup ? (
                 <div
                   data-core-twitch-interaction-shield
                   aria-hidden="true"
@@ -3297,7 +3305,7 @@ export function PersistentPlayer() {
                   onDoubleClick={() => void toggleFullscreen()}
                 />
               ) : null}
-              {coreTwitchLiveControls ? (
+              {coreTwitchLiveControls && !twitchAutoplayWarmup ? (
                 <div
                   data-core-twitch-native-controls-cover
                   aria-hidden="true"
