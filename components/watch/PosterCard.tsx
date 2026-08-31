@@ -215,12 +215,17 @@ export function PosterCard({
   const playable = isPhoto ? null : itemToPlayable(item);
   const fallbackHref = item.sourceUrl || item.href;
   const motionEnabled = player.previewAutoplay || hoverAutoplay || item.platform === "twitch";
+  // Short-form providers are the slowest to boot (especially on a cold
+  // mobile connection). Warm their poster and provider connection as soon as
+  // the card is approaching the visible edge, even when a shelf did not opt
+  // into the more aggressive preload mode.
+  const approachPreload = preloadOnApproach || item.platform === "instagram" || item.platform === "tiktok";
   previewRef.current = preview;
   previewVisibleRef.current = previewVisible;
   previewKeyboardRef.current = previewKeyboard;
 
   useEffect(() => {
-    if (!preloadOnApproach || !cardRef.current || avoidsPreviewWarm(player.dataSaver)) return;
+    if (!approachPreload || !cardRef.current || avoidsPreviewWarm(player.dataSaver)) return;
     const card = cardRef.current;
     const rail = card.closest<HTMLElement>("[data-drag-scroll-root='true']");
     if (!rail || typeof IntersectionObserver === "undefined") return;
@@ -239,13 +244,13 @@ export function PosterCard({
           preconnectHoverEmbed(item, moment?.seconds ?? positionSeconds);
         }
       }, 40);
-    }, { root: rail, rootMargin: "0px 90% 0px 10%", threshold: 0.01 });
+    }, { root: rail, rootMargin: "0px 140% 0px 20%", threshold: 0.01 });
     observer.observe(card);
     return () => {
       observer.disconnect();
       if (warmTimer != null) window.clearTimeout(warmTimer);
     };
-  }, [item, moment?.seconds, motionEnabled, player.dataSaver, positionSeconds, preloadOnApproach]);
+  }, [approachPreload, item, moment?.seconds, motionEnabled, player.dataSaver, positionSeconds]);
 
   useEffect(() => {
     const sync = (event?: Event) => {

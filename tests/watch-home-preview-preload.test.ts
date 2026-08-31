@@ -10,7 +10,8 @@ const home = source("components/watch/WatchHome.tsx");
 
 test("the home short-form rail warms upcoming preview resources without eager embeds", () => {
   assert.match(home, /title="Shorts, reels & TikToks"[\s\S]{0,180}preloadUpcoming/);
-  assert.match(poster, /rootMargin:\s*"0px 90% 0px 10%"/);
+  assert.match(poster, /rootMargin:\s*"0px 140% 0px 20%"/);
+  assert.match(poster, /item\.platform === "instagram" \|\| item\.platform === "tiktok"/);
   assert.match(poster, /warmHoverStill\(item, false\)/);
   assert.match(poster, /preconnectHoverEmbed\(item/);
   assert.doesNotMatch(poster, /documentHint\.rel\s*=\s*"prefetch"/);
