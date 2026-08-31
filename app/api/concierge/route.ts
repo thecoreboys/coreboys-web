@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { buildSystemPrompt } from "@/lib/concierge-prompt";
 import { cancelAiUsage, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
+import { redisIncrWithExpiry } from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,8 +35,17 @@ const RATE_LIMIT_MAX = 20;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const ipBuckets = new Map<string, { count: number; resetAt: number }>();
 
-function rateLimit(ip: string): { ok: boolean; remaining: number; resetAt: number } {
+async function rateLimit(ip: string): Promise<{ ok: boolean; remaining: number; resetAt: number }> {
   const now = Date.now();
+  const distributedCount = await redisIncrWithExpiry(`coreboys:concierge:${ip}`, RATE_LIMIT_WINDOW_MS / 1000);
+  if (distributedCount !== null) {
+    const resetAt = now + RATE_LIMIT_WINDOW_MS;
+    return {
+      ok: distributedCount <= RATE_LIMIT_MAX,
+      remaining: Math.max(0, RATE_LIMIT_MAX - distributedCount),
+      resetAt,
+    };
+  }
   let bucket = ipBuckets.get(ip);
   if (!bucket || bucket.resetAt < now) {
     bucket = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
@@ -65,7 +75,7 @@ export async function POST(req: NextRequest) {
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     req.headers.get("x-real-ip") ??
     "unknown";
-  const limit = rateLimit(ip);
+  const limit = await rateLimit(ip);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "rate limit reached", resetAt: new Date(limit.resetAt).toISOString() },
