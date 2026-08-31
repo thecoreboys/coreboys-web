@@ -159,8 +159,9 @@ export default function SpecialMessagePage() {
               <span className={styles.marginFileKicker}>Age 11 / first build</span>
               <strong>Cranberry Crush</strong>
               <p>
-                A made-up basketball team, a real website plan, and the first time I learned
-                an idea could become something people joined.
+                A made-up basketball team and an early hosting idea. I tried to purchase hosting
+                at age 11, got in trouble for it, and learned that an idea can feel real before
+                it is ever built.
               </p>
               <span className={styles.redUnderline}>The first spark</span>
             </aside>
