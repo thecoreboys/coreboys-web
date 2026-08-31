@@ -263,14 +263,12 @@ function MediaHoverPreview({
       : null;
   const iframeSrc = useMemo(() => {
     if (videoSrc || !host || !sourcePlayable) return null;
-    if (isInstagramPhoto) {
-      return embedFor(sourcePlayable, {
-        parent: host.parent,
-        origin: host.origin,
-        muted: true,
-        controls: true,
-      });
-    }
+    // Instagram photo permalinks are frequently deleted, age-restricted, or
+    // unavailable to an anonymous embed. Showing that cross-origin error page
+    // in a hover card is noisy and makes a healthy cached thumbnail look
+    // broken. Keep the preview on the known-good still and let the explicit
+    // “View on Instagram” action open the canonical permalink.
+    if (isInstagramPhoto) return null;
     if (!wantsMotion || !playable || item.embeddable === false) return null;
     if (item.previewStrategy === "external" || item.previewStrategy === "image") return null;
     if (!(["youtube", "twitch", "tiktok", "instagram"] as string[]).includes(item.platform)) return null;
