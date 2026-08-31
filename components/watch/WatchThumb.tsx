@@ -30,11 +30,30 @@ export function WatchThumb({
     return [...fromYt, src].filter(Boolean);
   }, [youtubeId, src]);
   const [index, setIndex] = useState(0);
+  const [failed, setFailed] = useState(false);
   const url = chain[Math.min(index, chain.length - 1)] ?? src;
 
   useEffect(() => {
     setIndex(0);
+    setFailed(false);
   }, [youtubeId, src]);
+
+  if (failed || !url) {
+    return (
+      <span
+        className={className}
+        role={alt ? "img" : undefined}
+        aria-label={alt || undefined}
+        style={{
+          ...style,
+          display: "block",
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(135deg, color-mix(in srgb, var(--bg-elev, #19191d) 92%, #000), var(--bg, #09090b))",
+        }}
+      />
+    );
+  }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -58,6 +77,7 @@ export function WatchThumb({
       }}
       onError={() => {
         if (index < chain.length - 1) setIndex((n) => n + 1);
+        else setFailed(true);
       }}
     />
   );
