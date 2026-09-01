@@ -34,3 +34,12 @@ test("the old FM badge and dedicated collapse control are removed", () => {
   assert.doesNotMatch(styles, /\.collapseToggle/);
   assert.doesNotMatch(styles, /\.isCollapsed/);
 });
+
+test("the channel dial commits one accessible selection to a new network", () => {
+  assert.match(director, /lastCommittedTunerNetworkRef/);
+  assert.match(director, /nextNetwork\.name === tunedNetwork/);
+  assert.match(director, /onTuneNetwork\?\.\(nextNetwork\.slug\)/);
+  assert.match(director, /onPointerUp=\{\(event\) => commitTuner/);
+  assert.match(director, /onKeyUp=\{\(event\) =>/);
+  assert.match(director, /onBlur=\{\(event\) => commitTuner/);
+});

@@ -155,7 +155,11 @@ export function RadioAudioSystem() {
       tunerNetworks={NETWORK_CHANNELS.map(({ slug, name, artwork }) => ({ slug, name, artwork }))}
       autoCollapse={immersivePlayerPage}
       onTuneNetwork={(slug) => {
-        const href = `/channels/${slug}?mode=continuous`;
+        const target = resolveNetworkChannel(slug);
+        if (!target) return;
+        const current = /^\/channels\/([^/?#]+)/.exec(pathname)?.[1] ?? null;
+        if (current === target.slug) return;
+        const href = `/channels/${target.slug}?mode=continuous`;
         // Tuning from Theater/Shorts must leave the immersive player mode;
         // otherwise the persistent player immediately reopens over the new
         // channel route after navigation commits.

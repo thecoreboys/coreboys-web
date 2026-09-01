@@ -270,6 +270,7 @@ export function RadioAudioDirector({
   const lifecycleRef = useRef(onLifecycle);
   const reducedMotionRef = useRef(reducedMotion);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const lastCommittedTunerNetworkRef = useRef<string | null>(null);
 
   enabledRef.current = enabled;
   volumeRef.current = clamp(volume);
@@ -316,7 +317,13 @@ export function RadioAudioDirector({
 
   useEffect(() => {
     const index = tunerNetworks.findIndex((network) => network.name === tunedNetwork);
-    if (index >= 0) setTunerIndex(index);
+    if (index >= 0) {
+      setTunerIndex(index);
+      // A completed route change makes the dial ready for the next deliberate
+      // selection. Until then, pointer-up and blur can describe the same input
+      // gesture, so the commit guard below only lets it navigate once.
+      lastCommittedTunerNetworkRef.current = null;
+    }
   }, [tunedNetwork, tunerNetworks]);
 
   useEffect(() => {
@@ -765,7 +772,10 @@ export function RadioAudioDirector({
   };
   const commitTuner = (index = tunerIndex) => {
     const nextNetwork = tunerNetworks[index];
-    if (nextNetwork) onTuneNetwork?.(nextNetwork.slug);
+    if (!nextNetwork || nextNetwork.name === tunedNetwork) return;
+    if (lastCommittedTunerNetworkRef.current === nextNetwork.slug) return;
+    lastCommittedTunerNetworkRef.current = nextNetwork.slug;
+    onTuneNetwork?.(nextNetwork.slug);
   };
   const toggleAudio = () => writeRadioAudioSettings({ enabled: !enabled });
   const openSettings = () => window.location.assign("/account/settings#radio");
@@ -900,6 +910,7 @@ export function RadioAudioDirector({
             onChange={(event) => moveTuner(Number(event.target.value))}
             onPointerUp={(event) => commitTuner(Number(event.currentTarget.value))}
             onKeyUp={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End", "Enter", " "].includes(event.key)) commitTuner(Number(event.currentTarget.value)); }}
+            onBlur={(event) => commitTuner(Number(event.currentTarget.value))}
             aria-label="Tune DJ Cora to a network"
           />
           <div className={styles.dialTicks} aria-hidden>{tunerNetworks.map((network, index) => <span key={network.slug} className={index === tunerIndex ? styles.activeTick : ""} />)}</div>
