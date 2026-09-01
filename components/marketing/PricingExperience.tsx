@@ -29,7 +29,6 @@ export function PricingExperience({ accountMode = false, displayName, account, a
 
   return <div className={styles.shell}>
     <header className={styles.cleanHeader}>
-      {accountMode ? <Link className={styles.backLink} href="/account">Account <span aria-hidden="true">/</span> Membership</Link> : null}
       <p className={styles.kicker}>CORE membership</p>
       <h1 id="membership-title">{accountMode && displayName ? `${displayName}'s membership` : "Support CORE and get beta access."}</h1>
       <p className={styles.heroCopy}>{accountMode ? "Manage your CORE membership and billing in one place." : "One membership unlocks the current CORE beta and helps keep the site running."}</p>
