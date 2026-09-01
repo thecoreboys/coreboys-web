@@ -3,11 +3,39 @@ import { z } from "zod";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { query } from "@/lib/db";
 import { ensureFanOauthSchema } from "@/lib/oauth/schema";
+import { EntitlementDeniedError, requireAccountEntitlement } from "@/lib/subscriptions/entitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ItemId = z.string().min(1).max(200);
+
+function privateJson(body: unknown, init?: ResponseInit) {
+  const response = NextResponse.json(body, init);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
+async function requireDvrAccess(userId: string, request: Request) {
+  try {
+    await requireAccountEntitlement({
+      userId,
+      requestHostname: new URL(request.url).hostname,
+      featureId: "dvr.extended_retention",
+    });
+    return null;
+  } catch (error) {
+    if (error instanceof EntitlementDeniedError) {
+      return privateJson({
+        error: error.code,
+        featureId: error.featureId,
+        requiredPlanId: error.requiredPlanId,
+        upgradeHref: `/upgrade?feature=${encodeURIComponent(error.featureId)}`,
+      }, { status: 403 });
+    }
+    throw error;
+  }
+}
 
 async function list(userId: string) {
   const { rows } = await query<{ item_ref: string }>(
@@ -21,20 +49,24 @@ async function list(userId: string) {
   return rows.map((row) => row.item_ref);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const userId = await getCurrentFanUserId();
-  if (!userId) return NextResponse.json({ ids: [] }, { status: 401 });
+  if (!userId) return privateJson({ ids: [] }, { status: 401 });
+  const denied = await requireDvrAccess(userId, request);
+  if (denied) return denied;
   await ensureFanOauthSchema();
-  return NextResponse.json({ ids: await list(userId) });
+  return privateJson({ ids: await list(userId) });
 }
 
 const MergeBody = z.object({ ids: z.array(ItemId).max(80).default([]) });
 
 export async function POST(request: Request) {
   const userId = await getCurrentFanUserId();
-  if (!userId) return NextResponse.json({ ids: [] }, { status: 401 });
+  if (!userId) return privateJson({ ids: [] }, { status: 401 });
+  const denied = await requireDvrAccess(userId, request);
+  if (denied) return denied;
   const parsed = MergeBody.safeParse(await request.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  if (!parsed.success) return privateJson({ error: "invalid" }, { status: 400 });
   await ensureFanOauthSchema();
   const ids = [...new Set(parsed.data.ids)];
   if (ids.length) {
@@ -45,16 +77,22 @@ export async function POST(request: Request) {
       [userId, ids],
     );
   }
-  return NextResponse.json({ ids: await list(userId) });
+  return privateJson({ ids: await list(userId) });
 }
 
 const ToggleBody = z.object({ id: ItemId, saved: z.boolean() });
 
 export async function PUT(request: Request) {
   const userId = await getCurrentFanUserId();
-  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
+  if (!userId) return privateJson({ ok: false }, { status: 401 });
   const parsed = ToggleBody.safeParse(await request.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  if (!parsed.success) return privateJson({ error: "invalid" }, { status: 400 });
+  // Let an expired member remove an existing item, while additions remain a
+  // membership feature even if someone bypasses the client controls.
+  if (parsed.data.saved) {
+    const denied = await requireDvrAccess(userId, request);
+    if (denied) return denied;
+  }
   await ensureFanOauthSchema();
   if (parsed.data.saved) {
     await query(
@@ -69,5 +107,5 @@ export async function PUT(request: Request) {
       [userId, parsed.data.id],
     );
   }
-  return NextResponse.json({ ok: true });
+  return privateJson({ ok: true });
 }

@@ -135,7 +135,7 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
             <p className="watch-my-list-eyebrow">Optional organization upgrade</p>
             <h2 id="custom-lists-title">Turn DVR into named queues</h2>
             <p>
-              DVR stays free. {subscription.requiredPlanName("queue.templates")} adds reusable lineups like
+              {subscription.requiredPlanName("queue.templates")} includes reusable lineups like
               “Friday stream,” “Best e-dates,” or “Shorts to catch up on,” synced across devices.
             </p>
           </div>

@@ -39,6 +39,7 @@ import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/li
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { useMyList } from "@/hooks/useMyList";
+import { useSubscription } from "@/hooks/useSubscription";
 import { MEMBERS } from "@/lib/members";
 import { AUTOPLAY_MODES } from "@/lib/watch/workspace";
 import { formatDisplayLabel, formatHandleDisplay } from "@/lib/watch/display-label";
@@ -832,6 +833,7 @@ export function PersistentPlayer() {
     accountKey,
   } = useWatchProgress();
   const { ids: dvrIds, loading: dvrLoading, user: dvrUser } = useMyList();
+  const subscription = useSubscription();
   const discovery = useWatchDiscovery();
   const [parent, setParent] = useState<string | null>(null);
   const [origin, setOrigin] = useState<string | null>(null);
@@ -2561,7 +2563,10 @@ export function PersistentPlayer() {
   const activeAiringLabel = activeAiring && viewerTime.ready
     ? airingTimeLabel(activeAiring, viewerTime)
     : null;
-  const savedToDvr = dvrIds.includes(current.key);
+  const dvrAllowed = subscription.hasFeature("dvr.extended_retention");
+  const dvrActionLoading = dvrLoading || subscription.loading;
+  const dvrLocked = Boolean(dvrUser && !dvrActionLoading && !dvrAllowed);
+  const savedToDvr = dvrAllowed && dvrIds.includes(current.key);
   const currentFeedback = discovery.state.feedback[current.key]?.value ?? null;
   const setCurrentFeedback = (value: "like" | "not_interested") => {
     discovery.setFeedback(current.key, currentFeedback === value ? null : value);
@@ -2569,6 +2574,11 @@ export function PersistentPlayer() {
   const toggleDvrSave = () => {
     if (!dvrUser) {
       redirectToMyListSignIn();
+      return;
+    }
+    if (subscription.loading) return;
+    if (!dvrAllowed) {
+      window.location.assign(subscription.featureHref("dvr.extended_retention"));
       return;
     }
     toggleMyList(current.key);
@@ -2915,20 +2925,20 @@ export function PersistentPlayer() {
                   </div>
                 )}
                 <Tooltip
-                  title={dvrUser && savedToDvr ? "Remove from DVR" : "Add to DVR"}
-                  description={dvrUser ? savedToDvr ? "Remove this broadcast from your DVR." : "Add this broadcast to your DVR for later." : "Sign in to add this broadcast to your DVR."}
+                  title={dvrLocked ? "DVR with CORE Membership" : dvrUser && savedToDvr ? "Remove from DVR" : "Add to DVR"}
+                  description={dvrLocked ? "DVR is included with CORE Membership." : dvrUser ? savedToDvr ? "Remove this broadcast from your DVR." : "Add this broadcast to your DVR for later." : "Sign in to add this broadcast to your DVR."}
                   placement="bottom"
                 >
                   <button
                     type="button"
                     onClick={toggleDvrSave}
-                    disabled={dvrLoading}
+                    disabled={dvrActionLoading}
                     className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-semibold ring-1 ring-inset ${savedToDvr ? "bg-white text-black ring-white" : "text-white/78 ring-white/16 hover:bg-white/10 hover:text-white"} ${CONTROL_FEEDBACK}`}
-                    aria-label={dvrUser && savedToDvr ? `Remove ${current.title} from DVR` : `Add ${current.title} to DVR`}
+                    aria-label={dvrLocked ? `Unlock DVR to save ${current.title}` : dvrUser && savedToDvr ? `Remove ${current.title} from DVR` : `Add ${current.title} to DVR`}
                     aria-pressed={Boolean(dvrUser && savedToDvr)}
                   >
                     <Archive className="size-4" aria-hidden />
-                    <span className="hidden 2xl:inline">{dvrLoading ? "Loading…" : savedToDvr ? "In DVR" : "Add to DVR"}</span>
+                    <span className="hidden 2xl:inline">{dvrActionLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : savedToDvr ? "In DVR" : "Add to DVR"}</span>
                   </button>
                 </Tooltip>
                 {canStartOver || twitchDvrActive ? (
@@ -3820,11 +3830,11 @@ export function PersistentPlayer() {
                   ) : null}
                 </dl>
                 <div className="watch-guide-vod-actions">
-                  <button type="button" onClick={toggleDvrSave} disabled={dvrLoading} aria-pressed={Boolean(dvrUser && savedToDvr)}>
+                  <button type="button" onClick={toggleDvrSave} disabled={dvrActionLoading} aria-pressed={Boolean(dvrUser && savedToDvr)}>
                     <Archive aria-hidden />
-                    {savedToDvr ? "Saved to DVR" : "Add to DVR"}
+                    {dvrLocked ? "Unlock DVR" : savedToDvr ? "Saved to DVR" : "Add to DVR"}
                   </button>
-                  {dvrUser ? <Link href={"/dvr" as never}>Open DVR</Link> : null}
+                  {dvrUser && dvrAllowed ? <Link href={"/dvr" as never}>Open DVR</Link> : null}
                   {current.sourceUrl || current.url ? (
                     <a href={(current.sourceUrl || current.url)!} target="_blank" rel="noopener noreferrer">Open on Twitch</a>
                   ) : null}
@@ -4387,8 +4397,8 @@ export function PersistentPlayer() {
                       </div>
                     </dl>
                     <div className="grid grid-cols-2 gap-2">
-                      <Tooltip title={dvrUser && savedToDvr ? "Remove from DVR" : "Add to DVR"} description={dvrUser ? "Keep this in your DVR for later." : "Sign in to save this to your DVR."} placement="top">
-                        <button type="button" onClick={toggleDvrSave} disabled={dvrLoading} aria-pressed={Boolean(dvrUser && savedToDvr)} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold ring-1 ${savedToDvr ? "bg-white text-black ring-white" : `bg-white/[0.04] text-white/80 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><Archive className="size-3.5" aria-hidden />{savedToDvr ? "In DVR" : "Add to DVR"}</button>
+                      <Tooltip title={dvrLocked ? "DVR with CORE Membership" : dvrUser && savedToDvr ? "Remove from DVR" : "Add to DVR"} description={dvrLocked ? "DVR is included with CORE Membership." : dvrUser ? "Keep this in your DVR for later." : "Sign in to save this to your DVR."} placement="top">
+                        <button type="button" onClick={toggleDvrSave} disabled={dvrActionLoading} aria-pressed={Boolean(dvrUser && savedToDvr)} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold ring-1 ${savedToDvr ? "bg-white text-black ring-white" : `bg-white/[0.04] text-white/80 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><Archive className="size-3.5" aria-hidden />{dvrLocked ? "Unlock DVR" : savedToDvr ? "In DVR" : "Add to DVR"}</button>
                       </Tooltip>
                       <Tooltip title={activeMark?.completed ? "Marked watched" : "Mark as watched"} description="Complete this title in your watch history." placement="top">
                         <button type="button" onClick={() => markWatched(progressRef(current), current.kind, current.memberSlug, uiDuration || current.durationSeconds)} disabled={Boolean(activeMark?.completed)} className={`min-h-11 rounded-xl px-3 text-xs font-semibold text-white/75 ring-1 ring-white/12 ${CONTROL_FEEDBACK} ${CONTROL_HOVER} disabled:cursor-default disabled:opacity-45`}>{activeMark?.completed ? "Watched" : "Mark watched"}</button>

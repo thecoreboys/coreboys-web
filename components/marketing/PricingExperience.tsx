@@ -21,7 +21,7 @@ const FEATURE_FOCUS: Record<string, { title: string; copy: string }> = {
   "multiview.saved_layouts": { title: "Saved layouts", copy: "Keep your preferred room setup ready." },
   "rooms.private": { title: "Private rooms", copy: "Bring your people into one shared watch room." },
   "notifications.advanced": { title: "Advanced alerts", copy: "Choose what matters and when CORE should notify you." },
-  "dvr.extended_retention": { title: "Extended DVR", copy: "Keep more broadcasts and moments to revisit." },
+  "dvr.extended_retention": { title: "Private DVR", copy: "Keep broadcasts, videos, and moments ready to revisit." },
 };
 
 export function PricingExperience({ accountMode = false, displayName, account, accountLoading = false, accountUnavailable = false, focusFeature }: { accountMode?: boolean; displayName?: string; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string }) {

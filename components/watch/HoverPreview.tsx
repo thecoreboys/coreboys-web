@@ -9,6 +9,7 @@ import { Heart, Play, ThumbsDown } from "lucide-react";
 import type { WatchItem } from "@/lib/watch/types";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
@@ -148,6 +149,11 @@ function MediaHoverPreview({
   const isPhoto = item.format === "photo";
   const isInstagramPhoto = isPhoto && item.platform === "instagram";
   const { user, loading: authLoading } = useAuth();
+  const subscription = useSubscription();
+  const dvrLoading = authLoading || subscription.loading;
+  const dvrAllowed = subscription.hasFeature("dvr.extended_retention");
+  const dvrLocked = Boolean(user && !dvrLoading && !dvrAllowed);
+  const dvrSaved = dvrAllowed && saved;
   const panelRef = useRef<HTMLDivElement>(null);
   const positionFrame = useRef<number | null>(null);
   const [position, setPosition] = useState<PreviewPosition | null>(null);
@@ -724,30 +730,34 @@ function MediaHoverPreview({
         </div>
       </Link>
       <Tooltip
-        title={authLoading ? "Loading DVR" : user && saved ? "Remove from DVR" : "Add to DVR"}
-        description={authLoading
+        title={dvrLoading ? "Loading DVR" : dvrLocked ? "DVR with CORE Membership" : user && dvrSaved ? "Remove from DVR" : "Add to DVR"}
+        description={dvrLoading
           ? "Checking your saved titles."
           : user
-            ? saved
+            ? dvrLocked
+              ? "DVR is included with CORE Membership."
+              : dvrSaved
               ? "Remove this title from your DVR."
               : "Add this title to your DVR so you can quickly find it later."
             : "Sign in to add this title to your DVR across your devices."}
         placement="top"
-        isDisabled={authLoading}
+        isDisabled={dvrLoading}
       >
         <button
           type="button"
           tabIndex={keyboardActive ? 0 : -1}
           className="watch-preview-save"
-          aria-pressed={Boolean(user && saved)}
-          aria-label={authLoading
+          aria-pressed={Boolean(user && dvrSaved)}
+          aria-label={dvrLoading
             ? "Loading DVR"
             : user
-              ? saved
+              ? dvrLocked
+                ? `Unlock DVR to save ${item.title}`
+                : dvrSaved
                 ? `Remove ${item.title} from DVR`
                 : isPhoto ? `Add photo ${item.title} to DVR` : `Add ${item.title} to DVR`
               : `Add ${item.title} to DVR`}
-          disabled={authLoading}
+          disabled={dvrLoading}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -755,12 +765,16 @@ function MediaHoverPreview({
               redirectToMyListSignIn();
               return;
             }
+            if (!dvrAllowed) {
+              window.location.assign(subscription.featureHref("dvr.extended_retention"));
+              return;
+            }
             toggleMyList(item.id);
           }}
         >
-          <span className="watch-preview-save-icon"><PreviewListGlyph saved={saved} /></span>
+          <span className="watch-preview-save-icon"><PreviewListGlyph saved={dvrSaved} /></span>
           <span className="watch-preview-save-label" aria-hidden>
-            {authLoading ? "Loading…" : user && saved ? "In DVR" : "Add to DVR"}
+            {dvrLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : user && dvrSaved ? "In DVR" : "Add to DVR"}
           </span>
         </button>
       </Tooltip>

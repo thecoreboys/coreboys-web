@@ -37,6 +37,7 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useWatchDiscovery } from "@/lib/watch/discovery-state";
 import { readMyList, redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import type { WatchItem } from "@/lib/watch/types";
@@ -130,6 +131,7 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
   const player = usePlayer();
   const router = useRouter();
   const { user } = useAuth();
+  const subscription = useSubscription();
   const discovery = useWatchDiscovery();
   const { markWatched } = useWatchProgress();
 
@@ -199,15 +201,25 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
       });
     }
 
+    const dvrAllowed = subscription.hasFeature("dvr.extended_retention");
+    const dvrLocked = Boolean(user && !subscription.loading && !dvrAllowed);
     const personalActions: MenuAction[] = [
       {
         id: "dvr",
-        label: saved ? "Remove from DVR" : "Save to DVR",
+        label: dvrLocked ? "Unlock DVR" : saved ? "Remove from DVR" : "Save to DVR",
         icon: Bookmark,
-        active: saved,
+        active: dvrAllowed && saved,
         onSelect: () => {
           if (!user) {
             redirectToMyListSignIn();
+            return;
+          }
+          if (subscription.loading) {
+            announce("Checking DVR access");
+            return;
+          }
+          if (!dvrAllowed) {
+            window.location.assign(subscription.featureHref("dvr.extended_retention"));
             return;
           }
           announce(toggleMyList(item.id).includes(item.id) ? "Saved to DVR" : "Removed from DVR");
@@ -248,7 +260,7 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
       { label: "Your library", actions: personalActions },
       { label: "Share", actions: shareActions },
     ];
-  }, [copy, discovery, markWatched, menu, player, router, user, announce]);
+  }, [copy, discovery, markWatched, menu, player, router, user, announce, subscription]);
 
   const textSections = useMemo<MenuSection[]>(() => {
     if (!menu || menu.target.type !== "text") return [];

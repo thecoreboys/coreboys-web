@@ -8293,3 +8293,26 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
 .watch-my-list-empty > a:hover, .watch-my-list-empty > a:focus-visible { background: var(--bg); transform: none; }
 .watch-my-list-empty { border-color: var(--rule-strong); background: var(--bg); }
 .watch-premium-queue-callout { background: var(--bg-elev); }
+
+/* Membership DVR access: deliberately quiet, with no decorative product art. */
+.watch-dvr-gate { min-height:calc(100vh - var(--top-nav-h,4rem)); padding:clamp(3.5rem,9vw,8.5rem) 1.25rem 5rem; background:var(--bg); }
+.watch-dvr-gate__shell { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(18rem,.85fr); gap:clamp(2rem,6vw,5rem); max-width:68rem; margin:0 auto; border:1px solid var(--rule); border-radius:1rem; padding:clamp(1.5rem,4vw,3rem); background:var(--bg-elev); box-shadow:0 1.4rem 3.5rem rgba(0,0,0,.18); }
+.watch-dvr-gate__intro { max-width:34rem; }
+.watch-dvr-gate__icon { display:grid; width:2.65rem; height:2.65rem; place-items:center; border:1px solid color-mix(in srgb,var(--core) 42%,transparent); border-radius:.75rem; background:color-mix(in srgb,var(--core) 12%,transparent); color:var(--core); }
+.watch-dvr-gate__icon svg { width:1.15rem; height:1.15rem; }
+.watch-dvr-gate__eyebrow { display:flex; align-items:center; gap:.4rem; margin:1.3rem 0 0; color:var(--ink-dim); font-size:.7rem; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+.watch-dvr-gate__eyebrow svg { width:.8rem; height:.8rem; color:var(--core); }
+.watch-dvr-gate h1 { margin:.55rem 0 0; color:var(--ink); font-size:clamp(1.8rem,4vw,2.8rem); font-weight:720; letter-spacing:-.055em; line-height:1.02; }
+.watch-dvr-gate__copy { max-width:31rem; margin:1rem 0 0; color:var(--ink-dim); font-size:.95rem; line-height:1.65; }
+.watch-dvr-gate__actions { align-self:end; }
+.watch-dvr-gate__actions ul { display:grid; gap:.8rem; margin:0; padding:0; list-style:none; }
+.watch-dvr-gate__actions li { display:flex; align-items:center; gap:.6rem; color:var(--ink-dim); font-size:.82rem; }
+.watch-dvr-gate__actions li svg { width:.9rem; height:.9rem; color:var(--core); }
+.watch-dvr-gate__actions > div { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; margin-top:1.7rem; }
+.watch-dvr-gate__primary,.watch-dvr-gate__secondary { display:inline-flex; min-height:2.8rem; align-items:center; justify-content:center; gap:.5rem; border-radius:.7rem; padding:0 1rem; font-size:.78rem; font-weight:750; transition:background 160ms ease,color 160ms ease,border-color 160ms ease; }
+.watch-dvr-gate__primary { background:var(--ink); color:var(--bg); }
+.watch-dvr-gate__primary:hover,.watch-dvr-gate__primary:focus-visible { background:var(--core); color:#fff; }
+.watch-dvr-gate__primary svg { width:.9rem; height:.9rem; }
+.watch-dvr-gate__secondary { border:1px solid var(--rule-strong); color:var(--ink-dim); }
+.watch-dvr-gate__secondary:hover,.watch-dvr-gate__secondary:focus-visible { border-color:var(--ink-dim); color:var(--ink); }
+@media (max-width:700px) { .watch-dvr-gate { padding-top:3rem; }.watch-dvr-gate__shell { grid-template-columns:1fr; gap:2rem; }.watch-dvr-gate__actions { align-self:auto; }.watch-dvr-gate__primary,.watch-dvr-gate__secondary { flex:1; } }

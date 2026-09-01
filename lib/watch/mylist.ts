@@ -89,6 +89,14 @@ export async function syncMyList(userId: string): Promise<string[]> {
       credentials: "same-origin",
       cache: "no-store",
     });
+    if (response.status === 403) {
+      if (activeUserId === userId && activeKey === accountKey) {
+        activeCache = [];
+        localStorage.removeItem(accountKey);
+        announce(activeCache);
+      }
+      return [];
+    }
     if (!response.ok) return activeUserId === userId ? activeCache : readMyList();
 
     const data = (await response.json()) as { ids?: unknown };

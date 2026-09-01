@@ -6,6 +6,7 @@ import type { FocusEvent } from "react";
 import type { WatchItem } from "@/lib/watch/types";
 import { MY_LIST_EVENT, readMyList, redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useWatchProgress, youtubeIdFromHref } from "@/hooks/useWatchProgress";
 import type { WatchMark } from "@/hooks/useWatchProgress";
 import { DRAG_SCROLL_START_EVENT, type DragScrollStartDetail } from "@/hooks/useDragScroll";
@@ -177,6 +178,11 @@ export function PosterCard({
   const player = usePlayer();
   const contextMenu = useWatchContextMenu();
   const { user, loading: authLoading } = useAuth();
+  const subscription = useSubscription();
+  const dvrLoading = authLoading || subscription.loading;
+  const dvrAllowed = subscription.hasFeature("dvr.extended_retention");
+  const dvrLocked = Boolean(user && !dvrLoading && !dvrAllowed);
+  const dvrSaved = dvrAllowed && saved;
   const youtubeId = item.platform === "youtube" ? youtubeIdFromHref(item.href) : null;
   const refs = [item.id, youtubeId].filter(Boolean) as string[];
   const marks = refs.map((ref) => map[ref]);
@@ -574,27 +580,29 @@ export function PosterCard({
       ) : null}
 
       <Tooltip
-        title={authLoading ? "Loading DVR" : user && saved ? "Remove from DVR" : "Add to DVR"}
-        description={authLoading
+        title={dvrLoading ? "Loading DVR" : dvrLocked ? "DVR with CORE Membership" : user && dvrSaved ? "Remove from DVR" : "Add to DVR"}
+        description={dvrLoading
           ? "Checking your saved titles."
           : user
-            ? saved
+            ? dvrLocked
+              ? "DVR is included with CORE Membership."
+              : dvrSaved
               ? "Remove this title from your DVR."
               : "Add this title to your DVR so you can quickly find it later."
             : "Sign in to add this title to your DVR across your devices."}
         placement="top"
-        isDisabled={authLoading}
+        isDisabled={dvrLoading}
       >
         <button
           type="button"
           data-no-drag
-          aria-label={authLoading
+          aria-label={dvrLoading
             ? "Loading DVR"
             : user
-              ? saved ? `Remove ${item.title} from DVR` : `Add ${item.title} to DVR`
+              ? dvrLocked ? `Unlock DVR to save ${item.title}` : dvrSaved ? `Remove ${item.title} from DVR` : `Add ${item.title} to DVR`
               : `Add ${item.title} to DVR`}
-          aria-pressed={Boolean(user && saved)}
-          disabled={authLoading}
+          aria-pressed={Boolean(user && dvrSaved)}
+          disabled={dvrLoading}
           onFocus={cancelPreviewOpen}
           onMouseEnter={enterCardAction}
           onMouseLeave={leaveCardAction}
@@ -608,13 +616,17 @@ export function PosterCard({
               redirectToMyListSignIn();
               return;
             }
+            if (!dvrAllowed) {
+              window.location.assign(subscription.featureHref("dvr.extended_retention"));
+              return;
+            }
             setSaved(toggleMyList(item.id).includes(item.id));
           }}
           className="watch-poster-save"
         >
-          <span className="watch-poster-save-icon"><MyListGlyph saved={saved} /></span>
+          <span className="watch-poster-save-icon"><MyListGlyph saved={dvrSaved} /></span>
           <span className="watch-poster-save-label" aria-hidden>
-            {authLoading ? "Loading…" : user && saved ? "In DVR" : "Add to DVR"}
+            {dvrLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : user && dvrSaved ? "In DVR" : "Add to DVR"}
           </span>
         </button>
       </Tooltip>
@@ -687,7 +699,7 @@ export function PosterCard({
           done={done}
           positionSeconds={positionSeconds}
           durationSeconds={durationSeconds}
-          saved={saved}
+          saved={dvrSaved}
           context={context}
           anchorRef={cardRef}
           active={previewVisible && !previewClosing}

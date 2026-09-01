@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import type { WatchItem } from "@/lib/watch/types";
 import { MY_LIST_EVENT, readMyList, redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useWatchProgress, youtubeIdFromHref } from "@/hooks/useWatchProgress";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { usePlayer } from "@/components/providers/PlayerProvider";
@@ -745,6 +746,11 @@ export function Billboard({ item }: { item: WatchItem }) {
   const { map } = useWatchProgress();
   const player = usePlayer();
   const { user, loading: authLoading } = useAuth();
+  const subscription = useSubscription();
+  const dvrLoading = authLoading || subscription.loading;
+  const dvrAllowed = subscription.hasFeature("dvr.extended_retention");
+  const dvrLocked = Boolean(user && !dvrLoading && !dvrAllowed);
+  const dvrSaved = dvrAllowed && saved;
   const playable = useMemo(() => itemToPlayable(item), [item]);
   const youtubeId = playable?.youtubeId ?? (item.platform === "youtube" ? youtubeIdFromHref(item.href) : null);
   const mark = bestWatchProgressMark(
@@ -890,25 +896,29 @@ export function Billboard({ item }: { item: WatchItem }) {
 
           <button
             type="button"
-            aria-pressed={Boolean(user && saved)}
-            aria-label={authLoading
+            aria-pressed={Boolean(user && dvrSaved)}
+            aria-label={dvrLoading
               ? "Loading DVR"
               : user
-                ? saved ? `Remove ${item.title} from DVR` : `Add ${item.title} to DVR`
+                ? dvrLocked ? `Unlock DVR to save ${item.title}` : dvrSaved ? `Remove ${item.title} from DVR` : `Add ${item.title} to DVR`
                 : `Add ${item.title} to DVR`}
-            aria-busy={authLoading}
-            disabled={authLoading}
+            aria-busy={dvrLoading}
+            disabled={dvrLoading}
             onClick={() => {
               if (!user) {
                 redirectToMyListSignIn();
+                return;
+              }
+              if (!dvrAllowed) {
+                window.location.assign(subscription.featureHref("dvr.extended_retention"));
                 return;
               }
               setSaved(toggleMyList(item.id).includes(item.id));
             }}
             className="watch-billboard-list"
           >
-            <span aria-hidden>{saved ? "✓" : "+"}</span>
-            {user && saved ? "In DVR" : "Add to DVR"}
+            <span aria-hidden>{dvrSaved ? "✓" : "+"}</span>
+            {dvrLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : user && dvrSaved ? "In DVR" : "Add to DVR"}
           </button>
 
         </div>
