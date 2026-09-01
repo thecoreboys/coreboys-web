@@ -6,13 +6,8 @@ import { Button } from "@/components/base/buttons/button";
 import { BadgeWithDot } from "@/components/base/badges/badges";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
-import { MetricsClient } from "@/components/metrics/MetricsClient";
-import { StreamStatsClient } from "@/components/metrics/StreamStatsClient";
-import { ChatStatsClient } from "@/components/metrics/ChatStatsClient";
-import { TwitchTrackerAnalyticsSection } from "@/components/metrics/TwitchTrackerAnalytics";
-import { loadChatHistory, loadMetricsSnapshots, loadStreamHistory } from "@/lib/streams/stats";
-import { buildLiveResponse } from "@/lib/twitch";
-import { loadTwitchTrackerAnalytics } from "@/lib/twitchtracker-snapshots";
+import { PublicMetricsDashboard } from "@/components/metrics/PublicMetricsDashboard";
+import { getMetricsDashboard } from "@/lib/metrics-dashboard";
 
 export const metadata: Metadata = {
   title: "Metrics",
@@ -24,16 +19,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function MetricsPage() {
-  const [rows, history, chat, live, twitchTracker] = await Promise.all([
-    loadMetricsSnapshots(),
-    loadStreamHistory(),
-    loadChatHistory(),
-    buildLiveResponse(MEMBERS.map((m) => m.twitchLogin)).catch(() => ({
-      live: MEMBERS.map((m) => ({ login: m.twitchLogin, isLive: false })),
-      fetchedAt: new Date().toISOString(),
-    })),
-    loadTwitchTrackerAnalytics().catch(() => ({ latest: [], history: [], games: [] })),
-  ]);
+  const dashboard = await getMetricsDashboard();
 
   const members = MEMBERS.map((m) => ({
     slug: m.slug,
@@ -44,8 +30,6 @@ export default async function MetricsPage() {
     commName: m.comm.name,
     commLogo: m.comm.logo,
   }));
-
-  const liveNow = live.live.filter((e) => e.isLive).length;
 
   return (
     <main className="relative pt-20 md:pt-24">
@@ -60,22 +44,14 @@ export default async function MetricsPage() {
                 Metrics.
               </h1>
               <p className="mt-3 max-w-[62ch] text-md leading-relaxed text-tertiary">
-                Who went live, when they started, how long they stayed — plus reach
-                across Twitch, YouTube, and the house accounts.
+                Clear, stored activity across CORE&apos;s channels and every member—without
+                platform calls or credit usage when you open the page.
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Button href="/guide" size="lg" color="primary" iconLeading={<BarChartSquare02 data-icon />}>
                   Open the Guide
                 </Button>
-                {liveNow > 0 ? (
-                  <BadgeWithDot type="pill-color" color="success" size="md">
-                    {liveNow} live now
-                  </BadgeWithDot>
-                ) : (
-                  <BadgeWithDot type="pill-color" color="gray" size="md">
-                    House is dark
-                  </BadgeWithDot>
-                )}
+                <BadgeWithDot type="pill-color" color="gray" size="md">Stored reporting</BadgeWithDot>
                 <a
                   href={GROUP.socials.youtube.url}
                   target="_blank"
@@ -99,23 +75,7 @@ export default async function MetricsPage() {
 
       <section className="bg-primary">
         <div className="mx-auto max-w-container px-6 py-10 md:px-8 md:py-14">
-          <div className="flex flex-col gap-14">
-            <TwitchTrackerAnalyticsSection
-              latest={twitchTracker.latest}
-              history={twitchTracker.history}
-              games={twitchTracker.games}
-              members={members}
-            />
-            <hr className="border-secondary" />
-            <StreamStatsClient
-              sessions={history.sessions}
-              members={members}
-            />
-            <hr className="border-secondary" />
-            <MetricsClient rows={rows} members={members} />
-            <hr className="border-secondary" />
-            <ChatStatsClient chat={chat} members={members} />
-          </div>
+          <PublicMetricsDashboard dashboard={dashboard} members={members} />
         </div>
       </section>
 
