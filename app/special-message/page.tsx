@@ -9,12 +9,12 @@ import styles from "./special-message.module.css";
 export const metadata: Metadata = {
   title: "A Personal Message",
   description:
-    "A personal letter about code, creative production, the story behind Coreboys, and a site built to contribute something meaningful.",
+    "A personal letter about code, creative production, the story behind Coreboys, and why I built this site.",
   alternates: { canonical: "/special-message" },
   openGraph: {
     title: "A Personal Message",
     description:
-      "An open letter about the story behind this site, the people who inspired it, and why I wanted to contribute it.",
+      "An open letter about this site, the people who inspired it, and why I made it.",
     url: "/special-message",
     type: "article",
     images: [
@@ -135,8 +135,8 @@ export default function SpecialMessagePage() {
                 from a Miami Heat game. My dad bought the tickets as a Christmas and birthday
                 gift, then realized the seller had scammed him. Somehow, the night still turned
                 into something I&apos;ll never forget. I met Udonis Haslem, shot free throws after
-                the game with Norris Cole and the Heat&apos;s Big Three — LeBron James, Dwyane Wade,
-                and Chris Bosh — and even got to hold championship rings. It showed me how one
+                the game with Norris Cole and the Heat&apos;s Big Three: LeBron James, Dwyane Wade,
+                and Chris Bosh. I even got to hold championship rings. It showed me how one
                 ticket can turn into a real memory, and that idea stuck with me.
               </p>
               <p>
@@ -209,8 +209,8 @@ export default function SpecialMessagePage() {
               <p>
                 I was usually behind the scenes. Someone would bring in a strange or funny
                 idea, and I would work out the Java, maps, mods, or plugins needed to make it
-                happen — setting up simulators and tycoons, building challenge games and
-                hide-and-seek games, and figuring out the little details that made each world feel alive.
+                happen. I set up simulators and tycoons, built challenge and hide-and-seek
+                games, and figured out the little details that made each world feel alive.
                 I was helping shape the kind of childhood I had grown up loving, even when I
                 was nowhere near the camera.
               </p>
@@ -299,7 +299,7 @@ export default function SpecialMessagePage() {
               <p>
                 If you&apos;ve ever felt like everyone else got a rule you somehow missed, or like
                 you were in the room without really feeling part of it, I know that feeling. You
-                might call it autism, Asperger&apos;s, neurodivergence, or anxiety — or you might not
+                might call it autism, Asperger&apos;s, neurodivergence, or anxiety. Or you might not
                 have a name for it at all. Needing extra time, a little more context, or a quieter
                 way in doesn&apos;t make you less capable. You still deserve a place in the room.
               </p>
@@ -544,12 +544,12 @@ export default function SpecialMessagePage() {
 
                 <article className={styles.dubbingSpread}>
               <div className={styles.dubbingCopy}>
-                <p className={styles.eyebrow}>Audience expansion / language barrier</p>
-                <h3>The same moment should be able to move past a language barrier.</h3>
+                <p className={styles.eyebrow}>Spanish-language test</p>
+                <h3>A version for people who speak Spanish.</h3>
                 <p>
-                  This Spanish-language proof of concept uses a CORE backyard episode to
-                  explore how existing content could reach viewers beyond the English-speaking
-                  audience and make the archive more welcoming across countries and languages.
+                  I used a CORE backyard episode to see how the same video could be easier to
+                  follow for people who speak Spanish. It is a small example of how the archive
+                  could reach more of the people already watching.
                 </p>
                 <span className={styles.dubbingStamp}>Escuchar en español</span>
               </div>
@@ -593,7 +593,7 @@ export default function SpecialMessagePage() {
                 <p>
                   Keeping this site running is expensive. Azure hosting, storage buckets,
                   databases, Redis, social-fetch listeners waiting for new posts, API fees, and
-                  the AI usage behind the DJ Cora experience all add up. If you would like to
+                  the station audio setup all add up. If you would like to
                   help, please consider supporting the site for at least $3 a month, or whatever
                   amount feels right to you. I am hoping it can at least pay for itself. If it can
                   do more than that, it would mean the world to me.
