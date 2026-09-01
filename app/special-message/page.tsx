@@ -131,13 +131,13 @@ export default function SpecialMessagePage() {
               <p className={styles.previously}>The beginning</p>
               <h2>I was always the kid behind the scenes.</h2>
               <p className={styles.dropCap}>
-                I started programming when I was 11. The idea for one of my first sites came
+                I was 11 when I first got into programming. One of my earliest site ideas came
                 from a Miami Heat game. My dad bought the tickets as a Christmas and birthday
-                gift, then found out the seller had scammed him. Somehow, it still became a
-                blessing: I met Udonis Haslem, shot free throws after the game with Norris
-                Cole and the Heat&apos;s Big Three, LeBron James, Dwyane Wade, and Chris Bosh,
-                and even got to hold championship rings. It made me think about how a ticket
-                could lead to a real memory.
+                gift, then realized the seller had scammed him. Somehow, the night still turned
+                into something I&apos;ll never forget. I met Udonis Haslem, shot free throws after
+                the game with Norris Cole and the Heat&apos;s Big Three — LeBron James, Dwyane Wade,
+                and Chris Bosh — and even got to hold championship rings. It showed me how one
+                ticket can turn into a real memory, and that idea stuck with me.
               </p>
               <p>
                 That stuck with me. One of my first big ideas was trying to buy web hosting so
@@ -209,8 +209,10 @@ export default function SpecialMessagePage() {
               <p>
                 I was usually behind the scenes. Someone would bring in a strange or funny
                 idea, and I would work out the Java, maps, mods, or plugins needed to make it
-                happen. It showed me that you can contribute to something people love without
-                being the person on camera.
+                happen — setting up simulators and tycoons, building challenge games and
+                hide-and-seek games, and figuring out the little details that made each world feel alive.
+                I was helping shape the kind of childhood I had grown up loving, even when I
+                was nowhere near the camera.
               </p>
 
               <div className={styles.creatorProfiles} aria-label="Creators I worked for">
@@ -295,18 +297,17 @@ export default function SpecialMessagePage() {
                 stuck and unsure of what I was supposed to do next.
               </p>
               <p>
-                If you have ever felt like you missed a rule everyone else seemed to understand,
-                or like you were present without quite belonging, I hope you know you are not
-                the only one. People describe that experience in different ways, including
-                Asperger&apos;s, autism, neurodivergence, or chronic anxiety. Whatever words fit,
-                needing more time, more context, or a quieter way into the room does not make you
-                less capable or less deserving of a place in it.
+                If you&apos;ve ever felt like everyone else got a rule you somehow missed, or like
+                you were in the room without really feeling part of it, I know that feeling. You
+                might call it autism, Asperger&apos;s, neurodivergence, or anxiety — or you might not
+                have a name for it at all. Needing extra time, a little more context, or a quieter
+                way in doesn&apos;t make you less capable. You still deserve a place in the room.
               </p>
               <p>
-                I kept developing ideas when I could. I assisted with sound production,
-                lighting, video production, camera work, audio, editing, computer systems,
-                and software development. It gave me a place to stay creative and keep
-                learning how to turn an idea into something real.
+                I kept making things whenever I had the energy. I helped with sound, lighting,
+                video, cameras, editing, computer systems, and software. Those projects gave me
+                somewhere to be creative, keep learning, and turn an idea into something people
+                could actually use.
               </p>
             </div>
 
@@ -329,25 +330,24 @@ export default function SpecialMessagePage() {
 
             <div className={styles.storyCopy}>
               <p className={styles.previously}>The honest reason for this website</p>
-              <h2>CORE made the days I felt most alone feel less lonely.</h2>
+              <h2>CORE gave me something to come back to on hard days.</h2>
               <p className={styles.dropCap}>
                 There were days when I woke up already exhausted, went through the motions,
-                and did not really feel like myself. During that time, CORE was something I
-                could come back to. A stream, a clip, or even a dumb joke could give me
-                something to look forward to and make a hard day feel a little lighter. It
-                did not fix everything, but it reminded me that I could still laugh and that
-                tomorrow might feel different.
+                and did not really feel like myself. During that time, I would put on a stream,
+                watch a clip, or find some ridiculous joke and let it give me a break. It did not
+                fix anything by itself, and I was never pretending it did. But those small breaks
+                helped me laugh, reset, and get through the day.
               </p>
               <p>
-                Some readers may know that feeling too: scrolling because the quiet feels too
-                loud, then finding one stream, one clip, or one dumb joke that pulls them back
-                into the room. It can look small from the outside, but it can change how a hard
-                day ends. Creative work reaches people in ways its makers may never get to see.
+                Maybe you know that feeling too: scrolling because the quiet is too loud, then
+                finding something that gives you a few minutes of relief. It can look small from
+                the outside, but small things still matter when a day is going badly. That is the
+                kind of impact creative work can have, often without its creators ever knowing.
               </p>
               <p>
-                That is why I made this. I did not want to only say that this community helped
-                me. I wanted to make something useful: a place where the streams, clips, and
-                memories are easier to find again.
+                That is why I made this. I wanted to turn that feeling into something practical:
+                a place where the streams, clips, and memories are easier to find, without acting
+                like any of it is bigger or more perfect than it really is.
               </p>
               <p>
                 When V1 went offline on July 31, 2026, my free college server credits with
