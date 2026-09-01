@@ -1294,7 +1294,7 @@ function DetailsPanel({
             <p className="truncate text-[10px] font-semibold text-white/86">{member.stageName}</p>
             <p className="mt-0.5 truncate text-[9px] text-white/36">{member.roles?.join(" · ") || "CORE creator"}</p>
           </div>
-          <Link href={`/about/${member.slug}` as never} className="shrink-0 rounded-lg px-2 py-1.5 text-[9px] font-semibold text-white/60 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white">Profile</Link>
+          <Link href={`/channels/${member.slug}` as never} className="shrink-0 rounded-lg px-2 py-1.5 text-[9px] font-semibold text-white/60 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white">Channel</Link>
         </section>
       ) : null}
 

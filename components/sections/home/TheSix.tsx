@@ -48,7 +48,7 @@ export function TheSix() {
                   }}
                 >
                   <Link
-                    href={`/about/${m.slug}` as never}
+                    href={`/channels/${m.slug}` as never}
                     className="group block rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--core)]"
                     data-cursor="hover"
                   >

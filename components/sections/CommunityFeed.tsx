@@ -95,7 +95,7 @@ export function CommunityFeed() {
                 </BadgeWithDot>
                 <span className="truncate text-sm font-medium text-primary">
                   <Link
-                    href={`/about/${r.member.slug}` as never}
+                    href={`/channels/${r.member.slug}` as never}
                     className="hover:text-brand-secondary"
                     style={{ color: r.member.accent }}
                   >

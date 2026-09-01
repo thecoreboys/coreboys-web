@@ -26,7 +26,7 @@ export function OrganizationJsonLd() {
           "@type": "Person",
           name: m.stageName,
           alternateName: m.realName,
-          url: `${SITE}/about/${m.slug}`,
+          url: `${SITE}/channels/${m.slug}`,
           sameAs: [...m.socials.map((s) => s.url), ...m.wikipedia],
           memberOf: { "@id": `${SITE}/#organization` },
         })),

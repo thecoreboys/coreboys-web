@@ -75,7 +75,7 @@ export function MembersGridClient({ cards }: { cards: MemberCardData[] }) {
 function MemberCard({ card }: { card: MemberCardData }) {
   return (
     <Link
-      href={`/about/${card.slug}` as never}
+      href={`/channels/${card.slug}` as never}
       className="group relative block aspect-square w-full overflow-hidden rounded-2xl bg-black ring-1 ring-inset ring-[color:var(--rule)] shadow-xs-skeuomorphic transition-all duration-500"
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = card.accent;

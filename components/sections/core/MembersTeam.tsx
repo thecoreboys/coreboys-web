@@ -60,7 +60,7 @@ export async function MembersTeam() {
             {cards.map((m) => (
               <li key={m.slug}>
                 <Link
-                  href={`/about/${m.slug}` as never}
+                  href={`/channels/${m.slug}` as never}
                   className="group flex flex-col gap-4 rounded-2xl outline-focus-ring transition focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
                   <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-secondary ring-1 ring-inset ring-secondary">

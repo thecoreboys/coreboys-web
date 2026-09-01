@@ -80,7 +80,7 @@ export default async function AdminPeoplePage() {
                 {memberRows.slice(0, 3).map((m) => (
                   <Link
                     key={m.slug}
-                    href={`/about/${m.slug}` as never}
+                    href={`/channels/${m.slug}` as never}
                     className="inline-flex items-center gap-2 rounded-lg border border-secondary bg-primary px-3 py-2 text-sm font-semibold text-secondary shadow-xs-skeuomorphic transition-all hover:-translate-y-px hover:text-primary"
                   >
                     <Image src={m.avatarUrl} alt="" width={20} height={20} className="h-5 w-5 rounded-full" />

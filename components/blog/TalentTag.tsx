@@ -83,7 +83,7 @@ function PrimaryAction({ person, accent }: { person: ResolvedPerson; accent: str
   if (person.kind === "member") {
     return (
       <Link
-        href={person.href.replace(/^\/m\//, "/about/") as never}
+        href={person.href.replace(/^\/m\//, "/channels/") as never}
         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs uppercase tracking-[0.14em] transition-colors hover:opacity-80"
         style={{ borderColor: accent, color: accent }}
       >

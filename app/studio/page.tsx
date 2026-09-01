@@ -53,7 +53,7 @@ export default async function StudioPage({
             <Link href={`/studio/passport?member=${memberSlug}` as Route} className="rounded-lg border border-brand-secondary bg-brand-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-secondary">Open live control room</Link>
             <Link href={`/studio/postcards?member=${memberSlug}` as Route} className="rounded-lg border border-secondary bg-primary px-3 py-2 text-sm font-semibold text-secondary hover:border-brand-secondary hover:text-primary">Postcard Studio</Link>
             <Link href={`/about/${memberSlug}/numbers` as Route} className="rounded-lg border border-secondary bg-primary px-3 py-2 text-sm font-semibold text-secondary hover:text-primary">View member analytics</Link>
-            <Link href={`/about/${memberSlug}` as Route} className="rounded-lg border border-secondary bg-primary px-3 py-2 text-sm font-semibold text-secondary hover:text-primary">Open public profile</Link>
+            <Link href={`/channels/${memberSlug}` as Route} className="rounded-lg border border-secondary bg-primary px-3 py-2 text-sm font-semibold text-secondary hover:text-primary">Open public channel</Link>
             {staff.role === "admin" ? <Link href="/metrics" className="rounded-lg border border-secondary bg-primary px-3 py-2 text-sm font-semibold text-secondary hover:text-primary">House metrics</Link> : null}
           </nav>
         </div>

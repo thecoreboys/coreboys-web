@@ -217,7 +217,7 @@ function PersonCard({ person, accent }: { person: ResolvedPerson; accent: string
         {children}
       </a>
     ) : person.kind === "member" ? (
-      <Link href={person.href.replace(/^\/m\//, "/about/") as never} className="block hover:opacity-90">
+      <Link href={person.href.replace(/^\/m\//, "/channels/") as never} className="block hover:opacity-90">
         {children}
       </Link>
     ) : (

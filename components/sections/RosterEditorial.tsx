@@ -41,7 +41,7 @@ export function RosterEditorial() {
             style={{ ["--card-accent" as string]: m.accent }}
           >
             <Link
-              href={`/about/${m.slug}` as never}
+              href={`/channels/${m.slug}` as never}
               className="block h-full"
               aria-label={`Open ${m.stageName} (${m.realName})`}
             >

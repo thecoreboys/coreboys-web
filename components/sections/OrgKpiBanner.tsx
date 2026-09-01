@@ -92,7 +92,7 @@ export async function OrgKpiBanner() {
             {liveMembers.map(({ member, snap }) => (
               <li key={member.slug}>
                 <Link
-                  href={`/about/${member.slug}` as never}
+                  href={`/channels/${member.slug}` as never}
                   className="group inline-flex items-center gap-2 rounded-md border border-[color:var(--core)]/40 bg-[color:var(--core)]/8 px-3 py-2 transition-colors hover:bg-[color:var(--core)]/14"
                 >
                   <span className="relative h-6 w-6 overflow-hidden rounded-full">

@@ -49,7 +49,7 @@ export default async function MediaPage() {
     kind: "member",
     accent: m.accent,
     avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
-    href: `/about/${m.slug}`,
+    href: `/channels/${m.slug}`,
   }));
 
   const taggablePeople: Person[] = CREW.map((c) => ({

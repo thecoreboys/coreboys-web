@@ -281,7 +281,7 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
                       {taggedMembers.slice(0, 5).map((m) => (
                         <Link
                           key={m.slug}
-                          href={`/about/${m.slug}` as never}
+                          href={`/channels/${m.slug}` as never}
                           className="group/avatar relative inline-flex"
                           title={m.stageName}
                         >

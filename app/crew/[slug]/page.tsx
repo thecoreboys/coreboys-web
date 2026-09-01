@@ -179,7 +179,7 @@ export default async function CrewMemberPage({ params }: Params) {
                         return (
                           <Link
                             key={m.slug}
-                            href={`/about/${m.slug}` as never}
+                            href={`/channels/${m.slug}` as never}
                             className="group/avatar relative inline-flex"
                             title={m.stageName}
                           >
@@ -315,7 +315,7 @@ export default async function CrewMemberPage({ params }: Params) {
                   name: m.stageName,
                   accent: m.accent,
                   avatarUrl: m.portrait ?? avatars[m.twitchLogin.toLowerCase()],
-                  href: `/about/${m.slug}`,
+                  href: `/channels/${m.slug}`,
                 })),
               ]}
             />
@@ -341,7 +341,7 @@ export default async function CrewMemberPage({ params }: Params) {
                 return (
                   <li key={m.slug}>
                     <Link
-                      href={`/about/${m.slug}` as never}
+                      href={`/channels/${m.slug}` as never}
                       className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] transition-all duration-300"
                       style={{ ["--card-accent" as string]: m.accent }}
                     >

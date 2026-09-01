@@ -382,7 +382,7 @@ export function StreamStatsClient({ sessions, members }: StreamStatsClientProps)
               <div key={m.slug} className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <Link
-                    href={`/about/${m.slug}` as never}
+                    href={`/channels/${m.slug}` as never}
                     className="group inline-flex items-center gap-2"
                   >
                     <span className="relative h-7 w-7 overflow-hidden rounded-full ring-1 ring-inset"

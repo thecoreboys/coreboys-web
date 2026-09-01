@@ -77,7 +77,7 @@ export default async function MemberNumbersPage({ params }: Params) {
         />
         <div className="relative mx-auto max-w-container">
           <Link
-            href={`/about/${member.slug}` as Route}
+            href={`/channels/${member.slug}` as Route}
             className="mb-6 inline-flex items-center gap-1 text-sm font-semibold text-tertiary hover:text-primary"
           >
             <ChevronLeft size={14} /> Back to {member.stageName}

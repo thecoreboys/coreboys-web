@@ -318,7 +318,7 @@ function FaceBox({
 function PersonCard({ person, accent }: { person: ResolvedPerson; accent: string }) {
   const Wrapper = ({ children }: { children: React.ReactNode }) =>
     person.kind === "member" ? (
-      <Link href={person.href.replace(/^\/m\//, "/about/") as never} className="block hover:opacity-90">
+      <Link href={person.href.replace(/^\/m\//, "/channels/") as never} className="block hover:opacity-90">
         {children}
       </Link>
     ) : person.kind === "external" && person.socials[0] ? (

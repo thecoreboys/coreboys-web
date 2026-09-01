@@ -19,8 +19,27 @@ test("member profile routes publish /channels canonicals", () => {
 
   assert.match(numbers, /canonical: `\/about\/\$\{member\.slug\}\/numbers`/);
   assert.match(numbers, /url: `\/about\/\$\{member\.slug\}\/numbers`/);
-  assert.match(numbers, /href=\{`\/about\/\$\{member\.slug\}` as Route\}/);
+  assert.match(numbers, /href=\{`\/channels\/\$\{member\.slug\}` as Route\}/);
   assert.match(openGraphImage, /thecoreboys\.com\/about\/\{member\.slug\}/);
+});
+
+test("member-facing profile links use the canonical channel route", () => {
+  const files = [
+    "components/sections/MembersGridClient.tsx",
+    "components/sections/core/MembersTeam.tsx",
+    "components/sections/home/TheSix.tsx",
+    "components/sections/RosterEditorial.tsx",
+    "components/sections/CommunityFeed.tsx",
+    "components/clips/ClipsPageClient.tsx",
+    "components/metrics/StreamStatsClient.tsx",
+    "components/watch/MultiPlayerStage.tsx",
+  ];
+
+  for (const file of files) {
+    const content = source(file);
+    assert.match(content, /\/channels\/\$\{/);
+    assert.doesNotMatch(content, /\/about\/\$\{/);
+  }
 });
 
 test("legacy /m profile routes permanently redirect to their channel equivalents", () => {

@@ -323,7 +323,7 @@ export default async function MemberPage({ params }: Params) {
                   name: member.stageName,
                   accent: member.accent,
                   avatarUrl: member.portrait ?? avatarsByLogin[member.twitchLogin.toLowerCase()],
-                  href: `/about/${member.slug}`,
+                  href: `/channels/${member.slug}`,
                 },
               ]}
             />
@@ -474,7 +474,7 @@ export default async function MemberPage({ params }: Params) {
                   className="member-card overflow-hidden rounded-lg"
                   style={{ ["--card-accent" as string]: m.accent }}
                 >
-                  <Link href={`/about/${m.slug}` as Route} className="block">
+                  <Link href={`/channels/${m.slug}` as Route} className="block">
                     <span className="relative block aspect-[3/4] w-full overflow-hidden bg-black media-tone">
                       <Image
                         src={avatar}
