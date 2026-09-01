@@ -5,7 +5,7 @@ export function WatchLegalFooter() {
   return (
     <footer className="border-t border-[color:var(--rule)] px-5 py-8 text-[11px] text-[color:var(--ink-dim)] sm:px-8">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p>CORE TV · Unofficial site · Read-only connected creator media</p>
+        <p>CORE TV · Unofficial site</p>
         <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <Link className="hover:text-[color:var(--ink)]" href="/legal/privacy">
             Privacy Policy
