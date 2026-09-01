@@ -53,6 +53,7 @@ const migrations = [
   "047_supporter_wind_down.sql",
   "048_stripe_refund_operations.sql",
   "048_x_social_archive_paging.sql",
+  "049_notification_center.sql",
 ];
 
 function loadEnvLocal() {

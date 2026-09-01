@@ -237,6 +237,30 @@ async function createEventDeliveries(
      ON CONFLICT (event_id,user_id,channel) DO NOTHING`,
     [eventId, member, contentType],
   );
+  // The inbox is a presentation record for the in-app delivery. It is
+  // populated from the same transaction and same eligibility query, so a
+  // social retry cannot bypass a creator's alert rules or duplicate a bell
+  // item for the same event.
+  await client.query(
+    `INSERT INTO fan_inbox_notifications
+       (user_id,category,source_key,title,body,href,image_url,avatar_url,created_at)
+     SELECT delivery.user_id,
+            'creator',
+            'social:' || event.id::text,
+            event.title,
+            event.body,
+            event.href,
+            event.artwork_url,
+            NULLIF(event.platform_payload->>'authorAvatarUrl',''),
+            delivery.created_at
+       FROM social_notification_deliveries delivery
+       JOIN social_content_events event ON event.id=delivery.event_id
+      WHERE delivery.event_id=$1
+        AND delivery.channel='in_app'
+        AND delivery.status IN ('sent','read')
+     ON CONFLICT (user_id,source_key) DO NOTHING`,
+    [eventId],
+  );
 }
 
 export async function listSocialAlerts(userId: string, limit = 40, before?: string | null): Promise<SocialAlert[]> {
@@ -257,13 +281,24 @@ export async function listSocialAlerts(userId: string, limit = 40, before?: stri
 }
 
 export async function markSocialAlertRead(userId: string, deliveryId: string): Promise<boolean> {
-  const result = await query(
-    `UPDATE social_notification_deliveries
-        SET status='read', read_at=COALESCE(read_at,now()), updated_at=now()
-      WHERE id=$1 AND user_id=$2 AND channel='in_app' AND status IN ('sent','read')`,
-    [deliveryId, userId],
-  );
-  return (result.rowCount ?? 0) > 0;
+  return withTransaction(async (client) => {
+    const result = await client.query<{ event_id: string }>(
+      `UPDATE social_notification_deliveries
+          SET status='read', read_at=COALESCE(read_at,now()), updated_at=now()
+        WHERE id=$1 AND user_id=$2 AND channel='in_app' AND status IN ('sent','read')
+        RETURNING event_id::text`,
+      [deliveryId, userId],
+    );
+    const eventId = result.rows[0]?.event_id;
+    if (!eventId) return false;
+    await client.query(
+      `UPDATE fan_inbox_notifications
+          SET read_at=COALESCE(read_at,now()),updated_at=now()
+        WHERE user_id=$1 AND source_key=$2`,
+      [userId, `social:${eventId}`],
+    );
+    return true;
+  });
 }
 
 export type SocialNotificationSettings = {

@@ -1,5 +1,6 @@
-import { query } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
 import { ensureFanzoneSchema } from "@/lib/fanzone";
+import { fanNotificationInboxDetails, recordInboxNotification } from "@/lib/notification-center";
 
 export type FanNotificationEvent =
   | "fan_submission.approved"
@@ -29,13 +30,22 @@ export async function queueFanNotification(
   payload: Record<string, unknown>,
 ): Promise<boolean> {
   await ensureFanzoneSchema();
-  const result = await query(
-    `INSERT INTO fan_notification_outbox (user_id, event_type, dedupe_key, payload)
-     VALUES ($1, $2, $3, $4::jsonb)
-     ON CONFLICT (event_type, dedupe_key) DO NOTHING`,
-    [userId, eventType, dedupeKey, JSON.stringify(payload)],
-  );
-  return (result.rowCount ?? 0) > 0;
+  return withTransaction(async (client) => {
+    const result = await client.query(
+      `INSERT INTO fan_notification_outbox (user_id, event_type, dedupe_key, payload)
+       VALUES ($1, $2, $3, $4::jsonb)
+       ON CONFLICT (event_type, dedupe_key) DO NOTHING`,
+      [userId, eventType, dedupeKey, JSON.stringify(payload)],
+    );
+    if ((result.rowCount ?? 0) === 0) return false;
+    const details = fanNotificationInboxDetails(eventType, payload);
+    await recordInboxNotification({
+      userId,
+      sourceKey: `fanzone:${eventType}:${dedupeKey}`,
+      ...details,
+    }, client);
+    return true;
+  });
 }
 
 /**

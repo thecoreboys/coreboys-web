@@ -7,7 +7,6 @@ import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { MEMBERS } from "@/lib/members";
 import { useWatchReminders } from "@/lib/watch/reminders-client";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
-import { SocialAlertsTray } from "@/components/watch/SocialAlertsTray";
 
 type AlertNotice = {
   id: string;
@@ -123,10 +122,10 @@ export function WatchAlertsBridge() {
     return () => window.clearInterval(interval);
   }, [browserState, items, ready]);
 
-  if (!notices.length) return <><SocialAlertsTray /><div data-watch-alerts-bridge data-browser-alert-state={browserState} hidden /></>;
+  if (!notices.length) return <div data-watch-alerts-bridge data-browser-alert-state={browserState} hidden />;
 
   return (
-    <><SocialAlertsTray /><section
+    <section
       data-watch-alerts-bridge
       data-browser-alert-state={browserState}
       aria-label="Watch alerts"
@@ -148,6 +147,6 @@ export function WatchAlertsBridge() {
           </Tooltip>
         </div>
       ))}
-    </section></>
+    </section>
   );
 }

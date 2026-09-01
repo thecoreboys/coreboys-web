@@ -428,6 +428,7 @@ test("webhook route verifies the exact raw body and rejects an invalid Stripe si
         upsertStripeSubscription: async () => { sideEffects += 1; },
         withSupporterBillingLock: async () => { sideEffects += 1; },
       },
+      "@/lib/notification-center": { recordInboxNotification: async () => true },
     });
     const event: StripeEvent = {
       id: "evt_invalid",
@@ -499,6 +500,7 @@ test("webhook route projects checkout, expiration, and subscription lifecycle ev
           return run(client);
         },
       },
+      "@/lib/notification-center": { recordInboxNotification: async () => true },
     });
 
     const checkoutEvent: StripeEvent = {
@@ -626,6 +628,7 @@ test("duplicate webhook delivery schedules cancellation once and uses an event-d
         },
         withSupporterBillingLock: async (_userId: string, run: (value: typeof client) => Promise<unknown>) => run(client),
       },
+      "@/lib/notification-center": { recordInboxNotification: async () => true },
     });
     const duplicateEvent: StripeEvent = {
       id: "evt_shutdown_duplicate",

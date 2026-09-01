@@ -32,6 +32,7 @@ import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSupporterBillingControls";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 /**
  * Global top navigation. Sticky, glass-blurred at scroll > 8px.
@@ -383,6 +384,8 @@ export function TopNav({
               className="inline-flex h-9 w-[4.75rem] animate-pulse rounded-full bg-[color:var(--bg-elev)] ring-1 ring-inset ring-[color:var(--rule)]"
             />
           ) : user ? (
+            <>
+            <NotificationBell variant="desktop" />
             <div className="relative" ref={accountDropdownRef}>
               <button
                 ref={accountTriggerRef}
@@ -482,6 +485,7 @@ export function TopNav({
                 </div>
               ) : null}
             </div>
+            </>
           ) : (
             <Button onPress={() => openAuth()} color="secondary" size="sm">
               Sign in
@@ -505,6 +509,7 @@ export function TopNav({
               <Search size={18} aria-hidden />
             </button>
           ) : null}
+          {user ? <NotificationBell variant="mobile" /> : null}
           <ButtonUtility
             size="sm"
             color="secondary"

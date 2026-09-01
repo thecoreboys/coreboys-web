@@ -11,6 +11,7 @@ import {
 } from "@/lib/subscriptions/billing";
 import { upsertStripeSubscription, withSupporterBillingLock } from "@/lib/subscriptions/store";
 import type { SubscriptionStatus } from "@/lib/subscriptions/catalog";
+import { recordInboxNotification } from "@/lib/notification-center";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,28 @@ function eventPriority(type: Stripe.Event.Type): number {
 function checkoutAttemptId(subscription: Stripe.Subscription, checkout?: Stripe.Checkout.Session): string | null {
   const value = subscription.metadata.checkout_attempt_id ?? checkout?.metadata?.checkout_attempt_id ?? "";
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null;
+}
+
+function membershipInboxNotice(event: Stripe.Event, subscription: Stripe.Subscription) {
+  if (event.type === "checkout.session.completed" || event.type === "customer.subscription.created") {
+    return {
+      title: "Your CORE Membership is active",
+      body: "Your membership benefits are ready in your account.",
+    };
+  }
+  if (event.type === "customer.subscription.deleted") {
+    return {
+      title: "Your CORE Membership has ended",
+      body: "You can review your account plan and billing history anytime.",
+    };
+  }
+  if (event.type === "customer.subscription.updated" && subscription.cancel_at_period_end) {
+    return {
+      title: "Your CORE Membership will not renew",
+      body: "Your benefits remain available through the end of the current period.",
+    };
+  }
+  return null;
 }
 
 async function enforceMatureThreshold(
@@ -136,6 +159,18 @@ async function syncSubscription(input: {
         acceptedAt: new Date(input.event.created * 1000),
       } : undefined,
     }, client);
+    const notice = projection.applied ? membershipInboxNotice(input.event, subscription) : null;
+    if (notice) {
+      await recordInboxNotification({
+        userId,
+        category: "account",
+        sourceKey: `stripe:${input.event.id}`,
+        title: notice.title,
+        body: notice.body,
+        href: "/account/plan",
+        createdAt: new Date(input.event.created * 1_000),
+      }, client);
+    }
     return projection.contractMatched;
   });
 }
