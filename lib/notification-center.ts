@@ -194,6 +194,14 @@ export async function markInboxNotificationRead(userId: string, notificationId: 
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function deleteInboxNotification(userId: string, notificationId: string): Promise<boolean> {
+  const result = await query(
+    `DELETE FROM fan_inbox_notifications WHERE id=$1 AND user_id=$2`,
+    [notificationId, userId],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function markAllInboxNotificationsRead(userId: string, category?: InboxCategory | null): Promise<number> {
   const result = await query(
     `UPDATE fan_inbox_notifications

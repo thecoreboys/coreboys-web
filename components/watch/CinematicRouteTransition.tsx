@@ -78,9 +78,12 @@ type TransitionRequest = {
 
 const TRANSITION_EVENT = "core-cinematic-transition";
 const NETWORK_READY_EVENT = "core-network-route-ready";
-const NETWORK_TRANSITION_INTRO_MS = 320;
-const NETWORK_TRANSITION_EXIT_MS = 160;
-const NETWORK_READY_FALLBACK_MS = 2_500;
+// Keep the station handoff snappy. The overlay is a brief signal cue, not a
+// loading screen: release as soon as the destination is ready and never leave
+// users staring at it for multiple seconds if a provider is slow to respond.
+const NETWORK_TRANSITION_INTRO_MS = 180;
+const NETWORK_TRANSITION_EXIT_MS = 90;
+const NETWORK_READY_FALLBACK_MS = 900;
 const NETWORK_NAVIGATION_TIMEOUT_MS = 12_000;
 
 // Player surfaces arriving at a network route wait on this promise before
@@ -386,7 +389,7 @@ export function CinematicRouteTransition() {
     navigationTimer.current = window.setTimeout(() => {
       navigationTimer.current = null;
       router.push(href as Route);
-    }, reducedMotion ? 0 : 360);
+    }, reducedMotion ? 0 : 180);
     return true;
   }, [reducedMotion, router, stage]);
 

@@ -267,13 +267,14 @@ export function playableFromUrl(raw: string): Playable | null {
       };
     }
     if (host === "instagram.com" || host.endsWith(".instagram.com")) {
-      const match = /\/(?:reel|reels|p|tv)\/([^/?#]+)/i.exec(parsed.pathname);
-      if (match?.[1]) {
+      const match = /\/(reel|reels|p|tv)\/([^/?#]+)/i.exec(parsed.pathname);
+      if (match?.[2]) {
+        const isPhoto = match[1]?.toLowerCase() === "p";
         return {
-          key: `instagram-${match[1]}`,
+          key: `instagram-${match[2]}`,
           kind: "clip",
           platform: "instagram",
-          title: "Instagram video",
+          title: isPhoto ? "Instagram post" : "Instagram video",
           poster: "",
           memberSlug: null,
           memberLabel: "Instagram",
@@ -281,12 +282,15 @@ export function playableFromUrl(raw: string): Playable | null {
           twitchLogin: null,
           vodId: null,
           clipSrc: "instagram",
-          clipId: match[1],
+          clipId: match[2],
           url: parsed.toString(),
           sourceUrl: parsed.toString(),
           embeddable: true,
-          format: "short",
-          orientation: "portrait",
+          // Keep a photo as an official Instagram embed rather than trying to
+          // load its permalink as an image. The player sees a square frame,
+          // while the embed remains the provider-authoritative rendering.
+          format: isPhoto ? "long" : "short",
+          orientation: isPhoto ? "square" : "portrait",
         };
       }
     }

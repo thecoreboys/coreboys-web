@@ -164,6 +164,9 @@ async function dispatch(actor: PassportActor, input: PassportAdminAction): Promi
         externalRef: input.externalRef,
         startsAt,
         endsAt: input.scheduledEndAt,
+        minimumWatchSeconds: input.minimumWatchSeconds,
+        attendanceGraceSeconds: input.attendanceGraceSeconds,
+        heartbeatIntervalSeconds: input.heartbeatIntervalSeconds,
       });
     }
     case "event.update": {
@@ -174,6 +177,9 @@ async function dispatch(actor: PassportActor, input: PassportAdminAction): Promi
       if (input.status !== undefined) patch.state = input.status;
       if (input.scheduledStartAt) patch.startsAt = input.scheduledStartAt;
       if (Object.prototype.hasOwnProperty.call(input, "scheduledEndAt")) patch.endsAt = input.scheduledEndAt;
+      if (input.minimumWatchSeconds !== undefined) patch.minimumWatchSeconds = input.minimumWatchSeconds;
+      if (input.attendanceGraceSeconds !== undefined) patch.attendanceGraceSeconds = input.attendanceGraceSeconds;
+      if (input.heartbeatIntervalSeconds !== undefined) patch.heartbeatIntervalSeconds = input.heartbeatIntervalSeconds;
       return updatePassportEvent(actor, {
         eventId: input.eventId,
         patch,

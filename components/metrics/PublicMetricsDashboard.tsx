@@ -58,6 +58,16 @@ function statusLabel(status: OwnerMetrics["liveStatus"]): string {
   return status === "live" ? "Live now" : status === "offline" ? "Offline" : "Status unavailable";
 }
 
+function overviewCopy(summary: OwnerMetrics): string {
+  const facts = [
+    `${exact(summary.posts)} published`,
+    `${exact(summary.streams)} live session${summary.streams === 1 ? "" : "s"}`,
+    `${airtime(summary.airtimeMinutes)} on air`,
+  ];
+  if (summary.peakViewers > 0) facts.push(`${exact(summary.peakViewers)} highest live peak`);
+  return `${facts.join(" · ")}. Every figure comes from CORE's stored records for this window.`;
+}
+
 export function PublicMetricsDashboard({ dashboard, members }: { dashboard: MetricsDashboard; members: Member[] }) {
   const [range, setRange] = useState<MetricsRange>("30d");
   const data = useMemo(() => deriveMetricsDashboard(dashboard, range), [dashboard, range]);
@@ -72,8 +82,8 @@ export function PublicMetricsDashboard({ dashboard, members }: { dashboard: Metr
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <p className="text-sm font-semibold text-brand-secondary">Network overview</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-primary md:text-display-xs">The house, measured honestly.</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-tertiary">Audience totals combine public channel follows and subscriptions, not unique people. Publishing and livestream figures come from CORE&apos;s stored activity records.</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-primary md:text-display-xs">The house is moving.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-tertiary">{overviewCopy(data.network)} Audience totals combine public follows and subscriptions. They are not unique people.</p>
           </div>
           <RangeToggle value={range} onChange={setRange} aria-label="Metric period" options={[{ key: "7d", label: "7d" }, { key: "30d", label: "30d" }, { key: "90d", label: "90d" }, { key: "all", label: "All" }]} />
         </div>
@@ -96,14 +106,14 @@ export function PublicMetricsDashboard({ dashboard, members }: { dashboard: Metr
       </section>
 
       <section aria-labelledby="core-channels-heading">
-        <SectionHeading eyebrow="CORE channels" title="The official accounts." copy="CORE-owned accounts stay separate from member channels, so network totals remain clear." />
+        <SectionHeading eyebrow="CORE channels" title="The official signals." copy="Every card shows the latest verified audience figure when available, plus the real publishing record behind it." />
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {data.core.channels.map((channel) => <ChannelCard key={`${channel.platform}:${channel.handle}`} channel={channel} now={dashboard.generatedAt} />)}
         </div>
       </section>
 
       <section aria-labelledby="member-metrics-heading">
-        <SectionHeading eyebrow="Members" title="Each creator, in context." copy="Cards are presented in house order instead of a leaderboard. Twitch measures appear only when the stored source has data." />
+        <SectionHeading eyebrow="Members" title="The receipts are on the board." copy="House order, real publishing output, real livestream records, and verified Twitch rolling data where it is available." />
         <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {data.members.map((summary) => <MemberCard key={summary.owner} summary={summary} member={memberBySlug.get(summary.owner) ?? null} now={dashboard.generatedAt} />)}
         </div>
@@ -128,11 +138,16 @@ function SectionHeading({ eyebrow, title, copy }: { eyebrow: string; title: stri
 
 function ChannelCard({ channel, now }: { channel: ChannelMetrics; now: string }) {
   const label = PLATFORM_LABEL[channel.platform];
+  const hasAudience = channel.followers != null;
+  const headlineValue = hasAudience ? compact(channel.followers) : exact(channel.postCount || null);
+  const headlineUnit = hasAudience
+    ? channel.platform === "youtube" ? "subs" : "followers"
+    : channel.postCount === 1 ? "published" : "published";
   return <a href={channel.url} target="_blank" rel="noopener noreferrer" className="group rounded-2xl bg-primary p-5 ring-1 ring-inset ring-secondary transition hover:-translate-y-0.5 hover:shadow-lg">
     <div className="flex items-start justify-between gap-4"><span className="grid size-10 place-items-center rounded-xl bg-secondary" style={{ color: BRAND[channel.platform] }}><SocialIcon platform={channel.platform} size={18} /></span><span className="text-xs font-medium text-tertiary group-hover:text-primary">Open {label} ↗</span></div>
     <p className="mt-5 text-sm font-semibold text-primary">{channel.label}</p>
-    <p className="mt-1 text-display-xs font-semibold tabular-nums text-primary">{compact(channel.followers)} <span className="text-sm font-medium text-tertiary">{channel.platform === "youtube" ? "subs" : "followers"}</span></p>
-    <div className="mt-4 flex items-center justify-between gap-3 border-t border-secondary pt-3 text-xs text-tertiary"><span>{channel.postCount.toLocaleString("en-US")} published</span><span className={channel.growth == null ? "text-quaternary" : channel.growth < 0 ? "text-error-primary" : "text-success-primary"}>{channel.growth == null ? "No period change" : `${signed(channel.growth)} growth`}</span></div>
+    <p className="mt-1 text-display-xs font-semibold tabular-nums text-primary">{headlineValue} <span className="text-sm font-medium text-tertiary">{headlineUnit}</span></p>
+    <div className="mt-4 flex items-center justify-between gap-3 border-t border-secondary pt-3 text-xs text-tertiary"><span>{hasAudience ? `${channel.postCount.toLocaleString("en-US")} published` : "Stored activity"}</span><span className={channel.growth == null ? "text-quaternary" : channel.growth < 0 ? "text-error-primary" : "text-success-primary"}>{channel.growth == null ? hasAudience ? "No period change" : "Audience snapshot pending" : `${signed(channel.growth)} growth`}</span></div>
     <p className="mt-3 line-clamp-1 text-xs text-quaternary">{channel.lastActivity ? `${relativeDate(channel.lastActivity.publishedAt, now)} · ${channel.lastActivity.title}` : "No stored activity yet"}</p>
   </a>;
 }

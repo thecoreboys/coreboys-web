@@ -8,7 +8,14 @@ export function ContactInquiryWidget() {
   return (
     <aside className={styles.widget} aria-label="Website inquiries contact">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/berryeyu-blue.png" alt="" className={styles.avatar} />
+      <img
+        src="/brand/berryeyu-blue.webp"
+        alt=""
+        width={32}
+        height={32}
+        decoding="async"
+        className={styles.avatar}
+      />
       <p>
         Contact <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">@berryeyu</a> on <span className={styles.xLabel} aria-label="X"><span aria-hidden className={styles.xLogo}>𝕏</span></span> for website inquiries
       </p>

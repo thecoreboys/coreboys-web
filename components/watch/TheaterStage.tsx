@@ -9,7 +9,7 @@ import type { Playable } from "@/lib/watch/playable";
 import type { WatchKind, WatchPlatform } from "@/lib/watch/types";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
 
-const KINDS = new Set<WatchKind>(["live", "youtube", "vod", "clip", "tour"]);
+const KINDS = new Set<WatchKind>(["live", "youtube", "vod", "clip", "post", "tour"]);
 const FORMATS = new Set<NonNullable<Playable["format"]>>(["long", "short", "live", "photo"]);
 const ORIENTATIONS = new Set<NonNullable<Playable["orientation"]>>(["landscape", "portrait", "square"]);
 
@@ -20,6 +20,17 @@ function platformFor(kind: WatchKind, source: string, url: string): WatchPlatfor
   if (source === "x" || url.includes("x.com") || url.includes("twitter.com")) return "x";
   if (kind === "live" || kind === "vod" || source === "twitch") return "twitch";
   return "house";
+}
+
+function safeImageUrl(value: string): string | null {
+  if (!value) return null;
+  if (value.startsWith("/") && !value.startsWith("//")) return value;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 export function TheaterStage() {
@@ -33,6 +44,8 @@ export function TheaterStage() {
   const url = params.get("url") ?? "";
   const canonicalRef = params.get("ref") ?? "";
   const title = params.get("title") ?? "";
+  const poster = safeImageUrl(params.get("poster") ?? "");
+  const mediaUrl = safeImageUrl(params.get("media") ?? "");
   const rawDvrVodId = (params.get("dvr") ?? "").replace(/^v/i, "");
   const dvrVodId = /^\d+$/.test(rawDvrVodId) ? rawDvrVodId : "";
   const parsedDvrWindow = Number(params.get("dvrWindow"));
@@ -75,10 +88,9 @@ export function TheaterStage() {
       kind,
       platform,
       title: title || (kind === "live" ? `${member?.stageName ?? formatHandleDisplay(login)} live` : member?.stageName ?? "CORE"),
-      poster:
-        youtube
-          ? `https://i.ytimg.com/vi/${youtube}/maxresdefault.jpg`
-          : member?.portrait ?? "",
+      poster: poster ?? (youtube
+        ? `https://i.ytimg.com/vi/${youtube}/maxresdefault.jpg`
+        : member?.portrait ?? ""),
       memberSlug: member?.slug ?? (slug || null),
       memberLabel: member?.stageName ?? (formatHandleDisplay(login) || "CORE"),
       youtubeId: youtube,
@@ -91,6 +103,7 @@ export function TheaterStage() {
       clipId: kind === "clip" ? id || null : null,
       url: url || null,
       sourceUrl: url || undefined,
+      mediaUrl: mediaUrl ?? undefined,
       embeddable:
         platform === "youtube" ||
         platform === "twitch" ||
@@ -106,7 +119,7 @@ export function TheaterStage() {
           }
         : undefined,
     };
-  }, [canonicalRef, dvrVodId, dvrWindowSeconds, id, kind, login, member, requestedFormat, requestedOrientation, slug, source, title, url]);
+  }, [canonicalRef, dvrVodId, dvrWindowSeconds, id, kind, login, mediaUrl, member, poster, requestedFormat, requestedOrientation, slug, source, title, url]);
 
   useEffect(() => {
     if (!playable || !player.ready) return;

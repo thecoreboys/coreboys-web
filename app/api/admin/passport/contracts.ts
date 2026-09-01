@@ -103,6 +103,9 @@ export const PassportAdminActionSchema = z.union([
     externalRef: z.string().trim().min(1).max(200).nullable().optional(),
     scheduledStartAt: Timestamp,
     scheduledEndAt: Timestamp,
+    minimumWatchSeconds: z.number().int().min(30).max(86_400).optional(),
+    attendanceGraceSeconds: z.number().int().min(0).max(86_400).optional(),
+    heartbeatIntervalSeconds: z.number().int().min(10).max(300).optional(),
   }),
   scoped("event.update", {
     eventId: Uuid,
@@ -112,6 +115,9 @@ export const PassportAdminActionSchema = z.union([
     status: z.enum(["draft", "scheduled", "live", "ended", "certified", "cancelled"]).optional(),
     scheduledStartAt: Timestamp,
     scheduledEndAt: Timestamp,
+    minimumWatchSeconds: z.number().int().min(30).max(86_400).optional(),
+    attendanceGraceSeconds: z.number().int().min(0).max(86_400).optional(),
+    heartbeatIntervalSeconds: z.number().int().min(10).max(300).optional(),
     reason: z.string().trim().min(3).max(600).optional(),
   }).refine((value) => Object.keys(value).some((key) => !["action", "channelSlug", "eventId"].includes(key)), "No event changes supplied."),
   scoped("event.freeze", {

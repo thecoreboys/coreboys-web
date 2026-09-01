@@ -704,20 +704,39 @@ var CREW = [
     ]
   },
   {
-    slug: "john-ngo",
-    name: "John Ngo",
+    slug: "ybg",
+    name: "YBG",
     role: "cameraman",
     worksWith: ["jason"],
     socials: [
       {
         platform: "x",
-        url: "https://x.com/itsjawhn",
-        handle: "@itsjawhn"
+        url: "https://x.com/YOUNGBASEDG",
+        handle: "@YOUNGBASEDG"
       },
       {
-        platform: "instagram",
-        url: "https://www.instagram.com/jawhnnn/",
-        handle: "@jawhnnn"
+        platform: "tiktok",
+        url: "https://www.tiktok.com/@youngbasedgo?lang=en",
+        handle: "@youngbasedgo"
+      },
+      {
+        platform: "twitch",
+        url: "https://www.twitch.tv/youngbasedgo",
+        handle: "youngbasedgo"
+      }
+    ]
+  },
+  {
+    slug: "siggy",
+    name: "Siggy",
+    role: "editor",
+    roleLabel: "YouTube Editor",
+    worksWith: ["ron", "jason"],
+    socials: [
+      {
+        platform: "x",
+        url: "https://x.com/SiggyGG",
+        handle: "@SiggyGG"
       }
     ]
   },
@@ -788,7 +807,7 @@ function toTalentTag(person) {
         id: person.id,
         kind: "member",
         name: person.member.name,
-        href: `/m/${person.member.slug}`,
+        href: `/about/${person.member.slug}`,
         socials: person.member.socials
       };
       if (person.member.portraitUrl !== void 0) {

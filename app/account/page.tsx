@@ -14,7 +14,7 @@ import { CreditCard01, Settings01, Trophy01 } from "@untitledui/icons";
 import { publicDisplayName } from "@/lib/profile-display";
 
 export default function AccountPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -84,21 +84,14 @@ export default function AccountPage() {
           members={MEMBERS.map((m) => ({ slug: m.slug, stageName: m.stageName }))}
         />
 
-        <Suspense fallback={<div className="mt-6 h-64 animate-pulse bg-[color:var(--bg-elev)]" />}>
-          <ConnectedAccounts
-            members={MEMBERS.map((m) => ({ slug: m.slug, stageName: m.stageName }))}
-          />
-        </Suspense>
+        <section id="connected-accounts" className="scroll-mt-24">
+          <Suspense fallback={<div className="mt-6 h-64 animate-pulse bg-[color:var(--bg-elev)]" />}>
+            <ConnectedAccounts
+              members={MEMBERS.map((m) => ({ slug: m.slug, stageName: m.stageName }))}
+            />
+          </Suspense>
+        </section>
 
-        <p className="mt-16">
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"
-          >
-            Log out
-          </button>
-        </p>
       </main>
       <SiteFooter />
     </>

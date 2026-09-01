@@ -33,6 +33,11 @@ const config: NextConfig = {
   },
   transpilePackages: ["@coreboys/shared"],
   async headers() {
+    const staticMediaCache = {
+      key: "Cache-Control",
+      value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+    };
+
     return [
       {
         source: "/api/twitch/live",
@@ -48,12 +53,71 @@ const config: NextConfig = {
         // Keep it browser/CDN cacheable while allowing planned artwork updates
         // to propagate on a short, predictable schedule.
         source: "/brand/:path*.webp",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
-          },
-        ],
+        headers: [staticMediaCache],
+      },
+      {
+        // These are immutable narrative / product visuals. Next serves files
+        // in public/ with max-age=0 by default, which makes every revisit
+        // redownload the same posters and film clips.
+        source: "/special-message/:path*.webp",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/special-message/:path*.png",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/special-message/:path*.mp4",
+        headers: [staticMediaCache],
+      },
+      {
+        // The group still is a site-wide hero fallback, so make repeat visits
+        // inexpensive even when image optimization is intentionally bypassed.
+        source: "/group/:path*.jpg",
+        headers: [staticMediaCache],
+      },
+      {
+        // Creator imagery is served directly from the media origin because
+        // Next/Image optimization is intentionally disabled for the CDN.
+        // Preserve fast repeat visits without treating uploads as immutable.
+        source: "/members/:path*.jpg",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/members/:path*.png",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/members/:path*.webp",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/crew/:path*.jpg",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/crew/:path*.png",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/crew/:path*.webp",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/comms/:path*.png",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/comms/:path*.webp",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/fonts/:path*.ttf",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/embed-preview.png",
+        headers: [staticMediaCache],
       },
     ];
   },

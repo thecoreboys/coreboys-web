@@ -296,9 +296,14 @@ export function RadioAudioDirector({
       const width = root.offsetWidth || rect.width;
       const height = root.offsetHeight || rect.height;
       const current = placementRef.current ?? readWidgetPlacement();
+      // New listeners start with the DJ Cora widget tucked just beyond the
+      // bottom-right edge so it never competes with player controls. A saved
+      // placement (including an intentional visible position) is respected.
       const next = current?.hiddenEdge
         ? hiddenWidgetPlacement(current.hiddenEdge, current.edgeOffset ?? (current.hiddenEdge === "left" || current.hiddenEdge === "right" ? rect.top + height / 2 : rect.left + width / 2), width, height)
-        : clampVisiblePlacement(current ?? { x: rect.left, y: rect.top, hiddenEdge: null, edgeOffset: null }, width, height);
+        : current
+          ? clampVisiblePlacement(current, width, height)
+          : hiddenWidgetPlacement("right", window.innerHeight - Math.max(72, height / 2), width, height);
       updatePlacement(next, Boolean(current));
     };
 

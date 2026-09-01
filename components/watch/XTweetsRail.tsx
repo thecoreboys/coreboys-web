@@ -218,6 +218,10 @@ function XQuotePreview({
           : "16 / 9";
     return (
       <section className={styles.quoteCard} aria-label={`Quoted post from ${quote.authorName ?? quote.authorHandle}`}>
+        <span className={styles.quoteLabel}>
+          <MessageCircle aria-hidden="true" />
+          Quoted post
+        </span>
         <header className={styles.quoteHeader}>
           <a href={quote.authorProfileUrl} target="_blank" rel={EXTERNAL_REL} aria-label={`Open ${quote.authorName ?? quote.authorHandle} on X`}>
             {quote.authorAvatarUrl ? (

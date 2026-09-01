@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Bell, CheckCheck, ChevronRight, Clock3, Inbox, Settings2 } from "lucide-react";
+import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
 import type { InboxCategory, InboxNotification, NotificationCenterPage as NotificationCenterData } from "@/lib/inbox-notification";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +68,7 @@ export function NotificationCenterPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const { activate, previewDialog } = useNotificationActivation();
 
   const load = useCallback(async (nextFilter: Filter, cursor?: string | null, append = false) => {
     if (append) setLoadingMore(true);
@@ -138,6 +140,17 @@ export function NotificationCenterPage() {
     else void load(filter);
   }
 
+  function activateNotification(item: InboxNotification) {
+    void markRead(item.id);
+    activate({
+      href: item.href,
+      title: item.title,
+      body: item.body,
+      imageUrl: item.imageUrl,
+      avatarUrl: item.avatarUrl,
+    });
+  }
+
   return (
     <main className="mx-auto min-h-[70vh] max-w-5xl px-5 py-10 sm:px-6 lg:px-8 lg:py-16">
       <div className="flex flex-wrap items-start justify-between gap-5">
@@ -205,9 +218,9 @@ export function NotificationCenterPage() {
                 const image = item.imageUrl ?? item.avatarUrl;
                 return (
                   <li key={item.id}>
-                    <Link
-                      href={item.href as never}
-                      onClick={() => void markRead(item.id)}
+                    <button
+                      type="button"
+                      onClick={() => activateNotification(item)}
                       className={cn("group flex gap-3 rounded-xl px-3 py-4 transition hover:bg-primary_hover sm:px-4", !item.readAt && "bg-primary")}
                     >
                       <NotificationArtwork image={image} />
@@ -223,7 +236,7 @@ export function NotificationCenterPage() {
                         {!item.readAt ? <span className="size-2 rounded-full bg-brand-solid" aria-label="Unread" /> : null}
                         <ChevronRight className="size-4 text-quaternary transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden />
                       </span>
-                    </Link>
+                    </button>
                   </li>
                 );
               })}
@@ -255,6 +268,7 @@ export function NotificationCenterPage() {
         ) : <p className="mt-4 text-sm text-tertiary">No saved reminders are coming up.</p>}
         <Link href="/account/settings#notifications" className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"><Settings2 className="size-4" aria-hidden />Manage alert settings</Link>
       </section>
+      {previewDialog}
     </main>
   );
 }

@@ -391,10 +391,11 @@ function PremiumNotificationLink({
       href={href as never}
       aria-label={`Unlock ${label} with ${plan}`}
       title={`Unlock with ${plan}`}
-      className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-primary px-2.5 text-xs font-semibold text-brand-secondary shadow-xs-skeuomorphic ring-1 ring-inset ring-brand_subtle transition hover:bg-brand-primary_alt hover:text-brand-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+      className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-brand_subtle bg-brand-primary/60 px-2.5 text-xs font-semibold text-brand-secondary transition hover:bg-brand-primary hover:text-brand-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
     >
       <Lock01 className="size-3.5" aria-hidden />
-      {plan}
+      <span>Unlock</span>
+      <span className="sr-only"> with {plan}</span>
     </Link>
   );
 }

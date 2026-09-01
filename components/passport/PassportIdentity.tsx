@@ -72,8 +72,8 @@ export function PassportIdentity({
       <section className="passport-section-heading">
         <div>
           <span className="passport-kicker"><IdCard aria-hidden="true" /> Identity studio</span>
-          <h2>Wear the memories you earned.</h2>
-          <p>Your account permissions are separate. These appearance settings only change how your profile is shown.</p>
+          <h2>Profile identity</h2>
+          <p>Choose the records and appearance details shown on your CORE profile.</p>
         </div>
       </section>
 

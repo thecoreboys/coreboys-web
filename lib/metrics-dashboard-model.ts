@@ -145,9 +145,15 @@ function ownerMetrics(input: {
     const activity = input.dashboard.activity
       .filter((row) => row.owner === channel.owner && row.platform === channel.platform && inRange(row.date, input.rangeStart))
       .reduce((total, row) => total + row.count, 0);
+    // TwitchTracker snapshots are stored, verified public totals. They fill
+    // the audience cell only when the daily all-platform snapshot does not
+    // yet have a Twitch row for this channel; we never add both together.
+    const twitchFollowerFallback = channel.platform === "twitch"
+      ? input.dashboard.twitchRolling.find((row) => row.slug === channel.owner)?.followersTotal ?? null
+      : null;
     return {
       ...channel,
-      followers: latest?.count ?? null,
+      followers: latest?.count ?? twitchFollowerFallback,
       growth: hasPeriodChange ? (latest!.count - baseline!.count) : null,
       postCount: activity,
       lastActivity: newest(input.dashboard.latestActivity.filter((row) => row.owner === channel.owner && row.platform === channel.platform)),

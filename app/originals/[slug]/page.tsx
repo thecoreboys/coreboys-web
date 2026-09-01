@@ -38,6 +38,7 @@ export default async function CoreOriginalPage({ params }: { params: Promise<{ s
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={original.posterUrl} alt={`${original.title} poster`} className="aspect-[2/3] h-auto w-full rounded-[.75rem] object-cover" />
               </div>
+              <p className="mt-3 text-center text-[11px] leading-5 text-white/45">This poster was made with AI as a starting point. Have a different idea? We&apos;d love to see a community-made version.</p>
             </div>
           </div>
         </div>

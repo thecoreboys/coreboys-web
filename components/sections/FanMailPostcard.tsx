@@ -164,10 +164,6 @@ export function FanMailPostcard({
             </div>
           </div>
 
-          <div className="mt-auto flex items-end justify-between gap-4 pt-5 text-[9px] font-bold uppercase tracking-[.14em] opacity-55">
-            <span>Confirmed public address</span>
-            <span>Community mark · decorative</span>
-          </div>
         </section>
       </div>
     </article>

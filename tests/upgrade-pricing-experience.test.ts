@@ -6,13 +6,14 @@ import test from "node:test";
 const source = readFileSync(resolve(process.cwd(), "components/marketing/PricingExperience.tsx"), "utf8");
 
 test("upgrade page presents one clear membership tier with direct calls to action", () => {
-  assert.match(source, /Make CORE yours\./);
+  assert.match(source, /Support CORE and get beta access\./);
   assert.match(source, /joinLabel/);
-  assert.match(source, /See what membership unlocks/);
-  assert.match(source, /Full beta access · Cancel anytime · Public content stays free\./);
-  assert.match(source, /One tier\. Every CORE feature\./);
-  assert.match(source, /may not work as intended/);
-  assert.match(source, /ongoing development and continuous updates/);
+  assert.match(source, /Join the CORE beta/);
+  assert.match(source, /Continue to billing/);
+  assert.match(source, /One plan · cancel anytime/);
+  assert.match(source, /Every member gets the same beta access\./);
+  assert.match(source, /Full access to current CORE beta features/);
+  assert.match(source, /features may change as we improve them/);
   assert.doesNotMatch(source, /\$500/);
   assert.doesNotMatch(source, /Bronze|Silver|Gold|Premium plan/);
 });
@@ -21,16 +22,18 @@ test("upgrade page keeps feature context and concise membership proof in the pag
   assert.match(source, /FEATURE_FOCUS/);
   assert.match(source, /"multiview\.saved_layouts"/);
   assert.match(source, /focusFeature/);
-  assert.match(source, /styles\.featureGrid/);
-  assert.match(source, /styles\.productVisual/);
-  assert.match(source, /styles\.supportStrip/);
-  assert.match(source, /styles\.freeSection/);
-  assert.match(source, /styles\.faqSection/);
-  assert.match(source, /styles\.finalCta/);
+  assert.match(source, /<FocusCallout feature=\{requestedFeature\}/);
+  assert.match(source, /styles\.cleanGrid/);
+  assert.match(source, /styles\.membershipCard/);
+  assert.match(source, /styles\.includedCard/);
+  assert.match(source, /styles\.cleanNotice/);
+  assert.match(source, /styles\.cleanFaq/);
 });
 
-test("upgrade FAQ uses native disclosure controls and preserves the free-content promise", () => {
-  assert.match(source, /<details className=\{styles\.faqItem\}>/);
-  assert.match(source, /Free stays free/);
-  assert.match(source, /It is not a creator subscription/);
+test("upgrade page keeps beta answers concise and preserves the free-content promise", () => {
+  assert.match(source, /Simple billing, no surprises\./);
+  assert.match(source, /Can I cancel\?/);
+  assert.match(source, /What does beta mean\?/);
+  assert.match(source, /Public content stays free\./);
+  assert.match(source, /It is not a subscription to any creator/);
 });

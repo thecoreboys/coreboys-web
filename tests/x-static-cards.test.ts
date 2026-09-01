@@ -46,10 +46,25 @@ test("hydrated quotes render as compact native posts and only confirmed misses s
   assert.match(rail, /function XQuotePreview/);
   assert.match(rail, /quote\.media/);
   assert.match(rail, /quote\.entities/);
+  assert.match(rail, /Quoted post/);
   assert.match(rail, /unavailableQuote/);
   assert.match(rail, /Quoted post unavailable/);
   assert.doesNotMatch(rail, /Quote from \$\{quoted\.handle\}/);
   assert.match(styles, /\.quoteCard/);
   assert.match(styles, /\.quoteMediaGrid/);
   assert.match(styles, /\.quoteUnavailable/);
+});
+
+test("cached X cards retain rich link previews instead of showing raw provider URLs", async () => {
+  const rail = await readFile(railPath, "utf8");
+  const styles = await readFile(railStylesPath, "utf8");
+
+  assert.match(rail, /function XLinkPreviews/);
+  assert.match(rail, /preview\.title/);
+  assert.match(rail, /preview\.description/);
+  assert.match(rail, /preview\.imageUrl/);
+  assert.match(rail, /function XQuotePreview/);
+  assert.match(rail, /rendered below as a native nested card/);
+  assert.match(styles, /\.linkPreview/);
+  assert.match(styles, /\.quoteCard/);
 });

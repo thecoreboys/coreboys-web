@@ -5,6 +5,7 @@ import {
   getNotificationCenterPage,
   markAllInboxNotificationsRead,
   markInboxNotificationRead,
+  deleteInboxNotification,
 } from "@/lib/notification-center";
 import { INBOX_CATEGORIES, isInboxCategory } from "@/lib/inbox-notification";
 
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("mark_read"), id: z.string().uuid() }).strict(),
+  z.object({ action: z.literal("delete"), id: z.string().uuid() }).strict(),
   z.object({ action: z.literal("mark_all_read"), category: z.enum(INBOX_CATEGORIES).optional() }).strict(),
 ]);
 
@@ -49,6 +51,9 @@ export async function PATCH(request: Request) {
   if (!parsed.success) return privateJson({ error: "invalid_payload" }, { status: 400 });
   if (parsed.data.action === "mark_read") {
     return privateJson({ ok: await markInboxNotificationRead(userId, parsed.data.id) });
+  }
+  if (parsed.data.action === "delete") {
+    return privateJson({ ok: await deleteInboxNotification(userId, parsed.data.id) });
   }
   const changed = await markAllInboxNotificationsRead(userId, parsed.data.category ?? null);
   return privateJson({ ok: true, changed });

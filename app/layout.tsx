@@ -7,14 +7,8 @@ import { LenisProvider } from "@/components/providers/LenisProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PlayerProvider } from "@/components/providers/PlayerProvider";
-import { PersistentPlayer } from "@/components/watch/PersistentPlayer";
-import { RadioAudioSystem } from "@/components/watch/RadioAudioSystem";
-import { WatchPalette } from "@/components/watch/WatchPalette";
-import { PlayerChatCompanion } from "@/components/watch/PlayerChatCompanion";
-import { WatchAlertsBridge } from "@/components/watch/WatchAlertsBridge";
-import { WatchTogetherBridge } from "@/components/watch/WatchTogetherBridge";
 import { WatchContextMenuProvider } from "@/components/watch/WatchContextMenu";
-import { PassportPresenceBridge } from "@/components/passport/PassportPresenceBridge";
+import { GlobalWatchEnhancements } from "@/components/watch/GlobalWatchEnhancements";
 import { Grain, Scanlines } from "@/components/editorial/Grain";
 import { Cursor } from "@/components/editorial/Cursor";
 import { TopNav } from "@/components/chrome/TopNav";
@@ -28,7 +22,6 @@ import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { ContactInquiryWidget } from "@/components/site/ContactInquiryWidget";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { AuthModal } from "@/components/auth/AuthModal";
-import { CinematicRouteTransition } from "@/components/watch/CinematicRouteTransition";
 import "./globals.css";
 import "./watch/watch.css";
 
@@ -181,17 +174,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 {children}
               </main>
               <GlobalSiteFooter />
-               <PersistentPlayer />
-               <RadioAudioSystem />
-               <WatchTogetherBridge />
-               <CinematicRouteTransition />
+               <GlobalWatchEnhancements />
               <Suspense fallback={null}>
                 <AuthModal />
               </Suspense>
-              <WatchPalette />
-              <PassportPresenceBridge />
-              <PlayerChatCompanion />
-              <WatchAlertsBridge />
               <ContactInquiryWidget />
             </LenisProvider>
             </WatchContextMenuProvider>

@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Bell, X } from "lucide-react";
+import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { MEMBERS } from "@/lib/members";
 import { useWatchReminders } from "@/lib/watch/reminders-client";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
+import { notificationTargetFor } from "@/lib/notification-target";
 
 type AlertNotice = {
   id: string;
@@ -17,24 +18,25 @@ type AlertNotice = {
 
 async function browserNotify(title: string, body: string, href: string) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const targetHref = notificationTargetFor({ href, title, body }).href;
   const options: NotificationOptions = {
     body,
     icon: "/brand/logo-core-white.png",
     badge: "/brand/logo-core-white.png",
-    tag: `core-watch:${href}`,
+    tag: `core-watch:${targetHref}`,
   };
   try {
     if ("serviceWorker" in navigator) {
       const registration = await navigator.serviceWorker.getRegistration();
       if (registration) {
-        await registration.showNotification(title, { ...options, data: { href } });
+        await registration.showNotification(title, { ...options, data: { href: targetHref } });
         return;
       }
     }
     const notification = new Notification(title, options);
     notification.onclick = () => {
       window.focus();
-      window.location.assign(href);
+      window.location.assign(targetHref);
       notification.close();
     };
   } catch {
@@ -62,6 +64,7 @@ export function WatchAlertsBridge() {
   const { data } = useLiveStatus();
   const { items, creatorAlerts, browserState, ready } = useWatchReminders();
   const [notices, setNotices] = useState<AlertNotice[]>([]);
+  const { activate, previewDialog } = useNotificationActivation();
   const initializedLive = useRef(false);
   const priorLive = useRef(new Set<string>());
   const delivered = useRef<Set<string> | null>(null);
@@ -122,9 +125,15 @@ export function WatchAlertsBridge() {
     return () => window.clearInterval(interval);
   }, [browserState, items, ready]);
 
-  if (!notices.length) return <div data-watch-alerts-bridge data-browser-alert-state={browserState} hidden />;
+  function activateNotice(notice: AlertNotice) {
+    setNotices((previous) => previous.filter((entry) => entry.id !== notice.id));
+    activate({ href: notice.href, title: notice.title, body: notice.body });
+  }
+
+  if (!notices.length) return <><div data-watch-alerts-bridge data-browser-alert-state={browserState} hidden />{previewDialog}</>;
 
   return (
+    <>
     <section
       data-watch-alerts-bridge
       data-browser-alert-state={browserState}
@@ -136,10 +145,10 @@ export function WatchAlertsBridge() {
           <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[color:var(--core)]/18 text-[color:var(--core)]">
             <Bell className="size-4" aria-hidden />
           </span>
-          <Link href={notice.href as never} className="min-w-0 flex-1">
+          <button type="button" onClick={() => activateNotice(notice)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90">
             <strong className="block text-xs font-semibold">{notice.title}</strong>
             <span className="mt-1 line-clamp-2 block text-[11px] leading-relaxed text-white/50">{notice.body}</span>
-          </Link>
+          </button>
           <Tooltip title="Dismiss alert" description="Remove this Watch notification from the screen." placement="left">
             <button type="button" onClick={() => setNotices((previous) => previous.filter((entry) => entry.id !== notice.id))} className="grid size-8 shrink-0 place-items-center rounded-lg text-white/35 hover:bg-white/8 hover:text-white" aria-label="Dismiss alert">
               <X className="size-3.5" aria-hidden />
@@ -148,5 +157,7 @@ export function WatchAlertsBridge() {
         </div>
       ))}
     </section>
+    {previewDialog}
+    </>
   );
 }

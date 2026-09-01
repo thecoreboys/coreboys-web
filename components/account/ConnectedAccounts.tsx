@@ -600,11 +600,6 @@ function LoyaltyPanel({
         <PresenceReceipt />
       </div>
 
-      <ul className="mt-5 space-y-1.5 text-xs text-quaternary">
-        {card.honestGaps.map((g) => (
-          <li key={g}>· {g}</li>
-        ))}
-      </ul>
     </section>
   );
 }

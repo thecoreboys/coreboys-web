@@ -41,17 +41,17 @@ export default async function MetricsPage() {
                 House · Numbers
               </p>
               <h1 className="mt-2 font-display text-[32px] font-semibold tracking-[-0.03em] text-[color:var(--ink)] md:text-[48px]">
-                Metrics.
+                The receipts.
               </h1>
               <p className="mt-3 max-w-[62ch] text-md leading-relaxed text-tertiary">
-                Clear, stored activity across CORE&apos;s channels and every member—without
-                platform calls or credit usage when you open the page.
+                Real publishing, livestream, audience, and chat records across CORE.
+                This page reads the stored record, so opening it never spends platform credits.
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Button href="/guide" size="lg" color="primary" iconLeading={<BarChartSquare02 data-icon />}>
                   Open the Guide
                 </Button>
-                <BadgeWithDot type="pill-color" color="gray" size="md">Stored reporting</BadgeWithDot>
+                <BadgeWithDot type="pill-color" color="success" size="md">Verified records</BadgeWithDot>
                 <a
                   href={GROUP.socials.youtube.url}
                   target="_blank"

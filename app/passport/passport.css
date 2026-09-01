@@ -605,3 +605,79 @@
 .passport-tabs { background: var(--bg-elev); backdrop-filter: none; }
 .passport-button:hover:not(:disabled), .passport-icon-button:hover:not(:disabled) { transform: none; }
 .passport-progress > span { background: var(--core); }
+
+/* Keep the identity panel compact and editorial rather than oversized. */
+.passport-member-card { max-width: 62rem; }
+.passport-member-card > div:first-child { align-items: baseline; }
+.passport-member-card .passport-member-card__unused { display: none; }
+.passport-stats { border-radius: .85rem; }
+.passport-stats article { padding: .9rem 1rem; }
+.passport-stats article > span { width: 2.15rem; height: 2.15rem; border-radius: .6rem; background: var(--surface); }
+.passport-stats strong { font-size: 1.05rem; }
+.passport-stats small { font-size: .66rem; }
+@media (max-width: 700px) {
+  .passport-member-card { max-width: none; }
+}
+
+/* Calm, compact overview surfaces. */
+.passport-global-progress {
+  grid-template-columns: 6.5rem 1fr;
+  gap: 2rem;
+  border-radius: .85rem;
+  background: var(--bg-elev);
+  padding: 1.5rem 1.75rem;
+}
+.passport-level-orbit {
+  aspect-ratio: 1;
+  border-radius: .75rem;
+  background: var(--surface);
+  box-shadow: none;
+}
+.passport-level-orbit strong { font-size: 2.8rem; }
+.passport-global-progress h2 { margin-top: .3rem; font-size: clamp(1.35rem, 2.5vw, 1.9rem); }
+.passport-global-progress p { margin-top: .45rem; font-size: .8rem; }
+.passport-progress--large { height: .4rem; margin-top: 1.1rem; }
+.passport-goals-recap { gap: .85rem; }
+.passport-community-goals, .passport-recap-card { gap: .8rem; border-radius: .85rem; padding: 1.1rem; }
+.passport-community-goals h2, .passport-recap-card h2 { font-size: 1.15rem; }
+.passport-community-goals article { padding-top: .65rem; }
+.passport-recap-card { background: var(--bg-elev); }
+.passport-recap-card > div > span { border-radius: .6rem; background: var(--surface); padding: .55rem .3rem; }
+.passport-kicker { color: var(--ink-dim); font-size: .62rem; letter-spacing: .1em; }
+.passport-kicker svg { color: var(--core-2); }
+.passport-overview-section { gap: .9rem; }
+.passport-overview-section > header { align-items: center; }
+.passport-section-stack { gap: 2.25rem; }
+.passport-section-heading h2, .passport-overview-section h2 { font-size: clamp(1.35rem, 2.5vw, 1.85rem); }
+.passport-channel-grid article, .passport-overview-split > section { border-radius: .85rem; }
+@media (max-width: 700px) {
+  .passport-global-progress { grid-template-columns: 4.5rem 1fr; gap: 1rem; padding: 1.1rem; }
+  .passport-level-orbit strong { font-size: 2.2rem; }
+}
+
+/* Identity studio: compact account settings, with the controls carrying the page. */
+.passport-identity-section { gap: 1rem; border-radius: .85rem; padding: 1.1rem; }
+.passport-identity-section > header h3 { font-size: 1.05rem; font-weight: 650; }
+.passport-identity-section > header p { font-size: .7rem; }
+.passport-showcase-layout { gap: 1.1rem; }
+.passport-showcase-layout h4 { margin-bottom: .6rem; font-size: .62rem; letter-spacing: .06em; }
+.passport-showcase-search { margin: 0 0 .55rem; }
+.passport-showcase-search input { min-height: 2.2rem; border-radius: .55rem; }
+.passport-scope-tabs button { border-radius: .5rem; padding: .45rem .7rem; }
+.passport-form-grid { gap: .65rem; }
+.passport-inline-picker legend { color: var(--ink-dim); font-size: .62rem; font-weight: 650; }
+
+/* Finish the overview with quiet, useful empty states and neutral section labels. */
+.passport-kicker { color: var(--ink-dim); font-weight: 650; letter-spacing: .08em; }
+.passport-kicker svg { color: var(--core-2); }
+.passport-empty { min-height: 8.5rem; border: 1px solid var(--rule); border-radius: .75rem; gap: .45rem; padding: 1.25rem; }
+.passport-empty > svg { width: 1.35rem; height: 1.35rem; color: var(--ink-dim); }
+.passport-empty h3 { font-size: .9rem; font-weight: 650; }
+.passport-empty p { font-size: .72rem; }
+.passport-empty--small { min-height: 8.5rem; }
+.passport-overview-split > section { padding: 1.1rem; }
+.passport-overview-quests article { padding: .8rem 0; }
+.passport-overview-quests article > span, .passport-recent-achievements article > span { width: 1.9rem; height: 1.9rem; border-radius: .55rem; background: var(--surface); }
+.passport-overview-quests h3 { font-size: .82rem; font-weight: 650; }
+.passport-overview-quests p { margin: .2rem 0 .5rem; font-size: .7rem; }
+.passport-recent-achievements article { padding: .65rem 0; }

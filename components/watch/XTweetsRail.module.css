@@ -58,6 +58,8 @@
 /* The quote is a real cached post, not a provider widget. Keep it visibly
    nested without making it compete with the parent card. */
 .quoteCard { display:grid; min-width:0; gap:.56rem; border:1px solid color-mix(in srgb,var(--ink) 15%,transparent); border-radius:.78rem; background:color-mix(in srgb,var(--ink) 3%,var(--bg)); padding:.7rem; }
+.quoteLabel { display:inline-flex; width:fit-content; align-items:center; gap:.28rem; color:var(--ink-dim); font-size:.54rem; font-weight:760; letter-spacing:.055em; line-height:1; text-transform:uppercase; }
+.quoteLabel svg { width:.64rem; height:.64rem; }
 .quoteHeader { display:grid; min-width:0; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.48rem; }
 .quoteHeader > a { display:grid; width:1.72rem; height:1.72rem; place-items:center; overflow:hidden; border-radius:50%; background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--ink-dim); }
 .quoteHeader > a:last-child { width:1.65rem; height:1.65rem; margin-left:auto; background:transparent; transition:background 150ms ease,color 150ms ease; }

@@ -263,6 +263,9 @@ function events(raw: RawPassportAdminOverview, freezes: PassportFreeze[]): Passp
       scheduledEndAt: iso(event.ends_at ?? event.endsAt),
       startedAt: status === "live" || status === "ended" || status === "certified" ? iso(event.starts_at ?? event.startsAt) : null,
       endedAt: status === "ended" || status === "certified" ? iso(event.ends_at ?? event.endsAt) : null,
+      minimumWatchSeconds: numberValue(event.minimum_watch_seconds ?? event.minimumWatchSeconds, 120),
+      attendanceGraceSeconds: numberValue(event.attendance_grace_seconds ?? event.attendanceGraceSeconds, 300),
+      heartbeatIntervalSeconds: numberValue(event.heartbeat_interval_seconds ?? event.heartbeatIntervalSeconds, 30),
       freeze: freezes.find((freeze) => freeze.channelSlug === channelSlug && (!freeze.eventId || freeze.eventId === id)) ?? null,
     };
   }).filter((event) => event.id);

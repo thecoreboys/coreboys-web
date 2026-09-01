@@ -16,6 +16,9 @@
 
 .guide-history {
   overflow-x: clip;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: .9rem;
+  background: #101116;
 }
 
 .guide-v2 button,
@@ -3402,7 +3405,7 @@
 .guide-history-heading h2 {
   margin: 0.22rem 0 0;
   color: #fff;
-  font-size: clamp(1rem, 2vw, 1.15rem);
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
   font-weight: 680;
   letter-spacing: -0.025em;
 }
@@ -3439,7 +3442,7 @@
 .guide-history-legend i:nth-child(4) { background: var(--core); }
 
 .guide-history-body {
-  padding: clamp(0.9rem, 2vw, 1.25rem);
+  padding: clamp(1rem, 2vw, 1.5rem);
 }
 
 .guide-history-body > p {
@@ -3466,7 +3469,7 @@
 }
 
 .guide-history-year {
-  min-width: 43rem;
+  min-width: 62rem;
   padding: 0.15rem 0 0.35rem;
 }
 
@@ -3508,7 +3511,7 @@
 
 .guide-history-year-row {
   align-items: center;
-  min-height: 4.35rem;
+  min-height: 4.65rem;
   padding: 0.48rem 0;
   border-top: 1px solid rgba(255, 255, 255, 0.055);
 }
@@ -3595,7 +3598,7 @@
 .guide-history-contribution-grid {
   display: grid;
   width: 100%;
-  height: 5.6rem;
+  height: 6.1rem;
   grid-auto-flow: column;
   grid-template-columns: repeat(var(--guide-history-weeks), minmax(0, 1fr));
   grid-template-rows: repeat(7, minmax(0, 1fr));

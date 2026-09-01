@@ -740,6 +740,10 @@ function ChannelOnNowPreview({
       entry.item.platform === "twitch" &&
       ((playable.kind === "live" && playable.twitchLogin) || playable.vodId),
   );
+  // Keep a single, observable state for the browser-safe autoplay path. This
+  // is useful to styling/telemetry without confusing a mounted-but-paused
+  // provider frame with actual playback.
+  const providerAutoplayPlaying = autoStart && usesTwitchSdk && playing;
   const frameSrc = useMemo(() => {
     if (!mediaMounted || !host || !playable || directVideoUrl || usesTwitchSdk) return null;
     return embedFor(playable, {
@@ -1085,9 +1089,13 @@ function ChannelOnNowPreview({
   return (
     <section
       ref={slotRef}
-      className={`${styles.heroPreview} ${loaded ? styles.heroPreviewLoaded : ""} ${autoStart && usesTwitchSdk && playing ? styles.heroPreviewProviderAutoplay : ""}`.trim()}
+      // Keep the Twitch iframe above decorative copy from its first paint. The
+      // copy is useful for posters and non-Twitch embeds, but it can obscure a
+      // muted autoplay attempt while the provider is still initializing.
+      className={`${styles.heroPreview} ${loaded ? styles.heroPreviewLoaded : ""} ${autoStart && usesTwitchSdk ? styles.heroPreviewProviderAutoplay : ""}`.trim()}
       aria-label={`${channel.name} 24/7 on now`}
       data-autoplay={autoStart ? (playing ? "playing" : autoplayBlocked ? "blocked" : "pending") : "preference"}
+      data-provider-playing={providerAutoplayPlaying ? "true" : undefined}
     >
       <div className={styles.heroPreviewMedia} aria-hidden={autoStart && usesTwitchSdk ? undefined : "true"}>
         <WatchThumb
@@ -1946,9 +1954,6 @@ export function NetworkChannelPage({
               <span className={styles.eyebrow}>Behind the camera</span>
               <h2 id="channel-team-heading">{member ? `${member.stageName}'s crew.` : "The CORE crew."}</h2>
             </div>
-            <p>
-              The people who help make this channel happen.
-            </p>
           </div>
           <ul className={styles.teamGrid}>
             {team.map((crew) => (

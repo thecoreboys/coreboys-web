@@ -1742,10 +1742,8 @@ type FaceTag = z.infer<typeof FaceTagSchema>;
  * optional role + socials.
  *
  * The `href` resolution per kind:
- *   - member   → `/m/<slug>`
- *   - crew     → `/m/<crewSlug-or-first-worksWith>` (today crew has no
- *                standalone page; href falls back to "#" when no
- *                resolution rule applies)
+ *   - member   → `/about/<slug>`
+ *   - crew     → `#` (today crew has no standalone profile page)
  *   - external → first social URL, or "#" if no socials
  */
 declare const TalentTagSchema: z.ZodObject<{
@@ -1829,10 +1827,10 @@ declare const CREW_BY_SLUG: Readonly<Record<string, CrewMember>>;
  *
  * `href` resolution per kind:
  *
- *   - `member`   → `/m/<slug>` (the marketing-site member page)
+ *   - `member`   → `/about/<slug>` (the marketing-site member page)
  *   - `crew`     → `#` (no standalone crew page today; the cms can add
  *                  a `crewSlug → memberSlug` mapping later, at which point
- *                  this resolves to `/m/<memberSlug>`)
+ *                  this resolves to `/about/<memberSlug>`)
  *   - `external` → first social URL, or `#` when the person has no socials
  *
  * `avatarUrl` falls through to the embedded data when present; member

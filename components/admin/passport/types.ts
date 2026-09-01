@@ -52,6 +52,9 @@ export type PassportEvent = {
   scheduledEndAt: string | null;
   startedAt: string | null;
   endedAt: string | null;
+  minimumWatchSeconds: number;
+  attendanceGraceSeconds: number;
+  heartbeatIntervalSeconds: number;
   freeze: PassportFreeze | null;
 };
 

@@ -12,7 +12,14 @@ import {
  * can continue while the human-facing app is gated.
  */
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png).*)"],
+  // Public artwork, media, and fonts never need an access/session decision.
+  // Exclude them at the matcher level instead of starting the edge function
+  // and immediately returning below for every image in a gallery or rail.
+  // Keep JavaScript out of this list: `core-push-sw.js` must continue through
+  // the access gate so an unauthenticated preview cannot install the worker.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|.*\\.(?:avif|gif|ico|jpeg|jpg|mp3|mp4|ogg|png|svg|ttf|wav|webm|webp|woff|woff2)$).*)",
+  ],
 };
 
 const TRUSTED_INTEGRATION_PATHS = [

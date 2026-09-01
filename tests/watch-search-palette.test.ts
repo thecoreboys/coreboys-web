@@ -8,12 +8,18 @@ const palette = read("components/watch/WatchPalette.tsx");
 const chrome = read("components/watch/WatchChrome.tsx");
 const topNav = read("components/chrome/TopNav.tsx");
 const layout = read("app/layout.tsx");
+const enhancements = read("components/watch/GlobalWatchEnhancements.tsx");
 const css = read("app/watch/watch.css");
 
-test("mounts one global, immediately focusable search palette", () => {
-  assert.match(layout, /<WatchPalette\s*\/>/);
+test("mounts one global, focusable search palette through deferred watch enhancements", () => {
+  assert.match(layout, /<GlobalWatchEnhancements\s*\/>/);
+  assert.doesNotMatch(layout, /<WatchPalette\b/);
   assert.doesNotMatch(chrome, /<WatchPalette/);
   assert.match(layout, /import "\.\/watch\/watch\.css"/);
+  assert.match(enhancements, /const WatchPalette = dynamic\(/);
+  assert.match(enhancements, /import\("@\/components\/watch\/WatchPalette"\)/);
+  assert.match(enhancements, /<WatchPalette\s*\/>/);
+  assert.match(enhancements, /isWatchSurface\(pathname\)/);
   assert.match(palette, /window\.addEventListener\("core-watch-search", show\)/);
   assert.match(palette, /window\.requestAnimationFrame\(\(\) => inputRef\.current\?\.focus\(\)\)/);
   assert.match(palette, /createPortal\(/);

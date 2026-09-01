@@ -2227,7 +2227,7 @@ a.redUnderline:focus-visible {
   font-size: 1.2em;
 }
 
-.noInvoice {
+.disclaimerCard {
   padding: 1rem;
   border: 0.14rem solid var(--news-ink);
   background: rgba(244, 234, 213, 0.45);
@@ -2235,13 +2235,12 @@ a.redUnderline:focus-visible {
   transform: rotate(-1.25deg);
 }
 
-.noInvoice span,
-.noInvoice strong,
-.noInvoice p {
+.disclaimerCard span,
+.disclaimerCard p {
   display: block;
 }
 
-.noInvoice span {
+.disclaimerCard span {
   color: var(--news-red);
   font-family: var(--font-sans), Inter, system-ui, sans-serif;
   font-size: 0.55rem;
@@ -2250,20 +2249,19 @@ a.redUnderline:focus-visible {
   text-transform: uppercase;
 }
 
-.noInvoice strong {
-  margin-top: 0.35rem;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.45rem;
-  line-height: 1;
-}
-
-.noInvoice p {
+.disclaimerCard p {
   margin: 0.65rem 0 0;
-  padding-top: 0.55rem;
-  border-top: 1px solid rgba(23, 21, 19, 0.35);
   font-family: Georgia, "Times New Roman", serif;
   font-size: 0.82rem;
   line-height: 1.4;
+}
+
+.disclaimerCard a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--news-red);
+  text-underline-offset: 0.14em;
 }
 
 .manifesto {

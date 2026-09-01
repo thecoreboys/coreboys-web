@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle, CreditCard, ExternalLink, LoaderCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, ChevronDown, ChevronUp, CreditCard, ExternalLink, LoaderCircle } from "lucide-react";
 import styles from "./PricingExperience.module.css";
 
 type Bounds = {
@@ -127,6 +127,12 @@ export function MembershipActions({ active, configured }: { active: boolean; con
   const effective = dateLabel(priceWarning?.effectiveAt);
   const renewal = dateLabel(summary?.nextChargeAt);
   const checkoutDiscontinued = Boolean(bounds.renewalsDisabledAt);
+  function adjustAmount(delta: number) {
+    const current = Number(dollarInput);
+    const next = (Number.isFinite(current) ? current : bounds.defaultAmountCents / 100) + delta;
+    const clamped = Math.min(bounds.maximumAmountCents / 100, Math.max(bounds.minimumAmountCents / 100, next));
+    setDollarInput(String(clamped));
+  }
 
   if (active) {
     const operationsConfigured = summary?.configured ?? configured;
@@ -141,11 +147,7 @@ export function MembershipActions({ active, configured }: { active: boolean; con
         ) : null}
         {summary?.canUpdateAmount ? (
           <>
-            <label className={styles.amountField}>
-              <span>Your next monthly renewal</span><span className={styles.currency}>$</span>
-              <input inputMode="decimal" type="number" min={bounds.minimumAmountCents / 100} max={bounds.maximumAmountCents / 100} step="1" value={dollarInput} onChange={(event) => setDollarInput(event.target.value)} aria-describedby="membership-range" />
-              <em>/ month</em>
-            </label>
+            <AmountField label="Your next monthly renewal" value={dollarInput} bounds={bounds} onChange={setDollarInput} onAdjust={adjustAmount} describedBy="membership-range" />
             <Consent checked={termsAccepted} onChange={setTermsAccepted} amountCents={amountCents} />
             <button type="button" className={styles.primaryCta} onClick={() => void submitAmount("amount")} disabled={!operationsConfigured || pending !== null || !validAmount || !termsAccepted}>
               {pending === "amount" ? <LoaderCircle className={styles.spinner} /> : <CreditCard />}Update next renewal
@@ -164,11 +166,7 @@ export function MembershipActions({ active, configured }: { active: boolean; con
 
   return (
     <div className={styles.billingActions}>
-      <label className={styles.amountField}>
-        <span>Your monthly support</span><span className={styles.currency}>$</span>
-        <input inputMode="decimal" type="number" min={bounds.minimumAmountCents / 100} max={bounds.maximumAmountCents / 100} step="1" value={dollarInput} onChange={(event) => setDollarInput(event.target.value)} aria-describedby="membership-minimum" />
-        <em>/ month</em>
-      </label>
+      <AmountField label="Your monthly support" value={dollarInput} bounds={bounds} onChange={setDollarInput} onAdjust={adjustAmount} describedBy="membership-minimum" />
       <Consent checked={termsAccepted} onChange={setTermsAccepted} amountCents={amountCents} />
       <button type="button" className={styles.primaryCta} onClick={() => void submitAmount("checkout")} disabled={!configured || checkoutDiscontinued || pending !== null || !validAmount || !termsAccepted}>
         {pending === "checkout" ? <LoaderCircle className={styles.spinner} /> : <CreditCard />}Become a supporter
@@ -179,6 +177,14 @@ export function MembershipActions({ active, configured }: { active: boolean; con
       {error ? <p className={styles.billingError} role="alert">{error}</p> : null}
     </div>
   );
+}
+
+function AmountField({ label, value, bounds, onChange, onAdjust, describedBy }: { label: string; value: string; bounds: Bounds; onChange: (value: string) => void; onAdjust: (delta: number) => void; describedBy: string }) {
+  return <label className={styles.amountField}>
+    <span>{label}</span><span className={styles.currency}>$</span>
+    <span className={styles.amountInputWrap}><input inputMode="decimal" type="number" min={bounds.minimumAmountCents / 100} max={bounds.maximumAmountCents / 100} step="1" value={value} onChange={(event) => onChange(event.target.value)} aria-describedby={describedBy} /><span className={styles.amountStepper}><button type="button" onClick={() => onAdjust(1)} aria-label="Increase monthly amount"><ChevronUp aria-hidden="true" /></button><button type="button" onClick={() => onAdjust(-1)} aria-label="Decrease monthly amount"><ChevronDown aria-hidden="true" /></button></span></span>
+    <em>/ month</em>
+  </label>;
 }
 
 function Consent({ checked, onChange, amountCents }: { checked: boolean; onChange: (value: boolean) => void; amountCents: number }) {

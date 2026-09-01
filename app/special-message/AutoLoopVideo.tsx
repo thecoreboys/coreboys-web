@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type AutoLoopVideoProps = {
   src: string;
@@ -10,14 +10,46 @@ type AutoLoopVideoProps = {
 
 export function AutoLoopVideo({ src, poster, className }: AutoLoopVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  // The film rail sits well below the initial viewport. Keep its still
+  // poster immediately available, but defer each MP4 request until the rail
+  // is approaching the screen. Once mounted, the existing autoplay loop
+  // behavior stays exactly the same.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoad(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setShouldLoad(true);
+        observer.disconnect();
+      },
+      { rootMargin: "420px 0px" },
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) {
+    if (!video || !shouldLoad) {
       return;
     }
 
     let resumeTimer: number | undefined;
+
+    // The <source> is introduced after the video element has mounted. Force
+    // a fresh resource selection before the first play attempt so this works
+    // consistently in Safari as well as Chromium.
+    video.load();
 
     const keepPlaying = () => {
       video.muted = true;
@@ -47,7 +79,7 @@ export function AutoLoopVideo({ src, poster, className }: AutoLoopVideoProps) {
       video.removeEventListener("pause", resumeAfterPause);
       video.removeEventListener("ended", keepPlaying);
     };
-  }, [src]);
+  }, [shouldLoad, src]);
 
   return (
     <video
@@ -57,12 +89,12 @@ export function AutoLoopVideo({ src, poster, className }: AutoLoopVideoProps) {
       loop
       muted
       playsInline
-      preload="auto"
+      preload={shouldLoad ? "metadata" : "none"}
       tabIndex={-1}
       aria-hidden="true"
       poster={poster}
     >
-      <source src={src} type="video/mp4" />
+      {shouldLoad ? <source src={src} type="video/mp4" /> : null}
     </video>
   );
 }

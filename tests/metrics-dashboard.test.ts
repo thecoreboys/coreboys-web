@@ -49,6 +49,25 @@ test("metrics dashboard keeps missing period deltas unavailable instead of inven
   assert.equal(lacy?.channels[0]?.growth, null);
 });
 
+test("metrics dashboard uses a stored TwitchTracker follower total when a Twitch audience snapshot is absent", () => {
+  const result = deriveMetricsDashboard(dashboard({
+    audience: [],
+    twitchRolling: [{
+      slug: "adapt",
+      minutesStreamed: 1_800,
+      avgViewers: 2_400,
+      maxViewers: 9_000,
+      hoursWatched: 72_000,
+      followersGained: 1_200,
+      followersTotal: 315_000,
+      fetchedAt: "2026-08-31T03:00:00Z",
+    }],
+  }), "30d");
+  const adapt = result.members.find((member) => member.owner === "adapt");
+  assert.equal(adapt?.channels.find((channel) => channel.platform === "twitch")?.followers, 315_000);
+  assert.equal(adapt?.followers, 315_000);
+});
+
 test("metrics dashboard marks stream status unavailable when the stored poll is stale", () => {
   const result = deriveMetricsDashboard(dashboard({ freshness: { audience: null, social: null, streams: "2026-08-30T00:00:00Z", chat: null, twitchTracker: null } }), "7d");
   assert.equal(result.members.find((member) => member.owner === "adapt")?.liveStatus, "unavailable");

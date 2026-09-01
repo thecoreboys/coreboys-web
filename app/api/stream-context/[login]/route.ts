@@ -32,6 +32,16 @@ type LiveEntry = {
 type CacheEntry = { summary: string; source: "ai" | "fallback"; expiresAt: number };
 const cache = new Map<string, CacheEntry>();
 const TTL_MS = 90_000;
+const CACHE_HEADERS = {
+  // Keep the public response aligned with the in-process cache. Without this,
+  // fallback and cache-hit responses miss the CDN cache even though their
+  // source data is already intentionally shared for this window.
+  "Cache-Control": "public, s-maxage=90, stale-while-revalidate=180",
+};
+
+function cachedJson(entry: CacheEntry) {
+  return NextResponse.json(entry, { headers: CACHE_HEADERS });
+}
 
 export async function GET(
   req: NextRequest,
@@ -42,7 +52,7 @@ export async function GET(
   const now = Date.now();
   const cached = cache.get(key);
   if (cached && cached.expiresAt > now) {
-    return NextResponse.json(cached);
+    return cachedJson(cached);
   }
 
   const live = await getLiveEntry(req, login);
@@ -58,13 +68,13 @@ export async function GET(
   if (!apiKey) {
     const entry = { summary: fallback, source: "fallback" as const, expiresAt: now + TTL_MS };
     cache.set(key, entry);
-    return NextResponse.json(entry);
+    return cachedJson(entry);
   }
   const reservation = await reserveAiUsage({ provider: "anthropic", feature: "stream_context", model: "claude-haiku-4-5-20251001", subjectKey: `stream:${key}`, estimatedInputTokens: 500, maxOutputTokens: 60 });
   if (!reservation.ok) {
     const entry = { summary: fallback, source: "fallback" as const, expiresAt: now + TTL_MS };
     cache.set(key, entry);
-    return NextResponse.json(entry);
+    return cachedJson(entry);
   }
 
   try {
@@ -100,17 +110,13 @@ export async function GET(
     const summary = text || fallback;
     const entry = { summary, source: "ai" as const, expiresAt: now + TTL_MS };
     cache.set(key, entry);
-    return NextResponse.json(entry, {
-      headers: {
-        "Cache-Control": "public, s-maxage=90, stale-while-revalidate=180",
-      },
-    });
+    return cachedJson(entry);
   } catch (err) {
     await cancelAiUsage(reservation.reservationId).catch(() => undefined);
     console.error("[stream-context]", err);
     const entry = { summary: fallback, source: "fallback" as const, expiresAt: now + TTL_MS };
     cache.set(key, entry);
-    return NextResponse.json(entry, { status: 200 });
+    return cachedJson(entry);
   }
 }
 

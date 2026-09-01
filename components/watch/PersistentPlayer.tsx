@@ -711,6 +711,11 @@ function theaterHrefFor(item: Playable) {
   query.set("src", item.clipSrc ?? item.platform);
   const url = item.sourceUrl ?? item.url ?? item.mediaUrl;
   if (url) query.set("url", url);
+  // Preserve the verified artwork when a social photo is expanded from a
+  // shelf. Provider pages are deliberately opaque, so the Theater can show a
+  // complete in-app photo immediately and still offer the canonical post.
+  if (item.poster) query.set("poster", item.poster);
+  if (item.mediaUrl) query.set("media", item.mediaUrl);
   return `/theater?${query.toString()}`;
 }
 
@@ -2664,6 +2669,11 @@ export function PersistentPlayer() {
   const scrubberProgress = canScrub ? (scrubberPosition / scrubberDuration) * 100 : 0;
   const theater = mode === "theater";
   const playerScreen = theater || playerPage;
+  const socialTheaterPresentation = playerScreen
+    && (current.platform === "instagram" || current.platform === "tiktok");
+  const socialTheaterLabel = current.platform === "instagram"
+    ? current.format === "photo" ? "Instagram photo" : "Instagram Reel"
+    : "TikTok";
   // A compact/theater player can remain mounted while navigating to Shorts.
   // Keep the TV-style guide exclusive to Theater so it never leaks into the
   // dedicated portrait player route.
@@ -3391,6 +3401,28 @@ export function PersistentPlayer() {
                       <span className="size-1.5 shrink-0 rounded-full bg-[#ef233c] shadow-[0_0_10px_#ef233c]" />
                       <span className="truncate">{playerScreen ? channel.title : channel.title.replace(/\s+Network\b/i, "")}</span>
                     </span>
+                  ) : null}
+                </div>
+              ) : null}
+              {socialTheaterPresentation && !cleanTwitchFrame ? (
+                <div
+                  data-social-theater-presentation
+                  className="absolute bottom-4 left-4 z-30 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-2xl border border-white/15 bg-black/72 py-1.5 pl-1.5 pr-2.5 text-white shadow-[0_14px_40px_rgba(0,0,0,0.42)] backdrop-blur-xl"
+                >
+                  <PlatformMark item={current} />
+                  <span className="min-w-0">
+                    <span className="block text-[9px] font-bold uppercase tracking-[0.14em] text-white/55">{socialTheaterLabel}</span>
+                    <span className="block max-w-[13rem] truncate text-xs font-semibold text-white">{current.memberLabel}</span>
+                  </span>
+                  {(current.sourceUrl ?? current.url) ? (
+                    <a
+                      href={(current.sourceUrl ?? current.url)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`ml-1 inline-flex min-h-8 shrink-0 items-center rounded-lg bg-white px-2.5 text-[10px] font-bold text-black hover:bg-white/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${CONTROL_FEEDBACK}`}
+                    >
+                      Original ↗
+                    </a>
                   ) : null}
                 </div>
               ) : null}

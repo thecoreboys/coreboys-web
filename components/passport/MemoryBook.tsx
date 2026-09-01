@@ -7,6 +7,7 @@ import type { PassportInventoryState } from "@/hooks/passport/usePassportInvento
 import { MomentCardBack, MomentCardTile } from "./MomentCard";
 import { PassportDialog } from "./PassportDialog";
 import { boundedPercent, filterCards, formatPassportDate } from "./passport-utils";
+import { NativeSelect } from "@/components/base/select/select-native";
 
 type MemoryView = "grid" | "timeline";
 
@@ -77,23 +78,8 @@ export function MemoryBook({
           <span className="sr-only">Search cards</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search moments, events, or tags" />
         </label>
-        <label>
-          <span className="sr-only">Channel</span>
-          <select value={channel} onChange={(event) => setChannel(event.target.value)}>
-            <option value="all">All channels</option>
-            {channels.map((slug) => <option key={slug} value={slug}>{slug.replaceAll("-", " ")}</option>)}
-          </select>
-        </label>
-        <label>
-          <span className="sr-only">Rarity</span>
-          <select value={rarity} onChange={(event) => setRarity(event.target.value as PassportRarity | "all")}>
-            <option value="all">All editions</option>
-            <option value="common">Common</option>
-            <option value="rare">Rare</option>
-            <option value="historic">Historic</option>
-            <option value="legendary">Legendary</option>
-          </select>
-        </label>
+        <NativeSelect aria-label="Channel" value={channel} onChange={(event) => setChannel(event.target.value)} options={[{ value: "all", label: "All channels" }, ...channels.map((slug) => ({ value: slug, label: slug.replaceAll("-", " ") }))]} size="sm" />
+        <NativeSelect aria-label="Rarity" value={rarity} onChange={(event) => setRarity(event.target.value as PassportRarity | "all")} options={[{ value: "all", label: "All editions" }, { value: "common", label: "Common" }, { value: "rare", label: "Rare" }, { value: "historic", label: "Historic" }, { value: "legendary", label: "Legendary" }]} size="sm" />
         <button type="button" className={`passport-filter-toggle ${duplicatesOnly ? "is-active" : ""}`} onClick={() => setDuplicatesOnly((value) => !value)} aria-pressed={duplicatesOnly}>
           <ListFilter aria-hidden="true" /> Duplicates
         </button>

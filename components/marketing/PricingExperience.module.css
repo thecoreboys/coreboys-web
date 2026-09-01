@@ -221,6 +221,14 @@
 .amountField > span:first-child { color: #dedee3; font-size: .76rem; font-weight: 650; }
 .amountField .currency, .amountField em { color: var(--upgrade-muted); font-size: .8rem; font-style: normal; }
 .amountField input { width: 100%; border: 0; border-bottom: 1px solid rgba(240,107,173,.75); outline: 0; background: transparent; color: #fff; font: inherit; font-size: 1rem; font-weight: 720; text-align: right; }
+.amountInputWrap { position: relative; display: flex; min-width: 0; align-items: center; }
+.amountInputWrap input { padding-right: 1.65rem; }
+.amountInputWrap input::-webkit-outer-spin-button, .amountInputWrap input::-webkit-inner-spin-button { margin: 0; }
+.amountStepper { position: absolute; right: 0; display: grid; width: 1.35rem; height: 2.2rem; overflow: hidden; border: 1px solid rgba(255,255,255,.14); border-radius: .4rem; background: rgba(255,255,255,.06); }
+.amountStepper button { display: grid; min-width: 0; min-height: 0; place-items: center; border: 0; color: #bdbdc6; cursor: pointer; }
+.amountStepper button + button { border-top: 1px solid rgba(255,255,255,.12); }
+.amountStepper button:hover { background: rgba(240,107,173,.2); color: #fff; }
+.amountStepper svg { width: .72rem; height: .72rem; }
 .amountOptions { display: flex; margin-top: .65rem; flex-wrap: wrap; gap: .45rem; }
 .amountOption { min-height: 2.2rem; border: 1px solid var(--upgrade-line); border-radius: .58rem; background: rgba(255,255,255,.025); padding: .45rem .65rem; color: #d4d4da; font: inherit; font-size: .72rem; font-weight: 670; cursor: pointer; }
 .amountOption:hover, .amountOption[aria-pressed="true"] { border-color: rgba(240,107,173,.56); background: rgba(219,3,104,.12); color: #fff; }

@@ -219,7 +219,10 @@ async function sendPush(row: Delivery): Promise<boolean> {
     href: row.href,
     title: socialAlertLabel({ contentType: row.content_type, provider: row.provider }),
     body: row.title,
+    previewBody: row.body,
     artworkUrl: row.artwork_url,
+    provider: row.provider,
+    contentType: row.content_type,
     tag: `core-${row.event_id}`,
   });
   const outcomes = await Promise.all(subscriptions.rows.map(async (subscription) => {

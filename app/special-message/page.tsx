@@ -604,16 +604,6 @@ export default function SpecialMessagePage() {
                   put pressure on the people helping me, which is why I am asking here instead.
                 </p>
               </div>
-              <div className={styles.openDoor}>
-                <p>
-                  If anyone at CORE would like to talk about a potential position, buying the site
-                  or domain, or putting my skills to use, please reach out to me on X at{" "}
-                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">
-                    @berryeyu
-                  </a>
-                  .
-                </p>
-              </div>
               <p className={styles.craftClosing}>
                 Create. Own. Run. Everything. is what CORE stands for. I love that because it
                 is the same instinct that has followed me since I was 11: take the idea
@@ -631,10 +621,28 @@ export default function SpecialMessagePage() {
                 <strong>Everything.</strong>
               </div>
 
-              <aside className={styles.noInvoice}>
-                <span>Just to be clear</span>
-                <strong>This was a gift.</strong>
-                <p>I am not asking CORE for payment or reimbursement for this website.</p>
+              <aside className={styles.disclaimerCard}>
+                <span>Disclaimer</span>
+                <p>
+                  This is an independent, community-created project and is not affiliated with,
+                  endorsed by, or officially associated with CORE or its members.
+                </p>
+                <p>
+                  The project is publicly shared as a portfolio piece to showcase my web
+                  development, design, and software engineering work.
+                </p>
+                <p>
+                  I&apos;m a big believer in the potential of CORE as a brand, platform, and
+                  community, and I&apos;d love the opportunity to connect with Adapt, Woj, Bepsy,
+                  or anyone on the technical, marketing, or digital team to discuss the project,
+                  future ideas, or ways I could potentially contribute.
+                </p>
+                <p>
+                  Feel free to reach out to me on X: {" "}
+                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">
+                    @berryeyu
+                  </a>
+                </p>
               </aside>
             </div>
           </section>

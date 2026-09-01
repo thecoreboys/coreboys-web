@@ -202,29 +202,33 @@ export function AccountSettingsHub() {
   const persistPlayer = useCallback(async (patch: Partial<PlayerSettings>) => {
     const next = { ...playerSettings(), ...patch };
     try {
-      await fetch("/api/account/workspaces", {
+      const response = await fetch("/api/account/workspaces", {
         method: "PUT",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ kind: "account-settings", name: "player", payload: next }),
       });
+      if (!response.ok) throw new Error(`player_settings_${response.status}`);
     } catch {
-      // Local player preferences still persist through PlayerProvider when a
-      // network save is unavailable.
+      // Local player preferences still persist through PlayerProvider, but the
+      // shared save indicator must make a failed account sync visible.
+      setSaveState("error");
     }
   }, [playerSettings]);
 
   const persistRadio = useCallback(async (next: RadioAudioSettings) => {
     try {
-      await fetch("/api/account/workspaces", {
+      const response = await fetch("/api/account/workspaces", {
         method: "PUT",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ kind: "account-settings", name: "radio", payload: next }),
       });
+      if (!response.ok) throw new Error(`radio_settings_${response.status}`);
     } catch {
-      // The local listener preference remains active when an account sync is
-      // unavailable. No setting can initiate a new voice generation job.
+      // The local listener preference remains active, but failed account sync
+      // should not be presented as if it were saved remotely.
+      setSaveState("error");
     }
   }, []);
 

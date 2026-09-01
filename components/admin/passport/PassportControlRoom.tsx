@@ -491,7 +491,16 @@ function EventDesk({ event, channelSlug, busy, mutate }: { event: PassportEvent 
   const [title, setTitle] = useState("");
   const [scheduledStartAt, setScheduledStartAt] = useState("");
   const [playbackRef, setPlaybackRef] = useState("");
+  const [minimumWatchSeconds, setMinimumWatchSeconds] = useState(120);
+  const [attendanceGraceSeconds, setAttendanceGraceSeconds] = useState(300);
+  const [heartbeatIntervalSeconds, setHeartbeatIntervalSeconds] = useState(30);
   useEffect(() => { setPlaybackRef(event?.playbackRef ?? ""); }, [event?.id, event?.playbackRef]);
+  useEffect(() => {
+    if (!event) return;
+    setMinimumWatchSeconds(event.minimumWatchSeconds);
+    setAttendanceGraceSeconds(event.attendanceGraceSeconds);
+    setHeartbeatIntervalSeconds(event.heartbeatIntervalSeconds);
+  }, [event?.id, event?.minimumWatchSeconds, event?.attendanceGraceSeconds, event?.heartbeatIntervalSeconds]);
   const hasPlaybackProof = Boolean(event?.playbackRef);
   return (
     <Panel icon={<Radio className="size-5" />} title={event ? event.title : "Create the first event"} description={event ? `${humanize(event.status)} · ${formatAdminTime(event.scheduledStartAt ?? event.startedAt)} · ${event.playbackRef ? `attendance proof bound to ${event.playbackRef}` : "attendance and Moment Cards disabled until exact media is bound"}` : "Events bind staff, polls, scores, moments, and rewards to one accountable broadcast."}>
@@ -504,12 +513,16 @@ function EventDesk({ event, channelSlug, busy, mutate }: { event: PassportEvent 
           </div>
           {!hasPlaybackProof ? <Message tone="warning" role="status">Bind the exact player reference before going live. Poll and score drafts remain available, but attendance, Moment Cards, and presence rewards cannot be verified without it.</Message> : null}
           {event.status === "draft" || event.status === "scheduled" ? <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" onSubmit={(formEvent) => { formEvent.preventDefault(); void mutate("event.update", { eventId: event.id, externalRef: playbackRef.trim() }, "Playback proof updated."); }}><Field label="Attendance playback reference" hint="Exact media URL or canonical provider ID"><input required maxLength={200} className={inputClass} value={playbackRef} onChange={(changeEvent) => setPlaybackRef(changeEvent.target.value)} placeholder="youtube:video-id or twitch:stream:login" /></Field><ActionButton type="submit" disabled={!playbackRef.trim() || busy !== null || playbackRef.trim() === (event.playbackRef ?? "")} loading={busy === "event.update"} icon={<Lock className="size-4" />}>Bind media</ActionButton></form> : null}
+          {event.status === "draft" || event.status === "scheduled" ? <form className="grid gap-3 border-t border-secondary pt-3 sm:grid-cols-3" onSubmit={(formEvent) => { formEvent.preventDefault(); void mutate("event.update", { eventId: event.id, minimumWatchSeconds, attendanceGraceSeconds, heartbeatIntervalSeconds }, "Watch reward rules updated."); }}><Field label="Watch time to qualify" hint="Seconds of continuous viewing"><input type="number" min={30} max={86400} className={inputClass} value={minimumWatchSeconds} onChange={(changeEvent) => setMinimumWatchSeconds(Number(changeEvent.target.value))} /></Field><Field label="Start/end grace" hint="Seconds around the schedule"><input type="number" min={0} max={86400} className={inputClass} value={attendanceGraceSeconds} onChange={(changeEvent) => setAttendanceGraceSeconds(Number(changeEvent.target.value))} /></Field><Field label="Presence check interval" hint="Seconds between checks"><input type="number" min={10} max={300} className={inputClass} value={heartbeatIntervalSeconds} onChange={(changeEvent) => setHeartbeatIntervalSeconds(Number(changeEvent.target.value))} /></Field><div className="sm:col-span-3"><ActionButton type="submit" disabled={busy !== null || minimumWatchSeconds < 30 || heartbeatIntervalSeconds < 10} loading={busy === "event.update"} icon={<BadgeCheck className="size-4" />}>Save watch reward rules</ActionButton></div></form> : null}
         </div>
       ) : (
-        <form className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_auto] xl:items-end" onSubmit={(formEvent) => { formEvent.preventDefault(); void mutate("event.create", { channelSlug, title, externalRef: playbackRef.trim() || null, scheduledStartAt: scheduledStartAt ? new Date(scheduledStartAt).toISOString() : null }, "Event created.").then(() => { setTitle(""); setPlaybackRef(""); setScheduledStartAt(""); }); }}>
+        <form className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_auto] xl:items-end" onSubmit={(formEvent) => { formEvent.preventDefault(); void mutate("event.create", { channelSlug, title, externalRef: playbackRef.trim() || null, scheduledStartAt: scheduledStartAt ? new Date(scheduledStartAt).toISOString() : null, minimumWatchSeconds, attendanceGraceSeconds, heartbeatIntervalSeconds }, "Event created.").then(() => { setTitle(""); setPlaybackRef(""); setScheduledStartAt(""); }); }}>
           <Field label="Event title"><input required minLength={3} maxLength={140} className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="CORE House Game Night" /></Field>
           <Field label="Playback reference" hint="Required for verified attendance and cards"><input required maxLength={200} className={inputClass} value={playbackRef} onChange={(event) => setPlaybackRef(event.target.value)} placeholder="youtube:video-id or twitch:stream:login" /></Field>
           <Field label="Scheduled start"><input className={inputClass} type="datetime-local" value={scheduledStartAt} onChange={(event) => setScheduledStartAt(event.target.value)} /></Field>
+          <Field label="Watch time to qualify"><input type="number" min={30} max={86400} className={inputClass} value={minimumWatchSeconds} onChange={(event) => setMinimumWatchSeconds(Number(event.target.value))} /></Field>
+          <Field label="Schedule grace (sec)"><input type="number" min={0} max={86400} className={inputClass} value={attendanceGraceSeconds} onChange={(event) => setAttendanceGraceSeconds(Number(event.target.value))} /></Field>
+          <Field label="Check interval (sec)"><input type="number" min={10} max={300} className={inputClass} value={heartbeatIntervalSeconds} onChange={(event) => setHeartbeatIntervalSeconds(Number(event.target.value))} /></Field>
           <ActionButton type="submit" disabled={!title.trim() || !playbackRef.trim() || busy !== null} loading={busy === "event.create"} icon={<Plus className="size-4" />}>Create event</ActionButton>
         </form>
       )}

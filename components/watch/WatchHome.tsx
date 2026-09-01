@@ -109,6 +109,7 @@ function EventsSeriesChallengesRail({ originals }: { originals: CoreOriginal[] }
           CORE Originals
         </h2>
       </div>
+      <p className="mb-4 max-w-2xl text-xs leading-5 text-[color:var(--ink-dim)]">Posters are AI-made placeholders and invitations. If you&apos;re an artist in the community, send us your take and help make CORE feel more personal.</p>
       <div className="watch-events-series-rail" aria-label="Events, series, and challenges">
         {posters.map((poster, index) => (
           <Tooltip key={poster.id} title={poster.title} description="Open this CORE Original collection." placement="top" offset={10}>

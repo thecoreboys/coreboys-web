@@ -113,9 +113,14 @@ function fromSocial(item: FeedItem): WatchItem | null {
         ? "post"
         : "clip";
   const playableUrl = item.mediaUrl ?? item.embedUrl ?? sourceUrl;
-  const href = isPhoto || isPost
+  // Instagram photos stay inside the CORE theater just like Reels and
+  // TikToks.  Keep their canonical permalink for the explicit "Open
+  // original" action, while passing the approved artwork separately so the
+  // in-app photo view does not have to wait for an opaque provider embed.
+  const instagramPhotoTheater = isPhoto && item.platform === "instagram";
+  const href = isPost || (isPhoto && !instagramPhotoTheater)
     ? sourceUrl
-    : `/theater?kind=${kind}&src=${encodeURIComponent(item.platform)}&id=${encodeURIComponent(item.id)}&ref=${encodeURIComponent(item.id)}&url=${encodeURIComponent(playableUrl)}&slug=${encodeURIComponent(item.authorSlug ?? "house")}`;
+    : `/theater?kind=${kind}&src=${encodeURIComponent(item.platform)}&id=${encodeURIComponent(item.id)}&ref=${encodeURIComponent(item.id)}&url=${encodeURIComponent(instagramPhotoTheater ? sourceUrl : playableUrl)}&slug=${encodeURIComponent(item.authorSlug ?? "house")}&title=${encodeURIComponent(item.title)}&format=${encodeURIComponent(isPhoto ? "photo" : isShortForm ? "short" : item.format ?? "long")}&orientation=${encodeURIComponent(isPhoto ? "square" : item.orientation ?? (isShortForm ? "portrait" : "landscape"))}${instagramPhotoTheater ? `&poster=${encodeURIComponent(poster)}${item.mediaUrl ? `&media=${encodeURIComponent(item.mediaUrl)}` : ""}` : ""}`;
   return {
     id: item.id,
     kind,
