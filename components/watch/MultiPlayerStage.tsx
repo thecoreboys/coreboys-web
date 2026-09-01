@@ -2158,7 +2158,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       onDrop={onDrop}
       onClick={() => player.focusTile(tile.id)}
       onDoubleClick={() => player.focusTile(tile.id, { takeAudio: false })}
-      className={`group relative overflow-hidden bg-black shadow-xl ring-1 transition duration-150 ${theater ? "rounded-2xl" : "rounded-xl"} ${mobile || theater ? "min-h-0" : "min-h-[10rem]"} ${focused ? "ring-white/40 shadow-[0_24px_72px_rgba(0,0,0,.5)]" : "ring-white/10 hover:ring-white/30 focus-within:ring-white/30"}`}
+      className={`group relative overflow-hidden bg-black shadow-xl ring-1 transition duration-150 ${tile.item.platform === "twitch" ? "is-twitch" : ""} ${theater ? "rounded-2xl" : "rounded-xl"} ${mobile || theater ? "min-h-0" : "min-h-[10rem]"} ${focused ? "ring-white/40 shadow-[0_24px_72px_rgba(0,0,0,.5)]" : "ring-white/10 hover:ring-white/30 focus-within:ring-white/30"}`}
       aria-label={`${tile.item.title} player`}
     >
       {standby ? (
@@ -2284,7 +2284,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
               playingRef.current = true;
             }
           }}
-          className={`pointer-events-none absolute inset-0 h-full w-full ${tile.fit === "cover" ? "scale-[1.02]" : ""}`}
+          className={`absolute inset-0 h-full w-full ${tile.item.platform === "twitch" ? "pointer-events-auto z-10" : "pointer-events-none"} ${tile.fit === "cover" ? "scale-[1.02]" : ""}`}
         />
         </div>
       ) : (
