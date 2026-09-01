@@ -8,6 +8,7 @@ import {
   notificationProviderLabel,
   type NotificationPreviewData,
 } from "@/lib/notification-target";
+import type { NotificationLinkPreview, NotificationXPost } from "@/lib/inbox-notification";
 
 function sourceHost(value: string): string {
   try { return new URL(value).hostname.replace(/^www\./, ""); } catch { return "the source"; }
@@ -25,6 +26,48 @@ function ProviderMark({ provider }: { provider: NotificationPreviewData["provide
   );
 }
 
+function XText({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/t\.co\/[^\s]+)/gi);
+  return (
+    <p className="whitespace-pre-wrap break-words text-[0.98rem] leading-7 text-white/90">
+      {parts.map((part, index) => {
+        if (/^https?:\/\/t\.co\//i.test(part)) return null;
+        return <span key={`${part}-${index}`}>{part}</span>;
+      })}
+    </p>
+  );
+}
+
+function XLinks({ links }: { links: NotificationLinkPreview[] }) {
+  if (!links.length) return null;
+  return (
+    <div className="mt-4 grid gap-2">
+      {links.map((link) => (
+        <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-white/10 bg-white/[.04] p-2.5 transition hover:border-white/25 hover:bg-white/[.08]">
+          {link.imageUrl ? <img src={link.imageUrl} alt="" className="size-14 shrink-0 rounded-lg object-cover" referrerPolicy="no-referrer" /> : <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-white/[.08] text-white/55"><Link2 className="size-4" aria-hidden /></span>}
+          <span className="min-w-0 flex-1"><span className="block truncate text-[10px] font-semibold uppercase tracking-[.12em] text-white/45">{link.label ?? sourceHost(link.href)}</span><strong className="mt-1 block truncate text-sm text-white/90">{link.title ?? sourceHost(link.href)}</strong>{link.description ? <span className="mt-0.5 block truncate text-xs text-white/50">{link.description}</span> : null}</span>
+          <ExternalLink className="size-4 shrink-0 text-white/45" aria-hidden />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function XPostPreview({ post }: { post: NotificationXPost }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
+      <header className="flex items-center gap-3">
+        {post.authorAvatarUrl ? <img src={post.authorAvatarUrl} alt="" className="size-11 rounded-full object-cover ring-1 ring-white/15" referrerPolicy="no-referrer" /> : <ProviderMark provider="x" />}
+        <span className="min-w-0 flex-1"><strong className="block truncate text-sm text-white">{post.authorName}{post.verified ? <span className="ml-1 text-sky-400" aria-label="Verified account">✓</span> : null}</strong><span className="block truncate text-xs text-white/50">{post.authorHandle}</span></span>
+        <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" aria-label="Open post on X" className="grid size-8 place-items-center rounded-full text-white/55 transition hover:bg-white/[.08] hover:text-white"><ExternalLink className="size-4" aria-hidden /></a>
+      </header>
+      <div className="mt-4"><XText text={post.text} /><XLinks links={post.links} /></div>
+      {post.media.length ? <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-4 block overflow-hidden rounded-xl border border-white/10"><img src={post.media[0]!.thumbnailUrl} alt="" className="max-h-80 w-full object-cover" referrerPolicy="no-referrer" /></a> : null}
+      {post.quote ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.03] p-3"><div className="flex items-center gap-2">{post.quote.authorAvatarUrl ? <img src={post.quote.authorAvatarUrl} alt="" className="size-7 rounded-full object-cover" referrerPolicy="no-referrer" /> : <ProviderMark provider="x" />}<span className="min-w-0 flex-1"><strong className="block truncate text-xs text-white/85">{post.quote.authorName ?? post.quote.authorHandle}</strong><span className="block truncate text-[11px] text-white/45">{post.quote.authorHandle}</span></span></div><div className="mt-3"><XText text={post.quote.text} /><XLinks links={post.quote.links} /></div>{post.quote.media.length ? <a href={post.quote.statusUrl} target="_blank" rel="noopener noreferrer" className="mt-3 block overflow-hidden rounded-lg"><img src={post.quote.media[0]!.thumbnailUrl} alt="" className="max-h-64 w-full object-cover" referrerPolicy="no-referrer" /></a> : null}</div> : null}
+    </div>
+  );
+}
+
 export function NotificationPreviewSurface({
   preview,
   fullPage = false,
@@ -34,7 +77,7 @@ export function NotificationPreviewSurface({
 }) {
   const [copied, setCopied] = useState(false);
   const provider = notificationProviderLabel(preview.provider);
-  const image = preview.imageUrl ?? preview.avatarUrl;
+  const image = preview.imageUrl;
 
   const copySource = async () => {
     try {
@@ -63,10 +106,8 @@ export function NotificationPreviewSurface({
             <p className="mt-0.5 text-sm font-semibold text-white/90">{provider} post</p>
           </div>
         </div>
-        <DialogTitle className="relative mt-5 max-w-2xl text-2xl leading-[1.05] text-white sm:text-3xl">
-          {preview.title}
-        </DialogTitle>
-        {preview.body ? (
+        {!preview.xPost ? <DialogTitle className="relative mt-5 max-w-2xl text-2xl leading-[1.05] text-white sm:text-3xl">{preview.title}</DialogTitle> : <p className="relative mt-5 text-sm font-semibold text-white/75">X post</p>}
+        {!preview.xPost && preview.body ? (
           <DialogDescription className="relative mt-3 max-w-2xl text-sm leading-6 text-white/65">
             {preview.body}
           </DialogDescription>
@@ -74,7 +115,8 @@ export function NotificationPreviewSurface({
       </div>
 
       <div className="p-4 sm:p-5">
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+        {preview.xPost ? <XPostPreview post={preview.xPost} /> : null}
+        {!preview.xPost ? <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/25">
           {image ? (
             // External artwork is optional decoration. The actual source remains
             // a clearly labelled, explicit action below.
@@ -92,7 +134,7 @@ export function NotificationPreviewSurface({
               <span className="block truncate text-xs text-white/50">{sourceHost(preview.sourceHref)}</span>
             </span>
           </div>
-        </div>
+        </div> : null}
 
         <p className="mt-4 text-xs leading-5 text-white/50">
           This stays on CORE until you choose to open the original post.
@@ -134,7 +176,7 @@ export function NotificationContentPreview({
   return (
     <Dialog open={Boolean(preview)} onOpenChange={(open) => { if (!open) onClose(); }}>
       {preview ? (
-        <DialogContent className="w-[min(42rem,calc(100vw-1.5rem))] max-h-[min(48rem,calc(100dvh-1.5rem))] overflow-y-auto rounded-3xl border-white/12 bg-[#111116] p-0 text-white shadow-[0_36px_130px_rgba(0,0,0,.72)]">
+        <DialogContent className="w-[min(42rem,calc(100vw-1.5rem))] max-h-[min(48rem,calc(100dvh-1.5rem))] overscroll-y-contain overflow-y-auto rounded-3xl border-white/12 bg-[#111116] p-0 text-white shadow-[0_36px_130px_rgba(0,0,0,.72)]">
           <NotificationPreviewSurface preview={preview} />
         </DialogContent>
       ) : null}

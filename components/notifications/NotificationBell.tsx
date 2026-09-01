@@ -59,7 +59,9 @@ function NotificationArtwork({ image }: { image: string | null }) {
 }
 
 function NotificationPreview({ item, onRead, onDelete, onActivate }: { item: InboxNotification; onRead: (id: string) => void; onDelete: (id: string) => void; onActivate: (item: InboxNotification) => void }) {
-  const image = item.imageUrl ?? item.avatarUrl;
+  // An author's X avatar belongs beside their name in the preview. It is not
+  // the notification's artwork and should never become a large hero image.
+  const image = item.imageUrl;
   return (
     <div className={cn("group flex gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[color:var(--surface)]", !item.readAt && "bg-[color:var(--bg-elev)]")}>
       <NotificationArtwork image={image} />
@@ -190,6 +192,7 @@ export function NotificationBell({ variant }: { variant: Variant }) {
       body: item.body,
       imageUrl: item.imageUrl,
       avatarUrl: item.avatarUrl,
+      xPost: item.xPost,
     });
   }
 
@@ -238,7 +241,10 @@ export function NotificationBell({ variant }: { variant: Variant }) {
               Read all
             </button>
           </div>
-          <div className="max-h-[min(27rem,calc(100dvh-8rem))] overscroll-contain overflow-y-auto p-1.5">
+          <div
+            className="max-h-[min(27rem,calc(100dvh-8rem))] overscroll-y-contain overflow-y-auto p-1.5 [scrollbar-gutter:stable]"
+            onWheel={(event) => event.stopPropagation()}
+          >
             {!data ? <div className="h-36 animate-pulse rounded-xl bg-secondary" /> : null}
             {data && data.items.length === 0 ? (
               <div className="px-5 py-10 text-center">

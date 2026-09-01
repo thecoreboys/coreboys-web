@@ -148,34 +148,35 @@ export function NotificationCenterPage() {
       body: item.body,
       imageUrl: item.imageUrl,
       avatarUrl: item.avatarUrl,
+      xPost: item.xPost,
     });
   }
 
   return (
     <main className="mx-auto min-h-[70vh] max-w-5xl px-5 py-10 sm:px-6 lg:px-8 lg:py-16">
-      <div className="flex flex-wrap items-start justify-between gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-5">
         <div className="flex gap-3">
           <span className="mt-1 grid size-10 shrink-0 place-items-center rounded-xl bg-brand-primary text-brand-secondary ring-1 ring-inset ring-brand">
             <Bell className="size-5" aria-hidden />
           </span>
           <div>
-            <p className="text-sm font-semibold text-brand-secondary">Account</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-secondary">Account center</p>
             <h1 className="mt-1 text-display-sm font-semibold tracking-tight text-primary">Notifications</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-tertiary">Creator activity, CORE account updates, and community notices in one place.</p>
+            <p className="mt-2 max-w-2xl text-[15px] leading-6 text-tertiary">Creator activity, CORE account updates, and community notices — all in one place.</p>
           </div>
         </div>
         <button
           type="button"
           disabled={!unreadCount}
           onClick={() => void markAllRead()}
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-secondary px-3 text-sm font-semibold text-secondary ring-1 ring-inset ring-secondary transition hover:bg-primary_hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-secondary px-4 text-sm font-semibold text-secondary ring-1 ring-inset ring-secondary transition hover:bg-primary_hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
         >
           <CheckCheck className="size-4" aria-hidden />
           Mark {filter === "all" ? "all" : "shown"} read
         </button>
       </div>
 
-      <section className="mt-8 overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
+      <section className="mt-8 overflow-hidden rounded-3xl bg-secondary/80 shadow-2xl shadow-black/10 ring-1 ring-inset ring-secondary">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-secondary px-5 py-4 sm:px-6">
           <nav className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-primary p-1 ring-1 ring-inset ring-secondary" aria-label="Notification categories">
             {FILTERS.map((option) => (
@@ -213,15 +214,16 @@ export function NotificationCenterPage() {
             </div>
           ) : null}
           {!loading && !error ? (
-            <ul className="divide-y divide-secondary">
+            <ul className="space-y-1">
               {items.map((item) => {
-                const image = item.imageUrl ?? item.avatarUrl;
+                const image = item.imageUrl;
                 return (
                   <li key={item.id}>
                     <button
                       type="button"
                       onClick={() => activateNotification(item)}
-                      className={cn("group flex gap-3 rounded-xl px-3 py-4 transition hover:bg-primary_hover sm:px-4", !item.readAt && "bg-primary")}
+                      aria-label={`Open notification: ${item.title}`}
+                      className={cn("group flex w-full items-start gap-3 rounded-2xl px-3 py-4 text-left transition hover:bg-primary_hover sm:px-4", !item.readAt ? "bg-primary ring-1 ring-inset ring-secondary" : "hover:ring-1 hover:ring-inset hover:ring-secondary")}
                     >
                       <NotificationArtwork image={image} />
                       <span className="min-w-0 flex-1">
@@ -229,8 +231,8 @@ export function NotificationCenterPage() {
                           <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-quaternary">{categoryLabel(item.category)}</span>
                           <span className="text-xs text-quaternary">{relativeTime(item.createdAt)}</span>
                         </span>
-                        <strong className="mt-1 block text-sm leading-5 text-primary">{item.title}</strong>
-                        {item.body ? <span className="mt-1 block text-sm leading-6 text-tertiary">{item.body}</span> : null}
+                        <strong className="mt-1 block text-[15px] leading-6 text-primary">{item.title}</strong>
+                        {item.body ? <span className="mt-1 block text-sm leading-6 text-tertiary line-clamp-2">{item.body}</span> : null}
                       </span>
                       <span className="flex shrink-0 items-center gap-3">
                         {!item.readAt ? <span className="size-2 rounded-full bg-brand-solid" aria-label="Unread" /> : null}

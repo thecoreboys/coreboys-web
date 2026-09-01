@@ -55,6 +55,87 @@ function validUrl(value: string): string | null {
   }
 }
 
+function previewText(value: unknown, maximum: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const clean = value.trim().replace(/\s+/g, " ");
+  return clean ? clean.slice(0, maximum) : undefined;
+}
+
+function previewLinks(entities: Array<Record<string, unknown>> | undefined) {
+  return (entities ?? []).flatMap((entity) => {
+    const href = typeof entity.unwound_url === "string"
+      ? validUrl(entity.unwound_url)
+      : typeof entity.expanded_url === "string"
+        ? validUrl(entity.expanded_url)
+        : typeof entity.url === "string"
+          ? validUrl(entity.url)
+          : null;
+    if (!href) return [];
+    const image = Array.isArray(entity.images)
+      ? entity.images.find((entry) => entry && typeof entry === "object" && validUrl(String((entry as Record<string, unknown>).url ?? ""))) as Record<string, unknown> | undefined
+      : undefined;
+    return [{
+      href,
+      label: previewText(entity.display_url, 80),
+      title: previewText(entity.title, 160),
+      description: previewText(entity.description, 220),
+      imageUrl: image ? validUrl(String(image.url ?? "")) ?? undefined : undefined,
+    }];
+  }).slice(0, 4);
+}
+
+function quoteSnapshot(quote: NonNullable<NonNullable<FeedItem["x"]>["quote"]>) {
+  const statusUrl = validUrl(quote.statusUrl);
+  const authorProfileUrl = validUrl(quote.authorProfileUrl);
+  if (!statusUrl || !authorProfileUrl || !quote.authorHandle.trim()) return undefined;
+  const entities = quote.entities?.urls as Array<Record<string, unknown>> | undefined;
+  const media = (quote.media ?? []).flatMap((entry) => {
+    const thumbnailUrl = validUrl(entry.thumbnailUrl);
+    if (!thumbnailUrl) return [];
+    return [{
+      thumbnailUrl,
+      kind: entry.kind,
+      ...(entry.width ? { width: entry.width } : {}),
+      ...(entry.height ? { height: entry.height } : {}),
+    }];
+  });
+  if (!quote.text.trim() && !media.length) return undefined;
+  return {
+    statusUrl,
+    text: quote.text.slice(0, 5000),
+    authorName: previewText(quote.authorName, 160),
+    authorHandle: quote.authorHandle.slice(0, 80),
+    authorProfileUrl,
+    authorAvatarUrl: validUrl(quote.authorAvatarUrl ?? "") ?? undefined,
+    links: previewLinks(entities),
+    media: media.slice(0, 4),
+  };
+}
+
+function xPreviewSnapshot(item: FeedItem) {
+  if (item.platform !== "x" || !item.x) return undefined;
+  const sourceUrl = validUrl(item.sourceUrl ?? item.url);
+  const authorProfileUrl = validUrl(item.x.authorProfileUrl);
+  if (!sourceUrl || !authorProfileUrl) return undefined;
+  const rawText = typeof item.x.noteText === "string" ? item.x.noteText : item.title;
+  const entities = (item.x.noteEntities ?? item.x.entities)?.urls as Array<Record<string, unknown>> | undefined;
+  const media = item.thumbnailUrl && validUrl(item.thumbnailUrl)
+    ? [{ thumbnailUrl: validUrl(item.thumbnailUrl)!, kind: item.mediaType === "video" ? "video" as const : "image" as const, ...(item.width ? { width: item.width } : {}), ...(item.height ? { height: item.height } : {}) }]
+    : [];
+  return {
+    text: rawText.slice(0, 5000),
+    sourceUrl,
+    authorName: previewText(item.x.authorName ?? item.authorLabel, 160) ?? item.authorLabel.slice(0, 160),
+    authorHandle: (item.x.authorHandle ?? "").slice(0, 80),
+    authorProfileUrl,
+    authorAvatarUrl: validUrl(item.x.authorAvatarUrl ?? "") ?? undefined,
+    verified: item.x.verified === true,
+    links: previewLinks(entities),
+    media,
+    quote: item.x.quote ? quoteSnapshot(item.x.quote) : undefined,
+  };
+}
+
 function rowToAlert(row: EventRow, deliveryId: string, readAt: string | null): SocialAlert {
   return {
     id: deliveryId,
@@ -111,6 +192,7 @@ export function socialEventFromFeedItem(item: FeedItem): SocialEventInput | null
       width: item.width,
       height: item.height,
       durationSeconds: item.durationSeconds,
+      notificationPreview: xPreviewSnapshot(item),
     },
   };
 }

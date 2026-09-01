@@ -7,6 +7,9 @@ import {
   type InboxCategory,
   type InboxNotification,
   type NotificationCenterPage,
+  type NotificationLinkPreview,
+  type NotificationQuotedPost,
+  type NotificationXPost,
 } from "@/lib/inbox-notification";
 
 type Queryable = Pick<PoolClient, "query">;
@@ -33,6 +36,7 @@ type NotificationRow = {
   avatar_url: string | null;
   created_at: string;
   read_at: string | null;
+  platform_payload: unknown;
 };
 
 type Cursor = { createdAt: string; id: string };
@@ -40,6 +44,8 @@ type Cursor = { createdAt: string; id: string };
 function text(value: string, maximum: number): string {
   return value.trim().replace(/\s+/g, " ").slice(0, maximum);
 }
+
+const textValue = text;
 
 function safeHref(value: string): string {
   const trimmed = value.trim();
@@ -63,17 +69,97 @@ function safeImage(value?: string | null): string | null {
   }
 }
 
+function safeExternalHref(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const href = safeHref(value);
+  return href.startsWith("/") ? null : href;
+}
+
+function previewLink(value: unknown): NotificationLinkPreview | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const href = safeExternalHref(raw.href);
+  if (!href) return null;
+  const text = (key: string, maximum: number) => typeof raw[key] === "string" ? textValue(raw[key] as string, maximum) : undefined;
+  return {
+    href,
+    label: text("label", 80),
+    title: text("title", 160),
+    description: text("description", 220),
+    imageUrl: safeImage(typeof raw.imageUrl === "string" ? raw.imageUrl : null) ?? undefined,
+  };
+}
+
+function previewMedia(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const raw = entry as Record<string, unknown>;
+    const thumbnailUrl = safeImage(typeof raw.thumbnailUrl === "string" ? raw.thumbnailUrl : null);
+    if (!thumbnailUrl || (raw.kind !== "image" && raw.kind !== "video")) return [];
+    return [{ thumbnailUrl, kind: raw.kind as "image" | "video", ...(typeof raw.width === "number" && raw.width > 0 ? { width: raw.width } : {}), ...(typeof raw.height === "number" && raw.height > 0 ? { height: raw.height } : {}) }];
+  }).slice(0, 4);
+}
+
+function previewQuote(value: unknown): NotificationQuotedPost | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const statusUrl = safeExternalHref(raw.statusUrl);
+  const authorProfileUrl = safeExternalHref(raw.authorProfileUrl);
+  if (!statusUrl || !authorProfileUrl || typeof raw.authorHandle !== "string") return undefined;
+  const text = typeof raw.text === "string" ? textValue(raw.text, 5_000) : "";
+  const media = previewMedia(raw.media);
+  if (!text && !media.length) return undefined;
+  return {
+    statusUrl,
+    text,
+    authorName: typeof raw.authorName === "string" ? textValue(raw.authorName, 160) : undefined,
+    authorHandle: textValue(raw.authorHandle, 80),
+    authorProfileUrl,
+    authorAvatarUrl: safeImage(typeof raw.authorAvatarUrl === "string" ? raw.authorAvatarUrl : null) ?? undefined,
+    links: Array.isArray(raw.links) ? raw.links.flatMap((link) => { const parsed = previewLink(link); return parsed ? [parsed] : []; }).slice(0, 4) : [],
+    media,
+  };
+}
+
+function socialPreviewFromPayload(value: unknown): NotificationXPost | null {
+  if (!value || typeof value !== "object") return null;
+  const payload = value as Record<string, unknown>;
+  const raw = payload.notificationPreview;
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Record<string, unknown>;
+  const sourceUrl = safeExternalHref(candidate.sourceUrl);
+  const authorProfileUrl = safeExternalHref(candidate.authorProfileUrl);
+  if (!sourceUrl || !authorProfileUrl || typeof candidate.authorName !== "string" || typeof candidate.authorHandle !== "string") return null;
+  const text = typeof candidate.text === "string" ? textValue(candidate.text, 5_000) : "";
+  if (!text) return null;
+  return {
+    text,
+    sourceUrl,
+    authorName: textValue(candidate.authorName, 160),
+    authorHandle: textValue(candidate.authorHandle, 80),
+    authorProfileUrl,
+    authorAvatarUrl: safeImage(typeof candidate.authorAvatarUrl === "string" ? candidate.authorAvatarUrl : null) ?? undefined,
+    verified: candidate.verified === true,
+    links: Array.isArray(candidate.links) ? candidate.links.flatMap((link) => { const parsed = previewLink(link); return parsed ? [parsed] : []; }).slice(0, 4) : [],
+    media: previewMedia(candidate.media),
+    quote: previewQuote(candidate.quote),
+  };
+}
+
 function mapRow(row: NotificationRow): InboxNotification {
+  const xPost = socialPreviewFromPayload(row.platform_payload);
   return {
     id: row.id,
     category: row.category,
-    title: row.title,
+    title: xPost?.text.slice(0, 240) || row.title,
     body: row.body,
     href: row.href,
     imageUrl: row.image_url,
     avatarUrl: row.avatar_url,
     createdAt: new Date(row.created_at).toISOString(),
     readAt: row.read_at ? new Date(row.read_at).toISOString() : null,
+    xPost,
   };
 }
 
@@ -154,16 +240,18 @@ export async function getNotificationCenterPage(input: {
   );
   const [notifications, unread] = await Promise.all([
     query<NotificationRow>(
-      `SELECT id::text,category,title,body,href,image_url,avatar_url,created_at::text,read_at::text
-         FROM fan_inbox_notifications
-        WHERE user_id=$1
-          AND ($2::text IS NULL OR category=$2)
+      `SELECT n.id::text,n.category,n.title,n.body,n.href,n.image_url,n.avatar_url,n.created_at::text,n.read_at::text,
+              e.platform_payload
+         FROM fan_inbox_notifications n
+         LEFT JOIN social_content_events e ON n.source_key='social:' || e.id::text
+        WHERE n.user_id=$1
+          AND ($2::text IS NULL OR n.category=$2)
           AND (
             $3::timestamptz IS NULL
-            OR created_at < $3::timestamptz
-            OR (created_at = $3::timestamptz AND id < $4::uuid)
+            OR n.created_at < $3::timestamptz
+            OR (n.created_at = $3::timestamptz AND n.id < $4::uuid)
           )
-        ORDER BY created_at DESC,id DESC
+        ORDER BY n.created_at DESC,n.id DESC
         LIMIT $5`,
       [input.userId, input.category ?? null, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1],
     ),

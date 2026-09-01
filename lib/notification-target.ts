@@ -1,4 +1,5 @@
 import { playableFromUrl, type Playable } from "@/lib/watch/playable";
+import type { NotificationXPost } from "@/lib/inbox-notification";
 
 /**
  * A notification always keeps its canonical source URL in storage. This
@@ -11,6 +12,7 @@ export type NotificationRouteInput = {
   body?: string | null;
   imageUrl?: string | null;
   avatarUrl?: string | null;
+  xPost?: NotificationXPost | null;
 };
 
 export type NotificationProvider = "core" | "twitch" | "youtube" | "tiktok" | "instagram" | "x" | "web";
@@ -42,6 +44,7 @@ export type NotificationPreviewData = {
   imageUrl: string | null;
   avatarUrl: string | null;
   provider: Exclude<NotificationProvider, "core">;
+  xPost: NotificationXPost | null;
 };
 
 const MAX_TEXT_LENGTH = 500;
@@ -215,5 +218,6 @@ export function notificationPreviewDataFromSearchParams(input: {
     imageUrl: safeImageUrl(input.image),
     avatarUrl: safeImageUrl(input.avatar),
     provider,
+    xPost: null,
   };
 }

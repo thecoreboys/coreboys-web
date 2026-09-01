@@ -22,15 +22,16 @@ export function useNotificationActivation() {
 
   const activate = useCallback((item: NotificationActivationItem) => {
     const target = notificationTargetFor(item);
-    if (target.kind === "preview") {
+      if (target.kind === "preview") {
       const params = new URL(target.href, "https://core.local").searchParams;
-      setPreview(notificationPreviewDataFromSearchParams({
-        url: params.get("url"),
-        title: params.get("title"),
-        body: params.get("body"),
-        image: params.get("image"),
-        avatar: params.get("avatar"),
-      }));
+        const preview = notificationPreviewDataFromSearchParams({
+          url: params.get("url"),
+          title: params.get("title"),
+          body: params.get("body"),
+          image: params.get("image"),
+          avatar: params.get("avatar"),
+        });
+        setPreview(preview ? { ...preview, xPost: item.xPost ?? null } : null);
       return target;
     }
     router.push(target.href as never, { scroll: target.kind === "theater" ? false : undefined });

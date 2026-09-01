@@ -36,7 +36,7 @@ test("notification API is private, validates actions, and keeps reads scoped to 
   assert.match(route, /mark_all_read/);
   assert.match(model, /WHERE id=\$1 AND user_id=\$2/);
   assert.match(model, /WHERE user_id=\$1 AND read_at IS NULL/);
-  assert.match(model, /ORDER BY created_at DESC,id DESC/);
+  assert.match(model, /ORDER BY (?:n\.)?created_at DESC,(?:n\.)?id DESC/);
 });
 
 test("creator, Fan Zone, and membership sources all write idempotent inbox records", () => {
