@@ -16,7 +16,10 @@ export async function GET() {
   const connections = await listConnections(uid);
   const response = NextResponse.json({
     connections,
-    catalog: PROVIDER_CATALOG.map((p) => ({
+    // Instagram content is displayed through public embeds. It is intentionally
+    // absent from the new-connection catalog, while an existing grant remains
+    // visible so its owner can disconnect it from Account settings.
+    catalog: PROVIDER_CATALOG.filter((p) => p.key !== "instagram" || connections.some((connection) => connection.provider === p.key)).map((p) => ({
       ...p,
       configured: p.connectable ? providerConfigured(p.key as OauthProvider) : false,
     })),

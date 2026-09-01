@@ -102,6 +102,7 @@ export function ConnectedAccounts({
   const [publicSlug, setPublicSlug] = useState("");
   const [favorite, setFavorite] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState<string | null>(null);
   const [notice, setNotice] = useState<AccountNotice | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -165,9 +166,6 @@ export function ConnectedAccounts({
   }, [load]);
 
   async function disconnect(provider: string) {
-    if (!confirm(`Disconnect ${provider}? We’ll wipe tokens and inferred stats. Your CORE account stays.`)) {
-      return;
-    }
     setBusy(`off-${provider}`);
     setNotice(null);
     try {
@@ -188,6 +186,7 @@ export function ConnectedAccounts({
       });
     } finally {
       setBusy(null);
+      setConfirmingDisconnect(null);
     }
   }
 
@@ -260,6 +259,10 @@ export function ConnectedAccounts({
   }
 
   const byProvider = new Map(connections.map((c) => [c.provider, c]));
+  // Instagram posts are handled through public embeds. Do not offer a new
+  // account connection here, but keep an existing grant visible so its owner
+  // can remove it immediately.
+  const visibleCatalog = catalog.filter((provider) => provider.key !== "instagram" || byProvider.has(provider.key));
 
   return (
     <div className="mt-6 space-y-6">
@@ -286,7 +289,7 @@ export function ConnectedAccounts({
           </div>
         </div>
         <p className="mb-4 text-sm text-tertiary">
-          Connect a platform to sync available profile, subscription, and on-site playback data. Disconnecting removes its tokens.
+          Connect an account when you need it. Disconnect any time.
         </p>
         {notice ? (
           <p
@@ -312,11 +315,12 @@ export function ConnectedAccounts({
           {loading && !catalog.length ? (
             <li className="py-4 text-sm text-tertiary" role="status">Loading connected accounts…</li>
           ) : null}
-          {catalog.map((p) => {
+          {visibleCatalog.map((p) => {
             const conn = byProvider.get(p.key);
             const syncNeedsAttention = Boolean(conn?.lastSyncError);
+            const connectionNeedsReconnect = Boolean(conn && (conn.status !== "active" || syncNeedsAttention));
             return (
-              <li key={p.key} className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+              <li key={p.key} className="flex min-h-14 flex-wrap items-center justify-between gap-3 py-3.5 first:pt-0 last:pb-0">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="grid size-8 place-items-center rounded-lg bg-primary ring-1 ring-inset ring-secondary" style={{ color: PLATFORM_BRAND[p.key as keyof typeof PLATFORM_BRAND] }} aria-hidden><PlatformLogo platform={p.key as keyof typeof PLATFORM_BRAND} size={16} /></span>
@@ -324,39 +328,38 @@ export function ConnectedAccounts({
                     {conn ? (
                       <Badge color={conn.status === "active" && !syncNeedsAttention ? "success" : "warning"} size="sm">
                         {conn.status === "active"
-                          ? `@${conn.username ?? "connected"}${syncNeedsAttention ? " · sync issue" : ""}`
-                          : conn.status}
+                          ? syncNeedsAttention ? "Reconnect needed" : `@${conn.username ?? "connected"}`
+                          : "Reconnect needed"}
                       </Badge>
                     ) : p.connectable ? (
-                      p.configured ? null : p.key === "instagram" ? (
-                        <Badge color="success" size="sm">Public embeds</Badge>
-                      ) : (
+                      p.configured ? null : (
                         <Badge color="gray" size="sm">Not configured</Badge>
                       )
                     ) : (
                       <Badge color="gray" size="sm">Coming soon</Badge>
                     )}
                   </div>
-                  <p className="mt-0.5 text-xs font-medium text-tertiary">
-                    {p.watchHistorySync.supported ? p.interactionLabel : "Read-only connection"}
-                    {conn && p.scopes.some((scope) => !conn.scopes.includes(scope))
-                      ? " · reconnect to approve updated permissions"
-                      : ""}
-                  </p>
-                  <p className="mt-1 max-w-xl text-xs text-quaternary">
-                    <span className="font-semibold text-tertiary">{p.watchHistorySync.supported ? "Watch history sync" : "On-site watch history"}.</span>{" "}
-                    {p.watchHistorySync.supported ? p.watchHistorySync.detail : "Playback on CORE is tracked here; this provider does not share viewer history with third-party apps."}
-                  </p>
-                  {conn?.lastSyncAt || conn?.lastSyncError ? (
-                    <p className="mt-0.5 text-xs text-quaternary">
-                      {conn.lastSyncAt ? `Last sync ${new Date(conn.lastSyncAt).toLocaleString()}` : "Not synced yet"}
-                      {conn.lastSyncError ? ` · Sync error: ${conn.lastSyncError}` : ""}
-                    </p>
-                  ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {conn ? (
-                    <>
+                    confirmingDisconnect === p.key ? (
+                      <>
+                        <Button color="secondary" size="sm" onClick={() => setConfirmingDisconnect(null)} isDisabled={busy === `off-${p.key}`}>
+                          Cancel
+                        </Button>
+                        <Button
+                          color="secondary-destructive"
+                          size="sm"
+                          onClick={() => void disconnect(p.key)}
+                          isLoading={busy === `off-${p.key}`}
+                          showTextWhileLoading
+                        >
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                      {connectionNeedsReconnect && p.key !== "instagram" ? (
                       <Button
                         color="secondary"
                         size="sm"
@@ -365,15 +368,17 @@ export function ConnectedAccounts({
                       >
                         Reconnect
                       </Button>
+                      ) : null}
                       <Button
                         color="secondary"
                         size="sm"
-                        onClick={() => void disconnect(p.key)}
+                        onClick={() => setConfirmingDisconnect(p.key)}
                         isDisabled={busy === `off-${p.key}`}
                       >
                         Disconnect
                       </Button>
-                    </>
+                      </>
+                    )
                   ) : (
                     p.connectable && p.configured ? (
                       <Button

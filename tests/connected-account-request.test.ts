@@ -58,6 +58,8 @@ test("ConnectedAccounts never labels a failed or incomplete sync as successful",
   assert.match(component, /else if \(!result\.results\.length\)/);
   assert.match(component, /const failures = result\.results\.filter\(\(entry\) => !entry\.ok\)/);
   assert.match(component, /const syncNeedsAttention = Boolean\(conn\?\.lastSyncError\)/);
-  assert.match(component, /conn\?\.lastSyncAt \|\| conn\?\.lastSyncError/);
+  assert.match(component, /const connectionNeedsReconnect/);
+  assert.match(component, /visibleCatalog = catalog\.filter/);
+  assert.doesNotMatch(component, /Read-only connection/);
   assert.match(component, /oauth === "sync-error"/);
 });
