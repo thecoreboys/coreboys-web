@@ -180,7 +180,7 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
         airtimeFallback={airtimeFallback}
         archivedDaily={archivedDaily}
         sourceDiagnostics={sourceDiagnostics}
-        xCommunityKey={xCommunity?.key ?? "core"}
+        xCommunityUrl={xCommunity?.communityUrl ?? null}
         ownerXPosts={ownerXPosts}
         galleryPhotos={galleryPhotos}
         team={team}

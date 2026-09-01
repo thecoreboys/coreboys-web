@@ -7,17 +7,19 @@ function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("channel pages derive and mount their canonical X Community", () => {
+test("channel pages link directly to their configured X Community", () => {
   const route = source("app/channels/[slug]/page.tsx");
   const page = source("components/watch/NetworkChannelPage.tsx");
 
   assert.match(route, /getXCommunityForMemberSlug\(channel\.memberSlug\)/);
-  assert.match(route, /xCommunityKey=\{xCommunity\?\.key \?\? "core"\}/);
-  assert.match(page, /xCommunityKey: XCommunityKey/);
-  assert.match(page, /<XCommunityShelf selectedKey=\{xCommunityKey\} compact \/>/);
+  assert.match(route, /xCommunityUrl=\{xCommunity\?\.communityUrl \?\? null\}/);
+  assert.match(page, /xCommunityUrl: string \| null/);
+  assert.match(page, /href=\{xCommunityUrl\}/);
+  assert.match(page, /Join X Community/);
+  assert.doesNotMatch(page, /XCommunityShelf/);
 });
 
-test("channel pages keep Community nominations distinct from cached owner-profile posts", () => {
+test("channel pages keep official owner-profile posts separate from the Community link", () => {
   const route = source("app/channels/[slug]/page.tsx");
   const page = source("components/watch/NetworkChannelPage.tsx");
 
@@ -27,12 +29,12 @@ test("channel pages keep Community nominations distinct from cached owner-profil
   assert.match(route, /ownerXPosts=\{ownerXPosts\}/);
   assert.match(page, /import \{ XTweetsRail \} from "\.\/XTweetsRail"/);
   assert.match(page, /<XTweetsRail[\s\S]{0,240}items=\{ownerXPosts\}/);
-  assert.match(page, /not posts from the X Community timeline/);
+  assert.match(page, /Official CORE posts on X/);
   assert.match(page, /hub\.all\.filter\(\(item\) => item\.platform !== "x"\)/);
   assert.match(page, /sourceDescriptors\.filter\(\(source\) => source\.platform !== "x"\)/);
 });
 
-test("the mounted Community shelf remains cache-only for X metadata", () => {
+test("the reusable Community shelf remains cache-only for X metadata", () => {
   const metadata = source("lib/x/community-metadata.ts");
   const shelf = source("components/x/XCommunityShelf.tsx");
 
@@ -42,7 +44,7 @@ test("the mounted Community shelf remains cache-only for X metadata", () => {
   assert.doesNotMatch(shelf, /api\.x\.com|api\.twitter\.com/);
 });
 
-test("a channel shelf scopes both cached metadata and moderated posts to its Community", () => {
+test("the reusable Community shelf scopes cached metadata and moderated posts to its Community", () => {
   const shelf = source("components/x/XCommunityShelf.tsx");
 
   assert.match(shelf, /`\?key=\$\{encodeURIComponent\(selectedKey\)\}`/);

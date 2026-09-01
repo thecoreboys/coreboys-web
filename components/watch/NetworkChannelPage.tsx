@@ -4,7 +4,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChevronRight, Clapperboard, Clock3, Mail, Play, Radio, RotateCcw, Volume2, VolumeX, Zap } from "lucide-react";
+import { ChevronRight, Clapperboard, Clock3, ExternalLink, Mail, Play, Radio, RotateCcw, Volume2, VolumeX, Zap } from "lucide-react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import {
   hasNetworkTuningAudio,
@@ -18,7 +18,6 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/lib/watch/content-advisory";
 import { SocialIcon } from "@/components/ui/SocialIcon";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
-import { XCommunityShelf } from "@/components/x/XCommunityShelf";
 import { XTweetsRail } from "./XTweetsRail";
 import { GROUP } from "@/lib/group";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
@@ -29,7 +28,6 @@ import { DragScrollRail } from "./DragScrollRail";
 import { CreatorPlatformRails } from "./CreatorPlatformRails";
 import { AutoScrollGallery } from "@/components/ui/AutoScrollGallery";
 import type { WatchItem, WatchPlatform } from "@/lib/watch/types";
-import type { XCommunityKey } from "@/lib/x/types";
 import type { WatchHomeXPost } from "@/lib/watch/x-posts";
 import type { TwitchTrackerChannelSnapshot } from "@/lib/twitchtracker-snapshots";
 import type { AirtimeDailyRecord, AirtimeHistorySession } from "@/lib/watch/airtime-history";
@@ -1297,7 +1295,7 @@ export function NetworkChannelPage({
   airtimeFallback,
   archivedDaily,
   sourceDiagnostics,
-  xCommunityKey,
+  xCommunityUrl,
   ownerXPosts,
   galleryPhotos,
   team,
@@ -1314,7 +1312,8 @@ export function NetworkChannelPage({
   archivedDaily: AirtimeDailyRecord[];
   /** Token-free server diagnostics for official Instagram and TikTok feeds. */
   sourceDiagnostics: readonly CuratedChannelSourceDiagnostic[];
-  xCommunityKey: XCommunityKey;
+  /** Exact configured X Community URL. No profile URL is substituted. */
+  xCommunityUrl: string | null;
   ownerXPosts: WatchHomeXPost[];
   /** Curated server-side photo selection shared with the creator's /about page. */
   galleryPhotos: readonly string[];
@@ -2088,16 +2087,23 @@ export function NetworkChannelPage({
         onPlay={playSourceItem}
       />
 
-      <section className={styles.xCommunitySection} aria-labelledby="channel-x-community-heading">
-        <div className={styles.xCommunityIntro}>
-          <span className={styles.eyebrow}>X Community</span>
-          <h2 id="channel-x-community-heading">{channel.host}&apos;s Community on X</h2>
-          <p>
-            The verified Community link for this channel, plus posts approved by CORE moderators—not posts from the X Community timeline.
-          </p>
-        </div>
-        <XCommunityShelf selectedKey={xCommunityKey} compact />
-      </section>
+      {xCommunityUrl ? (
+        <section className={styles.xCommunitySection} aria-labelledby="channel-x-community-heading">
+          <div className={styles.xCommunityIntro}>
+            <span className={styles.eyebrow}>X Community</span>
+            <h2 id="channel-x-community-heading">Join {channel.host}&apos;s Community on X</h2>
+            <p>Connect with the community directly on X.</p>
+          </div>
+          <a
+            href={xCommunityUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.xCommunityLink}
+          >
+            Join X Community <ExternalLink aria-hidden="true" />
+          </a>
+        </section>
+      ) : null}
 
       <div className={styles.xOwnerPosts}>
         {ownerXPosts.length ? (

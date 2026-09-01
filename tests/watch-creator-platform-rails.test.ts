@@ -440,7 +440,7 @@ test("uses a deterministic platform and content-kind order", () => {
   assert.ok(lastInstagram < firstX);
 });
 
-test("mounts curated rails on the member channel page with cache-only X cards and shared-player actions", () => {
+test("mounts curated rails on the member channel page with an X Community link and shared-player actions", () => {
   const page = readFileSync(
     resolve(process.cwd(), "components/watch/NetworkChannelPage.tsx"),
     "utf8",
@@ -463,7 +463,8 @@ test("mounts curated rails on the member channel page with cache-only X cards an
     /<CreatorPlatformRails[\s\S]{0,300}items=\{nonXHubItems\}[\s\S]{0,300}sources=\{nonXSourceDescriptors\}[\s\S]{0,300}onPlay=\{playSourceItem\}/,
   );
   assert.match(page, /<XTweetsRail[\s\S]{0,300}items=\{ownerXPosts\}/);
-  assert.match(page, /not posts from the X Community timeline/);
+  assert.match(page, /Join X Community/);
+  assert.doesNotMatch(page, /XCommunityShelf/);
   assert.match(page, /player\.play\(item, \[\.\.\.sourceQueue\]\)/);
   assert.match(component, /selectWatchHomeXPosts/);
   assert.match(component, /<PosterCard/);

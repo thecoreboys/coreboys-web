@@ -1170,6 +1170,26 @@
   font-size: .78rem;
   line-height: 1.5;
 }
+.xCommunityLink {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 2.6rem;
+  padding: .65rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--channel-accent) 58%, rgba(255,255,255,.2));
+  border-radius: .7rem;
+  background: color-mix(in srgb, var(--channel-accent) 14%, #101012);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 700;
+  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.xCommunityLink:hover {
+  transform: translateY(-1px);
+  border-color: var(--channel-accent);
+  background: color-mix(in srgb, var(--channel-accent) 24%, #101012);
+}
+.xCommunityLink svg { width: .85rem; height: .85rem; }
 .xOwnerPosts {
   width: 100%;
   padding-bottom: clamp(4rem, 7vw, 6rem);
