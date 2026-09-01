@@ -89,6 +89,22 @@ type SyncPayload = {
   results?: Array<{ provider: string; ok: boolean; error?: string }>;
 };
 
+function ConnectedIdentity({ connection }: { connection: Connection }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const accountName = connection.username?.trim() || "Connected account";
+
+  return (
+    <span className="inline-flex max-w-[15rem] items-center gap-1.5 rounded-full bg-primary py-1 pl-1 pr-2 text-xs font-medium text-primary ring-1 ring-inset ring-secondary" title={accountName}>
+      {connection.avatarUrl && !imageFailed ? (
+        <img src={connection.avatarUrl} alt="" onError={() => setImageFailed(true)} className="size-5 shrink-0 rounded-full object-cover" />
+      ) : (
+        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-secondary text-[10px] font-bold text-tertiary" aria-hidden>@</span>
+      )}
+      <span className="truncate">{accountName}</span>
+    </span>
+  );
+}
+
 export function ConnectedAccounts({
   members,
 }: {
@@ -163,6 +179,21 @@ export function ConnectedAccounts({
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  // Loyalty counters are backed by the account event tables, so keep this
+  // panel fresh while it is open instead of making a reload the only way to
+  // see watch/chat activity recorded in another tab.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const interval = window.setInterval(refresh, 30_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [load]);
 
   async function disconnect(provider: string) {
@@ -326,11 +357,12 @@ export function ConnectedAccounts({
                     <span className="grid size-8 place-items-center rounded-lg bg-primary ring-1 ring-inset ring-secondary" style={{ color: PLATFORM_BRAND[p.key as keyof typeof PLATFORM_BRAND] }} aria-hidden><PlatformLogo platform={p.key as keyof typeof PLATFORM_BRAND} size={16} /></span>
                     <span className="text-sm font-medium text-secondary">{p.label}</span>
                     {conn ? (
-                      <Badge color={conn.status === "active" && !syncNeedsAttention ? "success" : "warning"} size="sm">
-                        {conn.status === "active"
-                          ? syncNeedsAttention ? "Reconnect needed" : `@${conn.username ?? "connected"}`
-                          : "Reconnect needed"}
-                      </Badge>
+                      <>
+                        <ConnectedIdentity connection={conn} />
+                        <Badge color={conn.status === "active" && !syncNeedsAttention ? "success" : "warning"} size="sm">
+                          {conn.status === "active" && !syncNeedsAttention ? "Connected" : "Reconnect needed"}
+                        </Badge>
+                      </>
                     ) : p.connectable ? (
                       p.configured ? null : (
                         <Badge color="gray" size="sm">Not configured</Badge>
