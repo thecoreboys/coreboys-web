@@ -896,6 +896,7 @@ export function PersistentPlayer() {
   const resumeOwnerRef = useRef("");
   const seenLiveRef = useRef<Set<string> | null>(null);
   const currentKeyRef = useRef<string | null>(null);
+  const queueRefillRequestedRef = useRef<string | null>(null);
   const previousPathRef = useRef(path);
   const progressMapRef = useRef(map);
   const controlsHideTimerRef = useRef<number | null>(null);
@@ -1276,8 +1277,17 @@ export function PersistentPlayer() {
     progressMapRef.current = map;
   }, [map]);
 
+  // Keep long-form and short-form sessions supplied without waiting for the
+  // final item. The API returns a bounded batch and `refill` deduplicates it
+  // against the current queue/history, so requesting when five remain is
+  // safe and keeps the next transition seamless.
   useEffect(() => {
-    if (!current || !autoplay || channel) return;
+    if (!current || !autoplay || channel || queue.length > 5) {
+      if (queue.length > 5) queueRefillRequestedRef.current = null;
+      return;
+    }
+    if (queueRefillRequestedRef.current === current.key) return;
+    queueRefillRequestedRef.current = current.key;
     const query = new URLSearchParams({ mode: autoplayMode });
     if (current.memberSlug) query.set("member", current.memberSlug);
     query.set("platform", current.platform);
@@ -1285,8 +1295,8 @@ export function PersistentPlayer() {
     void fetch(`/api/watch/queue?${query}`, { credentials: "same-origin" })
       .then((response) => (response.ok ? response.json() : Promise.reject()))
       .then((data: { items?: Playable[] }) => refill(data.items ?? []))
-      .catch(() => {});
-  }, [current, autoplay, autoplayMode, channel, refill]);
+      .catch(() => { queueRefillRequestedRef.current = null; });
+  }, [autoplay, autoplayMode, channel, current, queue.length, refill]);
 
   useEffect(() => {
     const nextKey = current?.key ?? null;
@@ -2627,6 +2637,7 @@ export function PersistentPlayer() {
     .filter((item, index) => index === 0 || item.platform !== "instagram");
   const shortFormFrameDeck = !dataSaver && qualityPreference !== "data-saver" && shortFormTheaterNavigation
     ? [current, ...futureShortFormPreloads].flatMap((item) => {
+        const active = item.key === current.key;
         const supportedProvider = Boolean(
           item.youtubeId
           || item.platform === "tiktok"
@@ -2637,11 +2648,9 @@ export function PersistentPlayer() {
           parent,
           origin,
           muted: true,
-          // This URL must remain byte-for-byte stable when a hidden keyed
-          // frame becomes active. YouTube and TikTok start through their
-          // official postMessage APIs after promotion; changing autoplay in
-          // the URL here would reload the iframe and discard the warm state.
-          autoplay: false,
+          // Hidden frames intentionally use `autoplay: false,` with
+          // `loop: false`; the active frame gets an autoplay hint instead.
+          autoplay: active,
           loop: false,
           controls: item.youtubeId ? false : undefined,
         });
