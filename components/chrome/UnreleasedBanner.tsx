@@ -21,7 +21,7 @@ export function UnreleasedBanner() {
           Unofficial fan project
         </span>
         <span className="text-xs font-medium text-tertiary">
-          Not affiliated with CORE Boys. We&apos;d love to speak with the technical production crew.
+          Not affiliated with CORE Boys. I&apos;d love to speak with the technical production crew.
         </span>
         <a
           href="https://x.com/berryeyu"
