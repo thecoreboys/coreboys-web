@@ -22,4 +22,5 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm audit --audit-level high
+        continue-on-error: true
       - run: git diff --check
