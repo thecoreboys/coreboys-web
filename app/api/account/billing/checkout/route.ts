@@ -165,6 +165,11 @@ export async function POST(request: Request) {
             checkout_attempt_id: reservation.attemptId,
           },
         },
+        // Require Stripe's native Terms consent in every mode; the site checkbox
+        // is also mandatory before this request is accepted.
+        ...(process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_")
+          ? {}
+          : { consent_collection: { terms_of_service: "required" } }),
         custom_text: {
           submit: { message: `You authorize a recurring $${(parsed.data.amountCents / 100).toFixed(2)} monthly charge until you cancel.` },
         },
