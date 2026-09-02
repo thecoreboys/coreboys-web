@@ -48,6 +48,26 @@
   text-decoration: underline;
 }
 
+.messageLink {
+  flex: 0 0 auto;
+  padding: .35rem .55rem;
+  border: 1px solid rgba(157, 204, 255, .35);
+  border-radius: .5rem;
+  color: rgba(239, 247, 255, .92) !important;
+  background: rgba(255, 255, 255, .08);
+  font-size: .62rem;
+  font-weight: 750;
+  line-height: 1.1;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.messageLink:hover,
+.messageLink:focus-visible {
+  border-color: rgba(157, 204, 255, .7);
+  background: rgba(255, 255, 255, .16);
+}
+
 .xLabel {
   display: inline-flex;
   align-items: center;

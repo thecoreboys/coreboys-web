@@ -19,6 +19,9 @@ export function ContactInquiryWidget() {
       <p>
         Contact <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">@berryeyu</a> on <span className={styles.xLabel} aria-label="X"><span aria-hidden className={styles.xLogo}>𝕏</span></span> for website inquiries
       </p>
+      <a className={styles.messageLink} href="/special-message">
+        Read a personal message
+      </a>
       <ExternalLink aria-hidden className={styles.icon} />
     </aside>
   );
