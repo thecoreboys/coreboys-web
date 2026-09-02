@@ -1,5 +1,7 @@
 # coreboys-web
 
+[![Security checks](https://github.com/thecoreboys/coreboys-web/actions/workflows/security-checks.yml/badge.svg)](https://github.com/thecoreboys/coreboys-web/actions/workflows/security-checks.yml) [![CodeQL](https://github.com/thecoreboys/coreboys-web/actions/workflows/codeql.yml/badge.svg)](https://github.com/thecoreboys/coreboys-web/actions/workflows/codeql.yml)
+
 The public-facing landing page for **The Core Boys** — a six-person creator
 group. This is a Next.js 15 / React 19 / Tailwind v4 site with a Three.js hero
 scene, GSAP-driven manifesto reveal, and a live Twitch status integration.
