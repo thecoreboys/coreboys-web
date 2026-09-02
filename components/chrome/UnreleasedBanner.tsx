@@ -18,10 +18,10 @@ export function UnreleasedBanner() {
             className="size-1.5 rounded-full bg-white"
             style={{ animation: "live-blink 1.6s ease-in-out infinite" }}
           />
-          Unofficial site
+          Unofficial fan project
         </span>
         <span className="text-xs font-medium text-tertiary">
-          A fan-built preview of what an official CORE home could feel like.
+          Not affiliated with CORE Boys. We&apos;d love to speak with the technical production crew.
         </span>
         <a
           href="https://x.com/berryeyu"
@@ -29,7 +29,7 @@ export function UnreleasedBanner() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-secondary transition-colors hover:text-brand-secondary_hover"
         >
-          Built by MDCran
+          Contact the builder
           <ArrowUpRight className="size-3.5" />
         </a>
       </div>

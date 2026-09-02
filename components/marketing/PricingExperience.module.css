@@ -220,10 +220,10 @@
 .amountField { display: grid; min-height: 3.45rem; grid-template-columns: 1fr auto minmax(4.25rem,5.5rem) auto; align-items: center; gap: .45rem; border: 1px solid rgba(255,255,255,.13); border-radius: .78rem; background: rgba(0,0,0,.22); padding: .5rem .7rem; }
 .amountField > span:first-child { color: #dedee3; font-size: .76rem; font-weight: 650; }
 .amountField .currency, .amountField em { color: var(--upgrade-muted); font-size: .8rem; font-style: normal; }
-.amountField input { width: 100%; border: 0; border-bottom: 1px solid rgba(240,107,173,.75); outline: 0; background: transparent; color: #fff; font: inherit; font-size: 1rem; font-weight: 720; text-align: right; }
+.amountField input { width: 100%; appearance: textfield; border: 0; border-bottom: 1px solid rgba(240,107,173,.75); outline: 0; background: transparent; color: #fff; font: inherit; font-size: 1rem; font-weight: 720; text-align: right; }
 .amountInputWrap { position: relative; display: flex; min-width: 0; align-items: center; }
 .amountInputWrap input { padding-right: 1.65rem; }
-.amountInputWrap input::-webkit-outer-spin-button, .amountInputWrap input::-webkit-inner-spin-button { margin: 0; }
+.amountInputWrap input::-webkit-outer-spin-button, .amountInputWrap input::-webkit-inner-spin-button { margin: 0; appearance: none; }
 .amountStepper { position: absolute; right: 0; display: grid; width: 1.35rem; height: 2.2rem; overflow: hidden; border: 1px solid rgba(255,255,255,.14); border-radius: .4rem; background: rgba(255,255,255,.06); }
 .amountStepper button { display: grid; min-width: 0; min-height: 0; place-items: center; border: 0; color: #bdbdc6; cursor: pointer; }
 .amountStepper button + button { border-top: 1px solid rgba(255,255,255,.12); }
