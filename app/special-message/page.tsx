@@ -771,14 +771,15 @@ export default function SpecialMessagePage() {
               <p className={styles.eyebrow}>The end / for everyone watching</p>
               <h2>For anyone who needed a little light on a hard day.</h2>
               <p>
-                You rarely know why someone opens a stream. Sometimes they want a laugh.
-                Sometimes they just want a room that feels alive when their own day does not.
+                You never really know what brings someone into a stream. Maybe they need a laugh,
+                a little background company, or a place to feel less alone after a hard day.
               </p>
               <p>
-                CORE may never know what someone is carrying when they press play. But a laugh,
-                a stream, or a chat that feels like company can change the shape of a night. It
-                can give someone a breather, a reason to stay a little longer, or something to
-                look forward to tomorrow. This page is my thank-you for every moment like that.
+                A creator may only see a username in chat, but the time, jokes, and care they share
+                can reach much farther than they realize. A stream can give someone a breather, a
+                reason to stay a little longer, or something to look forward to tomorrow. To
+                everyone watching and everyone streaming: thank you for making moments like that
+                possible.
               </p>
               <div className={styles.closingRule} aria-hidden="true" />
               <strong>Thank you to the creators and the community for making people laugh when they need it.</strong>
