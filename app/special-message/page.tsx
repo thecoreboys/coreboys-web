@@ -299,7 +299,7 @@ export default function SpecialMessagePage() {
               <p>
                 If you&apos;ve ever felt like everyone else got a rule you somehow missed, or like
                 you were in the room without really feeling part of it, I know that feeling. You
-                might call it autism, Asperger&apos;s, neurodivergence, or anxiety. Or you might not
+                might call it autism, neurodivergence, or anxiety. Or you might not
                 have a name for it at all. Needing extra time, a little more context, or a quieter
                 way in doesn&apos;t make you less capable. You still deserve a place in the room.
               </p>
