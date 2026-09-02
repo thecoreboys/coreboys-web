@@ -193,6 +193,10 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ url: outcome.url });
   } catch (error) {
+    console.error("[supporter-checkout] session creation failed", {
+      code: error instanceof Error ? error.name : "unknown",
+      message: error instanceof Error ? error.message : "unknown",
+    });
     if (createdSessionId) await stripe.checkout.sessions.expire(createdSessionId).catch(() => undefined);
     await failSupporterCheckout(userId, reservation.attemptId).catch(() => undefined);
     const code = error instanceof Error && error.message === "billing_controls_busy"
