@@ -18,7 +18,7 @@ export function UnreleasedBanner() {
             className="size-1.5 rounded-full bg-white"
             style={{ animation: "live-blink 1.6s ease-in-out infinite" }}
           />
-          Unofficial fan project
+          Unofficial Site
         </span>
         <span className="text-xs font-medium text-tertiary">
           Not affiliated with CORE Boys. I&apos;d love to speak with the technical production crew.
