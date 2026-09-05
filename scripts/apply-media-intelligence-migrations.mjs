@@ -41,8 +41,20 @@ function connection(url) {
 }
 
 loadEnvLocal();
-const databaseUrl = process.env.MEDIA_INTELLIGENCE_DATABASE_URL;
-if (!databaseUrl) throw new Error("MEDIA_INTELLIGENCE_DATABASE_URL is required.");
+const configuredDatabaseUrl = process.env.MEDIA_INTELLIGENCE_DATABASE_URL?.trim();
+const primaryDatabaseUrl = process.env.DATABASE_URL?.trim();
+const isLoopback = (raw) => {
+  try { return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(new URL(raw).hostname.toLowerCase()); }
+  catch { return false; }
+};
+const databaseUrl = process.env.MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE === "true"
+  && primaryDatabaseUrl
+  && configuredDatabaseUrl
+  && isLoopback(configuredDatabaseUrl)
+  && !isLoopback(primaryDatabaseUrl)
+  ? primaryDatabaseUrl
+  : configuredDatabaseUrl || (process.env.MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE === "true" ? primaryDatabaseUrl : "");
+if (!databaseUrl) throw new Error("MEDIA_INTELLIGENCE_DATABASE_URL is required, or set MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE=true with DATABASE_URL.");
 const client = new Client(connection(databaseUrl));
 await client.connect();
 try {

@@ -318,13 +318,19 @@ function isLoopbackDatabase(raw: string): boolean {
   }
 }
 
-function databaseUrl(): string {
-  const url = process.env.MEDIA_INTELLIGENCE_DATABASE_URL?.trim();
-  if (!url) {
-    throw new Error(
-      "MEDIA_INTELLIGENCE_DATABASE_URL is required. This service intentionally never falls back to DATABASE_URL.",
-    );
+function resolvedDatabaseUrl(): string {
+  const configured = process.env.MEDIA_INTELLIGENCE_DATABASE_URL?.trim();
+  const primary = process.env.DATABASE_URL?.trim();
+  if (!configured) {
+    if (process.env.MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE === "true" && primary) return primary;
+    throw new Error("MEDIA_INTELLIGENCE_DATABASE_URL is required, or enable the primary database fallback explicitly.");
   }
+  if (process.env.MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE === "true" && primary && isLoopbackDatabase(configured) && !isLoopbackDatabase(primary)) return primary;
+  return configured;
+}
+
+function databaseUrl(): string {
+  const url = resolvedDatabaseUrl();
   if (!isLoopbackDatabase(url) && process.env.MEDIA_INTELLIGENCE_ALLOW_REMOTE_DATABASE !== "true") {
     throw new Error(
       "Media intelligence is local-only. Set MEDIA_INTELLIGENCE_ALLOW_REMOTE_DATABASE=true only after an explicit deployment decision.",

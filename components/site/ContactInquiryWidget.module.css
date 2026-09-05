@@ -4,10 +4,10 @@
   bottom: max(1rem, env(safe-area-inset-bottom));
   left: max(1rem, env(safe-area-inset-left));
   display: flex;
-  width: min(18rem, calc(100vw - 2rem));
+  width: min(22rem, calc(100vw - 2rem));
   align-items: center;
   gap: .62rem;
-  padding: .48rem .68rem .48rem .48rem;
+  padding: .58rem .72rem .58rem .58rem;
   border: 1px solid rgba(111, 174, 255, .3);
   border-radius: 999px;
   color: rgba(239, 247, 255, .78);
@@ -31,7 +31,8 @@
 .widget p {
   min-width: 0;
   margin: 0;
-  font-size: .68rem;
+  flex: 1 1 auto;
+  font-size: .72rem;
   font-weight: 650;
   line-height: 1.25;
 }
@@ -55,7 +56,7 @@
   border-radius: .5rem;
   color: rgba(239, 247, 255, .92) !important;
   background: rgba(255, 255, 255, .08);
-  font-size: .62rem;
+  font-size: .68rem;
   font-weight: 750;
   line-height: 1.1;
   text-decoration: none !important;
@@ -92,6 +93,49 @@
   .widget {
     bottom: max(.7rem, env(safe-area-inset-bottom));
     left: max(.7rem, env(safe-area-inset-left));
-    width: min(17rem, calc(100vw - 1.4rem));
+    width: calc(100vw - 1.4rem);
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .55rem;
+    border-radius: 1.15rem;
+    padding: .68rem .72rem .68rem .62rem;
+  }
+
+  .avatar {
+    width: 2.2rem;
+    height: 2.2rem;
+    flex-basis: 2.2rem;
+  }
+
+  .widget p {
+    font-size: .74rem;
+    line-height: 1.28;
+  }
+
+  .messageLink {
+    min-height: 2.2rem;
+    padding-inline: .68rem;
+    font-size: .7rem;
+  }
+
+  .icon {
+    display: none;
+  }
+}
+
+@media (max-width: 390px) {
+  .widget {
+    grid-template-columns: 2rem minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .avatar { width: 2rem; height: 2rem; }
+
+  .messageLink {
+    grid-column: 2;
+    justify-self: start;
+    min-height: 2rem;
+    margin-top: -.1rem;
   }
 }

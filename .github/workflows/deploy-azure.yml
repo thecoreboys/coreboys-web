@@ -128,6 +128,7 @@ jobs:
           }
           NODE
           pnpm db:apply-web-migrations
+          MEDIA_INTELLIGENCE_ALLOW_REMOTE_DATABASE=true MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE=true pnpm db:apply-media-intelligence
 
       - name: Configure production secrets and environment
         env:
@@ -146,6 +147,7 @@ jobs:
           RESEND_FROM_NAME: ${{ secrets.RESEND_FROM_NAME }}
           RESEND_REPLY_TO_EMAIL: ${{ secrets.RESEND_REPLY_TO_EMAIL }}
           MEDIA_INTELLIGENCE_DATABASE_URL: ${{ secrets.MEDIA_INTELLIGENCE_DATABASE_URL }}
+          MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE: ${{ vars.MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE || 'true' }}
           MEDIA_INTELLIGENCE_PROVIDER: ${{ secrets.MEDIA_INTELLIGENCE_PROVIDER }}
           METRICS_CRON_SECRET: ${{ secrets.METRICS_CRON_SECRET }}
           SOCIAL_SUBSCRIPTION_CRON_SECRET: ${{ secrets.SOCIAL_SUBSCRIPTION_CRON_SECRET }}
@@ -218,6 +220,7 @@ jobs:
             "NEXT_PUBLIC_API_URL=https://thecoreboys.com"
             "NEXT_PUBLIC_SITE_URL=https://thecoreboys.com"
             "STRIPE_MEMBERSHIP_ENABLED=${STRIPE_MEMBERSHIP_ENABLED}"
+            "MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE=${MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE}"
             "SOCIAL_WEBHOOK_BASE_URL=https://thecoreboys.com"
             "INSTAGRAM_API_MODE=${INSTAGRAM_API_MODE}"
             "META_GRAPH_API_VERSION=${META_GRAPH_API_VERSION}"

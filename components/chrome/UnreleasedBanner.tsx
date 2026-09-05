@@ -11,7 +11,7 @@ export function UnreleasedBanner() {
       role="status"
       className="relative z-50 w-full border-b border-secondary bg-secondary/90 backdrop-blur-md"
     >
-      <div className="mx-auto flex max-w-container flex-wrap items-center justify-center gap-x-2.5 gap-y-1 px-6 py-2.5 text-center md:px-8">
+      <div className="mx-auto flex max-w-container flex-col items-center justify-center gap-1 px-4 py-2.5 text-center sm:flex-row sm:flex-wrap sm:gap-x-2.5 sm:gap-y-1 md:px-8">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-solid px-2.5 py-0.5 text-xs font-semibold text-white shadow-xs-skeuomorphic">
           <span
             aria-hidden
@@ -20,7 +20,7 @@ export function UnreleasedBanner() {
           />
           Unofficial Site
         </span>
-        <span className="text-xs font-medium text-tertiary">
+        <span className="max-w-[34rem] text-xs font-medium leading-5 text-tertiary sm:max-w-none">
           Not affiliated with CORE Boys. I&apos;d love to speak with the technical production crew.
         </span>
         <a

@@ -13,6 +13,7 @@ import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { MEMBERS } from "@/lib/members";
 import { cx } from "@/utils/cx";
+import billingStyles from "@/components/marketing/PricingExperience.module.css";
 
 const SETTINGS_NAV = [
   { group: "Watch", label: "Appearance", href: "#experience", icon: Settings01 },
@@ -47,14 +48,14 @@ export default function AccountSettingsPage() {
 
   return (
     <>
-      <main className="mx-auto min-h-[70vh] max-w-6xl px-5 py-10 sm:px-6 lg:px-8 lg:py-16">
+      <main className={`${billingStyles.shell} mx-auto min-h-[70vh] px-5 py-10 sm:px-6 lg:px-8 lg:py-16`}>
         <div className="flex items-start gap-3">
           <span className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary text-brand-secondary ring-1 ring-inset ring-brand">
             <Settings01 className="size-5" aria-hidden />
           </span>
           <div>
-            <p className="text-sm font-semibold text-brand-secondary">Account</p>
-            <h1 className="mt-1 text-display-sm font-semibold tracking-tight text-primary">
+            <p className="text-xs font-bold uppercase tracking-[0.13em] text-brand-secondary">Account settings</p>
+            <h1 className="mt-2 text-display-sm font-semibold tracking-tight text-primary">
               Settings
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-tertiary">
