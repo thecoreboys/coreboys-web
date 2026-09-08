@@ -1,4 +1,5 @@
 import "server-only";
+import { getPool as getPrimaryDatabasePool } from "@/lib/db";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
 declare global {
@@ -342,14 +343,24 @@ function databaseUrl(): string {
 export function getMediaIntelligencePool(): Pool {
   if (global.__mediaIntelligencePool) return global.__mediaIntelligencePool;
   const url = new URL(databaseUrl());
+  const primaryRaw = process.env.DATABASE_URL?.trim();
+  if (primaryRaw) {
+    const primary = new URL(primaryRaw);
+    const sameDatabase = ["hostname", "port", "username", "password", "pathname"]
+      .every((part) => url[part as keyof URL] === primary[part as keyof URL]);
+    if (sameDatabase) {
+      global.__mediaIntelligencePool = getPrimaryDatabasePool();
+      return global.__mediaIntelligencePool;
+    }
+  }
   const pool = new Pool({
     host: url.hostname,
     port: url.port ? Number(url.port) : 5432,
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.replace(/^\//, ""),
-    max: 4,
-    idleTimeoutMillis: 30_000,
+    max: 1,
+    idleTimeoutMillis: 5_000,
     connectionTimeoutMillis: 5_000,
     statement_timeout: 30_000,
     ssl: isLoopbackDatabase(url.toString()) || url.searchParams.get("sslmode") === "disable"

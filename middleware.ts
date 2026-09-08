@@ -36,6 +36,8 @@ const TRUSTED_INTEGRATION_PATHS = [
   "/api/metrics/snapshot",
   "/api/metrics/twitchtracker/snapshot",
   "/api/media-intelligence/catalog-sync",
+  // This exact route independently verifies its dedicated retention secret.
+  "/api/admin/faces/maintenance",
   "/api/auth/verify-email",
 ] as const;
 

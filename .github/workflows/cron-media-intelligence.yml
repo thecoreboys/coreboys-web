@@ -41,7 +41,7 @@ jobs:
               -H "content-type: application/json" \
               -H "accept: application/json" \
               -H "x-media-intelligence-secret: $SECRET" \
-              --data "{\"action\":\"$action\",\"maxJobs\":20,\"maxArchivePages\":2,\"archivePageSize\":25,\"retentionLimit\":100}" \
+              --data "{\"action\":\"$action\",\"maxJobs\":100,\"maxArchivePages\":2,\"archivePageSize\":25,\"retentionLimit\":100}" \
               -w "\nHTTP %{http_code}\n" "$target"; then
               failed=1
             fi

@@ -164,6 +164,11 @@ export async function enqueueAnalysisJob(input: {
       ],
     );
     if (!result.rowCount) {
+      await client.query(
+        `UPDATE media_intelligence_jobs SET priority = LEAST(priority, $2)
+         WHERE idempotency_key = $1 AND status IN ('queued','failed') AND priority > $2`,
+        [input.claim.idempotencyKey, input.priority ?? 100],
+      );
       const processing = processingInputFor(input.processingItem);
       if (processing) {
         await client.query(

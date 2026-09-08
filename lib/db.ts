@@ -20,7 +20,7 @@ declare global {
   var __pgPool: Pool | undefined;
 }
 
-function getPool(): Pool {
+export function getPool(): Pool {
   if (global.__pgPool) return global.__pgPool;
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -43,9 +43,12 @@ function getPool(): Pool {
     user: decodeURIComponent(u.username),
     password: decodeURIComponent(u.password),
     database: u.pathname.replace(/^\//, ""),
-    max: 4,
+    // Three production replicas plus a rolling revision must fit the hosted
+    // session pool. Media intelligence reuses this pool when targeting this DB.
+    max: 3,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
+    statement_timeout: 30_000,
     ssl: sslDisabled || isLocalDatabase ? false : { rejectUnauthorized: false },
   });
   global.__pgPool = pool;

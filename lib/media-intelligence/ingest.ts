@@ -125,6 +125,8 @@ export async function queueWatchItems(items: readonly WatchItem[]): Promise<Inde
           assetKey: prepared.asset.key,
           claim: prepared.claim,
           policy: eligibility.policy,
+          priority: item.kind === "live" ? 10
+            : Date.parse(item.publishedAt ?? "") >= Date.now() - 2 * 86_400_000 ? 25 : 100,
           processingItem: eligibility.deepMediaAllowed && analyzer.mode === "deep"
             ? {
                 mediaUrl: item.mediaUrl,
@@ -186,8 +188,12 @@ export async function runCurrentWatchCatalogSync(options: {
       .sort((a, b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
     const cursor = previous.rows[0]?.cursor;
     const remaining = cursor ? ordered.filter((item) => key(item) > cursor) : ordered;
-    const batch = (remaining.length ? remaining : ordered).slice(0, 100);
-    const hasMore = (remaining.length || ordered.length) > batch.length;
+    const archiveSlice = (remaining.length ? remaining : ordered).slice(0, 75);
+    const recent = ordered.filter((item) => item.kind === "live" || Date.parse(item.publishedAt ?? "") >= Date.now() - 2 * 86_400_000)
+      .sort((a, b) => Number(b.kind === "live") - Number(a.kind === "live") || Date.parse(b.publishedAt ?? "0") - Date.parse(a.publishedAt ?? "0"))
+      .slice(0, 25);
+    const batch = [...new Map([...recent, ...archiveSlice].map((item) => [key(item), item])).values()];
+    const hasMore = (remaining.length || ordered.length) > archiveSlice.length;
     const queued = await queueWatchItems(batch);
     const worker = await runMediaWorkerBatch({
       workerId: `catalog-sync:${syncId}`,
@@ -203,7 +209,7 @@ export async function runCurrentWatchCatalogSync(options: {
       trigger,
       worker,
       catalogSize: ordered.length,
-      nextCatalogCursor: hasMore && batch.length ? key(batch[batch.length - 1]!) : null,
+      nextCatalogCursor: hasMore && archiveSlice.length ? key(archiveSlice[archiveSlice.length - 1]!) : null,
     };
     await mediaIntelligenceQuery(
       `UPDATE media_intelligence_catalog_syncs SET status = $3, summary = $2::jsonb,
