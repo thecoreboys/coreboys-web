@@ -20,7 +20,7 @@ function vectorLiteral(vector: number[]): string {
   return `[${vector.map((value) => Number(value.toFixed(8))).join(",")}]`;
 }
 
-async function insertCompletedAnalysis(client: PoolClient, result: CompletedAnalysis, vector: boolean) {
+export async function insertCompletedAnalysis(client: PoolClient, result: CompletedAnalysis, vector: boolean) {
   // Outputs are owned by an immutable analysis run. Upserts make retries
   // idempotent without deleting another analyzer/stage's evidence.
   for (const segment of result.segments) {
@@ -353,7 +353,13 @@ export class PostgresMediaIntelligenceStore implements MediaIntelligenceStore {
          AND COALESCE(policy.rights_status, 'public-metadata') <> 'restricted'
          AND (
            s.stage = 'metadata'
+           OR (s.stage = 'transcript' AND EXISTS (
+             SELECT 1 FROM media_intelligence_transcript_imports ti
+             WHERE ti.run_id = s.run_id AND ti.status = 'approved' AND ti.expires_at > now()
+           ))
            OR (
+             s.stage <> 'transcript'
+             AND
              policy.analysis_mode = 'deep'
              AND policy.media_access_allowed
              AND policy.rights_status IN ('owned','licensed')

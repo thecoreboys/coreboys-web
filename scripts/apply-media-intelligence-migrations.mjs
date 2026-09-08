@@ -7,7 +7,7 @@ import pg from "pg";
 
 const { Client } = pg;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const migrations = ["012_media_intelligence.sql", "027_deep_media_intelligence.sql"];
+const migrations = ["012_media_intelligence.sql", "027_deep_media_intelligence.sql", "050_reviewed_transcripts.sql"];
 
 function loadEnvLocal() {
   const path = resolve(repoRoot, ".env.local");

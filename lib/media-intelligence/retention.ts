@@ -66,6 +66,15 @@ export async function tombstoneMediaAsset(input: {
 
 export async function runMediaIntelligenceRetention(limit = 250) {
   const bounded = Math.max(1, Math.min(2_000, Math.trunc(limit)));
+  const transcriptsPruned = await withMediaIntelligenceTransaction(async (client) => {
+    const expired = await client.query<{ import_id: string; run_id: string | null }>(
+      `SELECT import_id, run_id FROM media_intelligence_transcript_imports
+       WHERE expires_at <= now() ORDER BY expires_at LIMIT $1 FOR UPDATE SKIP LOCKED`, [bounded]);
+    const runIds = expired.rows.flatMap((row) => row.run_id ? [row.run_id] : []);
+    if (runIds.length) await client.query("DELETE FROM media_intelligence_analysis_runs WHERE run_id=ANY($1::text[])", [runIds]);
+    if (expired.rows.length) await client.query("DELETE FROM media_intelligence_transcript_imports WHERE import_id=ANY($1::text[])", [expired.rows.map((row) => row.import_id)]);
+    return expired.rows.length;
+  });
   const expired = await mediaIntelligenceQuery<{ artifact_id: string; uri: string | null }>(
     `SELECT artifact_id, uri FROM media_intelligence_artifacts
      WHERE expires_at IS NOT NULL AND expires_at <= now()
@@ -154,6 +163,7 @@ export async function runMediaIntelligenceRetention(limit = 250) {
      RETURNING job_id`,
   );
   return {
+    transcriptsPruned,
     artifactsDeleted,
     artifactsFailed,
     tombstonesProcessed,

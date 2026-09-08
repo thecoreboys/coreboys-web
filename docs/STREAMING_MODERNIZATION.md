@@ -60,3 +60,10 @@ In progress. No milestone is marked complete until its acceptance evidence is re
 
 - Production release 5255c99 passed deployment. Media-intelligence run 34274285283 passed every stage with HTTP 200: 100 records discovered, zero failures, and 46 new pending Originals suggestions. Fractional TikTok duration failures are resolved.
 - Settings, membership/billing and upgrade now share a restrained header, navigation, width and responsive spacing. The billing summary separates loading from failure and includes retry. Account/upgrade routes collapse the DJ panel so it cannot cover billing controls.
+
+### Reviewed transcript evidence
+
+- New admin media-intelligence page imports authorized WebVTT/SRT captions by indexed asset key. Drafts require explicit review before approval; published excerpts carry real source timing, not generated scene claims. Staff can reject or revoke imports. Exact duplicates preserve previous decisions.
+- Per-asset permission references remain private. Imports attach to an immutable source revision and expire after 90 days. Search excludes draft, revoked, superseded, expired, removed and restricted evidence. Retention purges expired transcript text and derived segments. No provider downloads or paid AI calls are performed by this path.
+- Actual SQL lifecycle tests pass against the isolated development database, with all fixture changes rolled back: duplicate import, draft isolation, approval, 2:00 source timing, changed revision, expiry and revocation. Full web suite: 798 passing; typecheck passing.
+- Release d0e3369 deployed successfully. Production 390px membership page inspected: shared three-tab navigation fits without horizontal scrolling, account status visible, compact message control, no DJ covering billing fields. Automated transcription/scene extraction and the full provider playback matrix are still outstanding.

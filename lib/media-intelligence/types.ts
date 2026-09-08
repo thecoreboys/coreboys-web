@@ -7,6 +7,7 @@ export const LOCAL_ANALYZER_VERSION = "2";
 
 export type MediaAnalysisStage =
   | "metadata"
+  | "transcript"
   | "content-understanding"
   | "video-indexer"
   | "embedding"

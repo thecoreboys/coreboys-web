@@ -3,7 +3,7 @@ import { azureMediaRuntimeState } from "./azure";
 import { mediaIntelligenceQuery } from "./schema";
 
 export async function mediaIntelligenceCoverage() {
-  const [assets, policies, jobs, runs, operations] = await Promise.all([
+  const [assets, policies, jobs, runs, operations, transcripts] = await Promise.all([
     mediaIntelligenceQuery<{ platform: string; total: string; active: string }>(
       `SELECT platform, count(*)::text AS total,
               count(*) FILTER (WHERE active)::text AS active
@@ -32,6 +32,10 @@ export async function mediaIntelligenceCoverage() {
       (SELECT count(*) FROM media_intelligence_outbox WHERE status <> 'published')::text AS outbox_pending,
       (SELECT count(*) FROM media_intelligence_jobs WHERE status = 'dead-letter')::text AS dead_letters,
       (SELECT count(*) FROM media_intelligence_index_generations WHERE status = 'active')::text AS active_generation`),
+    mediaIntelligenceQuery<{ status: string; total: string }>(
+      `SELECT status, count(*)::text AS total FROM media_intelligence_transcript_imports
+       WHERE expires_at > now() GROUP BY status`,
+    ),
   ]);
   const op = operations.rows[0];
   return {
@@ -46,6 +50,7 @@ export async function mediaIntelligenceCoverage() {
     })),
     jobs: jobs.rows.map((row) => ({ stage: row.stage, status: row.status, total: Number(row.total) })),
     runs: runs.rows.map((row) => ({ stage: row.stage, status: row.status, total: Number(row.total) })),
+    transcripts: transcripts.rows.map((row) => ({ status: row.status, total: Number(row.total) })),
     operations: {
       artifacts: Number(op?.artifacts ?? 0),
       pendingTombstones: Number(op?.tombstones_pending ?? 0),

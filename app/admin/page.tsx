@@ -25,6 +25,12 @@ export const metadata: Metadata = {
 
 const TILES = [
   {
+    href: "/admin/media-intelligence",
+    title: "Media intelligence",
+    desc: "Import authorized captions, review evidence, and publish timestamped moments to search without per-search AI costs.",
+    Icon: Film01,
+  },
+  {
     href: "/admin/billing",
     title: "Supporter billing",
     desc: "Set contribution limits and notices, review 30-day proceeds and subscriptions, schedule safe renewals, and issue audited refunds.",
