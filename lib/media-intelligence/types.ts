@@ -3,7 +3,7 @@ import type { WatchItem, WatchPlatform } from "@/lib/watch/types";
 export const LOCAL_EMBEDDING_DIMENSIONS = 384;
 export const LOCAL_EMBEDDING_MODEL = "core-hash-ngrams-v1";
 export const LOCAL_ANALYZER = "core-metadata-analyzer";
-export const LOCAL_ANALYZER_VERSION = "1";
+export const LOCAL_ANALYZER_VERSION = "2";
 
 export type MediaAnalysisStage =
   | "metadata"

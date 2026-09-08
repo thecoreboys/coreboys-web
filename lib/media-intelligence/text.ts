@@ -36,11 +36,25 @@ export function textTokens(value: string): string[] {
   return normalizeText(value).split(" ").filter((token) => token.length > 1);
 }
 
+const QUERY_FILLER = new Set([
+  "a", "an", "the", "and", "or", "in", "on", "at", "to", "of", "for", "from", "with",
+  "where", "when", "who", "what", "which", "that", "this", "they", "them", "their",
+  "he", "she", "it", "was", "were", "is", "are", "did", "does", "had", "have", "has",
+  "can", "could", "you", "me", "my", "please", "find", "show", "search", "looking",
+  "video", "videos", "stream", "streams", "clip", "clips", "moment", "moments", "played", "playing",
+]);
+
+/** Query-only normalization: stored vectors and exact-title matching stay unchanged. */
+export function focusedMediaQuery(value: string): string {
+  const terms = textTokens(value).filter((term) => !QUERY_FILLER.has(term));
+  return terms.length ? terms.join(" ") : normalizeText(value);
+}
+
 export function expandConcepts(value: string): string[] {
   const normalized = normalizeText(value);
   const output = new Set<string>();
   for (const group of CONCEPT_ALIASES) {
-    if (group.triggers.some((trigger) => normalized.includes(normalizeText(trigger)))) {
+    if (group.triggers.some((trigger) => ` ${normalized} `.includes(` ${normalizeText(trigger)} `))) {
       group.expansions.forEach((entry) => output.add(entry));
     }
   }

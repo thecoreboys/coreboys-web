@@ -1,6 +1,6 @@
 import "server-only";
 import { cosineSimilarity, getEmbeddingProvider } from "./embedding";
-import { expandConcepts, matchedQueryTerms, normalizeText, textTokens, tokenFuzzySimilarity } from "./text";
+import { expandConcepts, focusedMediaQuery, matchedQueryTerms, normalizeText, textTokens, tokenFuzzySimilarity } from "./text";
 import { getMediaIntelligenceStore } from "./postgres-store";
 import {
   boundedLiveBoost,
@@ -75,7 +75,6 @@ function freshnessScore(publishedAt: string | null): number {
 
 function scoreDocument(
   query: string,
-  expandedQuery: string,
   queryVector: number[],
   document: SearchDocument,
   liveFirst: boolean,
@@ -83,8 +82,9 @@ function scoreDocument(
   const aliasText = document.aliases.map((alias) => alias.value).join(" ");
   const searchable = `${document.segment.searchDocument} ${document.tags.join(" ")} ${aliasText}`;
   const direct = catalogMatchSignals(document.asset.item, query);
-  const lexical = Math.max(direct.lexical, lexicalScore(expandedQuery, document));
-  const fuzzy = tokenFuzzySimilarity(query, searchable);
+  const focused = focusedMediaQuery(query);
+  const lexical = Math.max(direct.lexical, lexicalScore(focused, document));
+  const fuzzy = tokenFuzzySimilarity(focused, searchable);
   const vector = Math.max(0, cosineSimilarity(queryVector, document.embedding));
   const freshness = freshnessScore(document.asset.publishedAt);
   const normalizedQuery = normalizeText(query);
@@ -95,7 +95,7 @@ function scoreDocument(
           const value = normalizeText(entry.value);
           if (value === normalizedQuery) return Math.min(1, entry.weight / 1.4);
           if (value.includes(normalizedQuery)) return Math.min(0.95, entry.weight / 1.6);
-          return tokenFuzzySimilarity(normalizedQuery, value) * Math.min(1, entry.weight / 1.4);
+          return tokenFuzzySimilarity(focused, value) * Math.min(1, entry.weight / 1.4);
         }),
       )
     : 0;
@@ -123,7 +123,7 @@ function scoreDocument(
       freshness,
       live,
     },
-    matchedTerms: matchedQueryTerms(query, searchable),
+    matchedTerms: matchedQueryTerms(focused, searchable),
   };
 }
 
@@ -140,7 +140,7 @@ export async function searchMedia(input: {
   total: number;
 }> {
   const query = input.query.trim().slice(0, 240);
-  const expandedQuery = [query, ...expandConcepts(query)].join(" ");
+  const expandedQuery = [focusedMediaQuery(query), ...expandConcepts(query)].join(" ");
   const provider = getEmbeddingProvider();
   const queryVector = await cachedQueryEmbedding(provider, expandedQuery || "core boys live recent");
   const documents = await getMediaIntelligenceStore().searchDocuments(
@@ -155,7 +155,6 @@ export async function searchMedia(input: {
     const canonicalKey = canonicalWatchKey(document.asset.item);
     const { score, breakdown, matchedTerms } = scoreDocument(
       query,
-      expandedQuery,
       queryVector,
       document,
       input.liveFirst !== false,

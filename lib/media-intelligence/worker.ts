@@ -96,7 +96,6 @@ export async function runMediaWorkerBatch(options: {
       const analyzer = analyzers.find((candidate) => (
         candidate.stage === job.stage
         && candidate.name === job.analyzer
-        && candidate.version === job.analyzerVersion
       ));
       if (!analyzer) throw new Error("media_job_analyzer_unavailable");
       const prepared = prepareWatchItem(item, analyzer);

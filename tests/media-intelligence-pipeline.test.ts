@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 // @ts-expect-error Node type stripping requires explicit TypeScript suffixes.
-import { analysisIdempotencyKey, prepareWatchItem } from "../lib/media-intelligence/analyzer.ts";
+import { analysisIdempotencyKey, prepareWatchItem, storedDurationSeconds } from "../lib/media-intelligence/analyzer.ts";
 // @ts-expect-error Node type stripping requires explicit TypeScript suffixes.
 import { readAzureMediaConfig } from "../lib/media-intelligence/azure.ts";
 // @ts-expect-error Node type stripping requires explicit TypeScript suffixes.
@@ -30,6 +30,17 @@ function item(overrides: Partial<WatchItem> = {}): WatchItem {
     ...overrides,
   };
 }
+
+test("fractional TikTok runtimes are safe for integer catalog columns", () => {
+  assert.equal(storedDurationSeconds(15.034), 16);
+  assert.equal(storedDurationSeconds(0.4), 1);
+  assert.equal(storedDurationSeconds(Infinity), null);
+  assert.equal(storedDurationSeconds(NaN), null);
+  assert.equal(storedDurationSeconds(-1), null);
+  const prepared = prepareWatchItem(item({ platform: "tiktok", durationSeconds: 15.034 }), { name: "test", version: "1", stage: "metadata" });
+  assert.equal(prepared.asset.durationSeconds, 16);
+  assert.equal(prepared.asset.item.durationSeconds, 15.034, "preserve original provider precision in the item");
+});
 
 test("provider media defaults to metadata-only and embeds never imply download rights", () => {
   const target = item({ embedUrl: "https://www.youtube.com/embed/asset-1" });

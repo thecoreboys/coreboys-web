@@ -587,6 +587,17 @@ export function GuideGrid({
     startOfZonedDay(initialNowMs, 0, HYDRATION_TIME_PREFERENCES.timeZone));
   const [timelineZoomIndex, setTimelineZoomIndex] = useState(DEFAULT_TIMELINE_ZOOM_INDEX);
   const [query, setQuery] = useState("");
+  const [compactScreen, setCompactScreen] = useState(true);
+  const [chosenView, setChosenView] = useState<"now" | "timeline" | null>(null);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const guideView = chosenView ?? (compactScreen ? "now" : "timeline");
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setCompactScreen(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const timelineScroller = useDragScroll<HTMLDivElement>({ wheel: "native" });
   const liveScroller = useDragScroll<HTMLDivElement>({ wheel: "x" });
   const timelineRestoreRef = useRef<TimelineRestore | null>({ kind: "now" });
@@ -856,6 +867,17 @@ export function GuideGrid({
   };
 
   const filteredLive = programs.filter((program) => program.status === "live" && matchesControls(program));
+  const nowNextRows = useMemo(() => networkGroups.flatMap((group) => group.rows.flatMap((row) => {
+    if (row.kind !== "live" && row.kind !== "continuous") return [];
+    const lineup = (row.kind === "continuous"
+      ? continuousPrograms(group, row, clockMs, clockMs + 6 * 3_600_000, clockMs)
+      : programs.filter((program) => programBelongsToRow(program, row)))
+      .filter((program) => matchesControls(program, group, row))
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+    const current = lineup.find((program) => program.continuous ? program.continuousPhase === "now" : program.status === "live");
+    const next = lineup.find((program) => program.continuous ? program.continuousPhase === "future" : program.status === "upcoming" && Date.parse(program.startsAt) > clockMs);
+    return current || next ? [{ group, row, current, next }] : [];
+  })), [clockMs, member, needle, networkGroups, platform, programs, status]); // eslint-disable-line react-hooks/exhaustive-deps
   const lanes = useMemo<TimelineLane[]>(() => {
     const hideEmptyRows = platform !== "all" || status !== "all" || Boolean(needle);
     return networkGroups
@@ -1094,7 +1116,7 @@ export function GuideGrid({
 
   function scrollTimeline(direction: -1 | 1) {
     const element = timelineScroller.current;
-    if (!element) return;
+    if (!element || element.clientWidth === 0) return;
     const maxLeft = Math.max(0, element.scrollWidth - element.clientWidth);
     const atEdge = direction < 0 ? element.scrollLeft <= 3 : element.scrollLeft >= maxLeft - 3;
     if (atEdge && pageTimeline(direction, element)) return;
@@ -1190,7 +1212,7 @@ export function GuideGrid({
   useLayoutEffect(() => {
     if (lanes.length === 0) return;
     const element = timelineScroller.current;
-    if (!element) return;
+    if (!element || element.clientWidth === 0) return;
     const restore = timelineRestoreRef.current;
     if (restore?.kind === "preserve") {
       const restoredLeft = timelineLabelWidth(element) +
@@ -1212,7 +1234,7 @@ export function GuideGrid({
     // Preserve the visible dates when archive pages change. Center Now only
     // on initial load, a scope reset, or an explicit Today / Now action.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lanes.length, range.end, range.pxPerMinute, range.start, scope]);
+  }, [guideView, lanes.length, range.end, range.pxPerMinute, range.start, scope]);
 
   useEffect(() => () => {
     if (timelineScrollTimerRef.current !== null) window.clearTimeout(timelineScrollTimerRef.current);
@@ -1243,17 +1265,22 @@ export function GuideGrid({
   const timelineZoomPercent = Math.round(timelineZoom * 100);
 
   return (
-    <div className="guide-v2">
+    <div className="guide-v2" data-guide-view={guideView}>
       <header className="guide-v2-header">
         <div>
           <h1 className="watch-title mt-2 text-4xl md:text-6xl">Guide</h1>
         </div>
       </header>
 
+      <div className="guide-view-switch" role="group" aria-label="Guide layout">
+        <button type="button" aria-pressed={guideView === "now"} onClick={() => setChosenView("now")}>Now &amp; next</button>
+        <button type="button" aria-pressed={guideView === "timeline"} onClick={() => { timelineRestoreRef.current = { kind: "now" }; setChosenView("timeline"); }}>Full timeline</button>
+      </div>
+
       <div className="guide-secondary">
         <div className="guide-secondary-body">
 
-      {livePrograms.length > 0 && (status === "all" || status === "live") ? (
+      {guideView === "timeline" && livePrograms.length > 0 && (status === "all" || status === "live") ? (
         <section className="guide-live-first" aria-labelledby="guide-live-title">
           <div className="guide-section-heading">
             <div>
@@ -1281,7 +1308,8 @@ export function GuideGrid({
         </section>
       ) : null}
 
-      <section className="guide-controls" aria-label="Guide filters">
+      {compactScreen && guideView === "now" ? <button type="button" className="guide-filters-toggle" aria-expanded={filtersExpanded} aria-controls="guide-filter-controls" onClick={() => setFiltersExpanded((value) => !value)}>{filtersExpanded ? "Hide filters" : "Filters"}{status !== "all" || platform !== "all" || member !== "all" || query ? " · Active" : ""}</button> : null}
+      {guideView === "timeline" || !compactScreen || filtersExpanded ? <section id="guide-filter-controls" className="guide-controls" aria-label="Guide filters">
         <div className="guide-filter-row" role="group" aria-label="Event type">
           {([
             ["all", "Everything"],
@@ -1290,7 +1318,7 @@ export function GuideGrid({
             ["published", "Posts"],
             ["replay", "Broadcasts"],
           ] as const).map(([value, label]) => (
-            <button key={value} type="button" className={status === value ? "is-active" : ""} aria-pressed={status === value} onClick={() => setStatus(value)}>
+            <button key={value} type="button" className={status === value ? "is-active" : ""} aria-pressed={status === value} onClick={() => { setStatus(value); if (value === "published" || value === "replay") setChosenView("timeline"); }}>
               {label}
             </button>
           ))}
@@ -1334,11 +1362,24 @@ export function GuideGrid({
 
         <label className="guide-search-wrap">
           <span className="sr-only">Search titles, members, platforms, and formats</span>
-          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search the timeline" />
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search the guide" />
         </label>
-      </section>
+      </section> : null}
 
-      <section className="guide-schedule guide-timeline-section" aria-labelledby="guide-timeline-title">
+      {guideView === "now" ? <section className="guide-now-next" aria-labelledby="guide-now-next-title">
+        <div className="guide-section-heading"><div><h2 id="guide-now-next-title">On now. Up next.</h2><p className="guide-inline-note">Live creators and always-on replay channels · {formatTimeZoneLabel(liveNowMs, timePreferences)}</p></div></div>
+        {error ? <p role="status" className="guide-inline-note">Schedules could not refresh. Showing the latest available lineup.</p> : null}
+        <div className="guide-now-next-grid">
+          {nowNextRows.map(({ group, row, current, next }) => <article key={row.id} className="guide-now-next-card">
+            <div className="guide-now-next-network"><ChannelMark channel={channelFor(row.timelineSlug)} /><div><strong>{group.network.name}</strong><span>{row.kind === "continuous" ? "24/7 · Replay channel" : "Live channel"}</span></div></div>
+            {current ? <><p className="watch-kicker">{current.status === "live" ? "Live now" : "On now · Replay"}</p><h3>{current.title}</h3><button type="button" className="guide-now-next-play" disabled={!programIsPlayable(current)} onClick={() => playProgram(current)}>Watch now<span className="sr-only">: {current.title}</span></button></> : <p className="guide-inline-note">Not live right now</p>}
+            {next ? <div className="guide-now-next-upcoming"><span>Next · {formatClock(next.startsAt, timePreferences)}</span><p>{next.title}</p></div> : <p className="guide-inline-note">{row.kind === "live" ? "Next stream not scheduled yet." : "More from this channel follows."}</p>}
+          </article>)}
+        </div>
+        {!nowNextRows.length ? <div className="guide-schedule-empty"><strong>No current channels match these filters.</strong><span>Clear a filter or open the full timeline for past broadcasts and posts.</span></div> : null}
+      </section> : null}
+
+      {guideView === "timeline" ? <section className="guide-schedule guide-timeline-section" aria-labelledby="guide-timeline-title">
         <div className="guide-section-heading guide-schedule-heading">
           <div>
             <p className="watch-kicker">Timeline</p>
@@ -1469,7 +1510,7 @@ export function GuideGrid({
             </div>
           </div>
         ) : null}
-      </section>
+      </section> : null}
 
         </div>
       </div>

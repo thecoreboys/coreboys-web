@@ -36,6 +36,12 @@ export function assetKeyFor(item: WatchItem): string {
   return `${item.platform}:${item.id}`;
 }
 
+/** Catalog duration columns store whole seconds; provider runtimes may be fractional. */
+export function storedDurationSeconds(value: number | undefined): number | null {
+  return value != null && Number.isFinite(value) && value > 0 && value <= 2_147_483_647
+    ? Math.ceil(value) : null;
+}
+
 export function analysisIdempotencyKey(input: {
   revisionId: string;
   analyzer: string;
@@ -120,7 +126,7 @@ export function prepareWatchItem(item: WatchItem, analyzer: Pick<MediaAnalyzer, 
     title: item.title.trim(),
     description,
     thumbnailUrl: item.poster || null,
-    durationSeconds: item.durationSeconds ?? null,
+    durationSeconds: storedDurationSeconds(item.durationSeconds),
     publishedAt: item.publishedAt ?? item.live?.startedAt ?? null,
     isLive: item.kind === "live" || item.format === "live",
     item: searchSafeItem,
