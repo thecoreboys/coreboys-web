@@ -24,19 +24,28 @@ const date = (value: string | number | null | undefined) => value ? new Date(val
 
 export function BillingSummaryCard() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    void fetch("/api/account/billing/summary", { cache: "no-store" })
+    const controller = new AbortController();
+    setLoading(true);
+    void fetch("/api/account/billing/summary", { cache: "no-store", signal: controller.signal })
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => setSummary(data))
-      .catch(() => setSummary(null));
-  }, []);
+      .then((data) => { if (!controller.signal.aborted) setSummary(data); })
+      .catch(() => { if (!controller.signal.aborted) setSummary(null); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [attempt]);
 
   if (!summary) {
     return (
       <section className="mt-6 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-5">
         <div className="flex items-center gap-2"><CreditCard01 className="size-5" /><h2 className="font-semibold text-[color:var(--ink)]">Billing</h2></div>
-        <p className="mt-2 text-sm text-[color:var(--ink-dim)]">Billing details are temporarily unavailable.</p>
-        <Link href="/account/plan" className="mt-4 inline-flex text-sm font-semibold text-[color:var(--ink)] underline underline-offset-4">View support options</Link>
+        <p className="mt-2 text-sm text-[color:var(--ink-dim)]" role="status">{loading ? "Loading your billing details…" : "Billing details are temporarily unavailable."}</p>
+        {!loading ? <div className="mt-3 flex flex-wrap items-center gap-4">
+          <button type="button" onClick={() => setAttempt((value) => value + 1)} className="inline-flex min-h-11 items-center rounded-lg border border-[color:var(--rule)] px-4 text-sm font-semibold text-[color:var(--ink)]">Try again</button>
+          <Link href="/account/plan" className="inline-flex min-h-11 items-center text-sm font-semibold text-[color:var(--ink)] underline underline-offset-4">View support options</Link>
+        </div> : null}
       </section>
     );
   }

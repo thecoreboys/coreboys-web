@@ -55,3 +55,8 @@ In progress. No milestone is marked complete until its acceptance evidence is re
 - Natural-language ranking removes conversational filler without changing exact-title matching. A behavior test locates a real chapter at 2:00 for a Minecraft-with-friends query; untimed metadata receives no invented timestamp. This is not full video/audio analysis.
 - Mobile Guide now starts with a compact Now & next list and collapsed filters. Full timeline remains selectable; desktop defaults to timeline. Local 390px browser inspection verified visible Watch now controls, clear replay labels, and separate floating message/DJ buttons. Full suite: 791 passing, typecheck passing.
 - All phases remain in progress. Rights-cleared transcript/scene processing, production moment coverage, full provider playback matrix, and comprehensive account/Multiview verification remain outstanding.
+
+### Account consistency and production cron verification
+
+- Production release 5255c99 passed deployment. Media-intelligence run 34274285283 passed every stage with HTTP 200: 100 records discovered, zero failures, and 46 new pending Originals suggestions. Fractional TikTok duration failures are resolved.
+- Settings, membership/billing and upgrade now share a restrained header, navigation, width and responsive spacing. The billing summary separates loading from failure and includes retry. Account/upgrade routes collapse the DJ panel so it cannot cover billing controls.

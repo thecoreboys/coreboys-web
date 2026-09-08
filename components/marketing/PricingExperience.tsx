@@ -5,6 +5,7 @@ import { ArrowRight, Check, CreditCard, LockKeyhole, ShieldCheck } from "lucide-
 import type { AccountSubscriptionApiResponse } from "@/lib/subscriptions/api-contract";
 import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSupporterBillingControls";
 import { MembershipActions } from "./MembershipActions";
+import { AccountPageHeader } from "@/components/account/AccountPageHeader";
 import styles from "./PricingExperience.module.css";
 
 type AccountPlanPreview = AccountSubscriptionApiResponse["account"];
@@ -28,13 +29,14 @@ export function PricingExperience({ accountMode = false, displayName, account, a
   const requestedFeature = focusFeature ? FEATURE_FOCUS[focusFeature] : undefined;
 
   return <div className={styles.shell}>
-    <header className={styles.cleanHeader}>
-      <p className={styles.kicker}>CORE membership</p>
-      <h1 id="membership-title">{accountMode && displayName ? `${displayName}'s membership` : "Support CORE and get beta access."}</h1>
-      <p className={styles.heroCopy}>{accountMode ? "Manage your CORE membership and billing in one place." : "One membership unlocks the current CORE beta and helps keep the site running."}</p>
+    <AccountPageHeader
+      active={accountMode ? "membership" : "upgrade"}
+      title={accountMode ? "Membership & billing" : "Support CORE. Get beta access."}
+      description={accountMode ? `Manage ${displayName ? `${displayName}'s` : "your"} CORE membership and billing in one place.` : "One membership unlocks the current CORE beta and supports development and ongoing updates."}
+    >
       {requestedFeature ? <FocusCallout feature={requestedFeature} /> : null}
       {accountMode ? <div className={styles.currentPlan} role="status" aria-live="polite"><span>Current plan</span><strong>{accountLoading ? "Checking…" : active ? "CORE Member" : "Free"}</strong><small>{account?.cancelAtPeriodEnd ? "Ends after this billing period" : active ? "Active" : "No membership yet"}</small></div> : <Link className={styles.primaryCta} href="/account/plan">{joinLabel} <ArrowRight aria-hidden="true" /></Link>}
-    </header>
+    </AccountPageHeader>
 
     <main className={styles.cleanMain}>
       <section className={styles.cleanGrid} aria-label="Membership details">
@@ -47,7 +49,7 @@ export function PricingExperience({ accountMode = false, displayName, account, a
         <aside className={styles.includedCard}><div className={styles.cleanCardIcon}><ShieldCheck aria-hidden="true" /></div><h2>Included with membership</h2><ul>{INCLUDED.map((item) => <li key={item}><Check aria-hidden="true" />{item}</li>)}</ul></aside>
       </section>
       <section className={styles.cleanNotice}><LockKeyhole aria-hidden="true" /><div><strong>Public content stays free.</strong><p>Your membership supports CORE development and personal account tools. It is not a subscription to any creator.</p></div></section>
-      <section className={styles.cleanFaq} aria-labelledby="membership-faq"><div><p className={styles.kicker}>Need to know</p><h2 id="membership-faq">Simple billing, no surprises.</h2></div><div className={styles.cleanFaqList}><p><strong>Can I cancel?</strong> Yes. Cancel recurring billing from this page or through the secure billing portal.</p><p><strong>What does beta mean?</strong> CORE is still being built, so features may change as we improve them.</p></div></section>
+      <section className={styles.cleanFaq} aria-labelledby="membership-faq"><div><p className={styles.kicker}>Need to know</p><h2 id="membership-faq">Simple billing, no surprises.</h2></div><div className={styles.cleanFaqList}><p><strong>Can I cancel?</strong> Yes. Cancel recurring billing from this page or through the secure billing portal.</p><p><strong>What does beta mean?</strong> You get access to all current beta features. Some may not work as intended while development and regular updates continue.</p></div></section>
     </main>
   </div>;
 }

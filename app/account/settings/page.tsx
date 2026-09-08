@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell01, Settings01, User01 } from "@untitledui/icons";
 import { AccountSettingsHub } from "@/components/account/AccountSettingsHub";
+import { AccountPageHeader } from "@/components/account/AccountPageHeader";
 import { ConnectedAccounts } from "@/components/account/ConnectedAccounts";
 import { NotificationSettings } from "@/components/account/NotificationSettings";
 import { SocialNotificationSettings } from "@/components/account/SocialNotificationSettings";
@@ -48,24 +49,10 @@ export default function AccountSettingsPage() {
 
   return (
     <>
-      <main className={`${billingStyles.shell} mx-auto min-h-[70vh] px-5 py-10 sm:px-6 lg:px-8 lg:py-16`}>
-        <div className="flex items-start gap-3">
-          <span className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary text-brand-secondary ring-1 ring-inset ring-brand">
-            <Settings01 className="size-5" aria-hidden />
-          </span>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.13em] text-brand-secondary">Account settings</p>
-            <h1 className="mt-2 text-display-sm font-semibold tracking-tight text-primary">
-              Settings
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-tertiary">
-              Set how CORE looks, plays, connects, and keeps you in the loop.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-8 grid items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10">
-          <aside className="lg:sticky lg:top-28">
+      <div className={billingStyles.shell}>
+        <AccountPageHeader active="settings" title="Settings" description="Set how CORE looks, plays, connects, and keeps you in the loop." />
+        <div className={`${billingStyles.cleanMain} grid items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10`}>
+          <aside className="lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)]">
             <nav
               aria-label="Account settings"
               className="flex gap-1 overflow-x-auto rounded-xl bg-secondary p-1 ring-1 ring-inset ring-secondary lg:flex-col"
@@ -107,7 +94,7 @@ export default function AccountSettingsPage() {
             </section>
           </div>
         </div>
-      </main>
+      </div>
       <SiteFooter />
     </>
   );

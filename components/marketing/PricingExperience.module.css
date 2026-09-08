@@ -419,8 +419,13 @@
 }
 
 /* Clean billing layout shared by /upgrade and /account/plan. */
-.cleanHeader { width: min(100% - 3rem, 68rem); margin: 0 auto; padding: clamp(4rem, 9vw, 7rem) 0 3rem; }
-.cleanHeader h1 { max-width: 42rem; margin-top: .7rem; font-size: clamp(2.6rem, 6vw, 5rem); line-height: .98; letter-spacing: -.065em; text-wrap: balance; }
+.cleanHeader { width: min(100% - 3rem, 68rem); margin: 0 auto; padding: clamp(2rem, 5vw, 4rem) 0 2rem; }
+.cleanHeader h1 { max-width: 48rem; margin-top: .7rem; font-size: clamp(2.1rem, 4vw, 3.5rem); line-height: 1.08; letter-spacing: -.045em; text-wrap: balance; }
+.accountNav { display:flex; gap:.35rem; margin-bottom:2rem; overflow-x:auto; overscroll-behavior-x:contain; padding:.15rem; }
+.accountNav a { display:inline-flex; align-items:center; flex-shrink:0; min-height:44px; padding:.6rem .85rem; border:1px solid transparent; border-radius:.7rem; color:#a1a1aa; font-size:.8rem; font-weight:600; }
+.accountNav a[aria-current="page"] { background:#1b1b21; border-color:#ffffff24; color:#f5f5f7; }
+.accountNav a:hover { color:#fff; }
+.accountNav a:focus-visible { outline:2px solid #f493bf; outline-offset:2px; }
 .cleanHeader .heroCopy { max-width: 38rem; }
 .cleanHeader > .primaryCta { margin-top: 1.5rem; }
 .cleanMain { width: min(100% - 3rem, 68rem); margin: 0 auto; padding: 0 0 6rem; }
@@ -444,7 +449,9 @@
 .cleanFaqList strong { color: #f3f3f5; }
 
 @media (max-width: 760px) {
-  .cleanHeader, .cleanMain { width: min(100% - 1.25rem, 68rem); }
+  .cleanHeader, .cleanMain { width: min(100% - 2rem, 68rem); }
+  .accountNav { display:grid; grid-template-columns:.8fr 1.4fr 1fr; overflow:visible; gap:.15rem; }
+  .accountNav a { justify-content:center; padding:.5rem .3rem; text-align:center; font-size:.75rem; line-height:1.35; }
   .cleanGrid, .cleanFaq { grid-template-columns: 1fr; }
   .cleanFaq { gap: 1.25rem; }
 }

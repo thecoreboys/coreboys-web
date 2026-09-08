@@ -143,7 +143,8 @@ export function RadioAudioSystem() {
       ? "CORE Network"
       : null;
   }, [pathname, player.channel?.id]);
-  const immersivePlayerPage = pathname.startsWith("/theater") || pathname.startsWith("/multiview");
+  const immersivePlayerPage = pathname.startsWith("/theater") || pathname.startsWith("/multiview")
+    || pathname.startsWith("/account") || pathname === "/upgrade";
 
   return (
     <RadioAudioDirector
