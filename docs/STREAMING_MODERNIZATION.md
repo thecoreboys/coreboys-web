@@ -39,3 +39,10 @@ In progress. No milestone is marked complete until its acceptance evidence is re
 - Release 1138d6c deployed successfully and its running Azure image was verified. CI, metrics snapshot and media maintenance workflows passed on production. Media sync handled a 11,999-item inventory as a 100-item slice in about 16 seconds; 20 records analyzed. The archive stage required one retry after a database session-pool limit. Follow-up shares the primary/media connection pool and lowers per-replica limits.
 - Face-retention credential is installed. Production verification found the preview middleware still blocked this exact route before its own authentication; a targeted bypass is being added while retaining its dedicated secret and staff checks.
 - User explicitly confirmed permission for CORE creators' video/audio on September 8. This does not authorize unrelated accounts or imply blanket ownership. Paid deep processing remains inactive until the source registry and adapters are verified. Deep multimodal analysis, expanded Originals automation and remaining player/Guide phases are not yet delivered.
+
+### Follow-up verification
+
+- Release 4728eaa deployed as Azure revision 0000055; independent CI passed. Fresh production cron checks exposed two additional failures, so these workflows are not marked repaired yet.
+- Face cleanup used PostgreSQL's reserved keyword `references` as an unquoted alias. Both occurrences were corrected. The actual retention function now executes successfully against the isolated development database inside a rolled-back transaction.
+- Read-only production diagnosis found 1,755 failed media jobs referencing non-current revisions. New jobs now retain immutable metadata; obsolete revisions are cancelled instead of retried. Legacy input changes enqueue their current replacement. Archive responses now report worker failures through HTTP status instead of returning misleading success.
+- Local verification after these corrections: 782 tests pass, typecheck passes, metadata sync HTTP 200 in 3.7 seconds with 20 analyzed and zero failures. Production verification of this follow-up is pending.

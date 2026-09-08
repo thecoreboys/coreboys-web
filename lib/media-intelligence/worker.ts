@@ -5,11 +5,13 @@ import {
   claimNextAnalysisJob,
   completeAnalysisJob,
   dispatchMediaOutbox,
+  enqueueAnalysisJob,
   failAnalysisJob,
   loadMediaJobItem,
   renewAnalysisJobLease,
 } from "./jobs";
 import { getMediaIntelligenceStore } from "./postgres-store";
+import { sourcePolicyFor } from "./policy";
 import type { MediaIntelligenceJob } from "./types";
 
 export type MediaWorkerSummary = {
@@ -83,7 +85,14 @@ export async function runMediaWorkerBatch(options: {
     try {
       if (!await heartbeat.renew()) throw new Error("analysis_job_policy_or_lease_invalid");
       const item = await loadMediaJobItem(job);
-      if (!item) throw new Error("media_job_asset_missing");
+      if (!item) {
+        await heartbeat.stop();
+        if (!await cancelClaimedAnalysisJob(job, workerId, "media_job_revision_superseded")) {
+          throw new Error("analysis_job_lease_invalid");
+        }
+        summary.unchanged += 1;
+        continue;
+      }
       const analyzer = analyzers.find((candidate) => (
         candidate.stage === job.stage
         && candidate.name === job.analyzer
@@ -92,7 +101,21 @@ export async function runMediaWorkerBatch(options: {
       if (!analyzer) throw new Error("media_job_analyzer_unavailable");
       const prepared = prepareWatchItem(item, analyzer);
       if (prepared.revision.id !== job.revisionId || prepared.claim.idempotencyKey !== job.idempotencyKey) {
-        throw new Error("media_job_revision_mismatch");
+        // Legacy jobs carried mutable asset metadata, or their policy changed.
+        // Requeue the current input once; stale work must not burn all retries.
+        await store.prepareRevision(prepared.asset, prepared.revision);
+        await enqueueAnalysisJob({
+          assetKey: prepared.asset.key, claim: prepared.claim,
+          policy: sourcePolicyFor(item), analysisItem: prepared.asset.item,
+          processingItem: job.stage === "metadata" ? undefined : item,
+          priority: job.priority,
+        });
+        await heartbeat.stop();
+        if (!await cancelClaimedAnalysisJob(job, workerId, "media_job_input_superseded")) {
+          throw new Error("analysis_job_lease_invalid");
+        }
+        summary.unchanged += 1;
+        continue;
       }
       const claim = await store.claimAnalysis(prepared.claim);
       if (claim === "complete") {

@@ -102,6 +102,8 @@ export async function enqueueAnalysisJob(input: {
   assetKey: string;
   claim: AnalysisClaim;
   policy: MediaSourcePolicy;
+  /** Immutable, public-safe metadata for this exact revision. */
+  analysisItem?: WatchItem;
   /**
    * Server-only processing URLs. Public asset.item rows are intentionally
    * redacted; workers recover authorized inputs from this private job payload.
@@ -159,6 +161,7 @@ export async function enqueueAnalysisJob(input: {
           policyKey: input.policy.key,
           policyVersion: input.policy.version,
           inputHash: input.claim.inputHash,
+          analysisItem: input.analysisItem,
           processing: processingInputFor(input.processingItem),
         }),
       ],
@@ -240,11 +243,14 @@ export async function loadMediaJobItem(job: MediaIntelligenceJob): Promise<Watch
   const result = await mediaIntelligenceQuery<{ item: WatchItem }>(
     `SELECT a.item FROM media_intelligence_assets a
      JOIN media_intelligence_revisions r ON r.asset_key = a.asset_key
-     WHERE a.asset_key = $1 AND r.revision_id = $2 LIMIT 1`,
+     WHERE a.asset_key = $1 AND r.revision_id = $2 AND r.is_current AND a.active LIMIT 1`,
     [job.assetKey, job.revisionId],
   );
-  const item = result.rows[0]?.item;
-  if (!item) return null;
+  const currentItem = result.rows[0]?.item;
+  if (!currentItem) return null;
+  const snapshot = job.payload.analysisItem as WatchItem | undefined;
+  const item = snapshot?.id === currentItem.id && snapshot.platform === currentItem.platform
+    ? snapshot : currentItem;
   const processing = processingInputFor(
     job.payload.processing && typeof job.payload.processing === "object"
       ? job.payload.processing as MediaProcessingInput

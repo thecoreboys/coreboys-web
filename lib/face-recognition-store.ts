@@ -363,9 +363,9 @@ const IDENTITY_SELECT = `
              FROM face_consent_archive_scopes scopes
             WHERE scopes.consent_id=consents.id
          ), '[]'::jsonb) AS approved_archive_scopes,
-         (SELECT count(*)::int FROM face_reference_assets references
-           WHERE references.identity_id=identities.id
-             AND references.state IN ('pending_review','approved')) AS reference_count,
+         (SELECT count(*)::int FROM face_reference_assets refs
+           WHERE refs.identity_id=identities.id
+             AND refs.state IN ('pending_review','approved')) AS reference_count,
          (SELECT COALESCE(sum(templates.template_count),0)::int
             FROM face_template_sets templates
            WHERE templates.identity_id=identities.id
@@ -925,18 +925,18 @@ export async function prepareExpiredFaceDataPurge(context: FaceMutationContext) 
       identity_id: string;
       storage_key: string | null;
     }>(
-      `UPDATE face_reference_assets references
+      `UPDATE face_reference_assets refs
           SET state='deletion_pending',
-              revoked_at=COALESCE(references.revoked_at,now()),
-              deletion_requested_at=COALESCE(references.deletion_requested_at,now()),
+              revoked_at=COALESCE(refs.revoked_at,now()),
+              deletion_requested_at=COALESCE(refs.deletion_requested_at,now()),
               updated_at=now()
          FROM face_consents consents
-        WHERE references.consent_id=consents.id
-          AND references.state NOT IN ('deletion_pending','deleted')
-          AND (references.retention_expires_at <= now()
+        WHERE refs.consent_id=consents.id
+          AND refs.state NOT IN ('deletion_pending','deleted')
+          AND (refs.retention_expires_at <= now()
                OR consents.expires_at <= now()
                OR consents.revoked_at IS NOT NULL)
-      RETURNING references.id::text, references.identity_id::text, references.storage_key`,
+      RETURNING refs.id::text, refs.identity_id::text, refs.storage_key`,
     );
     const pending = await db.query<{
       id: string;

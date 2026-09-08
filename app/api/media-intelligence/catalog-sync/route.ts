@@ -52,12 +52,13 @@ export async function POST(request: Request) {
       return NextResponse.json(result, { status: result.failed ? 500 : 200 });
     }
     if (action === "archive") {
-      return NextResponse.json(await runMediaArchiveBackfillBatch({
+      const result = await runMediaArchiveBackfillBatch({
         workerId: `cron-archive:${Date.now()}`,
         maxPages: maxArchivePages,
         pageSize: archivePageSize,
         maxJobs,
-      }));
+      });
+      return NextResponse.json(result, { status: result.failed ? 500 : 200 });
     }
     if (action === "cleanup") {
       return NextResponse.json(await runMediaIntelligenceRetention(retentionLimit));

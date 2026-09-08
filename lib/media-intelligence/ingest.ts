@@ -125,6 +125,7 @@ export async function queueWatchItems(items: readonly WatchItem[]): Promise<Inde
           assetKey: prepared.asset.key,
           claim: prepared.claim,
           policy: eligibility.policy,
+          analysisItem: prepared.asset.item,
           priority: item.kind === "live" ? 10
             : Date.parse(item.publishedAt ?? "") >= Date.now() - 2 * 86_400_000 ? 25 : 100,
           processingItem: eligibility.deepMediaAllowed && analyzer.mode === "deep"
