@@ -16,6 +16,8 @@ import pg from "pg";
 const { Client } = pg;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const migrations = [
+  "001_metric_snapshots.sql",
+  "007_metric_snapshots_handle.sql",
   "002_stream_sessions.sql",
   "013_twitchtracker_analytics.sql",
   "014_staff_accounts.sql",

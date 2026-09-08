@@ -351,7 +351,9 @@ export function getMediaIntelligencePool(): Pool {
     max: 4,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
-    ssl: false,
+    statement_timeout: 30_000,
+    ssl: isLoopbackDatabase(url.toString()) || url.searchParams.get("sslmode") === "disable"
+      ? false : { rejectUnauthorized: false },
   });
   global.__mediaIntelligencePool = pool;
   return pool;

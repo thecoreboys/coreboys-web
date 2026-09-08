@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { buildSystemPrompt } from "@/lib/concierge-prompt";
-import { cancelAiUsage, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
+import { markAiUsageUncertain, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 import { redisIncrWithExpiry } from "@/lib/redis";
 
 export const runtime = "nodejs";
@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid body", details: err }, { status: 400 });
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, maxRetries: 0 });
   const system = buildSystemPrompt();
-  const estimatedInputTokens = Math.ceil((system.length + JSON.stringify(body.messages).length) / 4) + 350;
+  const estimatedInputTokens = Buffer.byteLength(system + JSON.stringify(body.messages), "utf8") + 2_000;
   const reservation = await reserveAiUsage({
     provider: "anthropic", feature: "concierge", model: "claude-haiku-4-5-20251001",
     subjectKey: `ip:${ip}`, estimatedInputTokens, maxOutputTokens: 400,
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
       messages: body.messages,
     });
   } catch (error) {
-    await cancelAiUsage(reservation.reservationId);
+    await markAiUsageUncertain(reservation.reservationId);
     return NextResponse.json({ error: error instanceof Error ? error.message : "AI request failed." }, { status: 502 });
   }
 
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
         controller.close();
       } catch (err) {
-        await cancelAiUsage(reservation.reservationId).catch(() => undefined);
+        await markAiUsageUncertain(reservation.reservationId).catch(() => undefined);
         const msg = err instanceof Error ? err.message : "stream error";
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
         controller.close();

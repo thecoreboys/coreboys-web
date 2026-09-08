@@ -4,7 +4,7 @@ import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { serverEnv } from "@/lib/env";
 import { requireAdmin } from "@/lib/admin-api";
-import { cancelAiUsage, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
+import { markAiUsageUncertain, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 
 /**
  * AI photo description.
@@ -81,11 +81,11 @@ export async function POST(req: Request) {
     provider: "anthropic", feature: "photo_describe", model: "claude-sonnet-4-6", subjectKey: `admin:${auth.id}`,
     // Reserve well above normal image-token use so concurrent descriptions
     // cannot overshoot the monthly control before Anthropic returns usage.
-    estimatedInputTokens: Math.max(20_000, Math.ceil(bytes.length / 100)), maxOutputTokens: 400,
+    estimatedInputTokens: Math.max(20_000, Math.ceil(bytes.length / 100)) + Buffer.byteLength(peopleLine + notesLine, "utf8") + 1_000, maxOutputTokens: 400,
   });
   if (!reservation.ok) return NextResponse.json({ error: "AI description is temporarily unavailable." }, { status: reservation.reason === "unavailable" ? 503 : 429 });
 
-  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 0 });
   const system = `You write concise photo descriptions for a media organization called CORE. \
 Return one well-formed paragraph of 2–4 sentences. Describe what's happening, the setting, \
 and any notable visual details. Do not invent identities — only refer to people by name when \
@@ -136,7 +136,7 @@ verify. Keep it factual and neutral. No markdown.`;
       generatedAt: new Date().toISOString(),
     });
   } catch (err) {
-    await cancelAiUsage(reservation.reservationId).catch(() => undefined);
+    await markAiUsageUncertain(reservation.reservationId).catch(() => undefined);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "anthropic call failed" },
       { status: 502 },

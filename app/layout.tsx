@@ -21,6 +21,7 @@ import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { ContactInquiryWidget } from "@/components/site/ContactInquiryWidget";
 import { UnreleasedBanner } from "@/components/chrome/UnreleasedBanner";
+import { SiteHeader } from "@/components/chrome/SiteHeader";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { AuthModal } from "@/components/auth/AuthModal";
 import "./globals.css";
@@ -160,18 +161,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <PlayerProvider>
             <WatchContextMenuProvider>
             <LenisProvider>
-              <div className="fixed inset-x-0 top-0 z-50">
+              <SiteHeader>
                 <UnreleasedBanner />
                 <Suspense fallback={null}>
                   <TopNav initialAvatars={avatars} />
                 </Suspense>
                 <LiveRibbon />
-              </div>
-              {/* Nav is h-14 / md:h-16. --live-ribbon-h is set by LiveRibbon
-                  when someone is on air (0px otherwise). */}
+              </SiteHeader>
+              {/* SiteHeader measures the complete banner, navigation and live ribbon. */}
               <main
                 id="main"
-                className="pt-[calc(6.25rem+var(--live-ribbon-h,0px))] pb-[var(--now-playing-h,0px)] md:pt-[calc(6.75rem+var(--live-ribbon-h,0px))]"
+                className="pt-[var(--site-header-h,8rem)] pb-[var(--now-playing-h,0px)]"
               >
                 {children}
               </main>

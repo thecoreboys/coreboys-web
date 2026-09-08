@@ -254,6 +254,15 @@ export function RadioAudioDirector({
   const [tunerIndex, setTunerIndex] = useState(0);
   const [placement, setPlacement] = useState<WidgetPlacement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [compactScreen, setCompactScreen] = useState(true);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 560px)");
+    const update = () => setCompactScreen(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const rootRef = useRef<HTMLElement | null>(null);
   const placementRef = useRef<WidgetPlacement | null>(null);
   const dragRef = useRef<WidgetDrag | null>(null);
@@ -787,7 +796,7 @@ export function RadioAudioDirector({
   const skip = () => window.dispatchEvent(new CustomEvent<{ reason: string }>(RADIO_CUE_SKIP_EVENT, { detail: { reason: "radio_widget_skip" } }));
 
   const startDragging = (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0 || placement?.hiddenEdge) return;
+    if (compactScreen || event.button !== 0 || placement?.hiddenEdge) return;
     const target = event.target;
     if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button']")) return;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -883,11 +892,12 @@ export function RadioAudioDirector({
   return (
     <>
       <aside
+        id="dj-cora-panel"
         ref={rootRef}
-        className={`${styles.root}${isDragging ? ` ${styles.isDragging}` : ""}${placement?.hiddenEdge ? ` ${styles.isHidden}` : ""}${autoCollapse ? ` ${styles.isAutoCollapsed}` : ""}${blocked ? ` ${styles.isBlocked}` : ""}${isSpeaking ? ` ${styles.isSpeaking}` : ""}${tunedNetwork ? ` ${styles.isTuned}` : ` ${styles.isUntuned}`}${className ? ` ${className}` : ""}`}
+        className={`${styles.root}${compactScreen && !mobileExpanded ? ` ${styles.isMobileCollapsed}` : ""}${isDragging ? ` ${styles.isDragging}` : ""}${placement?.hiddenEdge && !compactScreen ? ` ${styles.isHidden}` : ""}${autoCollapse ? ` ${styles.isAutoCollapsed}` : ""}${blocked ? ` ${styles.isBlocked}` : ""}${isSpeaking ? ` ${styles.isSpeaking}` : ""}${tunedNetwork ? ` ${styles.isTuned}` : ` ${styles.isUntuned}`}${className ? ` ${className}` : ""}`}
         style={widgetStyle}
         aria-live="polite"
-        aria-hidden={placement?.hiddenEdge || autoCollapse ? true : undefined}
+        aria-hidden={autoCollapse || (compactScreen ? !mobileExpanded : Boolean(placement?.hiddenEdge)) ? true : undefined}
         aria-label={blocked ? "DJ Cora audio needs confirmation" : "DJ Cora radio"}
         onPointerDown={startDragging}
         onPointerMove={continueDragging}
@@ -923,7 +933,7 @@ export function RadioAudioDirector({
         <span className={styles.tunerHint}>Stations</span>
       </div> : null}
       <div className={styles.signal} aria-hidden>
-        <Strands
+        {!autoCollapse && !compactScreen && !placement?.hiddenEdge && !reducedMotion ? <Strands
           colors={["#fb7185", "#f97316", "#22d3ee"]}
           count={3}
           speed={reducedMotion ? 0.04 : 0.13 + signalLevel * 1.5}
@@ -937,7 +947,7 @@ export function RadioAudioDirector({
           saturation={1.8}
           opacity={enabled ? 1 : 0.32}
           scale={1.6}
-        />
+        /> : null}
       </div>
       <div className={styles.chassis}>
         <div className={styles.topline}><span className={styles.statusDot} aria-hidden /> <span className={styles.coraLabel}>DJ CORA</span></div>
@@ -955,7 +965,15 @@ export function RadioAudioDirector({
         <button type="button" className={styles.settings} onClick={user ? openSettings : undefined} aria-disabled={!user} aria-label={user ? "DJ Cora settings" : "Sign in to adjust DJ Cora settings"} title={user ? "DJ Cora settings" : "Sign in to adjust DJ Cora settings"}><Settings2 aria-hidden /></button>
       </div>
       </aside>
-      {placement?.hiddenEdge && restoreStyle ? (
+      {compactScreen && !autoCollapse ? <button
+        type="button"
+        className={styles.mobileToggle}
+        aria-label={mobileExpanded ? "Close DJ Cora controls" : "Show DJ Cora controls"}
+        aria-expanded={mobileExpanded}
+        aria-controls="dj-cora-panel"
+        onClick={() => setMobileExpanded((value) => !value)}
+      >{mobileExpanded ? <X size={18} aria-hidden /> : <span>DJ</span>}</button> : null}
+      {!compactScreen && !autoCollapse && placement?.hiddenEdge && restoreStyle ? (
         <button
           type="button"
           className={styles.edgeRestore}

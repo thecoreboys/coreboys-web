@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { cancelAiUsage, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
+import { markAiUsageUncertain, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 
 export const runtime = "nodejs";
 export const revalidate = 90;
@@ -70,7 +70,7 @@ export async function GET(
     cache.set(key, entry);
     return cachedJson(entry);
   }
-  const reservation = await reserveAiUsage({ provider: "anthropic", feature: "stream_context", model: "claude-haiku-4-5-20251001", subjectKey: `stream:${key}`, estimatedInputTokens: 500, maxOutputTokens: 60 });
+  const reservation = await reserveAiUsage({ provider: "anthropic", feature: "stream_context", model: "claude-haiku-4-5-20251001", subjectKey: `stream:${key}`, estimatedInputTokens: Buffer.byteLength(JSON.stringify(live), "utf8") + 1_000, maxOutputTokens: 60 });
   if (!reservation.ok) {
     const entry = { summary: fallback, source: "fallback" as const, expiresAt: now + TTL_MS };
     cache.set(key, entry);
@@ -78,7 +78,7 @@ export async function GET(
   }
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({ apiKey, maxRetries: 0 });
     const msg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 60,
@@ -112,7 +112,7 @@ export async function GET(
     cache.set(key, entry);
     return cachedJson(entry);
   } catch (err) {
-    await cancelAiUsage(reservation.reservationId).catch(() => undefined);
+    await markAiUsageUncertain(reservation.reservationId).catch(() => undefined);
     console.error("[stream-context]", err);
     const entry = { summary: fallback, source: "fallback" as const, expiresAt: now + TTL_MS };
     cache.set(key, entry);

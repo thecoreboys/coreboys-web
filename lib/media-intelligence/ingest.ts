@@ -95,7 +95,11 @@ export async function indexWatchCatalog(catalog: WatchCatalog): Promise<IndexSum
 export async function queueWatchItems(items: readonly WatchItem[]): Promise<IndexSummary> {
   const store = getMediaIntelligenceStore();
   const summary = { ...emptySummary(), discovered: items.length };
-  for (const item of items) {
+  const uniqueItems = [...new Map(items.map((item) => [`${item.platform}:${item.id}`, item])).values()];
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(3, uniqueItems.length) }, async () => {
+  while (cursor < uniqueItems.length) {
+    const item = uniqueItems[cursor++]!;
     const eligibility = analysisEligibilityFor(item);
     if (eligibility.mode === "skip") {
       try {
@@ -137,6 +141,7 @@ export async function queueWatchItems(items: readonly WatchItem[]): Promise<Inde
       summary.failed += 1;
     }
   }
+  }));
   return summary;
 }
 
@@ -148,6 +153,8 @@ export type CatalogSyncResult = IndexSummary & {
   syncId: string;
   trigger: "scheduled" | "admin" | "manual";
   worker: MediaWorkerSummary;
+  catalogSize: number;
+  nextCatalogCursor: string | null;
 };
 
 /**
@@ -167,7 +174,21 @@ export async function runCurrentWatchCatalogSync(options: {
   );
   try {
     const catalog = await getWatchCatalog();
-    const queued = await queueWatchCatalog(catalog);
+    // Resume a bounded slice. A large archive must not occupy one HTTP request
+    // until the gateway times out and then restart from the first asset.
+    const previous = await mediaIntelligenceQuery<{ cursor: string | null }>(
+      `SELECT summary->>'nextCatalogCursor' AS cursor
+         FROM media_intelligence_catalog_syncs
+        WHERE status = 'succeeded' ORDER BY finished_at DESC NULLS LAST LIMIT 1`,
+    );
+    const key = (item: WatchItem) => `${item.platform}:${item.id}`;
+    const ordered = [...new Map(catalog.all.map((item) => [key(item), item])).values()]
+      .sort((a, b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
+    const cursor = previous.rows[0]?.cursor;
+    const remaining = cursor ? ordered.filter((item) => key(item) > cursor) : ordered;
+    const batch = (remaining.length ? remaining : ordered).slice(0, 100);
+    const hasMore = (remaining.length || ordered.length) > batch.length;
+    const queued = await queueWatchItems(batch);
     const worker = await runMediaWorkerBatch({
       workerId: `catalog-sync:${syncId}`,
       maxJobs: options.maxJobs ?? Math.max(queued.queued, 50),
@@ -181,11 +202,13 @@ export async function runCurrentWatchCatalogSync(options: {
       syncId,
       trigger,
       worker,
+      catalogSize: ordered.length,
+      nextCatalogCursor: hasMore && batch.length ? key(batch[batch.length - 1]!) : null,
     };
     await mediaIntelligenceQuery(
-      `UPDATE media_intelligence_catalog_syncs SET status = 'succeeded', summary = $2::jsonb,
+      `UPDATE media_intelligence_catalog_syncs SET status = $3, summary = $2::jsonb,
        finished_at = now() WHERE sync_id = $1`,
-      [syncId, JSON.stringify(result)],
+      [syncId, JSON.stringify(result), result.failed ? "failed" : "succeeded"],
     );
     return result;
   } catch (error) {

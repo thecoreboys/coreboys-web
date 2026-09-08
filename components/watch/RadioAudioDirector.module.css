@@ -23,6 +23,12 @@
 }
 .isDragging { cursor: grabbing; transition: none; box-shadow: 0 24px 55px rgba(0,0,0,.46); }
 .isHidden { visibility: hidden; pointer-events: none; }
+.isMobileCollapsed { visibility: hidden; pointer-events: none; }
+.mobileToggle { position: fixed; z-index: 95; right: max(.75rem, env(safe-area-inset-right)); bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px)); display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #45464c; border-radius: .8rem; color: #f5f5f5; background: #202126; font: 700 .75rem/1 inherit; }
+.mobileToggle:focus-visible { outline: 2px solid #f39a87; outline-offset: 3px; }
+:global(body[data-cookie-consent-open="true"]) .root,
+:global(body[data-cookie-consent-open="true"]) .edgeRestore,
+:global(body[data-cookie-consent-open="true"]) .mobileToggle { visibility: hidden; pointer-events: none; }
 .isAutoCollapsed { pointer-events: none; opacity: 0; visibility: hidden; transform: translateX(calc(100% + 1.5rem)); }
 .tuner { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(7rem, 1fr) auto; align-items: center; gap: .75rem; min-height: 2.45rem; padding: .45rem .7rem; border-bottom: 1px solid rgba(255,255,255,.09); background: #202327; }
 .tunerReadout { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr); grid-template-rows: auto auto; column-gap: .4rem; row-gap: .08rem; min-width: 7rem; }
@@ -75,7 +81,8 @@
 .edgeRestore svg { width: .9rem; height: .9rem; stroke-width: 2.4; }
 @keyframes radio-pulse { 50% { transform: scale(1.14); opacity: .7; } }
 @media (max-width: 560px) {
-  .root { grid-template-columns: 4.1rem minmax(0, 1fr) auto; min-height: 4.9rem; width: min(24rem, calc(100vw - 1rem)); right: .5rem; }
+  .root { grid-template-columns: minmax(0, 1fr) auto; min-height: 4.9rem; width: calc(100vw - 1.5rem); left: .75rem !important; right: .75rem !important; top: auto !important; bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + 3.5rem) !important; cursor: auto; touch-action: pan-y; }
+  .signal { display: none; }
   .signal { min-height: 4.9rem; }
   .tuner { gap: .4rem; min-height: 2.1rem; padding-inline: .45rem; }
   .tunerReadout { grid-template-columns: 1.15rem minmax(0, 1fr); min-width: 5rem; }
@@ -85,7 +92,7 @@
   .chassis p { -webkit-line-clamp: 1; }
   .meter { margin-top: .32rem; }
   .controls { flex-direction: column; gap: .18rem; padding: .35rem; }
-  .stop, .power, .settings { width: 1.72rem; height: 1.72rem; border-radius: .3rem; }
+  .stop, .power, .settings { width: 44px; height: 44px; border-radius: .5rem; }
   .settings { display: none; }
   .tunedState { display: block; max-width: 3.4rem; overflow: hidden; color: #aeb4bb; font-size: .42rem; font-weight: 700; letter-spacing: .06em; text-overflow: ellipsis; white-space: nowrap; }
 }

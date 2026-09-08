@@ -2,7 +2,7 @@ name: cron-media-intelligence
 
 on:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17,47 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -15,6 +15,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Sync, backfill, clean up, and publish media search
         env:
@@ -28,13 +29,21 @@ jobs:
           fi
           target="${APP_URL%/}/api/media-intelligence/catalog-sync"
           echo "Refreshing the searchable media catalog at ${target}"
-          curl --fail-with-body --silent --show-error \
-            --retry 2 --retry-delay 2 --retry-all-errors \
-            --connect-timeout 10 --max-time 240 \
-            -X POST \
-            -H "content-type: application/json" \
-            -H "accept: application/json" \
-            -H "x-media-intelligence-secret: $SECRET" \
-            --data '{"action":"maintenance","maxJobs":100,"maxArchivePages":8,"archivePageSize":50,"retentionLimit":250}' \
-            -w "\nHTTP %{http_code}\n" \
-            "$target"
+          failed=0
+          for action in cleanup sync archive publish-index; do
+            echo "Media stage: $action"
+            # Each stage is independently retryable; do not restart an entire
+            # archive batch when only publication or cleanup fails.
+            if ! curl --fail-with-body --silent --show-error \
+              --retry 1 --retry-delay 5 --retry-all-errors \
+              --connect-timeout 10 --max-time 180 \
+              -X POST \
+              -H "content-type: application/json" \
+              -H "accept: application/json" \
+              -H "x-media-intelligence-secret: $SECRET" \
+              --data "{\"action\":\"$action\",\"maxJobs\":20,\"maxArchivePages\":2,\"archivePageSize\":25,\"retentionLimit\":100}" \
+              -w "\nHTTP %{http_code}\n" "$target"; then
+              failed=1
+            fi
+          done
+          exit "$failed"

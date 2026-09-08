@@ -1,19 +1,34 @@
 name: CI
 
 on:
-  # Push trigger temporarily disabled — re-enable once the reusable
-  # workflow can clone sibling repos via GITHUB_BUILD_TOKEN. Until then
-  # CI runs on PRs only so red badges don't appear on main pushes.
+  push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  ci:
-    uses: thecoreboys/coreboys-infra/.github/workflows/reusable-node-ci.yml@main
-    with:
-      node-version: "20"
-      pnpm-version: "10"
-      run-test: true
-
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
   face-worker-tests:
     runs-on: ubuntu-latest
     steps:

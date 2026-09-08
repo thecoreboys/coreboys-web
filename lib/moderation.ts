@@ -9,7 +9,7 @@
  *      call errors we fall back to the local result rather than blocking.
  */
 import { Filter } from "bad-words";
-import { cancelAiUsage, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
+import { markAiUsageUncertain, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 
 export type ModerationResult = { ok: boolean; reason?: string };
 
@@ -47,7 +47,7 @@ export async function moderateText(text: string): Promise<ModerationResult> {
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return local; // local-only when no LLM configured
-  const reservation = await reserveAiUsage({ provider: "anthropic", feature: "postcard_moderation", model: "claude-haiku-4-5-20251001", estimatedInputTokens: Math.ceil(text.length / 4) + 180, maxOutputTokens: 8 });
+  const reservation = await reserveAiUsage({ provider: "anthropic", feature: "postcard_moderation", model: "claude-haiku-4-5-20251001", estimatedInputTokens: Buffer.byteLength(text.slice(0, 1500), "utf8") + 500, maxOutputTokens: 8 });
   if (!reservation.ok) return local;
 
   try {
@@ -79,7 +79,7 @@ export async function moderateText(text: string): Promise<ModerationResult> {
     }
     return { ok: true };
   } catch {
-    await cancelAiUsage(reservation.reservationId).catch(() => undefined);
+    await markAiUsageUncertain(reservation.reservationId).catch(() => undefined);
     return local; // fail open
   }
 }

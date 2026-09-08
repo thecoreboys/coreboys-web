@@ -3166,6 +3166,10 @@ body:has(.watch-os) .grain-host {
 
 .watch-billboard .watch-title {
   max-width: 52rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
   font-size: clamp(2.25rem, 4.6vw, 4rem);
   line-height: 0.98;
   text-wrap: balance;
@@ -3715,8 +3719,12 @@ body:has(.watch-os) .grain-host {
   }
 
   .watch-billboard .watch-title {
-    font-size: clamp(2.1rem, 10vw, 3.25rem);
-    line-height: 1;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+    font-size: clamp(1.85rem, 8vw, 2.6rem);
+    line-height: 1.08;
   }
 
   .watch-billboard .watch-title.is-long {

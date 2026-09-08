@@ -59,6 +59,7 @@ export async function runMediaWorkerBatch(options: {
   workerId?: string;
   maxJobs?: number;
   leaseSeconds?: number;
+  timeBudgetMs?: number;
 } = {}): Promise<MediaWorkerSummary> {
   const analyzers = availableMediaAnalyzers();
   const store = getMediaIntelligenceStore();
@@ -66,7 +67,10 @@ export async function runMediaWorkerBatch(options: {
   const leaseSeconds = boundedLeaseSeconds(options.leaseSeconds);
   const workerId = options.workerId?.trim() || `local-metadata:${process.pid}`;
   const summary: MediaWorkerSummary = { claimed: 0, analyzed: 0, unchanged: 0, failed: 0, outboxPublished: 0 };
+  const deadline = Date.now() + Math.max(1_000, Math.min(120_000, options.timeBudgetMs ?? 60_000));
   for (let index = 0; index < maxJobs; index += 1) {
+    // Finish the current leased job, then yield. Unclaimed work remains durable.
+    if (Date.now() >= deadline) break;
     const job = await claimNextAnalysisJob(
       workerId,
       analyzers.map((analyzer) => analyzer.stage),

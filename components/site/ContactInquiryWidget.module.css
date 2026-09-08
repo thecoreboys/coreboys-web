@@ -1,141 +1,23 @@
 .widget {
   position: fixed;
-  z-index: 72;
-  bottom: max(1rem, env(safe-area-inset-bottom));
-  left: max(1rem, env(safe-area-inset-left));
-  display: flex;
-  width: min(22rem, calc(100vw - 2rem));
-  align-items: center;
-  gap: .62rem;
-  padding: .58rem .72rem .58rem .58rem;
-  border: 1px solid rgba(111, 174, 255, .3);
-  border-radius: 999px;
-  color: rgba(239, 247, 255, .78);
-  background: linear-gradient(135deg, rgba(20, 40, 67, .94), rgba(9, 15, 25, .96));
-  box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .28), inset 0 1px rgba(255, 255, 255, .12);
-  backdrop-filter: blur(16px) saturate(1.15);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  z-index: 45;
+  bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px));
+  left: max(.75rem, env(safe-area-inset-left));
+  width: min(19rem, calc(100vw - 5rem));
+  border: 1px solid #ffffff24;
+  border-radius: .9rem;
+  background: #141418f5;
+  color: #f5f5f7;
+  box-shadow: 0 8px 30px #0005;
 }
-
-.avatar {
-  width: 2rem;
-  height: 2rem;
-  flex: 0 0 2rem;
-  border: 1px solid rgba(149, 205, 255, .65);
-  border-radius: 50%;
-  object-fit: cover;
-  object-position: 50% 43%;
-  box-shadow: 0 0 .8rem rgba(37, 139, 255, .35);
-}
-
-.widget p {
-  min-width: 0;
-  margin: 0;
-  flex: 1 1 auto;
-  font-size: .72rem;
-  font-weight: 650;
-  line-height: 1.25;
-}
-
-.widget a {
-  color: #9dccff;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.widget a:hover,
-.widget a:focus-visible {
-  color: #fff;
-  text-decoration: underline;
-}
-
-.messageLink {
-  flex: 0 0 auto;
-  padding: .35rem .55rem;
-  border: 1px solid rgba(157, 204, 255, .35);
-  border-radius: .5rem;
-  color: rgba(239, 247, 255, .92) !important;
-  background: rgba(255, 255, 255, .08);
-  font-size: .68rem;
-  font-weight: 750;
-  line-height: 1.1;
-  text-decoration: none !important;
-  white-space: nowrap;
-}
-
-.messageLink:hover,
-.messageLink:focus-visible {
-  border-color: rgba(157, 204, 255, .7);
-  background: rgba(255, 255, 255, .16);
-}
-
-.xLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: .16rem;
-  color: rgba(239, 247, 255, .9);
-  font-weight: 800;
-}
-
-.xLogo {
-  font-size: .83rem;
-  line-height: 1;
-}
-
-.icon {
-  width: .75rem;
-  height: .75rem;
-  flex: 0 0 auto;
-  color: rgba(182, 214, 248, .58);
-}
-
-@media (max-width: 560px) {
-  .widget {
-    bottom: max(.7rem, env(safe-area-inset-bottom));
-    left: max(.7rem, env(safe-area-inset-left));
-    width: calc(100vw - 1.4rem);
-    display: grid;
-    grid-template-columns: 2.2rem minmax(0, 1fr) auto;
-    align-items: center;
-    gap: .55rem;
-    border-radius: 1.15rem;
-    padding: .68rem .72rem .68rem .62rem;
-  }
-
-  .avatar {
-    width: 2.2rem;
-    height: 2.2rem;
-    flex-basis: 2.2rem;
-  }
-
-  .widget p {
-    font-size: .74rem;
-    line-height: 1.28;
-  }
-
-  .messageLink {
-    min-height: 2.2rem;
-    padding-inline: .68rem;
-    font-size: .7rem;
-  }
-
-  .icon {
-    display: none;
-  }
-}
-
-@media (max-width: 390px) {
-  .widget {
-    grid-template-columns: 2rem minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .avatar { width: 2rem; height: 2rem; }
-
-  .messageLink {
-    grid-column: 2;
-    justify-self: start;
-    min-height: 2rem;
-    margin-top: -.1rem;
-  }
-}
+.row { display: flex; align-items: center; }
+.messageLink { display: flex; flex: 1; align-items: center; gap: .65rem; min-height: 44px; padding: .65rem .8rem; font-size: .8rem; font-weight: 600; text-decoration: none; }
+.messageLink svg { flex-shrink: 0; color: #f896b9; }
+.toggle { display: grid; place-items: center; min-width: 44px; min-height: 44px; border-left: 1px solid #ffffff18; cursor: pointer; }
+.messageLink:hover, .toggle:hover { background: #ffffff0a; }
+.messageLink:focus-visible, .toggle:focus-visible { outline: 2px solid #f896b9; outline-offset: 2px; border-radius: .5rem; }
+.contact { padding: 1rem; border-bottom: 1px solid #ffffff18; font-size: .82rem; line-height: 1.5; }
+.contact p { margin: 0 0 .65rem; color: #bdbdc7; }
+.contact a { display: flex; align-items: center; gap: .4rem; color: #f896b9; }
+:global(body[data-cookie-consent-open="true"]) .widget { visibility: hidden; }
+@media (max-width: 560px) { .messageLink { font-size: .75rem; gap: .5rem; } }

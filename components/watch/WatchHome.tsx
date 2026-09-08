@@ -7,7 +7,7 @@ import { MEMBERS } from "@/lib/members";
 import { useMyList } from "@/hooks/useMyList";
 import { useWatchProgress, youtubeIdFromHref } from "@/hooks/useWatchProgress";
 import type { WatchProgressMap } from "@/hooks/useWatchProgress";
-import { personalizeItems } from "@/lib/watch/discovery";
+import { canonicalWatchKey, personalizeItems } from "@/lib/watch/discovery";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import {
   buildCreatorAffinity,
@@ -33,8 +33,9 @@ import type { CoreOriginal } from "@/lib/core-originals";
 function unique(items: WatchItem[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
+    const key = canonicalWatchKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 }

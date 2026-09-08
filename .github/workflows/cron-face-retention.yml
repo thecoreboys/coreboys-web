@@ -8,16 +8,17 @@ on:
 jobs:
   purge:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Purge expired face-presence private data
         env:
-          APP_URL: ${{ secrets.FACE_RETENTION_APP_URL }}
+          APP_URL: ${{ secrets.FACE_RETENTION_APP_URL || 'https://thecoreboys.com' }}
           SECRET: ${{ secrets.FACE_RETENTION_CRON_SECRET }}
         run: |
           set -euo pipefail
           test -n "$APP_URL"
           test -n "$SECRET"
-          curl --fail --silent --show-error -X POST \
+          curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 -X POST \
             -H "x-face-retention-secret: $SECRET" \
             -w "\nHTTP %{http_code}\n" \
             "$APP_URL/api/admin/faces/maintenance"

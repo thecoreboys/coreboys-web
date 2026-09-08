@@ -50,22 +50,27 @@ async function insertCompletedAnalysis(client: PoolClient, result: CompletedAnal
       ],
     );
   }
-  for (const tag of result.tags) {
+  if (result.tags.length) {
     await client.query(
       `INSERT INTO media_intelligence_tags
         (revision_id, segment_id, run_id, tag, kind, confidence, source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`,
-      [tag.revisionId, tag.segmentId, tag.ownerRunId, tag.tag, tag.kind, tag.confidence, tag.source],
+       SELECT "revisionId", "segmentId", "ownerRunId", tag, kind, confidence, source
+       FROM jsonb_to_recordset($1::jsonb) AS t("revisionId" text, "segmentId" text,
+         "ownerRunId" text, tag text, kind text, confidence real, source text)
+       ON CONFLICT DO NOTHING`,
+      [JSON.stringify(result.tags)],
     );
   }
-  for (const alias of result.aliases) {
+  if (result.aliases.length) {
     await client.query(
       `INSERT INTO media_intelligence_aliases
         (asset_key, alias, normalized_alias, kind, weight)
-       VALUES ($1,$2,$3,$4,$5)
+       SELECT "assetKey", alias, "normalizedAlias", kind, weight
+       FROM jsonb_to_recordset($1::jsonb) AS a("assetKey" text, alias text,
+         "normalizedAlias" text, kind text, weight real)
        ON CONFLICT (asset_key, normalized_alias, kind)
        DO UPDATE SET alias = EXCLUDED.alias, weight = EXCLUDED.weight`,
-      [alias.assetKey, alias.alias, alias.normalizedAlias, alias.kind, alias.weight],
+      [JSON.stringify(result.aliases)],
     );
   }
   for (const embedding of result.embeddings) {

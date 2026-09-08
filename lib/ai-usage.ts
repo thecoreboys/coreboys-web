@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { query, withTransaction } from "@/lib/db";
+import { estimatedAiCostMicroUsd, fitsAiMonthlyBudget } from "@/lib/ai-budget-policy";
 
 export type AiProvider = "anthropic" | "elevenlabs";
 export type AiUsageDecision =
@@ -16,20 +17,6 @@ type ProviderControl = {
   monthly_budget_cents: number;
 };
 
-const MODEL_COST_MICRO_USD: Record<string, { input: number; output: number }> = {
-  "claude-haiku-4-5-20251001": { input: 1, output: 5 },
-  "claude-sonnet-4-6": { input: 3, output: 15 },
-};
-
-const CONSERVATIVE_FALLBACK_RATE = { input: 3, output: 15 } as const;
-
-function estimatedCostMicroUsd(model: string, inputTokens: number, outputTokens: number) {
-  const rate = MODEL_COST_MICRO_USD[model];
-  // Unknown models are deliberately reserved at a conservative Sonnet rate.
-  const selected = rate ?? CONSERVATIVE_FALLBACK_RATE;
-  return Math.max(0, Math.ceil(inputTokens) * selected.input + Math.ceil(outputTokens) * selected.output);
-}
-
 export async function reserveAiUsage(input: {
   provider: AiProvider;
   feature: string;
@@ -38,10 +25,22 @@ export async function reserveAiUsage(input: {
   estimatedInputTokens: number;
   maxOutputTokens: number;
 }): Promise<AiUsageDecision> {
-  const estimate = estimatedCostMicroUsd(input.model, input.estimatedInputTokens, input.maxOutputTokens);
   const id = randomUUID();
   try {
+    const estimate = estimatedAiCostMicroUsd(input.model, input.estimatedInputTokens, input.maxOutputTokens);
     return await withTransaction(async (client) => {
+      // All providers share this transaction lock, including across replicas.
+      // Provider-row locks alone let simultaneous providers overspend a shared cap.
+      await client.query("SELECT pg_advisory_xact_lock(672019, 40)");
+      const total = await client.query<{ spend: string }>(
+        `SELECT COALESCE(sum(COALESCE(actual_cost_microusd, estimated_cost_microusd)), 0)::text AS spend
+           FROM ai_usage_events
+          WHERE created_at >= date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+            AND status IN ('reserved', 'completed')`,
+      );
+      if (!fitsAiMonthlyBudget(Number(total.rows[0]?.spend ?? 0), estimate)) {
+        return { ok: false as const, reason: "monthly_budget" as const };
+      }
       const controls = await client.query<ProviderControl>(
         `SELECT provider, enabled, daily_request_limit, per_subject_hour_limit, monthly_budget_cents
            FROM ai_provider_controls WHERE provider = $1 FOR UPDATE`,
@@ -98,7 +97,7 @@ export async function reserveAiUsage(input: {
 }
 
 export async function settleAiUsage(id: string, input: { model: string; inputTokens: number; outputTokens: number }) {
-  const cost = estimatedCostMicroUsd(input.model, input.inputTokens, input.outputTokens);
+  const cost = estimatedAiCostMicroUsd(input.model, input.inputTokens, input.outputTokens);
   await query(
     `UPDATE ai_usage_events SET input_tokens = $2, output_tokens = $3,
        actual_cost_microusd = $4, status = 'completed', completed_at = now()
@@ -109,6 +108,12 @@ export async function settleAiUsage(id: string, input: { model: string; inputTok
 
 export async function cancelAiUsage(id: string) {
   await query(`UPDATE ai_usage_events SET status = 'cancelled', completed_at = now() WHERE id = $1 AND status = 'reserved'`, [id]);
+}
+
+/** A sent request may be billable even after a timeout or a broken stream. */
+export async function markAiUsageUncertain(id: string) {
+  await query(`UPDATE ai_usage_events SET status = 'completed', completed_at = now()
+    WHERE id = $1 AND status = 'reserved'`, [id]);
 }
 
 export async function getAiUsageDashboard() {

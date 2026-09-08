@@ -106,6 +106,8 @@ jobs:
       - name: Apply additive production database migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MEDIA_INTELLIGENCE_DATABASE_URL: ${{ secrets.MEDIA_INTELLIGENCE_DATABASE_URL }}
+          MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE: ${{ vars.MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE || 'true' }}
         run: |
           set -Eeuo pipefail
           if [[ -z "${DATABASE_URL:-}" ]]; then
@@ -128,7 +130,7 @@ jobs:
           }
           NODE
           pnpm db:apply-web-migrations
-          MEDIA_INTELLIGENCE_ALLOW_REMOTE_DATABASE=true MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE=true pnpm db:apply-media-intelligence
+          MEDIA_INTELLIGENCE_ALLOW_REMOTE_DATABASE=true pnpm db:apply-media-intelligence
 
       - name: Configure production secrets and environment
         env:
@@ -150,6 +152,7 @@ jobs:
           MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE: ${{ vars.MEDIA_INTELLIGENCE_USE_PRIMARY_DATABASE || 'true' }}
           MEDIA_INTELLIGENCE_PROVIDER: ${{ secrets.MEDIA_INTELLIGENCE_PROVIDER }}
           METRICS_CRON_SECRET: ${{ secrets.METRICS_CRON_SECRET }}
+          FACE_RETENTION_CRON_SECRET: ${{ secrets.FACE_RETENTION_CRON_SECRET }}
           SOCIAL_SUBSCRIPTION_CRON_SECRET: ${{ secrets.SOCIAL_SUBSCRIPTION_CRON_SECRET }}
           SITE_ACCESS_CODE: ${{ secrets.SITE_ACCESS_CODE }}
           SITE_ACCESS_COOKIE_SECRET: ${{ secrets.SITE_ACCESS_COOKIE_SECRET }}
@@ -255,6 +258,7 @@ jobs:
           add_secret media-intelligence-database-url MEDIA_INTELLIGENCE_DATABASE_URL "$MEDIA_INTELLIGENCE_DATABASE_URL"
           add_secret media-intelligence-provider MEDIA_INTELLIGENCE_PROVIDER "$MEDIA_INTELLIGENCE_PROVIDER"
           add_secret metrics-cron-secret METRICS_CRON_SECRET "$METRICS_CRON_SECRET"
+          add_secret face-retention-cron-secret FACE_RETENTION_CRON_SECRET "$FACE_RETENTION_CRON_SECRET"
           add_secret social-subscription-cron-secret SOCIAL_SUBSCRIPTION_CRON_SECRET "$SOCIAL_SUBSCRIPTION_CRON_SECRET"
           add_secret site-access-code SITE_ACCESS_CODE "$SITE_ACCESS_CODE"
           add_secret site-access-cookie-secret SITE_ACCESS_COOKIE_SECRET "$SITE_ACCESS_COOKIE_SECRET"

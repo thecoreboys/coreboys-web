@@ -1,6 +1,6 @@
 import "server-only";
 
-import { cancelAiUsage, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
+import { cancelAiUsage, markAiUsageUncertain, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 import { query } from "@/lib/db";
 import { RADIO_NETWORK_SLUGS, type RadioNetworkSlug } from "./public-catalog";
 
@@ -99,7 +99,7 @@ export async function generateRadioJokeDrafts(input: { actorId: string; networkS
   );
   if (!active.rows.length) throw new Error("no_enabled_joke_context");
   const context = active.rows.map(contextFromRow);
-  const reservation = await reserveAiUsage({ provider: "anthropic", feature: "dj_cora_joke_drafts", model: MODEL, subjectKey: `admin:${input.actorId}`, estimatedInputTokens: 900 + Math.ceil(context.reduce((sum, entry) => sum + entry.premise.length, 0) / 4), maxOutputTokens: 900 });
+  const reservation = await reserveAiUsage({ provider: "anthropic", feature: "dj_cora_joke_drafts", model: MODEL, subjectKey: `admin:${input.actorId}`, estimatedInputTokens: 2_000 + Buffer.byteLength(JSON.stringify(context), "utf8"), maxOutputTokens: 900 });
   if (!reservation.ok) throw new Error(`ai_${reservation.reason}`);
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) { await cancelAiUsage(reservation.reservationId).catch(() => undefined); throw new Error("ai_not_configured"); }
@@ -130,7 +130,7 @@ export async function generateRadioJokeDrafts(input: { actorId: string; networkS
     }));
     return stored;
   } catch (error) {
-    await cancelAiUsage(reservation.reservationId).catch(() => undefined);
+    await markAiUsageUncertain(reservation.reservationId).catch(() => undefined);
     throw error;
   }
 }

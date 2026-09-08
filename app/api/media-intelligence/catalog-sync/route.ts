@@ -48,7 +48,8 @@ export async function POST(request: Request) {
   const retentionLimit = bounded(body.retentionLimit, 250, 2_000);
   try {
     if (action === "sync") {
-      return NextResponse.json(await runCurrentWatchCatalogSync({ trigger: "scheduled", maxJobs }));
+      const result = await runCurrentWatchCatalogSync({ trigger: "scheduled", maxJobs });
+      return NextResponse.json(result, { status: result.failed ? 500 : 200 });
     }
     if (action === "archive") {
       return NextResponse.json(await runMediaArchiveBackfillBatch({

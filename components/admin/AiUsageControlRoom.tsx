@@ -37,7 +37,7 @@ export function AiUsageControlRoom() {
     finally { setBusy(null); }
   }
   return <div className="space-y-4">
-    <p className="max-w-3xl text-sm leading-relaxed text-tertiary">Every AI call reserves budget in Postgres before it leaves CORE. Disabling a provider stops new calls immediately. ElevenLabs is disabled by default because the site currently uses approved, pre-rendered audio rather than per-listener generation.</p>
+    <p className="max-w-3xl text-sm leading-relaxed text-tertiary">App-managed AI requests share a $40 monthly ceiling (UTC), including outstanding reservations. Provider limits below can be lower, but do not add to that allowance. Requests stop when accounting is unavailable or the allowance is used. Uncertain requests retain their estimated cost. Existing service subscriptions and calls made outside CORE are not included.</p>
     {error ? <p role="alert" className="rounded-lg border border-error_subtle bg-error-primary p-3 text-sm text-primary">{error}</p> : null}
     {notice ? <p role="status" className="rounded-lg border border-success_subtle bg-success-primary p-3 text-sm text-primary">{notice}</p> : null}
     {providers.map((provider) => <section key={provider.provider} className="rounded-xl bg-primary p-5 ring-1 ring-inset ring-secondary shadow-xs">

@@ -15,6 +15,11 @@ export function CookieBanner() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    document.body.dataset.cookieConsentOpen = String(open);
+    return () => { delete document.body.dataset.cookieConsentOpen; };
+  }, [open]);
+
+  useEffect(() => {
     if (getConsent() === "unknown") setOpen(true);
     function reopen() {
       setOpen(true);
