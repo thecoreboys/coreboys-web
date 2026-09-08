@@ -30,7 +30,7 @@ jobs:
           target="${APP_URL%/}/api/media-intelligence/catalog-sync"
           echo "Refreshing the searchable media catalog at ${target}"
           failed=0
-          for action in cleanup sync archive publish-index; do
+          for action in cleanup sync archive publish-index originals; do
             echo "Media stage: $action"
             # Each stage is independently retryable; do not restart an entire
             # archive batch when only publication or cleanup fails.

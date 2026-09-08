@@ -5,22 +5,13 @@ import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { MEMBERS } from "@/lib/members";
 import { usePlayer } from "@/components/providers/PlayerProvider";
-import type { Playable } from "@/lib/watch/playable";
-import type { WatchKind, WatchPlatform } from "@/lib/watch/types";
+import { platformForPlayback, type Playable } from "@/lib/watch/playable";
+import type { WatchKind } from "@/lib/watch/types";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
 
 const KINDS = new Set<WatchKind>(["live", "youtube", "vod", "clip", "post", "tour"]);
 const FORMATS = new Set<NonNullable<Playable["format"]>>(["long", "short", "live", "photo"]);
 const ORIENTATIONS = new Set<NonNullable<Playable["orientation"]>>(["landscape", "portrait", "square"]);
-
-function platformFor(kind: WatchKind, source: string, url: string): WatchPlatform {
-  if (kind === "youtube" || source === "youtube") return "youtube";
-  if (url.includes("tiktok.com")) return "tiktok";
-  if (url.includes("instagram.com")) return "instagram";
-  if (source === "x" || url.includes("x.com") || url.includes("twitter.com")) return "x";
-  if (kind === "live" || kind === "vod" || source === "twitch") return "twitch";
-  return "house";
-}
 
 function safeImageUrl(value: string): string | null {
   if (!value) return null;
@@ -68,11 +59,13 @@ export function TheaterStage() {
   const playable = useMemo<Playable | null>(() => {
     const reference = id || login || url;
     if (!reference) return null;
-    const platform = platformFor(kind, source, url);
-    const shortForm = requestedFormat === "short"
+    const platform = platformForPlayback(kind, source, url);
+    // A /p/ permalink can be a photo, carousel, or video; only metadata decides.
+    const photo = requestedFormat === "photo";
+    const shortForm = !photo && (requestedFormat === "short"
       || platform === "tiktok"
-      || platform === "instagram"
-      || /\/shorts\//i.test(url);
+      || (platform === "instagram" && /\/reels?\//i.test(url))
+      || /\/shorts\//i.test(url));
     const youtube = kind === "youtube" || source === "youtube" ? id : null;
     const key =
       canonicalRef ||
@@ -109,8 +102,8 @@ export function TheaterStage() {
         platform === "twitch" ||
         platform === "tiktok" ||
         platform === "instagram",
-      format: requestedFormat ?? (shortForm ? "short" : kind === "live" ? "live" : "long"),
-      orientation: requestedOrientation ?? (shortForm ? "portrait" : undefined),
+      format: requestedFormat ?? (photo ? "photo" : shortForm ? "short" : kind === "live" ? "live" : "long"),
+      orientation: requestedOrientation ?? (photo ? "square" : shortForm ? "portrait" : undefined),
       dvr: kind === "live" && platform === "twitch" && dvrVodId
         ? {
             enabled: true,

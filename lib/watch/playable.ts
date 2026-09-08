@@ -53,6 +53,7 @@ export function contentShape(item: {
   sourceUrl?: string;
   kind?: string;
 }): "landscape" | "portrait" | "square" {
+  if (item.format === "photo") return item.orientation ?? "square";
   const source = `${item.sourceUrl ?? ""}\n${item.href ?? ""}`;
   if (
     item.format === "short" ||
@@ -63,23 +64,45 @@ export function contentShape(item: {
     return "portrait";
   }
   if (item.orientation) return item.orientation;
-  if (item.format === "photo") return "square";
   return "landscape";
 }
 
 export function tiktokIdFromUrl(url?: string | null): string | null {
   if (!url) return null;
-  const m =
-    /tiktok\.com\/[^/]+\/video\/(\d+)/i.exec(url) ||
-    /\/player\/v1\/(\d+)/.exec(url) ||
-    /\/embed\/v2\/(\d+)/.exec(url) ||
-    /\/video\/(\d+)/.exec(url);
-  return m?.[1] ?? null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || !providerHost(parsed.hostname, "tiktok.com")) return null;
+    return /^\/(?:@[^/]+\/video|player\/v1|embed\/v2)\/(\d+)\/?$/.exec(parsed.pathname)?.[1] ?? null;
+  } catch { return null; }
+}
+
+function providerHost(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+/** Resolve source identity from an explicit provider or an actual provider host. */
+export function platformForPlayback(kind: string, source: string, url: string): WatchItem["platform"] {
+  if (["youtube", "twitch", "tiktok", "instagram", "x", "house"].includes(source)) return source as WatchItem["platform"];
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:") {
+      for (const [domain, platform] of [["youtube.com", "youtube"], ["youtu.be", "youtube"], ["youtube-nocookie.com", "youtube"], ["twitch.tv", "twitch"], ["tiktok.com", "tiktok"], ["instagram.com", "instagram"], ["x.com", "x"], ["twitter.com", "x"]] as const) {
+        if (providerHost(parsed.hostname, domain)) return platform;
+      }
+    }
+  } catch { /* Legacy internal links may have a kind but no external URL. */ }
+  return kind === "youtube" ? "youtube" : kind === "live" || kind === "vod" ? "twitch" : "house";
 }
 
 /** Return Instagram's official post embed URL for a canonical permalink. */
 export function instagramEmbedUrl(permalink?: string | null): string | null {
-  const match = /instagram\.com\/(?:[^/?#]+\/)?(reel|reels|p|tv)\/([^/?#]+)/i.exec(permalink ?? "");
+  let path: string;
+  try {
+    const parsed = new URL(permalink ?? "");
+    if (parsed.protocol !== "https:" || !providerHost(parsed.hostname, "instagram.com")) return null;
+    path = parsed.pathname;
+  } catch { return null; }
+  const match = /^\/(?:[^/?#]+\/)?(reel|reels|p|tv)\/([A-Za-z0-9_-]+)(?:\/embed)?\/?$/i.exec(path);
   if (!match?.[2]) return null;
   const shortcode = match[2];
   const route = match?.[1]?.toLowerCase() === "p"

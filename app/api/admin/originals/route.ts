@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin-api";
 import { getCoreOriginalSnapshot, ensureCoreOriginalsSchema } from "@/lib/core-originals";
 import { query } from "@/lib/db";
 import { getWatchCatalog } from "@/lib/watch/catalog";
+import { suggestOriginalItems } from "@/lib/core-originals-suggestions";
 
 export const runtime = "nodejs";
 const platform = z.enum(["youtube", "tiktok", "instagram", "twitch", "x", "other"]);
@@ -33,12 +34,7 @@ export async function POST(request: Request) {
       const words = input.query.toLowerCase().split(/\s+/).filter(Boolean);
       const catalog = await getWatchCatalog();
       const matches = catalog.all.filter((candidate) => candidate.kind !== "post" && candidate.format !== "photo" && words.every((word) => `${candidate.title} ${candidate.subtitle ?? ""} ${candidate.memberLabel}`.toLowerCase().includes(word))).slice(0, 12);
-      for (const candidate of matches) {
-        const candidatePlatform = platform.safeParse(candidate.platform).success ? candidate.platform : "other";
-        const sourceUrl = candidate.sourceUrl ?? candidate.href;
-        if (!/^https?:\/\//.test(sourceUrl)) continue;
-        await query(`INSERT INTO core_original_items (original_id,source_url,platform,title,subtitle,poster_url,format,status,recommendation_note,submitted_by) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9) ON CONFLICT DO NOTHING`, [input.originalId, sourceUrl, candidatePlatform, candidate.title, candidate.subtitle ?? null, candidate.poster ?? null, candidate.format === "short" ? "short" : "long", `Finder match for “${input.query}”`, auth.id]);
-      }
+      await suggestOriginalItems(input.originalId, matches.map((candidate) => ({ item: candidate, reason: `Finder title match for “${input.query}” — approval required.` })), auth.id);
     } else { throw new Error("Unknown action"); }
     return NextResponse.json(await getCoreOriginalSnapshot(true), { status: 201 });
   } catch (error) { return replyError(error); }

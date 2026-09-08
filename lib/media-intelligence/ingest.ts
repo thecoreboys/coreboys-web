@@ -22,6 +22,7 @@ export type IndexSummary = {
   queued: number;
   skipped: number;
   metadataOnly: number;
+  failureExamples?: Array<{ assetKey: string; code: string; constraint?: string; column?: string }>;
 };
 
 const emptySummary = (): IndexSummary => ({
@@ -96,6 +97,17 @@ export async function queueWatchItems(items: readonly WatchItem[]): Promise<Inde
   const store = getMediaIntelligenceStore();
   const summary = { ...emptySummary(), discovered: items.length };
   const uniqueItems = [...new Map(items.map((item) => [`${item.platform}:${item.id}`, item])).values()];
+  const recordFailure = (item: WatchItem, error: unknown) => {
+    summary.failed += 1;
+    const failure = error as { code?: string; name?: string; constraint?: string; column?: string } | null;
+    // Report identifiers and database error codes, never SQL values or URLs.
+    const examples = summary.failureExamples ??= [];
+    if (examples.length < 5) examples.push({
+      assetKey: `${item.platform}:${item.id}`,
+      code: String(failure?.code ?? failure?.name ?? "unknown").slice(0, 80),
+      constraint: failure?.constraint?.slice(0, 120), column: failure?.column?.slice(0, 120),
+    });
+  };
   let cursor = 0;
   await Promise.all(Array.from({ length: Math.min(3, uniqueItems.length) }, async () => {
   while (cursor < uniqueItems.length) {
@@ -105,8 +117,8 @@ export async function queueWatchItems(items: readonly WatchItem[]): Promise<Inde
       try {
         await upsertSourcePolicy(eligibility.policy);
         summary.skipped += 1;
-      } catch {
-        summary.failed += 1;
+      } catch (error) {
+        recordFailure(item, error);
       }
       continue;
     }
@@ -140,8 +152,8 @@ export async function queueWatchItems(items: readonly WatchItem[]): Promise<Inde
         if (queued === "queued") summary.queued += 1;
         else summary.unchanged += 1;
       }
-    } catch {
-      summary.failed += 1;
+    } catch (error) {
+      recordFailure(item, error);
     }
   }
   }));
