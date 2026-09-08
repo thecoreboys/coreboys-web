@@ -692,18 +692,18 @@ export function MultiPlayerStage({
       perChannelLimit={1000}
       mergedLimit={1000}
     >
-    <main className="min-h-[calc(100dvh-4rem)] bg-[#050506] text-white">
+    <section aria-label="Multiview room" className="min-h-[calc(100dvh-4rem)] bg-[#050506] text-white">
       <div className="mx-auto max-w-[1880px] px-3 py-4 sm:px-5 lg:px-7">
-        <header className="mb-3 flex min-h-12 items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
+        <header className="mb-3 flex min-h-12 flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,.22),transparent_40%),linear-gradient(145deg,rgba(232,0,105,.9),rgba(104,42,184,.72))] shadow-[0_12px_30px_rgba(232,0,105,.22)] ring-1 ring-white/20">
               <LayoutGrid className="size-4 text-white/70" aria-hidden />
             </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
                 <p className="hidden text-[9px] font-bold uppercase tracking-[.16em] text-white/38 sm:block">Multiview desk</p>
                 <p className="truncate text-sm font-semibold tracking-tight text-white">{liveRoom || authoritativeLiveRoom ? "CORE Live Room" : "Your screening room"}</p>
-                <span className="rounded-full bg-white/7 px-2 py-0.5 text-[9px] tabular-nums text-white/45">
+                <span className="shrink-0 whitespace-nowrap rounded-full bg-white/7 px-2 py-0.5 text-[11px] tabular-nums text-white/60">
                   {authoritativeLiveRoom
                     ? `${player.tiles.length} playable${lockedLiveSlots.length ? ` · ${lockedLiveSlots.length} locked` : ""}`
                     : `${player.tiles.length} / ${tileLimit}`}
@@ -711,7 +711,7 @@ export function MultiPlayerStage({
                 {!expandedMultiview && !subscription.loading ? (
                   <Link
                     href={subscription.featureHref("multiview.expanded") as never}
-                    className="inline-flex items-center gap-1 rounded-full bg-white/7 px-2 py-0.5 text-[9px] font-semibold text-white/55 ring-1 ring-inset ring-white/10 transition hover:bg-white/12 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
+                    className="hidden shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white/7 px-2 py-0.5 text-[9px] font-semibold text-white/55 ring-1 ring-inset ring-white/10 transition hover:bg-white/12 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 lg:inline-flex"
                   >
                     <LockKeyhole className="size-2.5" aria-hidden />
                     12-player rooms
@@ -721,15 +721,16 @@ export function MultiPlayerStage({
               <p className="hidden truncate text-[10px] text-white/42 sm:block">{liveRoom || authoritativeLiveRoom ? "Every available CORE live stream and its chat, in one room." : `${player.layoutPreset === "freeform" ? "Custom layout" : WORKSPACE_PRESETS.find((entry) => entry.id === player.layoutPreset)?.description ?? "A cinematic room"} · ${audioLead ? `Audio lead: ${audioLead.item.memberLabel}` : player.tiles.length ? "Choose an audio lead" : "Add a stream to begin"}`}</p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center justify-end gap-2">
             <button
               type="button"
               onClick={fillLive}
               disabled={currentLive.length === 0}
+              aria-label={currentLive.length ? "Watch live channels" : "No channels are live"}
               className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 text-xs font-semibold text-black shadow-xs-skeuomorphic ring-1 ring-inset ring-white/90 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35 disabled:ring-white/10 md:min-h-10"
             >
               <Radio className="size-3.5" aria-hidden />
-              <span className="hidden sm:inline">{currentLive.length ? "Watch live channels" : "No one live"}</span>
+              <span>{currentLive.length ? "Watch live" : "No one live"}</span>
             </button>
             <button
               type="button"
@@ -904,7 +905,7 @@ export function MultiPlayerStage({
           ) : null}
         </div>
       ) : null}
-    </main>
+    </section>
     </ChatSessionProvider>
   );
 }
@@ -1778,6 +1779,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     duration: tile.item.durationSeconds ?? 0,
   });
   const [isTilePlaying, setIsTilePlaying] = useState(false);
+  const [failedNativeSource, setFailedNativeSource] = useState<string | null>(null);
   const shellRef = useRef<HTMLElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1788,11 +1790,14 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
   const playingRef = useRef(false);
   const timedEmbedRef = useRef(false);
   const finishedRef = useRef(false);
-  const tooSmallForTwitch = !mobile
-    && tile.item.platform === "twitch"
+  const tooSmallForTwitch = tile.item.platform === "twitch"
     && size.width > 0
     && (size.width < 400 || size.height < 300);
   const standby = tile.standby || !active || tooSmallForTwitch;
+  const twitchSourceUrl = tile.item.twitchLogin
+    ? `https://www.twitch.tv/${encodeURIComponent(tile.item.twitchLogin)}`
+    : tile.item.vodId ? `https://www.twitch.tv/videos/${encodeURIComponent(tile.item.vodId)}`
+      : tile.item.clipId ? `https://clips.twitch.tv/${encodeURIComponent(tile.item.clipId)}` : "https://www.twitch.tv/";
   const readPresenceTimeMs = useCallback(
     () => Math.max(0, positionRef.current * 1_000),
     [],
@@ -2021,7 +2026,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     startSeconds: tile.delaySeconds,
   });
   const photo = tile.item.format === "photo"
-    ? tile.item.mediaUrl ?? tile.item.poster ?? tile.item.url
+    ? tile.item.mediaUrl || tile.item.poster || null
     : null;
   const nativeSources = tile.item.qualities?.filter((source) => playableNativeUrl(source.src)) ?? [];
   const sortedNativeSources = [...nativeSources].sort(
@@ -2039,6 +2044,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           : undefined;
   const nativeCandidate = preferredNative ?? tile.item.mediaUrl;
   const native = tile.item.format !== "photo" && playableNativeUrl(nativeCandidate)
+    && failedNativeSource !== `${tile.item.key}:${nativeCandidate}`
     ? nativeCandidate
     : null;
   const shape = contentShape(tile.item);
@@ -2151,8 +2157,15 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       ref={shellRef}
       style={{
         ...style,
-        aspectRatio: mobile ? undefined : theater ? undefined : theaterAspect ?? (shape === "portrait" ? "9 / 16" : "16 / 9"),
+        width: mobile ? (shape === "portrait" ? "min(100%, 19rem)" : "100%") : style?.width,
+        height: mobile ? "auto" : style?.height,
+        maxWidth: mobile ? "100%" : style?.maxWidth,
+        // Mobile tiles contain absolutely positioned media. Without their own
+        // aspect ratio the wrapper collapses to zero height while audio plays.
+        aspectRatio: mobile ? (shape === "portrait" ? "9 / 16" : shape === "square" ? "1 / 1" : "16 / 9")
+          : theater ? undefined : theaterAspect ?? (shape === "portrait" ? "9 / 16" : "16 / 9"),
         alignSelf: theater ? "stretch" : "start",
+        minHeight: mobile && tile.item.platform === "twitch" ? 300 : undefined,
       }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
@@ -2161,7 +2174,18 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       className={`group relative overflow-hidden bg-black shadow-xl ring-1 transition duration-150 ${tile.item.platform === "twitch" ? "is-twitch" : ""} ${theater ? "rounded-2xl" : "rounded-xl"} ${mobile || theater ? "min-h-0" : "min-h-[10rem]"} ${focused ? "ring-white/40 shadow-[0_24px_72px_rgba(0,0,0,.5)]" : "ring-white/10 hover:ring-white/30 focus-within:ring-white/30"}`}
       aria-label={`${tile.item.title} player`}
     >
-      {standby ? (
+      {tooSmallForTwitch ? (
+        <div className="absolute inset-0 grid place-items-center bg-[#101014] p-5 text-center">
+          <div className="max-w-sm">
+            <p className="text-sm font-semibold">Give Twitch more room</p>
+            <p className="mt-2 text-xs leading-5 text-white/60">{mobile ? "Turn your phone sideways, or open this stream on Twitch." : "Expand this tile to use the Twitch player."} Twitch requires at least 400 × 300 pixels.</p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              {!mobile ? <button type="button" onClick={() => player.setMaximizedTileId(tile.id)} className="min-h-11 rounded-lg bg-white px-4 text-xs font-semibold text-black">Expand player</button> : null}
+              <a href={twitchSourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-lg border border-white/25 px-4 text-xs font-semibold">Open on Twitch</a>
+            </div>
+          </div>
+        </div>
+      ) : standby ? (
         <button
           type="button"
           onClick={(event) => {
@@ -2250,6 +2274,11 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
             checkpointTile();
           }}
           onEnded={finishPlayback}
+          onError={() => {
+            playingRef.current = false;
+            setIsTilePlaying(false);
+            setFailedNativeSource(`${tile.item.key}:${nativeCandidate}`);
+          }}
           className={`absolute inset-0 h-full w-full ${tile.fit === "cover" ? "object-cover" : "object-contain"}`}
         >
           {(tile.item.captions ?? []).map((track) => (
@@ -2284,7 +2313,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
               playingRef.current = true;
             }
           }}
-          className={`absolute inset-0 h-full w-full ${tile.item.platform === "twitch" ? "pointer-events-auto z-10" : "pointer-events-none"} ${tile.fit === "cover" ? "scale-[1.02]" : ""}`}
+          className={`pointer-events-auto absolute inset-0 z-10 h-full w-full ${tile.fit === "cover" ? "scale-[1.02]" : ""}`}
         />
         </div>
       ) : (
@@ -3875,7 +3904,7 @@ function SourceDrawer({
         </header>
         <div className="space-y-2 border-b border-white/8 p-3">
           <label className="relative block"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/35" /><input autoFocus value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search titles, members, platforms…" className="min-h-11 w-full rounded-xl bg-white/5 pl-10 pr-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/30 focus:ring-white/25" /></label>
-          <div className="flex gap-2"><input value={url} onChange={(event) => onUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onAddUrl(); }} placeholder="Paste a Twitch or YouTube URL" className="min-h-11 min-w-0 flex-1 rounded-xl bg-white/5 px-3 text-xs outline-none ring-1 ring-white/10 placeholder:text-white/30 focus:ring-white/25" /><button type="button" onClick={onAddUrl} className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-black">Add URL</button></div>
+          <div className="flex gap-2"><input value={url} onChange={(event) => onUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onAddUrl(); }} aria-label="Paste a YouTube, Twitch, TikTok or Instagram URL" placeholder="Paste a video or post URL" className="min-h-11 min-w-0 flex-1 rounded-xl bg-white/5 px-3 text-xs outline-none ring-1 ring-white/10 placeholder:text-white/30 focus:ring-white/25" /><button type="button" onClick={onAddUrl} className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-black">Add URL</button></div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-1">
