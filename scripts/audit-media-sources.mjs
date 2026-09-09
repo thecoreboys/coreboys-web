@@ -35,6 +35,14 @@ if (databaseUrl) {
     output("transcript_imports", (await client.query(`
       SELECT status, count(*)::int AS imports FROM media_intelligence_transcript_imports GROUP BY status
     `)).rows);
+    if (process.argv.includes("--sample-youtube")) {
+      output("youtube_source_sample", (await client.query(`
+        SELECT asset_key, title, creator_label, item->>'accountLabel' AS account_label
+        FROM media_intelligence_assets
+        WHERE active AND platform='youtube' AND NOT is_live AND creator_slug IS NULL
+        ORDER BY published_at DESC NULLS LAST LIMIT 3
+      `)).rows);
+    }
     await client.query("ROLLBACK");
   } catch (error) {
     // PostgreSQL error codes are sufficient here and cannot contain payload values.

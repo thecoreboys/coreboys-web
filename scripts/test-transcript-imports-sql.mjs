@@ -58,6 +58,10 @@ try {
   await client.query("UPDATE media_intelligence_assets SET is_live=false,item=item-'mediaUrl' WHERE asset_key=$1", [prepared.asset.key]);
   const input = { assetKey: prepared.asset.key, source: 'WEBVTT\n\n00:02:00.000 --> 00:02:10.000\nPlaying Minecraft with friends.', language: 'en', rightsReference: 'Test-only authorized fixture', actor: 'local-test' };
   const imported = await service.submitTranscriptImport(input);
+  // A stale worker must not attach fetched captions to a new catalog revision.
+  await client.query('SAVEPOINT stale_caption_check');
+  await assert.rejects(() => service.submitTranscriptImport({ ...input, expectedRevisionId: 'stale-revision' }), /active, indexed/);
+  await client.query('ROLLBACK TO SAVEPOINT stale_caption_check');
   assert.equal(imported.id, (await service.submitTranscriptImport(input)).id);
   const documents = async () => (await store.searchDocuments('local','core-hash-ngrams-v1',{})).filter((entry) => entry.asset.key === prepared.asset.key);
   assert.equal((await documents()).length, 0, 'draft evidence must not leak');

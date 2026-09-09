@@ -51,20 +51,20 @@ export default function AccountSettingsPage() {
     <>
       <div className={billingStyles.shell}>
         <AccountPageHeader active="settings" title="Settings" description="Set how CORE looks, plays, connects, and keeps you in the loop." />
-        <div className={`${billingStyles.cleanMain} grid items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10`}>
-          <aside className="lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)]">
+        <div className={`${billingStyles.cleanMain} grid grid-cols-1 items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10`}>
+          <aside className="min-w-0 lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)]">
             <nav
               aria-label="Account settings"
-              className="flex gap-1 overflow-x-auto rounded-xl bg-secondary p-1 ring-1 ring-inset ring-secondary lg:flex-col"
+              className="flex max-w-full gap-1 overflow-x-auto overscroll-x-contain rounded-xl bg-secondary p-1 ring-1 ring-inset ring-secondary lg:flex-col"
             >
               {SETTINGS_NAV.map((item, index) => {
                 const Icon = item.icon;
                 const previous = SETTINGS_NAV[index - 1];
                 return (
-                  <div key={item.href} className={cx(item.group !== previous?.group && index > 0 && "lg:mt-3 lg:border-t lg:border-secondary lg:pt-3")}>
+                  <div key={item.href} className={cx("shrink-0", item.group !== previous?.group && index > 0 && "lg:mt-3 lg:border-t lg:border-secondary lg:pt-3")}>
                     {item.group !== previous?.group ? <p className="hidden px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-quaternary lg:block">{item.group}</p> : null}
-                    <Link href={item.href as never} className="flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-tertiary transition hover:bg-primary_hover hover:text-secondary">
-                      <Icon className="size-4.5" aria-hidden />
+                    <Link href={item.href as never} className="flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-tertiary transition hover:bg-primary_hover hover:text-secondary">
+                      <Icon className="size-4.5 shrink-0" aria-hidden />
                       {item.label}
                     </Link>
                   </div>
@@ -73,7 +73,7 @@ export default function AccountSettingsPage() {
             </nav>
           </aside>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <AccountSettingsHub />
             <AccountDeletionCard />
             <section id="connections" className="scroll-mt-24">

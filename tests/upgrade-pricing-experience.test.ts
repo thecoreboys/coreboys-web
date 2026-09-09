@@ -26,6 +26,11 @@ test("settings and membership use the same accessible account header", () => {
   assert.match(header, /aria-current=\{active === key \? "page" : undefined\}/);
   assert.match(header, /Membership & billing/);
   assert.match(settings, /var\(--site-header-h/);
+  assert.match(settings, /grid grid-cols-1 items-start/);
+  assert.match(settings, /<aside className="min-w-0/);
+  assert.match(settings, /className="min-w-0 space-y-6"/);
+  assert.match(settings, /overscroll-x-contain/);
+  assert.match(settings, /min-h-11 shrink-0 items-center gap-2 whitespace-nowrap/);
 });
 
 test("billing summary distinguishes loading from failure and offers a retry", () => {

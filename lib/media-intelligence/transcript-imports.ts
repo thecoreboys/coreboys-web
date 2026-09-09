@@ -22,7 +22,7 @@ export async function transcriptImportEvidence(id: string) {
 }
 
 export async function submitTranscriptImport(input: {
-  assetKey: string; source: string; language: string; rightsReference: string; actor: string;
+  assetKey: string; source: string; language: string; rightsReference: string; actor: string; expectedRevisionId?: string;
 }) {
   return withMediaIntelligenceTransaction(async (client) => {
     const result = await client.query<{ revision_id: string; duration_seconds: number | null; title: string }>(
@@ -30,11 +30,12 @@ export async function submitTranscriptImport(input: {
        JOIN media_intelligence_revisions r ON r.asset_key = a.asset_key AND r.is_current
        LEFT JOIN media_intelligence_source_policies p ON p.source_key = a.source_policy_key
        WHERE a.asset_key = $1 AND a.active AND NOT a.is_live
+         AND ($2::text IS NULL OR r.revision_id = $2)
          AND a.content_type NOT IN ('photo','post')
          AND COALESCE(p.rights_status,'public-metadata') <> 'restricted'
          AND COALESCE(p.analysis_mode,'metadata-only') <> 'skip'
          AND NOT EXISTS (SELECT 1 FROM media_intelligence_tombstones t WHERE t.asset_key = a.asset_key)
-       FOR UPDATE OF a`, [input.assetKey]);
+       FOR UPDATE OF a`, [input.assetKey, input.expectedRevisionId ?? null]);
     const asset = result.rows[0];
     if (!asset) throw new Error("Choose an active, indexed replay or video. Restricted, removed and live sources cannot receive transcripts.");
     const cues = parseTranscript(input.source, asset.duration_seconds);
