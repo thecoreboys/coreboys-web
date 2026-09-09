@@ -74,6 +74,11 @@ class CaptionTests(unittest.TestCase):
         self.assertEqual(result["status"], "unavailable")
         self.assertEqual(processed, [])
 
+    def test_provider_errors_are_classified_without_raw_details(self):
+        self.assertEqual(worker.provider_error_code(Exception("Sign in to confirm you're not a bot: secret-url")), "provider_verification_required")
+        self.assertEqual(worker.provider_error_code(Exception("HTTP Error 429: token")), "provider_rate_limited")
+        self.assertEqual(worker.provider_error_code(Exception("unknown private details")), "provider_caption_fetch_failed")
+
 
 if __name__ == "__main__":
     unittest.main()

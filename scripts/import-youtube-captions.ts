@@ -89,10 +89,17 @@ async function main() {
         stage = "complete";
         await client.query("UPDATE media_intelligence_caption_acquisition SET status='imported',updated_at=now() WHERE asset_key=$1", [row.asset_key]);
         log({ assetKey: row.asset_key, status: "review-required", importId: imported.id, cues: imported.cueCount, windows: imported.windows, paidCalls: 0 });
-      } catch {
+      } catch (error) {
         // Do not emit provider stderr, raw database errors, or caption content.
-        await client.query("UPDATE media_intelligence_caption_acquisition SET status='failed',error_code=$2,updated_at=now() WHERE asset_key=$1", [row.asset_key, `caption_${stage}_failed`]);
-        log({ assetKey: row.asset_key, status: "failed", code: `caption_${stage}_failed`, retryAfterHours: 24 });
+        let code = `caption_${stage}_failed`;
+        if (stage === "fetch" && error && typeof error === "object" && "stdout" in error && typeof error.stdout === "string") {
+          try {
+            const provider = JSON.parse(error.stdout.trim());
+            if (["provider_verification_required", "provider_rate_limited", "provider_access_denied", "provider_timeout"].includes(provider.code)) code = provider.code;
+          } catch { /* Keep the bounded stage code. */ }
+        }
+        await client.query("UPDATE media_intelligence_caption_acquisition SET status='failed',error_code=$2,updated_at=now() WHERE asset_key=$1", [row.asset_key, code]);
+        log({ assetKey: row.asset_key, status: "failed", code, retryAfterHours: 24 });
         process.exitCode = 1;
       } finally {
         // Delete only the temporary folder just created by this worker.

@@ -18,6 +18,20 @@ class QuietLogger:
         pass  # Provider errors may include transient signed URLs.
 
 
+def provider_error_code(error):
+    # Classify without exposing provider URLs, tokens or response bodies.
+    message = str(error).lower()
+    if "not a bot" in message or "sign in to confirm" in message:
+        return "provider_verification_required"
+    if "429" in message or "too many requests" in message:
+        return "provider_rate_limited"
+    if "403" in message or "forbidden" in message:
+        return "provider_access_denied"
+    if "timed out" in message or "timeout" in message:
+        return "provider_timeout"
+    return "provider_caption_fetch_failed"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--video-id", required=True)
@@ -67,6 +81,6 @@ if __name__ == "__main__":
     except ValueError as error:
         print(json.dumps({"status": "failed", "code": str(error)}))
         sys.exit(1)
-    except Exception:
-        print(json.dumps({"status": "failed", "code": "provider_caption_fetch_failed"}))
+    except Exception as error:
+        print(json.dumps({"status": "failed", "code": provider_error_code(error)}))
         sys.exit(1)
