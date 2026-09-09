@@ -24,12 +24,12 @@ export async function GET() {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   try {
-    return NextResponse.json(await mediaIntelligenceCoverage());
-  } catch (error) {
+    return NextResponse.json(await mediaIntelligenceCoverage(), { headers: { "Cache-Control": "private, no-store" } });
+  } catch {
     return NextResponse.json({
       error: "coverage_unavailable",
-      message: error instanceof Error ? error.message : "unknown error",
-    }, { status: 503 });
+      message: "Source coverage is temporarily unavailable. Please retry.",
+    }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
   }
 }
 

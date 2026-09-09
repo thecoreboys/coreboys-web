@@ -4,9 +4,13 @@ import { mediaIntelligenceQuery } from "./schema";
 
 export async function mediaIntelligenceCoverage() {
   const [assets, policies, jobs, runs, operations, transcripts] = await Promise.all([
-    mediaIntelligenceQuery<{ platform: string; total: string; active: string }>(
+    mediaIntelligenceQuery<{ platform: string; total: string; active: string; media_references: string; live: string }>(
       `SELECT platform, count(*)::text AS total,
-              count(*) FILTER (WHERE active)::text AS active
+              count(*) FILTER (WHERE active)::text AS active,
+              count(*) FILTER (WHERE active AND NOT is_live AND
+                jsonb_typeof(item->'mediaUrl') = 'string' AND
+                length(trim(item->>'mediaUrl')) > 0)::text AS media_references,
+              count(*) FILTER (WHERE active AND is_live)::text AS live
        FROM media_intelligence_assets GROUP BY platform ORDER BY platform`,
     ),
     mediaIntelligenceQuery<{ platform: string; rights_status: string; analysis_mode: string; total: string }>(
@@ -41,7 +45,10 @@ export async function mediaIntelligenceCoverage() {
   return {
     generatedAt: new Date().toISOString(),
     runtime: azureMediaRuntimeState(),
-    assets: assets.rows.map((row) => ({ platform: row.platform, total: Number(row.total), active: Number(row.active) })),
+    // A URL in metadata is only a candidate, not proof of a reachable file,
+    // permission, or a configured analyzer. Never label these assets "ready".
+    assets: assets.rows.map((row) => ({ platform: row.platform, total: Number(row.total),
+      active: Number(row.active), mediaReferences: Number(row.media_references), live: Number(row.live) })),
     policies: policies.rows.map((row) => ({
       platform: row.platform,
       rights: row.rights_status,

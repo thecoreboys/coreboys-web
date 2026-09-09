@@ -4,6 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 type Cue = { startSeconds: number; endSeconds: number; text: string };
 type Import = { id: string; assetKey: string; title: string; language: string; status: string;
   expiresAt: string; rightsReference: string; cueCount: number; currentRevision: boolean };
+type Health = { assets: Array<{ platform: string; active: number; mediaReferences: number; live: number }>;
+  jobs: Array<{ status: string; total: number }>; transcripts: Array<{ status: string; total: number }> };
 const endpoint = "/api/admin/media-intelligence/transcripts";
 const field = "min-h-11 w-full rounded-lg border border-secondary bg-primary p-3 text-primary";
 const button = "inline-flex min-h-11 items-center justify-center rounded-lg border border-secondary bg-primary px-4 text-sm font-semibold text-primary disabled:opacity-50";
@@ -16,7 +18,9 @@ export function TranscriptManager() {
   const [evidence, setEvidence] = useState<Record<string, Cue[]>>({});
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(true);
-  const [health, setHealth] = useState<{ assets: Array<{ active: number }>; jobs: Array<{ status: string; total: number }> } | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [healthError, setHealthError] = useState(false);
+  const [healthAttempt, setHealthAttempt] = useState(0);
   async function refresh() {
     try {
       const response = await fetch(endpoint, { cache: "no-store" });
@@ -28,12 +32,16 @@ export function TranscriptManager() {
   useEffect(() => { void refresh().catch((error) => setMessage(error.message)); }, []);
   useEffect(() => {
     const controller = new AbortController();
+    setHealthError(false);
     void fetch("/api/admin/media-intelligence", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => response.ok ? response.json() : null)
-      .then((data) => { if (!controller.signal.aborted && data?.assets && data?.jobs) setHealth(data); })
-      .catch(() => {});
+      .then(async (response) => { if (!response.ok) throw new Error("Coverage unavailable"); return response.json(); })
+      .then((data) => {
+        if (!Array.isArray(data?.assets) || !Array.isArray(data?.jobs) || !Array.isArray(data?.transcripts)) throw new Error("Invalid coverage");
+        if (!controller.signal.aborted) setHealth(data);
+      })
+      .catch(() => { if (!controller.signal.aborted) setHealthError(true); });
     return () => controller.abort();
-  }, []);
+  }, [healthAttempt]);
   async function mutate(payload: Record<string, unknown>) {
     setBusy(true); setMessage("");
     try {
@@ -62,12 +70,31 @@ export function TranscriptManager() {
     finally { setBusy(false); }
   }
   return <div className="space-y-6">
+    {healthError ? <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-secondary bg-primary p-5 text-sm text-primary">
+      <p>Source coverage could not be checked. Missing data does not mean there are no sources.</p>
+      <button type="button" className={button} onClick={() => setHealthAttempt((attempt) => attempt + 1)}>Retry source check</button>
+    </div> : null}
     {health ? <section className="grid gap-3 sm:grid-cols-3" aria-label="Index health">
       {[
         ["Active catalog assets", health.assets.reduce((sum, row) => sum + row.active, 0)],
         ["Queued analysis jobs", health.jobs.filter((row) => row.status === "queued").reduce((sum, row) => sum + row.total, 0)],
         ["Failed or dead-letter jobs", health.jobs.filter((row) => row.status === "failed" || row.status === "dead-letter").reduce((sum, row) => sum + row.total, 0)],
       ].map(([label, count]) => <div key={label} className="rounded-xl border border-secondary bg-primary p-5"><p className="text-sm text-tertiary">{label}</p><p className="mt-2 text-2xl font-semibold text-primary">{Number(count).toLocaleString()}</p></div>)}
+    </section> : null}
+    {health ? <section className="space-y-4 rounded-xl border border-secondary bg-primary p-5" aria-label="Source availability">
+      <h2 className="text-lg font-semibold text-primary">Catalog links are not recordings</h2>
+      <p className="text-sm leading-6 text-tertiary">These counts come from the existing catalog. A direct media reference still needs a reachability check, source permission and a working analyzer before processing. Embedded players and thumbnails are not source recordings. Live streams wait for a replay.</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {health.assets.map((row) => <div key={row.platform} className="rounded-lg border border-secondary p-4">
+          <h3 className="font-semibold capitalize text-primary">{row.platform}</h3>
+          <dl className="mt-3 space-y-2 text-sm text-tertiary">
+            <div className="flex justify-between gap-3"><dt>Indexed items</dt><dd>{row.active.toLocaleString()}</dd></div>
+            <div className="flex justify-between gap-3"><dt>Direct media references</dt><dd>{row.mediaReferences?.toLocaleString() ?? "Not checked"}</dd></div>
+            <div className="flex justify-between gap-3"><dt>Live, awaiting replay</dt><dd>{row.live?.toLocaleString() ?? "Not checked"}</dd></div>
+          </dl>
+        </div>)}
+      </div>
+      <p className="text-sm text-tertiary">Unexpired approved caption imports: <strong className="text-primary">{health.transcripts.filter((row) => row.status === "approved").reduce((sum, row) => sum + row.total, 0).toLocaleString()}</strong>. Source changes, restrictions and removals can further reduce searchable coverage.</p>
     </section> : null}
     <section className="rounded-xl border border-secondary bg-primary p-5 text-sm leading-6 text-tertiary">
       <strong className="text-primary">Search real moments, with source evidence.</strong> Import an authorized WebVTT or SRT file, review its text and timing, then approve it for search. This path makes no paid AI calls. It does not download provider videos or invent scenes. Captions expire after 90 days; removed, restricted, changed or revoked sources stop appearing in search.

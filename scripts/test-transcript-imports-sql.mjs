@@ -43,6 +43,19 @@ try {
     durationSeconds: 600, format: 'long', memberSlug: 'marlon', memberLabel: 'Marlon', accountLabel: 'Marlon', poster: '', backdrop: '', accent: '#fff', href: '/' };
   const prepared = prepareWatchItem(item, analyzer);
   await store.prepareRevision(prepared.asset, prepared.revision);
+  const coverage = load('lib/media-intelligence/coverage.ts').mediaIntelligenceCoverage;
+  const youtubeCoverage = async () => (await coverage()).assets.find((row) => row.platform === 'youtube');
+  const baseline = await youtubeCoverage();
+  for (const value of [null, '', '  ', 123]) {
+    await client.query("UPDATE media_intelligence_assets SET item=jsonb_set(item,'{mediaUrl}',$2::jsonb) WHERE asset_key=$1", [prepared.asset.key, JSON.stringify(value)]);
+    assert.equal((await youtubeCoverage()).mediaReferences, baseline.mediaReferences, 'invalid or blank media values must not count');
+  }
+  await client.query("UPDATE media_intelligence_assets SET item=jsonb_set(item,'{mediaUrl}',to_jsonb($2::text)) WHERE asset_key=$1", [prepared.asset.key, 'https://example.com/test-only.mp4']);
+  assert.equal((await youtubeCoverage()).mediaReferences, baseline.mediaReferences + 1);
+  await client.query('UPDATE media_intelligence_assets SET is_live=true WHERE asset_key=$1', [prepared.asset.key]);
+  assert.equal((await youtubeCoverage()).mediaReferences, baseline.mediaReferences, 'live input is not a replay artifact');
+  assert.equal((await youtubeCoverage()).live, baseline.live + 1);
+  await client.query("UPDATE media_intelligence_assets SET is_live=false,item=item-'mediaUrl' WHERE asset_key=$1", [prepared.asset.key]);
   const input = { assetKey: prepared.asset.key, source: 'WEBVTT\n\n00:02:00.000 --> 00:02:10.000\nPlaying Minecraft with friends.', language: 'en', rightsReference: 'Test-only authorized fixture', actor: 'local-test' };
   const imported = await service.submitTranscriptImport(input);
   assert.equal(imported.id, (await service.submitTranscriptImport(input)).id);
@@ -64,5 +77,5 @@ try {
   const retention = await load('lib/media-intelligence/retention.ts').runMediaIntelligenceRetention(100);
   assert.ok(retention.transcriptsPruned >= 1);
   assert.equal((await client.query('SELECT import_id FROM media_intelligence_transcript_imports WHERE import_id=$1', [imported.id])).rows.length, 0);
-  console.log(JSON.stringify({ ok: true, checks: ['idempotent import','draft isolation','approval','real timestamp','revision isolation','expiry','revocation','retention purge'], rollback: true, paidCalls: 0 }));
+  console.log(JSON.stringify({ ok: true, checks: ['source coverage','blank media rejection','live/replay distinction','idempotent import','draft isolation','approval','real timestamp','revision isolation','expiry','revocation','retention purge'], rollback: true, paidCalls: 0 }));
 } finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }
