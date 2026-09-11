@@ -11,6 +11,7 @@ import { Tooltip } from "@/components/base/tooltip/tooltip";
 import type { WatchCatalog, WatchItem } from "@/lib/watch/types";
 import { MyListShelf, PosterCard } from "./PosterCard";
 import { DragScrollRail } from "./DragScrollRail";
+import { toggleMyList } from "@/lib/watch/mylist";
 
 type MyListView = "all" | "unwatched" | "progress" | "watched";
 type MyListSort = "recent" | "title" | "progress";
@@ -20,7 +21,7 @@ function references(item: WatchItem) {
 }
 
 export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
-  const { ids, loading, signedIn } = useMyList();
+  const { ids, loading, signedIn, error, refresh } = useMyList();
   const { map } = useWatchProgress();
   const discovery = useWatchDiscovery();
   const subscription = useSubscription();
@@ -29,11 +30,16 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
   const [activeQueueId, setActiveQueueId] = useState<string | null>(null);
   const [newQueueName, setNewQueueName] = useState("");
   const [renameDraft, setRenameDraft] = useState("");
+  const [search, setSearch] = useState("");
   const queueTemplatesAllowed = subscription.hasFeature("queue.templates");
 
   const savedItems = useMemo(() => {
     const byId = new Map(catalog.all.map((item) => [item.id, item]));
     return ids.map((id) => byId.get(id)).filter((item): item is WatchItem => Boolean(item));
+  }, [catalog.all, ids]);
+  const unavailableIds = useMemo(() => {
+    const known = new Set(catalog.all.map((item) => item.id));
+    return ids.filter((id) => !known.has(id));
   }, [catalog.all, ids]);
 
   const marks = useMemo(() => {
@@ -53,6 +59,7 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
 
   const displayedItems = useMemo(() => {
     const filtered = savedItems.filter((item) => {
+      if (search.trim() && !`${item.title} ${item.memberLabel} ${item.platform}`.toLowerCase().includes(search.trim().toLowerCase())) return false;
       const mark = marks.get(item.id) ?? { completed: false, progress: 0 };
       if (view === "unwatched") return !mark.completed && mark.progress <= 0;
       if (view === "progress") return !mark.completed && mark.progress > 0;
@@ -64,7 +71,7 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
       filtered.sort((a, b) => (marks.get(b.id)?.progress ?? 0) - (marks.get(a.id)?.progress ?? 0));
     }
     return filtered;
-  }, [marks, savedItems, sort, view]);
+  }, [marks, savedItems, search, sort, view]);
 
   const handleFeedback = (item: WatchItem, value: WatchFeedbackValue | null) => {
     discovery.setFeedback(item.id, value);
@@ -111,13 +118,24 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
 
   return (
     <div className="watch-my-list-page">
+      {error ? <div role="alert" className="mx-auto mb-5 flex max-w-[1520px] flex-wrap items-center justify-between gap-3 rounded-lg border border-white/15 px-4 py-3 text-sm text-white/75">
+        <p>{error}</p>
+        <button type="button" onClick={() => void refresh()} disabled={loading} className="rounded-md border border-white/20 px-3 py-2 text-white disabled:opacity-50">Retry sync</button>
+      </div> : null}
+      {ids.length ? <div className="mx-auto mb-4 flex max-w-[1520px] flex-wrap items-center justify-between gap-3 px-5 md:px-10">
+        <label className="flex min-w-0 items-center gap-3 text-sm text-white/60">
+          <span>Search DVR</span>
+          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title or creator" className="min-h-11 min-w-0 rounded-lg border border-white/15 bg-transparent px-3 text-white outline-none focus:border-white/50" />
+        </label>
+        <button type="button" onClick={() => void refresh()} disabled={loading} className="min-h-11 rounded-lg border border-white/15 px-3 text-sm text-white/70 disabled:opacity-50">{loading ? "Syncing…" : "Refresh DVR"}</button>
+      </div> : null}
       <MyListShelf
         items={displayedItems}
         totalCount={savedItems.length}
         signedIn={signedIn}
         loading={loading}
         view={view}
-        onViewChange={setView}
+        onViewChange={(next) => { setView(next); if (next === "all") setSearch(""); }}
         sort={sort}
         onSortChange={setSort}
         feedback={discovery.state.feedback}
@@ -128,15 +146,24 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
         page
       />
 
+      {unavailableIds.length ? <section className="mx-auto mt-8 max-w-[1520px] border-t border-white/10 px-5 pt-6 md:px-10" aria-labelledby="dvr-unavailable-title">
+        <h2 id="dvr-unavailable-title" className="text-base font-semibold">Unavailable titles <span className="text-white/45">{unavailableIds.length}</span></h2>
+        <p className="mt-2 text-sm text-white/55">These saved titles are no longer in the current catalog. They stay saved unless you remove them.</p>
+        <ul className="mt-4 divide-y divide-white/10">
+          {unavailableIds.map((id, index) => <li key={id} className="flex min-w-0 items-center justify-between gap-4 py-3">
+            <span className="min-w-0 truncate text-sm text-white/60">Unavailable title {index + 1}</span>
+            <button type="button" onClick={() => toggleMyList(id)} className="shrink-0 rounded-md border border-white/15 px-3 py-2 text-sm text-white/70" aria-label={`Remove unavailable title ${index + 1}`}>Remove</button>
+          </li>)}
+        </ul>
+      </section> : null}
+
       {!subscription.loading && !queueTemplatesAllowed ? (
         <section className="watch-premium-queue-callout" aria-labelledby="custom-lists-title">
           <span className="watch-premium-queue-icon" aria-hidden><LockKeyhole /></span>
           <div>
-            <p className="watch-my-list-eyebrow">Optional organization upgrade</p>
-            <h2 id="custom-lists-title">Turn DVR into named queues</h2>
+            <h2 id="custom-lists-title">Custom lists</h2>
             <p>
-              {subscription.requiredPlanName("queue.templates")} includes reusable lineups like
-              “Friday stream,” “Best e-dates,” or “Shorts to catch up on,” synced across devices.
+              Organize saved titles into lists with {subscription.requiredPlanName("queue.templates")}.
             </p>
           </div>
           <Link href={subscription.featureHref("queue.templates") as never}>
@@ -150,9 +177,8 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
         <section className="watch-named-queues" aria-labelledby="named-queues-title">
           <div className="watch-named-queues-head">
             <div>
-              <p className="watch-my-list-eyebrow">Reusable lineups</p>
               <h2 id="named-queues-title">Custom lists</h2>
-              <p>Group saved titles into focused queues without changing your main DVR.</p>
+              <p>Group titles by creator, series, or anything you want to watch together.</p>
             </div>
             <form onSubmit={(event) => { event.preventDefault(); createQueue(); }}>
               <input
@@ -207,7 +233,7 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
                     <span>{activeQueue.itemIds.length} title{activeQueue.itemIds.length === 1 ? "" : "s"}</span>
                     <Tooltip
                       title="Delete custom list"
-                      description="Remove this reusable lineup. Titles stay in your main DVR."
+                      description="Delete this list. Titles stay in your DVR."
                       placement="top"
                     >
                       <button
@@ -242,7 +268,7 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
                     <div className="watch-named-queue-empty">
                       <Plus aria-hidden />
                       <div>
-                        <h3>This list is ready</h3>
+                        <h3>No titles in this list</h3>
                         <p>Use the more-actions menu on a DVR card above, then choose “Add to {activeQueue.name}.”</p>
                       </div>
                     </div>
@@ -255,7 +281,7 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
               <Layers3 aria-hidden />
               <div>
                 <h3>Create your first custom list</h3>
-                <p>Name a reusable lineup, then add titles from DVR without duplicating or moving anything.</p>
+                <p>Choose a name, then add titles from your DVR.</p>
               </div>
             </div>
           )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/components/providers/AuthProvider";
 import type { PassportCard } from "@/lib/passport/types";
 
 export type PassportInventoryPage = {
@@ -60,17 +61,19 @@ export async function collectPassportInventoryPages(
   return { cards, nextCursor: cursor ?? null, pagesLoaded };
 }
 
-async function inventoryPage(cursor?: string): Promise<PassportInventoryPage> {
+async function inventoryPage(accountId: string, cursor?: string): Promise<PassportInventoryPage> {
   const query = new URLSearchParams({ limit: "100" });
   if (cursor) query.set("cursor", cursor);
   const response = await fetch(`/api/account/passport/inventory?${query}`, {
     credentials: "same-origin",
     cache: "no-store",
+    headers: { "x-core-account-id": accountId },
   });
   const payload = (await response.json().catch(() => null)) as
-    | (Partial<PassportInventoryPage> & { error?: string })
+    | (Partial<PassportInventoryPage> & { error?: string; accountId?: string })
     | null;
   if (!response.ok) throw new Error(payload?.error ?? "Memory Book could not be loaded.");
+  if (payload?.accountId !== accountId) throw new Error("Your signed-in account changed. Refresh this page to continue.");
   return {
     items: Array.isArray(payload?.items) ? payload.items : [],
     nextCursor: typeof payload?.nextCursor === "string" ? payload.nextCursor : null,
@@ -81,13 +84,16 @@ export function usePassportInventory(
   seed: PassportCard[],
   options: { enabled?: boolean; autoLoadAll?: boolean; maxAutoPages?: number } = {},
 ): PassportInventoryState {
-  const enabled = options.enabled !== false;
+  const { user } = useAuth();
+  const accountId = user?.id;
+  const enabled = options.enabled !== false && Boolean(accountId);
   const autoLoadAll = options.autoLoadAll === true;
   const maxAutoPages = Math.max(1, Math.min(50, Math.trunc(options.maxAutoPages ?? 20)));
   const seedRef = useRef(seed);
   seedRef.current = seed;
   const seedKey = useMemo(() => seed.map((card) => `${card.id}:${card.state}`).join("|"), [seed]);
   const [cards, setCards] = useState(seed);
+  const [cardsAccountId, setCardsAccountId] = useState(accountId);
   const [nextCursor, setNextCursor] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(enabled);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -95,7 +101,8 @@ export function usePassportInventory(
   const requestRef = useRef(0);
 
   const loadFirstPage = useCallback(async () => {
-    if (!enabled) {
+    setCardsAccountId(accountId);
+    if (!enabled || !accountId) {
       setCards(seedRef.current);
       setNextCursor(undefined);
       setLoading(false);
@@ -108,7 +115,7 @@ export function usePassportInventory(
     setCards(seedRef.current);
     let loadedAny = false;
     try {
-      const result = await collectPassportInventoryPages(seedRef.current, inventoryPage, {
+      const result = await collectPassportInventoryPages(seedRef.current, (cursor) => inventoryPage(accountId, cursor), {
         maxPages: autoLoadAll ? maxAutoPages : 1,
         onPage: (nextCards, cursor) => {
           if (request !== requestRef.current) return;
@@ -127,7 +134,7 @@ export function usePassportInventory(
     } finally {
       if (request === requestRef.current) setLoading(false);
     }
-  }, [autoLoadAll, enabled, maxAutoPages]);
+  }, [accountId, autoLoadAll, enabled, maxAutoPages]);
 
   useEffect(() => {
     void loadFirstPage();
@@ -137,23 +144,26 @@ export function usePassportInventory(
   }, [loadFirstPage, seedKey]);
 
   const loadMore = useCallback(async () => {
-    if (!enabled || !nextCursor || loadingMore) return;
+    if (!enabled || !accountId || !nextCursor || loadingMore) return;
+    const request = requestRef.current;
     const cursor = nextCursor;
     setLoadingMore(true);
     setError(null);
     try {
-      const page = await inventoryPage(cursor);
+      const page = await inventoryPage(accountId, cursor);
+      if (request !== requestRef.current) return;
       setCards((current) => mergePassportCards(current, page.items));
       setNextCursor(page.nextCursor);
     } catch (cause) {
+      if (request !== requestRef.current) return;
       setError(cause instanceof Error ? cause.message : "More memories could not be loaded.");
     } finally {
-      setLoadingMore(false);
+      if (request === requestRef.current) setLoadingMore(false);
     }
-  }, [enabled, loadingMore, nextCursor]);
+  }, [accountId, enabled, loadingMore, nextCursor]);
 
   return {
-    cards,
+    cards: cardsAccountId === accountId ? cards : seed,
     loading,
     loadingMore,
     error,

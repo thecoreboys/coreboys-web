@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accountRequestMatches, ACCOUNT_CHANGED_MESSAGE } from "@/lib/account-request";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { listConnections } from "@/lib/oauth/connections";
 import { isOauthProvider } from "@/lib/oauth/providers";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const uid = await getCurrentFanUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!accountRequestMatches(req, uid)) return NextResponse.json({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
 
   let provider: string | undefined;
   try {
@@ -24,7 +26,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "unknown provider" }, { status: 400 });
     }
     const result = await syncProvider(uid, provider);
-    return NextResponse.json({ results: [result] });
+    return NextResponse.json({ results: [result], accountId: uid });
   }
 
   const conns = await listConnections(uid);
@@ -32,5 +34,5 @@ export async function POST(req: Request) {
     uid,
     conns.filter((c) => c.status === "active").map((c) => c.provider),
   );
-  return NextResponse.json({ results });
+  return NextResponse.json({ results, accountId: uid });
 }

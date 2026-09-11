@@ -29,6 +29,7 @@ export function MemoryBook({
   const [view, setView] = useState<MemoryView>("grid");
   const [selectedCard, setSelectedCard] = useState<PassportCard | null>(null);
   const inventoryCards = inventory.cards;
+  const hasFilters = Boolean(query.trim() || channel !== "all" || rarity !== "all" || duplicatesOnly);
 
   const channels = useMemo(
     () => Array.from(new Set(inventoryCards.map((card) => card.channelSlug))).sort(),
@@ -89,10 +90,10 @@ export function MemoryBook({
 
       {filtered.length === 0 ? (
         <div className="passport-empty">
-          <Sparkles aria-hidden="true" />
-          <h3>No memories match those filters.</h3>
-          <p>Clear a filter or earn your next card by joining an official CORE event.</p>
-          <button type="button" className="passport-button" onClick={() => { setQuery(""); setChannel("all"); setRarity("all"); setDuplicatesOnly(false); }}>Clear filters</button>
+          <BookOpen aria-hidden="true" />
+          <h3>{inventory.loading ? "Loading your collection…" : inventory.error ? "Your collection could not be loaded." : hasFilters ? "No memories match those filters." : "Your collection starts here."}</h3>
+          <p>{inventory.loading ? "Checking your saved records." : inventory.error ? "Try loading your collection again below." : hasFilters ? "Try another search or clear your filters." : "Cards from qualifying CORE events will appear here, with the date and activity that earned them."}</p>
+          {hasFilters ? <button type="button" className="passport-button" onClick={() => { setQuery(""); setChannel("all"); setRarity("all"); setDuplicatesOnly(false); }}>Clear filters</button> : null}
         </div>
       ) : view === "grid" ? (
         <div className="memory-book-grid">

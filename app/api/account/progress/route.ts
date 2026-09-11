@@ -7,8 +7,8 @@ import { listProgress, mergeProgress, upsertProgress } from "@/lib/watch/progres
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function progressResponse(items: Awaited<ReturnType<typeof listProgress>>) {
-  const response = NextResponse.json({ items });
+function progressResponse(items: Awaited<ReturnType<typeof listProgress>>, accountId: string | null = null) {
+  const response = NextResponse.json({ items, accountId });
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
@@ -17,7 +17,7 @@ export async function GET() {
   const uid = await getCurrentFanUserId();
   if (!uid) return progressResponse([]);
   const items = await listProgress(uid);
-  return progressResponse(items);
+  return progressResponse(items, uid);
 }
 
 const Body = z.object({
@@ -26,11 +26,14 @@ const Body = z.object({
   platform: z.string().min(2).max(40).optional(),
   subject: z.string().max(64).nullable().optional(),
   event: z.enum(["hover", "tick", "complete", "mark_watched"]),
-  seconds: z.number().int().min(0).max(180).optional(),
+  seconds: z.number().min(0).max(180).optional(),
   progress: z.number().min(0).max(1).optional(),
   positionSeconds: z.number().min(0).max(60 * 60 * 24).optional(),
   durationSeconds: z.number().min(0).max(60 * 60 * 24).optional(),
   observedAt: z.string().datetime().optional(),
+  sessionId: z.string().min(8).max(100).regex(/^[A-Za-z0-9_-]+$/).optional(),
+  accountId: z.string().min(1).max(100).optional(),
+  playbackRate: z.number().min(0.25).max(2).optional(),
 });
 
 export async function POST(req: Request) {
@@ -42,7 +45,10 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
-  await upsertProgress({
+  if (body.accountId && body.accountId !== uid) {
+    return NextResponse.json({ error: "account_changed" }, { status: 409 });
+  }
+  const progress = await upsertProgress({
     userId: uid,
     ref: body.ref,
     kind: body.kind,
@@ -53,6 +59,9 @@ export async function POST(req: Request) {
     positionSeconds: body.positionSeconds,
     durationSeconds: body.durationSeconds,
     observedAt: body.observedAt,
+    sessionId: body.sessionId,
+    platform: body.platform,
+    playbackRate: body.playbackRate,
   });
   // Manual completion is presentation state only. It never enters Passport,
   // verified presence, rewards, or account watch-time metrics.
@@ -65,13 +74,14 @@ export async function POST(req: Request) {
         platform: body.platform ?? "",
         positionSeconds: body.positionSeconds ?? 0,
         complete: body.event === "complete",
+        measuredSeconds: progress.creditedSeconds,
       });
     } catch {
       // Playback history remains the primary write. Passport only projects
       // server-timed, catalog-backed credit and can retry on a later tick.
     }
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ...progress });
 }
 
 const MergeItem = z.object({
@@ -90,6 +100,7 @@ const MergeItem = z.object({
 });
 
 const MergeBody = z.object({
+  accountId: z.string().min(1).max(100).optional(),
   sourceId: z.string().min(8).max(100).regex(/^[A-Za-z0-9_-]+$/).optional(),
   items: z.array(MergeItem).max(300),
 });
@@ -100,6 +111,7 @@ export async function PUT(req: Request) {
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const parsed = MergeBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  if (parsed.data.accountId && parsed.data.accountId !== uid) return NextResponse.json({ error: "account_changed" }, { status: 409 });
   await mergeProgress(uid, parsed.data.items, parsed.data.sourceId ?? "legacy-v1");
-  return progressResponse(await listProgress(uid));
+  return progressResponse(await listProgress(uid), uid);
 }

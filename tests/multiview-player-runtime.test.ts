@@ -36,3 +36,19 @@ test("the details panel focuses without silently taking room audio", () => {
   assert.match(details, /player\.focusTile\(focused\.id, \{ takeAudio: false \}\)/);
   assert.doesNotMatch(details, /player\.focusTile\(focused\.id, \{ takeAudio: true \}\)/);
 });
+
+test("Twitch room audio changes use the SDK without rebuilding its frame", () => {
+  const twitch = readFileSync(resolve(process.cwd(), "components/watch/TwitchTileMedia.tsx"), "utf8");
+  assert.match(twitch, /\}, \[attempt, channel, id, video\]\)/);
+  assert.match(twitch, /playerRef\.current\?\.setMuted\?\.\(muted\)/);
+  assert.match(twitch, /playerRef\.current\?\.setVolume\?\.\(volume\)/);
+  assert.match(twitch, /api\.Player\.PAUSE/);
+  assert.match(twitch, /instance\.getCurrentTime\(\)/);
+  assert.doesNotMatch(stage, /playingRef\.current = true;\s*\}\s*\}\}\s*className=\{`pointer-events-auto/);
+});
+
+test("YouTube room audio uses player commands and keeps its autoplay URL muted", () => {
+  assert.match(stage, /autoplay: true,\s*muted: true/);
+  assert.match(stage, /func: tile\.muted \? "mute" : "unMute"/);
+  assert.match(stage, /func: "setVolume", args: \[Math\.round\(tile\.volume \* 100\)\]/);
+});

@@ -1,4 +1,5 @@
 import "server-only";
+import { cachedPublicData } from "@/lib/server-cache";
 
 import type { PatreonLockedItem, PatreonShelfData } from "./types";
 import { selectPublicPatreonVideoPosts } from "./patreon-policy";
@@ -231,6 +232,16 @@ async function fetchPublicPatreonFlight(): Promise<PublicPatreonData> {
 }
 
 export async function getPatreonShelfData(): Promise<PatreonShelfData> {
+  return cachedPublicData("patreon-shelf:v1", buildPatreonShelfData, {
+    freshSeconds: 300,
+    staleSeconds: 900,
+    validate: (value): value is PatreonShelfData => Boolean(value && typeof value === "object"
+      && Array.isArray((value as PatreonShelfData).items)),
+    shouldCache: (shelf) => shelf.items.length > 0,
+  });
+}
+
+async function buildPatreonShelfData(): Promise<PatreonShelfData> {
   const apiPosts = await fetchPublicPatreonApi();
   const publicData = !apiPosts?.length
     ? await fetchPublicPatreonFlight()

@@ -1,33 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Award, BookOpen, Check, IdCard, LayoutDashboard, RefreshCw, Sparkles, X } from "lucide-react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { AlertCircle, Award, BookOpen, Check, IdCard, LayoutDashboard, RefreshCw, Settings, X } from "lucide-react";
 import { usePassport } from "@/hooks/usePassport";
 import { usePassportInventory } from "@/hooks/passport/usePassportInventory";
-import { MemoryBook } from "./MemoryBook";
-import { PassportAchievements } from "./PassportAchievements";
-import { PassportIdentity } from "./PassportIdentity";
 import { PassportOverview } from "./PassportOverview";
-import { MemberCard } from "./MemberCard";
 import { publicDisplayName } from "@/lib/profile-display";
+
+const MemoryBook = dynamic(() => import("./MemoryBook").then((module) => module.MemoryBook));
+const PassportAchievements = dynamic(() => import("./PassportAchievements").then((module) => module.PassportAchievements));
+const PassportIdentity = dynamic(() => import("./PassportIdentity").then((module) => module.PassportIdentity));
+const MemberCard = dynamic(() => import("./MemberCard").then((module) => module.MemberCard));
 
 type PassportTab = "overview" | "memories" | "achievements" | "identity";
 
 const TABS: Array<{ id: PassportTab; label: string; icon: typeof LayoutDashboard }> = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "memories", label: "Memory Book", icon: BookOpen },
+  { id: "overview", label: "Activity", icon: LayoutDashboard },
+  { id: "memories", label: "Collection", icon: BookOpen },
   { id: "achievements", label: "Achievements", icon: Award },
-  { id: "identity", label: "Identity", icon: IdCard },
+  { id: "identity", label: "Profile", icon: IdCard },
 ];
 
 export function PassportDashboard() {
   const passport = usePassport();
   const [tab, setTab] = useState<PassportTab>("overview");
   const inventory = usePassportInventory(passport.passport?.cards ?? [], {
-    enabled: Boolean(passport.passport),
-    autoLoadAll: true,
+    enabled: Boolean(passport.passport) && (tab === "memories" || tab === "identity"),
+    autoLoadAll: tab === "identity",
     maxAutoPages: 50,
   });
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void passport.refresh();
+    }, 30_000);
+    return () => window.clearInterval(interval);
+  }, [passport.refresh]);
 
   useEffect(() => {
     const requested = window.location.hash.slice(1) as PassportTab;
@@ -43,11 +53,11 @@ export function PassportDashboard() {
   const navigate = (next: PassportTab) => {
     setTab(next);
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${next}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   };
 
   if (passport.loading) return <PassportLoading />;
-  if (passport.loadError || !passport.passport) {
+  if (!passport.passport) {
     return (
       <main className="passport-shell">
         <div className="passport-load-error"><AlertCircle aria-hidden="true" /><h1>Passport is temporarily unavailable.</h1><p>{passport.loadError ?? "Your identity and inventory are safe. Try loading them again."}</p><button type="button" className="passport-button passport-button--primary" onClick={() => void passport.refresh()}><RefreshCw aria-hidden="true" /> Try again</button></div>
@@ -62,24 +72,23 @@ export function PassportDashboard() {
   return (
     <main className="passport-shell">
       <header className="passport-hero">
-        <div className="passport-hero__glow" aria-hidden="true" />
         <div className="passport-hero__identity">
-          <span className="passport-hero__mark"><Sparkles aria-hidden="true" /></span>
-          <div><span className="passport-kicker">CORE Passport</span><h1>{displayName}</h1><p>{data.profile.displayTitle ?? "Verified account activity"}</p></div>
+          <div><span className="passport-kicker">{displayName} · Level {data.profile.level}</span><h1>CORE Passport</h1><p>Your watch activity, collected moments, and milestones.</p></div>
         </div>
-        <div className="passport-hero__level"><span>Global level</span><strong>{data.profile.level}</strong><small>{data.profile.globalXp.toLocaleString("en-US")} XP</small></div>
+        <Link href="/account/settings#connections" className="passport-button"><Settings aria-hidden="true" /> Connected accounts</Link>
       </header>
 
       <nav className="passport-tabs" aria-label="Passport sections">
-        {TABS.map((item) => { const Icon = item.icon; return <button key={item.id} type="button" className={tab === item.id ? "is-active" : ""} aria-current={tab === item.id ? "page" : undefined} onClick={() => navigate(item.id)}><Icon aria-hidden="true" /><span>{item.label}</span></button>; })}
+        {TABS.map((item) => { const Icon = item.icon; return <button key={item.id} type="button" aria-label={item.label} className={tab === item.id ? "is-active" : ""} aria-current={tab === item.id ? "page" : undefined} onClick={() => navigate(item.id)}><Icon aria-hidden="true" /><span>{item.label}</span></button>; })}
       </nav>
 
       <div className="passport-content">
-        {tab === "overview" ? <><MemberCard passport={data} /><PassportOverview passport={data} onNavigate={navigate} onClaimPresence={passport.claimPresence} onClaimQuest={passport.claimQuest} onClaimCommunityGoal={passport.claimCommunityGoal} claiming={busy} /></> : null}
+        {passport.loadError ? <aside className="passport-inventory-sync" role="status"><AlertCircle aria-hidden="true" /><span>Couldn’t refresh your Passport. Showing the last saved activity.</span><button type="button" onClick={() => void passport.refresh()}>Try again</button></aside> : null}
+        {tab === "overview" ? <><PassportOverview passport={data} onNavigate={navigate} onClaimPresence={passport.claimPresence} onClaimQuest={passport.claimQuest} onClaimCommunityGoal={passport.claimCommunityGoal} claiming={busy} /></> : null}
         {tab === "memories" ? <MemoryBook inventory={inventory} albums={data.albums} onClaimAlbum={passport.claimAlbum} claimingAlbum={busy} /> : null}
         {tab === "achievements" ? <PassportAchievements achievements={data.achievements} quests={data.quests} campaigns={data.campaigns} onClaimQuest={passport.claimQuest} claiming={busy} /> : null}
-        {tab === "identity" ? <InventorySyncStatus inventory={inventory} /> : null}
-        {tab === "identity" ? <PassportIdentity cards={inventory.cards} achievements={data.achievements} cosmetics={data.cosmeticCatalog} loadouts={data.loadouts} showcase={data.showcase} privacy={data.privacy} channelSlugs={channels} onSaveShowcase={passport.saveShowcase} onSaveLoadout={passport.saveLoadout} onActivateLoadout={passport.activateLoadout} onSavePrivacy={passport.savePrivacy} pending={busy} /> : null}
+        {tab === "identity" ? <><MemberCard passport={data} /><InventorySyncStatus inventory={inventory} /></> : null}
+        {tab === "identity" ? <PassportIdentity key={data.profile.userId} cards={inventory.cards} achievements={data.achievements} cosmetics={data.cosmeticCatalog} loadouts={data.loadouts} showcase={data.showcase} privacy={data.privacy} channelSlugs={channels} onSaveShowcase={passport.saveShowcase} onSaveLoadout={passport.saveLoadout} onActivateLoadout={passport.activateLoadout} onSavePrivacy={passport.savePrivacy} pending={busy} /> : null}
       </div>
 
       {passport.mutation.notice || passport.mutation.error ? (

@@ -757,7 +757,7 @@ export function MyListShelf({
       <div className="watch-my-list-shell mx-auto max-w-[1600px]">
         <div className="watch-my-list-heading">
           <div>
-            <p className="watch-my-list-eyebrow">Your personal recordings</p>
+            <p className="watch-my-list-eyebrow">Saved to your account</p>
             <div className="watch-my-list-title-row">
               <Heading id="my-list-title">DVR</Heading>
               {hasSavedItems ? <span>{totalCount}</span> : null}
@@ -766,7 +766,7 @@ export function MyListShelf({
               {loading
                 ? "Loading your DVR…"
                 : signedIn
-                ? "Saved with watch progress and ready to resume on every device."
+                ? "Your saved titles and watch progress. Playback depends on the original source remaining available."
                 : "Sign in to build a DVR that stays with your CORE account."}
             </p>
           </div>
@@ -819,12 +819,12 @@ export function MyListShelf({
               <MyListGlyph saved={false} />
             </span>
             <div>
-              <h3>{loading ? "Loading your DVR" : hasSavedItems ? "Nothing here matches your filters" : "Your DVR starts here"}</h3>
+              <h3>{loading ? "Loading your DVR" : hasSavedItems ? "No matching titles" : "No saved titles yet"}</h3>
               <p>
                 {loading
                   ? "Checking your CORE account for saved titles."
                   : hasSavedItems
-                  ? "Switch back to All to see every saved title."
+                  ? "Try another filter or search."
                   : "Use Add to DVR on any video, stream, replay, short, or photo."}
               </p>
             </div>

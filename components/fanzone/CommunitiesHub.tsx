@@ -396,7 +396,7 @@ function CommunityXCard({ data, busy, mutate }: {
               ) : (
                 <Link href={data.viewer.signedIn ? "/api/oauth/x/start" : "/login?next=/account"} className={primaryButtonClass}>Connect X</Link>
               )}
-              <Link href="/account#connections" className={secondaryButtonClass}>Manage</Link>
+              <Link href="/account/settings#connections" className={secondaryButtonClass}>Manage</Link>
             </div>
           </div>
           <div className="rounded-xl bg-secondary p-4">

@@ -11,9 +11,9 @@ export function AccountPageHeader({ title, description, active, children }: {
   return <header className={styles.cleanHeader}>
     <nav className={styles.accountNav} aria-label="Account and membership">
       {([
-        ["settings", "/account/settings", "Settings"],
-        ["membership", "/account/plan", "Membership & billing"],
-        ["upgrade", "/upgrade", "Beta access"],
+        ["settings", "/account/settings", "Account settings"],
+        ["membership", "/account/settings/billing", "Billing"],
+        ["upgrade", "/upgrade", "Support the site"],
       ] as const).map(([key, href, label]) => <Link key={key} href={href} aria-current={active === key ? "page" : undefined}>{label}</Link>)}
     </nav>
     <p className={styles.kicker}>{active === "settings" ? "Your CORE account" : "CORE membership"}</p>

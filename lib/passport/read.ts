@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query, withTransaction } from "@/lib/db";
+import { accountWatchAnalytics } from "@/lib/watch/analytics";
 import { ensurePassportProfile } from "@/lib/passport/internal";
 import { drainPassportActivityOutbox } from "@/lib/passport/activity";
 import {
@@ -554,10 +555,10 @@ async function listTrades(userId: string): Promise<PassportTrade[]> {
 export async function getPassportDashboard(userId: string): Promise<PassportDashboard> {
   await drainPassportActivityOutbox({userId,limit:25});
   await withTransaction(async (client) => ensurePassportProfile(client, userId));
-  const [profile, channels, achievements, quests, cardsPage, albums, loadouts, cosmeticCatalog, gifts, trades, activeEvents,communityGoals,recap] = await Promise.all([
+  const [profile, channels, achievements, quests, cardsPage, albums, loadouts, cosmeticCatalog, gifts, trades, activeEvents,communityGoals,recap,watchAnalytics] = await Promise.all([
     getProfile(userId), listChannels(userId), listAchievements(userId), listQuests(userId),
     listPassportCards({ userId, limit: 60 }), listAlbums(userId), listLoadouts(userId),
-    listCosmetics(userId), listGifts(userId), listTrades(userId), listActivePassportEvents(userId),listCommunityGoals(userId),getPassportRecap(userId),
+    listCosmetics(userId), listGifts(userId), listTrades(userId), listActivePassportEvents(userId),listCommunityGoals(userId),getPassportRecap(userId),accountWatchAnalytics(userId),
   ]);
   return {
     profile,
@@ -582,6 +583,7 @@ export async function getPassportDashboard(userId: string): Promise<PassportDash
     activeEvents,
     communityGoals,
     recap,
+    watchAnalytics,
   };
 }
 

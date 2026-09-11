@@ -311,7 +311,7 @@ export function NotificationSettings({
                     <p className="mt-0.5 text-sm leading-5 text-tertiary">{meta.description}</p>
                     {meta.key === "live" ? (
                       <Link
-                        href="/account#go-live-notifications"
+                        href="/account/settings#notifications"
                         className="mt-2 inline-flex text-xs font-semibold text-brand-secondary hover:text-brand-secondary_hover"
                       >
                         Choose creators

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowRight, Check, CreditCard, LockKeyhole, ShieldCheck } from "lucide-react";
 import type { AccountSubscriptionApiResponse } from "@/lib/subscriptions/api-contract";
 import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSupporterBillingControls";
@@ -18,7 +19,7 @@ const FEATURE_FOCUS: Record<string, { title: string; copy: string }> = {
   "dvr.extended_retention": { title: "Private DVR", copy: "Keep broadcasts, videos, and moments ready to revisit." },
 };
 
-export function PricingExperience({ accountMode = false, displayName, account, accountLoading = false, accountUnavailable = false, focusFeature }: { accountMode?: boolean; displayName?: string; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string }) {
+export function PricingExperience({ accountMode = false, displayName, account, accountLoading = false, accountUnavailable = false, focusFeature, children }: { accountMode?: boolean; displayName?: string; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string; children?: ReactNode }) {
   const active = account?.source === "subscription" && ["active", "trialing"].includes(account.status);
   const hasManagedSubscription = Boolean(account?.hasManagedSubscription);
   const configured = Boolean(account?.billingConfigured && !accountUnavailable && account.storageState === "ready");
@@ -35,7 +36,7 @@ export function PricingExperience({ accountMode = false, displayName, account, a
       description={accountMode ? `Manage ${displayName ? `${displayName}'s` : "your"} CORE membership and billing in one place.` : "One membership unlocks the current CORE beta and supports development and ongoing updates."}
     >
       {requestedFeature ? <FocusCallout feature={requestedFeature} /> : null}
-      {accountMode ? <div className={styles.currentPlan} role="status" aria-live="polite"><span>Current plan</span><strong>{accountLoading ? "Checking…" : active ? "CORE Member" : "Free"}</strong><small>{account?.cancelAtPeriodEnd ? "Ends after this billing period" : active ? "Active" : "No membership yet"}</small></div> : <Link className={styles.primaryCta} href="/account/plan">{joinLabel} <ArrowRight aria-hidden="true" /></Link>}
+      {accountMode ? <div className={styles.currentPlan} role="status" aria-live="polite"><span>Current plan</span><strong>{accountLoading ? "Checking…" : active ? "CORE Member" : "Free"}</strong><small>{account?.cancelAtPeriodEnd ? "Ends after this billing period" : active ? "Active" : "No membership yet"}</small></div> : <Link className={styles.primaryCta} href="/account/settings/billing">{joinLabel} <ArrowRight aria-hidden="true" /></Link>}
     </AccountPageHeader>
 
     <main className={styles.cleanMain}>
@@ -44,10 +45,11 @@ export function PricingExperience({ accountMode = false, displayName, account, a
           <p className={styles.planEyebrow}>One plan · cancel anytime</p><h2>{supportClosed ? "Support is currently closed" : "CORE Membership"}</h2>
           <div className={styles.priceLine}><strong>{supportClosed ? "—" : minimum ? `${minimum}+` : "Monthly"}</strong><span>{supportClosed ? "" : "per month"}</span></div>
           <p className={styles.planDescription}>Choose the amount that works for you. Every member gets the same beta access.</p>
-          <div className={styles.amountSelector}>{accountMode ? <MembershipActions active={hasManagedSubscription} configured={configured} /> : <Link className={styles.primaryCta} href="/account/plan"><CreditCard aria-hidden="true" /> Continue to billing <ArrowRight aria-hidden="true" /></Link>}</div>
+          <div className={styles.amountSelector}>{accountMode ? <MembershipActions active={hasManagedSubscription} configured={configured} /> : <Link className={styles.primaryCta} href="/account/settings/billing"><CreditCard aria-hidden="true" /> Continue to billing <ArrowRight aria-hidden="true" /></Link>}</div>
         </article>
         <aside className={styles.includedCard}><div className={styles.cleanCardIcon}><ShieldCheck aria-hidden="true" /></div><h2>Included with membership</h2><ul>{INCLUDED.map((item) => <li key={item}><Check aria-hidden="true" />{item}</li>)}</ul></aside>
       </section>
+      {children}
       <section className={styles.cleanNotice}><LockKeyhole aria-hidden="true" /><div><strong>Public content stays free.</strong><p>Your membership supports CORE development and personal account tools. It is not a subscription to any creator.</p></div></section>
       <section className={styles.cleanFaq} aria-labelledby="membership-faq"><div><p className={styles.kicker}>Need to know</p><h2 id="membership-faq">Simple billing, no surprises.</h2></div><div className={styles.cleanFaqList}><p><strong>Can I cancel?</strong> Yes. Cancel recurring billing from this page or through the secure billing portal.</p><p><strong>What does beta mean?</strong> You get access to all current beta features. Some may not work as intended while development and regular updates continue.</p></div></section>
     </main>

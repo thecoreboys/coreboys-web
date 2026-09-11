@@ -128,7 +128,7 @@ export function SupporterCta({ placement = "watch", compact = false, className =
           <p className={`mt-1 max-w-2xl leading-5 text-white/52 ${compact ? "text-[11px]" : "text-xs"}`}>{copy.body}</p>
           <p className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-white/55"><Cloud className="size-3.5 text-rose-300" aria-hidden /> {copy.benefit}</p>
         </div>
-        <Link href="/account/plan" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-semibold text-black transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Become a Member <ArrowRight className="size-3.5" aria-hidden /></Link>
+        <Link href="/upgrade" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-semibold text-black transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Become a Member <ArrowRight className="size-3.5" aria-hidden /></Link>
       </div>
     </CtaSurface>
   );
@@ -162,7 +162,7 @@ function SupporterDiscoveryGrid({
             <p className="member-hero__price inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-[.14em]"><Sparkles className="size-3.5" aria-hidden /> {supportClosed ? "New recurring support closed" : minimum ? `Starting from ${minimum}/month` : "Choose your monthly support"}</p>
             <h2 className="member-hero__headline mt-5 text-white" aria-label="Support the site"><span aria-hidden data-text="SUPPORT">SUPPORT</span><span aria-hidden data-text="THE SITE">THE SITE</span></h2>
             <p className="member-hero__subhead mt-4 max-w-lg text-base leading-6">Help keep the website afloat. API usage fees, web hosting, databases, and development don&apos;t come free.</p>
-            <Link href="/account/plan" className="member-hero__action mt-7 inline-flex min-h-12 items-center gap-2.5 rounded-xl px-5 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><span className="member-hero__action-label">Support the site</span><span className="rounded-md px-2 py-1 text-[11px]">{supportClosed ? "Closed" : minimum ? `${minimum}/month` : "Monthly"}</span><ArrowRight className="size-4" aria-hidden /></Link>
+            <Link href="/upgrade" className="member-hero__action mt-7 inline-flex min-h-12 items-center gap-2.5 rounded-xl px-5 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><span className="member-hero__action-label">Support the site</span><span className="rounded-md px-2 py-1 text-[11px]">{supportClosed ? "Closed" : minimum ? `${minimum}/month` : "Monthly"}</span><ArrowRight className="size-4" aria-hidden /></Link>
             <p className="mt-4 text-[11px] font-semibold uppercase tracking-[.12em] text-white/60">Cancel anytime · Not affiliated with The Core Boys</p>
           </div>
           <div className="member-unlocks" aria-label="Everything included with membership">

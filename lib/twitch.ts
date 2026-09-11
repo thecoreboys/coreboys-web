@@ -64,12 +64,19 @@ const StreamsResponseSchema = z.object({
 export type TwitchStream = z.infer<typeof StreamSchema>;
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
+let tokenRequest: Promise<string> | null = null;
 
 export async function getAppAccessToken(): Promise<string> {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt - 60_000 > now) {
     return cachedToken.value;
   }
+  if (tokenRequest) return tokenRequest;
+  tokenRequest = requestAppAccessToken().finally(() => { tokenRequest = null; });
+  return tokenRequest;
+}
+
+async function requestAppAccessToken(): Promise<string> {
   const env = serverEnv();
   const params = new URLSearchParams({
     client_id: env.TWITCH_CLIENT_ID,
@@ -81,6 +88,7 @@ export async function getAppAccessToken(): Promise<string> {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
     cache: "no-store",
+    signal: AbortSignal.timeout(4_000),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -89,7 +97,7 @@ export async function getAppAccessToken(): Promise<string> {
   const json = TokenResponseSchema.parse(await res.json());
   cachedToken = {
     value: json.access_token,
-    expiresAt: now + json.expires_in * 1000,
+    expiresAt: Date.now() + json.expires_in * 1000,
   };
   return cachedToken.value;
 }
@@ -114,6 +122,7 @@ export async function fetchLiveStreams(logins: readonly string[]): Promise<Twitc
       "Client-Id": env.TWITCH_CLIENT_ID,
     },
     next: { revalidate: 30 },
+    signal: AbortSignal.timeout(4_000),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -162,6 +171,7 @@ export async function fetchUserIdsByLogin(
       "Client-Id": env.TWITCH_CLIENT_ID,
     },
     next: { revalidate: 3600 },
+    signal: AbortSignal.timeout(4_000),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -229,6 +239,7 @@ export async function fetchChannelVideos(
         "Client-Id": env.TWITCH_CLIENT_ID,
       },
       next: { revalidate: revalidateSeconds },
+      signal: AbortSignal.timeout(4_000),
     });
     if (!res.ok) return [];
     const parsed = VideosResponseSchema.safeParse(await res.json());
@@ -335,6 +346,7 @@ export async function fetchUsersByLogin(
       "Client-Id": env.TWITCH_CLIENT_ID,
     },
     next: { revalidate: 3600 },
+    signal: AbortSignal.timeout(4_000),
   });
   if (!res.ok) {
     const body = await res.text();

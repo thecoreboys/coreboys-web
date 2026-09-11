@@ -543,8 +543,8 @@
   .passport-hero__level { display: none; }
   .passport-tabs { padding-inline: .5rem; }
   .passport-tabs button { padding: 0 .75rem; }
-  .passport-tabs button span { display: none; }
-  .passport-tabs button.is-active span { display: inline; }
+  .passport-tabs button span { display: inline; }
+  .passport-tabs button svg { display: none; }
   .passport-content { padding: 2rem 1rem 7rem; }
   .passport-section-heading, .passport-overview-section > header, .passport-quests > header, .passport-identity-section > header, .passport-ledger-section > header, .passport-trade-desk > header { align-items: flex-start; flex-direction: column; }
   .passport-live-events article { align-items: flex-start; flex-wrap: wrap; }
@@ -681,3 +681,40 @@
 .passport-overview-quests h3 { font-size: .82rem; font-weight: 650; }
 .passport-overview-quests p { margin: .2rem 0 .5rem; font-size: .7rem; }
 .passport-recent-achievements article { padding: .65rem 0; }
+
+/* Passport uses the same spacing and surfaces as the account workspace. */
+.passport-hero { min-height: 0; align-items: center; padding: 2.5rem max(1.5rem, calc((100vw - 68rem) / 2)); background: var(--bg); }
+.passport-hero::before { display: none; }
+.passport-hero h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; letter-spacing: -.045em; }
+.passport-hero__identity p { max-width: 34rem; line-height: 1.5; font-size: .9rem; }
+.passport-tabs { top: var(--site-header-h, 4rem); padding-inline: max(1.5rem, calc((100vw - 68rem) / 2)); background: var(--bg); }
+.passport-content { width: min(71rem, 100%); padding-top: 2rem; }
+.passport-content > .passport-member-card { max-width: none; margin-bottom: 1.5rem; }
+.passport-section-stack { gap: 1.75rem; }
+.passport-watch-activity { border: 1px solid var(--rule); border-radius: .85rem; background: var(--bg-elev); padding: 1.5rem; }
+.passport-watch-activity > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.passport-watch-activity h2 { font-size: 1.2rem; font-weight: 650; letter-spacing: -.02em; }
+.passport-watch-activity header p { margin-top: .3rem; color: var(--ink-dim); font-size: .8rem; }
+.passport-watch-totals { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-block: 1.75rem; }
+.passport-watch-totals dt { color: var(--ink-dim); font-size: .72rem; }
+.passport-watch-totals dd { margin-top: .4rem; font-size: clamp(1.15rem, 2.5vw, 1.65rem); font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+.passport-watch-totals .passport-watch-date { font-size: 1rem; padding-top: .35rem; letter-spacing: 0; }
+.passport-watch-platforms { overflow-x: auto; }
+.passport-watch-platforms table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.passport-watch-platforms th, .passport-watch-platforms td { padding: .8rem .25rem; border-top: 1px solid var(--rule); text-align: right; font-weight: 400; font-variant-numeric: tabular-nums; }
+.passport-watch-platforms th:first-child { text-align: left; }
+.passport-watch-platforms thead { color: var(--ink-dim); font-size: .68rem; }
+.passport-watch-platforms tbody th { font-weight: 600; }
+.passport-watch-activity > footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .65rem 1.5rem; margin-top: 1rem; border-top: 1px solid var(--rule); padding-top: 1rem; }
+.passport-watch-activity footer p { max-width: 38rem; color: var(--ink-dim); font-size: .7rem; line-height: 1.6; }
+.passport-watch-empty { color: var(--ink-dim); font-size: .8rem; line-height: 1.65; margin-top: 1.25rem; }
+@media (max-width: 640px) {
+  .passport-hero { align-items: flex-start; flex-direction: column; gap: 1rem; padding: 1.75rem 1rem; }
+  .passport-tabs { padding-inline: .5rem; }
+  .passport-tabs button { padding-inline: .8rem; }
+  .passport-content { padding-inline: 1rem; }
+  .passport-watch-activity { padding: 1rem; }
+  .passport-watch-activity > header { align-items: flex-start; }
+  .passport-watch-totals { grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .passport-watch-totals > div:last-child { grid-column: 1 / -1; }
+}

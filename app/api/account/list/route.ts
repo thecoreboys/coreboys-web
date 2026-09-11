@@ -4,6 +4,7 @@ import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { query } from "@/lib/db";
 import { ensureFanOauthSchema } from "@/lib/oauth/schema";
 import { EntitlementDeniedError, requireAccountEntitlement } from "@/lib/subscriptions/entitlements";
+import { listAccountMatches } from "@/lib/watch/list-account";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ async function requireDvrAccess(userId: string, request: Request) {
   } catch (error) {
     if (error instanceof EntitlementDeniedError) {
       return privateJson({
+        accountId: userId,
         error: error.code,
         featureId: error.featureId,
         requiredPlanId: error.requiredPlanId,
@@ -51,22 +53,28 @@ async function list(userId: string) {
 
 export async function GET(request: Request) {
   const userId = await getCurrentFanUserId();
-  if (!userId) return privateJson({ ids: [] }, { status: 401 });
+  if (!userId) return privateJson({ accountId: null, ids: [] }, { status: 401 });
+  if (!listAccountMatches(request.headers.get("x-core-account-id"), userId)) {
+    return privateJson({ error: "account_changed" }, { status: 409 });
+  }
   const denied = await requireDvrAccess(userId, request);
   if (denied) return denied;
   await ensureFanOauthSchema();
-  return privateJson({ ids: await list(userId) });
+  return privateJson({ accountId: userId, ids: await list(userId) });
 }
 
-const MergeBody = z.object({ ids: z.array(ItemId).max(80).default([]) });
+const MergeBody = z.object({ accountId: ItemId.optional(), ids: z.array(ItemId).max(80).default([]) });
 
 export async function POST(request: Request) {
   const userId = await getCurrentFanUserId();
   if (!userId) return privateJson({ ids: [] }, { status: 401 });
-  const denied = await requireDvrAccess(userId, request);
-  if (denied) return denied;
   const parsed = MergeBody.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return privateJson({ error: "invalid" }, { status: 400 });
+  if (!listAccountMatches(parsed.data.accountId, userId)) {
+    return privateJson({ error: "account_changed" }, { status: 409 });
+  }
+  const denied = await requireDvrAccess(userId, request);
+  if (denied) return denied;
   await ensureFanOauthSchema();
   const ids = [...new Set(parsed.data.ids)];
   if (ids.length) {
@@ -77,16 +85,19 @@ export async function POST(request: Request) {
       [userId, ids],
     );
   }
-  return privateJson({ ids: await list(userId) });
+  return privateJson({ accountId: userId, ids: await list(userId) });
 }
 
-const ToggleBody = z.object({ id: ItemId, saved: z.boolean() });
+const ToggleBody = z.object({ accountId: ItemId.optional(), id: ItemId, saved: z.boolean() });
 
 export async function PUT(request: Request) {
   const userId = await getCurrentFanUserId();
   if (!userId) return privateJson({ ok: false }, { status: 401 });
   const parsed = ToggleBody.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return privateJson({ error: "invalid" }, { status: 400 });
+  if (!listAccountMatches(parsed.data.accountId, userId)) {
+    return privateJson({ error: "account_changed" }, { status: 409 });
+  }
   // Let an expired member remove an existing item, while additions remain a
   // membership feature even if someone bypasses the client controls.
   if (parsed.data.saved) {
@@ -107,5 +118,5 @@ export async function PUT(request: Request) {
       [userId, parsed.data.id],
     );
   }
-  return privateJson({ ok: true });
+  return privateJson({ accountId: userId, ok: true });
 }

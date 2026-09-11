@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { listAccountMatches } from "../lib/watch/list-account";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -29,4 +30,19 @@ test("account settings and legacy My List routes converge on the membership DVR"
   assert.match(poster, /subscription\.featureHref\("dvr\.extended_retention"\)/);
   assert.match(player, /dvrActionLoading/);
   assert.match(legacy, /redirect\("\/dvr"/);
+});
+
+test("DVR mutations reject a stale account identity before database writes", () => {
+  assert.equal(listAccountMatches("old-tab-account", "new-cookie-account"), false);
+  assert.equal(listAccountMatches("same-account", "same-account"), true);
+  assert.equal(listAccountMatches(undefined, "legacy-caller-account"), true);
+  const api = read("app/api/account/list/route.ts");
+  for (const method of ["POST", "PUT"]) {
+    const handler = api.slice(api.indexOf(`export async function ${method}`));
+    const guard = handler.indexOf("listAccountMatches(parsed.data.accountId, userId)");
+    assert.ok(guard > 0);
+    assert.ok(guard < handler.indexOf("await ensureFanOauthSchema()"));
+    assert.match(handler.slice(guard, guard + 190), /status: 409/);
+  }
+  assert.match(api, /return privateJson\(\{ accountId: userId, ids: await list\(userId\) \}\)/);
 });

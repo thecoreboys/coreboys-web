@@ -89,6 +89,7 @@ export async function fetchWatchYoutubeMetadata(
       });
       const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`, {
         next: { revalidate: 600 },
+        signal: AbortSignal.timeout(4_000),
       });
       if (!response.ok) continue;
       const json = (await response.json()) as {

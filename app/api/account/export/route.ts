@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accountRequestMatches, ACCOUNT_CHANGED_MESSAGE } from "@/lib/account-request";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { getFanUserById } from "@/lib/fan-users";
 import { listConnections } from "@/lib/oauth/connections";
@@ -83,9 +84,10 @@ async function exportPassport(userId: string) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const uid = await getCurrentFanUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!accountRequestMatches(req, uid)) return NextResponse.json({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
   await ensureFanOauthSchema();
 
   const [
@@ -116,7 +118,7 @@ export async function GET() {
     getNotificationChannelPreferences(uid),
     listProgress(uid),
     query<Record<string, unknown>>(
-      `SELECT item_ref,kind,source,provider,seconds,observed_at,created_at
+      `SELECT item_ref,kind,source,provider,playback_platform,subject,measured,seconds,observed_at,created_at
          FROM fan_watch_time_events
         WHERE user_id=$1 ORDER BY observed_at DESC,id DESC`,
       [uid],

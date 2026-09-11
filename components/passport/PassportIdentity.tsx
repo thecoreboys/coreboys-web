@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Eye, EyeOff, IdCard, MessageCircle, Save, Search, ShieldCheck, Sparkles } from "lucide-react";
 import type {
   PassportAchievement,
@@ -49,12 +49,36 @@ export function PassportIdentity({
   const [showcaseBadges, setShowcaseBadges] = useState(showcase.achievementCodes);
   const [selectedCard, setSelectedCard] = useState<PassportCard | null>(null);
   const [privacyDraft, setPrivacyDraft] = useState(privacy);
+  const [showcaseDirty, setShowcaseDirty] = useState(false);
+  const [privacyDirty, setPrivacyDirty] = useState(false);
+  const showcaseRevision = useRef(0);
+  const privacyRevision = useRef(0);
   const [scope, setScope] = useState("global");
   const [showcaseQuery, setShowcaseQuery] = useState("");
   const [showcaseLimit, setShowcaseLimit] = useState(24);
 
-  useEffect(() => { setShowcaseCards(showcase.cardIds); setShowcaseBadges(showcase.achievementCodes); }, [showcase]);
-  useEffect(() => setPrivacyDraft(privacy), [privacy]);
+  useEffect(() => {
+    if (showcaseDirty) return;
+    setShowcaseCards(showcase.cardIds);
+    setShowcaseBadges(showcase.achievementCodes);
+  }, [showcase, showcaseDirty]);
+  useEffect(() => {
+    if (!privacyDirty) setPrivacyDraft(privacy);
+  }, [privacy, privacyDirty]);
+
+  async function saveShowcase() {
+    const revision = showcaseRevision.current;
+    await onSaveShowcase(showcaseCards, showcaseBadges);
+    // A save only clears the draft it submitted. Preserve edits made while
+    // that request was running, and keep failed saves available to retry.
+    if (revision === showcaseRevision.current) setShowcaseDirty(false);
+  }
+
+  async function savePrivacy(value: PassportPrivacy) {
+    const revision = privacyRevision.current;
+    await onSavePrivacy(value);
+    if (revision === privacyRevision.current) setPrivacyDirty(false);
+  }
 
   const earned = achievements.filter((achievement) => achievement.earned);
   const matchingShowcaseCards = useMemo(() => {
@@ -78,7 +102,7 @@ export function PassportIdentity({
       </section>
 
       <section className="passport-identity-section">
-        <header><div><h3>Profile showcase</h3><p>Choose up to three verified records and three earned milestones for your public profile.</p></div><button type="button" className="passport-button passport-button--primary" disabled={pending} onClick={() => void onSaveShowcase(showcaseCards, showcaseBadges).catch(() => {})}><Save aria-hidden="true" /> Save showcase</button></header>
+        <header><div><h3>Profile showcase</h3><p>Choose up to three verified records and three earned milestones for your public profile.</p></div><button type="button" className="passport-button passport-button--primary" disabled={pending} onClick={() => void saveShowcase().catch(() => {})}><Save aria-hidden="true" /> Save showcase</button></header>
         <div className="passport-showcase-layout">
           <div>
             <h4>Featured records <span>{showcaseCards.length}/3</span></h4>
@@ -87,7 +111,7 @@ export function PassportIdentity({
               <small>{matchingShowcaseCards.length} matching cards</small>
             </div>
             <div className="passport-card-picker">
-              {matchingShowcaseCards.slice(0, showcaseLimit).map((card) => <MomentCardTile key={card.id} card={card} selected={showcaseCards.includes(card.id)} onSelect={() => setShowcaseCards((current) => toggleLimited(current, card.id, 3))} onOpen={() => setSelectedCard(card)} compact />)}
+              {matchingShowcaseCards.slice(0, showcaseLimit).map((card) => <MomentCardTile key={card.id} card={card} selected={showcaseCards.includes(card.id)} onSelect={() => { showcaseRevision.current++; setShowcaseDirty(true); setShowcaseCards((current) => toggleLimited(current, card.id, 3)); }} onOpen={() => setSelectedCard(card)} compact />)}
             </div>
             {matchingShowcaseCards.length > showcaseLimit ? <button type="button" className="passport-button passport-button--small passport-showcase-more" onClick={() => setShowcaseLimit((current) => current + 24)}>Show more cards</button> : null}
           </div>
@@ -96,7 +120,7 @@ export function PassportIdentity({
             <div className="passport-badge-picker">
               {earned.map((achievement) => {
                 const selected = showcaseBadges.includes(achievement.code);
-                return <button key={achievement.code} type="button" className={selected ? "is-selected" : ""} aria-pressed={selected} onClick={() => setShowcaseBadges((current) => toggleLimited(current, achievement.code, 3))}><span><Sparkles aria-hidden="true" /></span><strong>{achievement.name}</strong><small>{achievement.tier}</small>{selected ? <Check className="passport-picker-check" aria-hidden="true" /> : null}</button>;
+                return <button key={achievement.code} type="button" className={selected ? "is-selected" : ""} aria-pressed={selected} onClick={() => { showcaseRevision.current++; setShowcaseDirty(true); setShowcaseBadges((current) => toggleLimited(current, achievement.code, 3)); }}><span><Sparkles aria-hidden="true" /></span><strong>{achievement.name}</strong><small>{achievement.tier}</small>{selected ? <Check className="passport-picker-check" aria-hidden="true" /> : null}</button>;
               })}
             </div>
           </div>
@@ -122,7 +146,7 @@ export function PassportIdentity({
         />
       </section>
 
-      <PrivacyEditor value={privacyDraft} onChange={setPrivacyDraft} onSave={onSavePrivacy} pending={pending} />
+      <PrivacyEditor value={privacyDraft} onChange={(value) => { privacyRevision.current++; setPrivacyDirty(true); setPrivacyDraft(value); }} onSave={savePrivacy} pending={pending} />
 
       <PassportDialog open={Boolean(selectedCard)} title={selectedCard?.name ?? "Verified record"} onClose={() => setSelectedCard(null)} wide>
         {selectedCard ? <MomentCardBack card={selectedCard} /> : null}

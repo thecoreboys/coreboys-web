@@ -28,6 +28,14 @@ export type NormalizedRect = {
   height: number;
 };
 
+/** Keep Twitch's required 400 × 300 player inside the actual room, not the window. */
+export function shouldStackTwitchRoom(roomWidth: number, twitchRects: NormalizedRect[]) {
+  if (roomWidth <= 0 || twitchRects.length === 0) return false;
+  const width = roomWidth - 24;
+  const height = Math.max(416, roomWidth * 9 / 16) - 24;
+  return twitchRects.some((rect) => width * rect.width - 12 < 400 || height * rect.height - 12 - 64 < 300);
+}
+
 export type GridTilePosition = {
   col: number;
   row: number;

@@ -361,6 +361,19 @@ body[data-cursor="agentic"][data-cursor-idle="true"] .core-agent-cursor-aura[dat
     cursor: default !important;
   }
 
+  body[data-cursor="agentic"] :where(iframe, [data-cursor-native], [data-cursor-native] *) {
+    cursor: auto !important;
+  }
+
+  /* The parent retains :hover on the frame while its document receives the
+     mouse. This also covers frames inserted underneath a stationary pointer. */
+  body[data-cursor="agentic"]:has(iframe:hover, [data-cursor-native]:hover) :where(
+    .core-agent-cursor, .core-agent-cursor-aura, .core-agent-cursor-trail,
+    .core-agent-cursor-particles, .core-agent-cursor-hint, .core-agent-cursor-ripple
+  ) {
+    opacity: 0 !important;
+  }
+
   body[data-cursor="agentic"] :where(button:disabled, input:disabled, [aria-disabled="true"]) {
     cursor: not-allowed !important;
   }

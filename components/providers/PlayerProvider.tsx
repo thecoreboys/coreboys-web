@@ -727,9 +727,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const deviceProfile = devicePerformanceProfile(typeof navigator === "undefined" ? null : { ...navigator, gpuWeak: detectWeakGpu() });
     if (typeof document !== "undefined") document.documentElement.dataset.performanceProfile = deviceProfile;
     if (deviceProfile === "conserve") {
-      setDataSaverState(true);
-      dataSaverRef.current = true;
-      setPreviewAutoplay(false);
+      // A weak/software GPU still supports a small multiview room. Only an
+      // explicit browser data-saving request defaults to one active view.
+      const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+      setDataSaverState(saveData);
+      dataSaverRef.current = saveData;
+      setPreviewAutoplay(!saveData);
       setQualityPreferenceState("balanced");
       qualityPreferenceRef.current = "balanced";
       setMaxActivePlayersState(2);

@@ -10,31 +10,33 @@ import { publicDisplayName } from "@/lib/profile-display";
 
 type CardSkin = "classic" | "obsidian" | "prism";
 type CardStyle = { skin: CardSkin; accent: string };
-const STORAGE_KEY = "core-member-card-style:v1";
+const STORAGE_KEY = "core-member-card-style:v2";
 const DEFAULT_STYLE: CardStyle = { skin: "classic", accent: "#e31b36" };
 
 export function MemberCard({ passport }: { passport: PassportDashboard }) {
   const subscription = useSubscription();
   const [style, setStyle] = useState<CardStyle>(DEFAULT_STYLE);
   const canCustomize = subscription.hasFeature("passport.card_customization");
+  const storageKey = `${STORAGE_KEY}:${passport.profile.userId}`;
   const displayName = publicDisplayName(passport.profile.displayName);
 
   useEffect(() => {
+    setStyle(DEFAULT_STYLE);
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "") as Partial<CardStyle>;
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? "") as Partial<CardStyle>;
       if ((saved.skin === "classic" || saved.skin === "obsidian" || saved.skin === "prism") && /^#[0-9a-f]{6}$/i.test(saved.accent ?? "")) {
         setStyle({ skin: saved.skin, accent: saved.accent! });
       }
     } catch {
       // The classic card remains available when local preferences are blocked.
     }
-  }, []);
+  }, [storageKey]);
 
   const update = (next: Partial<CardStyle>) => {
     if (!canCustomize) return;
     const value = { ...style, ...next };
     setStyle(value);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch { /* optional preference */ }
+    try { localStorage.setItem(storageKey, JSON.stringify(value)); } catch { /* optional preference */ }
   };
 
   const cardClass = style.skin === "prism"
@@ -51,7 +53,7 @@ export function MemberCard({ passport }: { passport: PassportDashboard }) {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,44rem)_15rem] lg:items-center">
-        <article className={`relative aspect-[1.8/1] max-w-2xl overflow-hidden rounded-xl ${cardClass} p-4 shadow-sm ring-1 ring-black/10`} style={{ ["--member-card-accent" as string]: style.accent }}>
+        <article className={`relative aspect-[1.8/1] max-w-2xl overflow-hidden rounded-xl ${cardClass} p-4 shadow-sm ring-1 ring-black/10`} style={{ borderTop: `4px solid ${style.accent}` }}>
           <div className="relative flex h-full flex-col justify-between">
             <div className="flex items-start justify-between"><span className="rounded-md border border-black/10 bg-white/70 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#30343b]">CORE PASSPORT</span><span className="text-[10px] font-bold tracking-[0.18em] text-[#4a4f58]">ACCOUNT</span></div>
             <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#5b616b]">Verified account</p><h3 className="mt-1 text-2xl font-black tracking-[-0.045em] text-[#14161a] sm:text-3xl">{displayName}</h3><div className="mt-3 flex items-end justify-between"><span><strong className="block text-xl text-[#14161a]">Level {passport.profile.level}</strong><small className="text-[10px] text-[#5b616b]">{passport.globalProgress.xp.toLocaleString("en-US")} XP recorded</small></span><span className="text-right"><strong className="block text-xl text-[#14161a]">{passport.recap.cardsCollected}</strong><small className="text-[10px] text-[#5b616b]">Verified records</small></span></div></div>
@@ -59,7 +61,7 @@ export function MemberCard({ passport }: { passport: PassportDashboard }) {
         </article>
 
         {canCustomize ? (
-          <div className="space-y-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/8">
+          <div className="space-y-3 rounded-2xl bg-secondary p-3 ring-1 ring-secondary">
             <div className="flex items-center gap-2 text-xs font-semibold text-primary"><Palette className="size-4 text-tertiary" /> Appearance</div>
             <NativeSelect label="Card style" value={style.skin} onChange={(event) => update({ skin: event.target.value as CardSkin })} options={[{ value: "classic", label: "Classic" }, { value: "obsidian", label: "Soft gray" }, { value: "prism", label: "Cool gray" }]} size="sm" />
             <label className="grid gap-1 text-[10px] text-tertiary">Accent color<input aria-label="Accent color" type="color" value={style.accent} onChange={(event) => update({ accent: event.target.value })} className="h-10 w-full cursor-pointer rounded-lg bg-primary p-1 ring-1 ring-primary" /></label>

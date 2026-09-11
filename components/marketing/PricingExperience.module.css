@@ -469,3 +469,13 @@
 }
 .membershipCard::after, .supportStrip::before, .finalCta::after, .finalCtaCard::after { display: none; }
 .primaryCta:hover:not(:disabled), .secondaryCta:hover, .textLink:hover { transform: none; box-shadow: none; }
+
+/* Account and billing inherit the selected site theme. */
+.shell { --upgrade-bg: var(--bg); --upgrade-surface: var(--bg-elev); --upgrade-line: var(--rule); --upgrade-line-strong: var(--rule-strong); --upgrade-text: var(--ink); --upgrade-muted: var(--ink-dim); --upgrade-subtle: var(--ink-faint); }
+.accountNav a { color: var(--ink-dim); border-radius: .5rem; }
+.accountNav a[aria-current="page"] { color: var(--ink); border-color: var(--rule); background: var(--bg-elev); }
+.accountNav a:hover { color: var(--ink); }
+.cleanHeader h1 { font-weight: 650; font-size: clamp(2rem, 4vw, 3rem); }
+.includedCard li, .cleanFaqList strong { color: var(--ink); }
+.includedCard, .cleanCard, .cleanNotice, .cleanFaqList p { border-radius: .75rem; }
+@media (max-width: 760px) { .accountNav { display: flex; overflow-x: auto; } .accountNav a { padding: .5rem .7rem; } }

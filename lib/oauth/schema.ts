@@ -141,6 +141,23 @@ export async function ensureFanOauthSchema(): Promise<void> {
         ON fan_watch_time_events (user_id, observed_at DESC)
     `);
     await query(`
+      ALTER TABLE fan_watch_time_events
+        ADD COLUMN IF NOT EXISTS playback_platform text,
+        ADD COLUMN IF NOT EXISTS subject text,
+        ADD COLUMN IF NOT EXISTS measured boolean NOT NULL DEFAULT false
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS fan_watch_measurement_cursors (
+        user_id text PRIMARY KEY REFERENCES fan_users(id) ON DELETE CASCADE,
+        item_ref text NOT NULL,
+        session_id text NOT NULL,
+        position_seconds double precision NOT NULL,
+        observed_at timestamptz NOT NULL,
+        received_at timestamptz NOT NULL
+      )
+    `);
+    await query(`ALTER TABLE fan_watch_measurement_cursors ADD COLUMN IF NOT EXISTS remainder_seconds double precision NOT NULL DEFAULT 0`);
+    await query(`
       CREATE TABLE IF NOT EXISTS fan_watch_progress_sources (
         user_id       text NOT NULL REFERENCES fan_users(id) ON DELETE CASCADE,
         source_id     text NOT NULL,

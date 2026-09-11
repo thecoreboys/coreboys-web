@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cachedPublicData } from "@/lib/server-cache";
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Barlow_Condensed, Inter, Inter_Tight } from "next/font/google";
@@ -126,6 +127,16 @@ import { MEMBERS } from "@/lib/members";
 import { fetchUsersByLogin } from "@/lib/twitch";
 
 async function getMemberAvatars(): Promise<Record<string, string>> {
+  return cachedPublicData("member-avatars:v1", loadMemberAvatars, {
+    freshSeconds: 3600,
+    staleSeconds: 86400,
+    validate: (value): value is Record<string, string> => Boolean(value && typeof value === "object"
+      && Object.values(value).every((url) => typeof url === "string")),
+    shouldCache: (avatars) => Object.keys(avatars).length > 0,
+  });
+}
+
+async function loadMemberAvatars(): Promise<Record<string, string>> {
   try {
     const users = await fetchUsersByLogin(MEMBERS.map((m) => m.twitchLogin));
     const out: Record<string, string> = {};
@@ -148,6 +159,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-theme="dark"
       className={`dark-mode ${inter.variable} ${interTight.variable} ${coreWordmark.variable} ${inter.className}`}
     >
+      <head>
+        <link rel="preconnect" href="https://i.ytimg.com" />
+        <link rel="preconnect" href="https://static-cdn.jtvnw.net" />
+        <link rel="dns-prefetch" href="https://player.twitch.tv" />
+      </head>
       <body>
         {accessPage ? children : (
         <>

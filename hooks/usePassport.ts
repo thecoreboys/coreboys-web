@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { findUnlockedPassportCosmetic } from "@/components/passport/passport-utils";
@@ -59,55 +59,75 @@ async function readJson<T>(response: Response): Promise<T> {
   return payload;
 }
 
-async function getPassport(url: string): Promise<PassportDashboard> {
-  const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
-  return readJson<PassportDashboard>(response);
+async function getPassport(url: string, accountId: string): Promise<PassportDashboard> {
+  const response = await fetch(url, { credentials: "same-origin", cache: "no-store", headers: { "x-core-account-id": accountId } });
+  const dashboard = await readJson<PassportDashboard>(response);
+  if (dashboard.profile.userId !== accountId) throw new Error("Your signed-in account changed. Refresh this page to continue.");
+  return dashboard;
 }
 
 export function usePassport(enabled = true) {
+  const auth = useAuth();
+  const activeAccountId = useRef(auth.user?.id);
+  activeAccountId.current = auth.user?.id;
   const { data, error: loadError, isLoading, mutate } = useSWR<PassportDashboard>(
-    enabled ? "/api/account/passport" : null,
-    getPassport,
-    { revalidateOnFocus: false, shouldRetryOnError: false },
+    enabled && auth.user ? ["/api/account/passport", auth.user.id] : null,
+    ([url, accountId]: [string, string]) => getPassport(url, accountId),
+    { revalidateOnFocus: true, shouldRetryOnError: false },
   );
   const [mutation, setMutation] = useState<PassportMutationState>({
     pendingAction: null,
     error: null,
     notice: null,
   });
+  useEffect(() => {
+    setMutation({ pendingAction: null, error: null, notice: null });
+  }, [auth.user?.id]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const refreshAfterSync = () => { void mutate().catch(() => {}); };
+    window.addEventListener("core-account-sync", refreshAfterSync);
+    return () => window.removeEventListener("core-account-sync", refreshAfterSync);
+  }, [enabled, mutate]);
 
   const run = useCallback(
     async (request: PassportActionRequest, notice: string) => {
+      const accountId = auth.user?.id;
+      if (!accountId) throw new Error("Sign in to update your Passport.");
       setMutation({ pendingAction: request.action, error: null, notice: null });
       try {
         const response = await fetch("/api/account/passport/action", {
           method: "POST",
           credentials: "same-origin",
-          headers: { "content-type": "application/json" },
+          headers: { "content-type": "application/json", "x-core-account-id": accountId },
           body: JSON.stringify(request),
         });
-        const result = await readJson<PassportActionResponse>(response);
+        const result = await readJson<PassportActionResponse & { accountId: string }>(response);
+        if (activeAccountId.current !== accountId || result.accountId !== accountId || (result.dashboard && result.dashboard.profile.userId !== accountId)) {
+          throw new Error("Your signed-in account changed. Refresh this page to continue.");
+        }
         if (result.dashboard) await mutate(result.dashboard, { revalidate: false });
         else await mutate();
         setMutation({ pendingAction: null, error: null, notice });
         return result;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Passport could not be updated.";
-        setMutation({ pendingAction: null, error: message, notice: null });
+        if (activeAccountId.current === accountId) setMutation({ pendingAction: null, error: message, notice: null });
         throw error;
       }
     },
-    [mutate],
+    [auth.user?.id, mutate],
   );
 
   const clearStatus = useCallback(() => {
     setMutation({ pendingAction: null, error: null, notice: null });
   }, []);
-  const refresh = useCallback(() => mutate(), [mutate]);
+  const refresh = useCallback(() => mutate().catch(() => undefined), [mutate]);
 
   return {
-    passport: data ?? null,
-    loading: isLoading,
+    passport: data?.profile.userId === auth.user?.id ? data ?? null : null,
+    loading: auth.loading || isLoading,
     loadError: loadError instanceof Error ? loadError.message : loadError ? "Passport could not be loaded." : null,
     mutation,
     refresh,

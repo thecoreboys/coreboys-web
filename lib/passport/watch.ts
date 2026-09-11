@@ -18,6 +18,8 @@ export type PassportWatchProgressInput={
   platform:string;
   positionSeconds:number;
   complete:boolean;
+  /** Accepted by the server's account-wide playback measurement, never the browser. */
+  measuredSeconds?:number;
 };
 
 type CanonicalWatchAsset={playbackRef:string;channelSlug:string;durationSeconds:number|null;shortForm:boolean};
@@ -40,7 +42,7 @@ async function resolveCanonicalWatchAsset(
   const registered=await client.query<{playback_ref:string;channel_slug:string;duration_seconds:number|null;short_form:boolean}>(
     `SELECT playback_ref,channel_slug,duration_seconds,short_form FROM passport_watch_assets
       WHERE platform=$2 AND last_seen_at>=now()-interval '90 days'
-        AND kind IN ('youtube','vod','clip','tour')
+        AND kind IN ('youtube','vod','clip','tour','live')
         AND (playback_ref=$1 OR $1=ANY(aliases) OR aliases&&$3::text[])
       ORDER BY last_seen_at DESC LIMIT 1`,[ref,platform,[...providerIds,...providerIds.map(id=>`${platform}:${id}`)]],
   );
@@ -92,6 +94,9 @@ export async function recordPassportWatchProgress(input:PassportWatchProgressInp
       receivedAt,
       sameCanonicalRef:cursor?.last_playback_ref===asset.playbackRef,
     });
+    // Resume checkpoints and duplicate requests never create Passport credit.
+    // The measurement ledger also caps parallel players across tabs/devices.
+    if(input.measuredSeconds!==undefined)creditedSeconds=Math.min(30,Math.max(0,input.measuredSeconds));
     const creditCeiling=asset.durationSeconds ?? 6*60*60;
     creditedSeconds=Math.min(creditedSeconds,Math.max(0,creditCeiling-(session?.credited_seconds ?? 0)));
     const completionPositionMinimum=asset.durationSeconds

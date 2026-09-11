@@ -1,11 +1,13 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell01, Settings01, User01 } from "@untitledui/icons";
 import { AccountSettingsHub } from "@/components/account/AccountSettingsHub";
 import { AccountPageHeader } from "@/components/account/AccountPageHeader";
+import { AccountProfile } from "@/components/account/AccountProfile";
+import { AccountFanZone } from "@/components/account/AccountFanZone";
 import { ConnectedAccounts } from "@/components/account/ConnectedAccounts";
 import { NotificationSettings } from "@/components/account/NotificationSettings";
 import { SocialNotificationSettings } from "@/components/account/SocialNotificationSettings";
@@ -17,19 +19,21 @@ import { cx } from "@/utils/cx";
 import billingStyles from "@/components/marketing/PricingExperience.module.css";
 
 const SETTINGS_NAV = [
+  { group: "Account", label: "Profile", href: "#profile", icon: User01 },
+  { group: "Account", label: "Connections", href: "#connections", icon: User01 },
+  { group: "Account", label: "Notifications", href: "#notifications", icon: Bell01 },
+  { group: "Account", label: "Privacy & safety", href: "#privacy", icon: Settings01 },
   { group: "Watch", label: "Appearance", href: "#experience", icon: Settings01 },
   { group: "Watch", label: "Playback", href: "#playback", icon: Settings01 },
   { group: "Watch", label: "Station audio", href: "#station-audio", icon: Settings01 },
   { group: "Watch", label: "Accessibility", href: "#accessibility", icon: Settings01 },
-  { group: "Account", label: "Personalization", href: "#personalization", icon: User01 },
-  { group: "Account", label: "Privacy & safety", href: "#privacy", icon: Settings01 },
-  { group: "Account", label: "Connections", href: "#connections", icon: User01 },
-  { group: "Account", label: "Notifications", href: "#notifications", icon: Bell01 },
+  { group: "Watch", label: "Personalization", href: "#personalization", icon: User01 },
 ] as const;
 
 export default function AccountSettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [fanDetailsOpen, setFanDetailsOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login?next=/account/settings");
@@ -50,21 +54,19 @@ export default function AccountSettingsPage() {
   return (
     <>
       <div className={billingStyles.shell}>
-        <AccountPageHeader active="settings" title="Settings" description="Set how CORE looks, plays, connects, and keeps you in the loop." />
-        <div className={`${billingStyles.cleanMain} grid grid-cols-1 items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10`}>
+        <AccountPageHeader active="settings" title="Account settings" description="Your profile, connected platforms, and preferences." />
+        <main className={`${billingStyles.cleanMain} grid grid-cols-1 items-start gap-8 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10`}>
           <aside className="min-w-0 lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)]">
             <nav
               aria-label="Account settings"
               className="flex max-w-full gap-1 overflow-x-auto overscroll-x-contain rounded-xl bg-secondary p-1 ring-1 ring-inset ring-secondary lg:flex-col"
             >
               {SETTINGS_NAV.map((item, index) => {
-                const Icon = item.icon;
                 const previous = SETTINGS_NAV[index - 1];
                 return (
                   <div key={item.href} className={cx("shrink-0", item.group !== previous?.group && index > 0 && "lg:mt-3 lg:border-t lg:border-secondary lg:pt-3")}>
                     {item.group !== previous?.group ? <p className="hidden px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-quaternary lg:block">{item.group}</p> : null}
                     <Link href={item.href as never} className="flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-tertiary transition hover:bg-primary_hover hover:text-secondary">
-                      <Icon className="size-4.5 shrink-0" aria-hidden />
                       {item.label}
                     </Link>
                   </div>
@@ -74,8 +76,7 @@ export default function AccountSettingsPage() {
           </aside>
 
           <div className="min-w-0 space-y-6">
-            <AccountSettingsHub />
-            <AccountDeletionCard />
+            <AccountProfile user={user} />
             <section id="connections" className="scroll-mt-24">
               <Suspense fallback={<div className="h-80 animate-pulse rounded-2xl bg-secondary" />}>
                 <ConnectedAccounts
@@ -83,6 +84,7 @@ export default function AccountSettingsPage() {
                 />
               </Suspense>
             </section>
+            <AccountSettingsHub />
             <section id="notifications" className="scroll-mt-24">
               <SocialNotificationSettings members={MEMBERS.map((member) => ({ slug: member.slug, stageName: member.stageName }))} />
               <div className="mt-6">
@@ -91,9 +93,14 @@ export default function AccountSettingsPage() {
                 accountEmailVerified={user.emailVerified}
               />
               </div>
+              <details className="mt-6 rounded-xl border border-secondary p-5" onToggle={(event) => setFanDetailsOpen(event.currentTarget.open)}>
+                <summary className="cursor-pointer text-sm font-medium text-primary">Fan score & creator live alerts</summary>
+                {fanDetailsOpen ? <AccountFanZone members={MEMBERS.map((member) => ({ slug: member.slug, stageName: member.stageName }))} /> : null}
+              </details>
             </section>
+            <AccountDeletionCard />
           </div>
-        </div>
+        </main>
       </div>
       <SiteFooter />
     </>

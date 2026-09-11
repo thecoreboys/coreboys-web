@@ -446,24 +446,17 @@ export function TopNav({
                         onSelect={() => setAccountOpen(false)}
                       />
                       <AccountMenuLink
-                        href="/account"
-                        icon={UserRound}
-                        label="Account"
-                        active={pathname === "/account"}
-                        onSelect={() => setAccountOpen(false)}
-                      />
-                      <AccountMenuLink
                         href="/account/settings"
                         icon={Settings}
-                        label="Settings"
-                        active={pathname.startsWith("/account/settings")}
+                        label="Account settings"
+                        active={pathname === "/account/settings" || pathname === "/account"}
                         onSelect={() => setAccountOpen(false)}
                       />
                       <AccountMenuLink
-                        href="/account/plan"
+                        href="/account/settings/billing"
                         icon={Gem}
                         label="Billing"
-                        active={pathname.startsWith("/account/plan")}
+                        active={pathname.startsWith("/account/settings/billing") || pathname.startsWith("/account/plan")}
                         onSelect={() => setAccountOpen(false)}
                       />
                     </div>
@@ -610,15 +603,15 @@ export function TopNav({
                     DVR
                   </Link>
                   <Link
-                    href="/account"
+                    href="/account/settings"
                     onClick={() => setOpen(false)}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
                   >
                     <UserRound size={16} aria-hidden />
-                    Account
+                    Account settings
                   </Link>
                   <Link
-                    href="/account/plan"
+                    href="/account/settings/billing"
                     onClick={() => setOpen(false)}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
                   >

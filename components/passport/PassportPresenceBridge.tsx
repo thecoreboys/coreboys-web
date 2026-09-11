@@ -108,7 +108,7 @@ export function PassportPresenceBridge() {
     void fetch("/api/account/passport/action", {
       method: "POST",
       credentials: "same-origin",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-core-account-id": user.id },
       body: JSON.stringify({
         action: "presence.heartbeat",
         payload: {

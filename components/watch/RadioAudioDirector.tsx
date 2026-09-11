@@ -792,7 +792,7 @@ export function RadioAudioDirector({
     onTuneNetwork?.(nextNetwork.slug);
   };
   const toggleAudio = () => writeRadioAudioSettings({ enabled: !enabled });
-  const openSettings = () => window.location.assign("/account/settings#radio");
+  const openSettings = () => window.location.assign("/account/settings#station-audio");
   const skip = () => window.dispatchEvent(new CustomEvent<{ reason: string }>(RADIO_CUE_SKIP_EVENT, { detail: { reason: "radio_widget_skip" } }));
 
   const startDragging = (event: ReactPointerEvent<HTMLElement>) => {

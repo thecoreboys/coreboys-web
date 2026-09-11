@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   MY_LIST_EVENT,
+  MY_LIST_STATUS_EVENT,
   readMyList,
+  readMyListStatus,
   refreshMyListFromStorage,
   selectMyListAccount,
   syncMyList,
@@ -13,6 +15,7 @@ import {
 export function useMyList() {
   const { user, loading } = useAuth();
   const [ids, setIds] = useState<string[]>([]);
+  const [status, setStatus] = useState(readMyListStatus);
 
   useEffect(() => {
     const onListChange = (event: Event) => {
@@ -20,11 +23,14 @@ export function useMyList() {
       setIds(Array.isArray(detail) ? detail : readMyList());
     };
     const onStorage = () => setIds(refreshMyListFromStorage());
+    const onStatus = () => setStatus(readMyListStatus());
     window.addEventListener(MY_LIST_EVENT, onListChange);
     window.addEventListener("storage", onStorage);
+    window.addEventListener(MY_LIST_STATUS_EVENT, onStatus);
     return () => {
       window.removeEventListener(MY_LIST_EVENT, onListChange);
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener(MY_LIST_STATUS_EVENT, onStatus);
     };
   }, []);
 
@@ -43,11 +49,13 @@ export function useMyList() {
     return () => {
       cancelled = true;
     };
-  }, [loading, user]);
+  }, [loading, user?.id]);
 
   return {
     ids,
-    loading,
+    loading: loading || status.syncing,
+    error: status.error,
+    refresh: () => user ? syncMyList(user.id, true) : Promise.resolve([]),
     signedIn: Boolean(user),
     user,
   };

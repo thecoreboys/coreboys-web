@@ -6,6 +6,7 @@ import { Award, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Flame, Radi
 import type { PassportActiveEvent, PassportCard, PassportDashboard } from "@/lib/passport/types";
 import { MomentCardBack, MomentCardTile } from "./MomentCard";
 import { PassportDialog } from "./PassportDialog";
+import { PassportWatchActivity } from "./PassportWatchActivity";
 import { boundedPercent, channelAccent, channelLabel, formatCompact, formatPassportDate, passportChannelLevelPercent, passportLiveScore, passportQuestProgress, passportScoreStatus, safePassportInternalHref } from "./passport-utils";
 
 function LiveScore({ event }: { event: PassportActiveEvent }) {
@@ -49,6 +50,7 @@ export function PassportOverview({
 
   return (
     <div className="passport-section-stack">
+      <PassportWatchActivity passport={passport} />
       {passport.activeEvents.length ? (
         <section className="passport-live-events">
           {passport.activeEvents.map((event) => {
@@ -92,7 +94,7 @@ export function PassportOverview({
 
       <div className="passport-goals-recap">
         <section className="passport-community-goals">
-          <header><div><span className="passport-kicker"><Users aria-hidden="true" /> Community goals</span><h2>Everyone moves the meter.</h2></div></header>
+          <header><div><span className="passport-kicker"><Users aria-hidden="true" /> Community goals</span><h2>Shared progress</h2></div></header>
           {passport.communityGoals.filter((goal) => goal.state !== "retired").length ? (
             <div>{passport.communityGoals.filter((goal) => goal.state !== "retired").slice(0, 3).map((goal) => {
               const percent = boundedPercent(goal.total, goal.target);
@@ -103,7 +105,7 @@ export function PassportOverview({
         <section className="passport-recap-card">
           <span className="passport-kicker"><CalendarDays aria-hidden="true" /> Your recent recap</span>
           <h2>Account activity</h2>
-          <div><span><BookOpen aria-hidden="true" /><strong>{passport.recap.cardsCollected}</strong><small>records</small></span><span><Radio aria-hidden="true" /><strong>{passport.recap.eventsAttended}</strong><small>events</small></span><span><Award aria-hidden="true" /><strong>{passport.recap.achievementsEarned}</strong><small>milestones</small></span><span><Clock3 aria-hidden="true" /><strong>{Math.round(passport.recap.watchSeconds / 3_600)}</strong><small>hours watched</small></span></div>
+          <div><span><BookOpen aria-hidden="true" /><strong>{passport.recap.cardsCollected}</strong><small>records</small></span><span><Radio aria-hidden="true" /><strong>{passport.recap.eventsAttended}</strong><small>events</small></span><span><Award aria-hidden="true" /><strong>{passport.recap.achievementsEarned}</strong><small>milestones</small></span><span><Clock3 aria-hidden="true" /><strong>{Math.floor(passport.recap.watchSeconds / 60)}</strong><small>event minutes</small></span></div>
           <p>{passport.recap.channelsExplored} communities recorded. Counts update only when activity is verified.</p>
         </section>
       </div>
@@ -111,6 +113,7 @@ export function PassportOverview({
       <section className="passport-overview-section">
           <header><div><span className="passport-kicker"><Flame aria-hidden="true" /> Community activity</span><h2>Activity by community</h2></div></header>
         <div className="passport-channel-grid">
+          {!passport.channels.length ? <p className="passport-inline-note">Community progress appears after your first eligible watch session or event.</p> : null}
           {passport.channels.map((channel) => (
             <article key={channel.channelSlug} style={{ "--channel-accent": channelAccent(channel.channelSlug) } as React.CSSProperties}>
               <span className="passport-channel-level">{channel.level}</span>
@@ -122,7 +125,7 @@ export function PassportOverview({
 
       <section className="passport-overview-section">
           <header><div><span className="passport-kicker"><BookOpen aria-hidden="true" /> Verified records</span><h2>Recent activity records</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("memories")}>Open Memory Book <ChevronRight aria-hidden="true" /></button></header>
-        {recentCards.length ? <div className="memory-book-grid memory-book-grid--featured">{recentCards.slice(0, 4).map((card) => <MomentCardTile key={card.id} card={card} onOpen={() => setSelectedCard(card)} />)}</div> : <div className="passport-empty passport-empty--small"><BookOpen aria-hidden="true" /><h3>Your first card is waiting.</h3><p>Join a qualifying CORE event to begin your Memory Book.</p></div>}
+        {recentCards.length ? <div className="memory-book-grid memory-book-grid--featured">{recentCards.slice(0, 4).map((card) => <MomentCardTile key={card.id} card={card} onOpen={() => setSelectedCard(card)} />)}</div> : <div className="passport-empty passport-empty--small"><BookOpen aria-hidden="true" /><h3>No collected moments yet.</h3><p>Join a qualifying CORE event to begin your Memory Book.</p></div>}
       </section>
 
       <div className="passport-overview-split">
@@ -139,7 +142,7 @@ export function PassportOverview({
 
         <section className="passport-overview-section">
           <header><div><span className="passport-kicker"><CalendarDays aria-hidden="true" /> Recent achievements</span><h2>Milestones</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("achievements")}>Badge library <ChevronRight aria-hidden="true" /></button></header>
-          <div className="passport-recent-achievements">{earnedAchievements.slice(0, 5).map((achievement) => <article key={achievement.code}><span><Award aria-hidden="true" /></span><div><strong>{achievement.name}</strong><small>{achievement.tier} · {formatPassportDate(achievement.earnedAt)}</small></div></article>)}</div>
+          <div className="passport-recent-achievements">{!earnedAchievements.length ? <p className="passport-inline-note">Your earned milestones will appear here. Open Achievements to see what you can work toward.</p> : null}{earnedAchievements.slice(0, 5).map((achievement) => <article key={achievement.code}><span><Award aria-hidden="true" /></span><div><strong>{achievement.name}</strong><small>{achievement.tier} · {formatPassportDate(achievement.earnedAt)}</small></div></article>)}</div>
         </section>
       </div>
 

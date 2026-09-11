@@ -1,5 +1,6 @@
-import { query } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
 import { ensureFanOauthSchema } from "@/lib/oauth/schema";
+import { hasMeasuredPlaybackCompletion, isNewWatchObservation, measureWatchWindow, type WatchMeasurementCursor } from "@/lib/watch/measurement";
 
 export type ProgressRow = {
   ref: string;
@@ -88,7 +89,10 @@ export async function upsertProgress(input: {
   positionSeconds?: number;
   durationSeconds?: number;
   observedAt?: string;
-}): Promise<number | null> {
+  sessionId?: string;
+  platform?: string;
+  playbackRate?: number;
+}): Promise<{ totalSeconds: number | null; creditedSeconds: number; completionSource?: ProgressRow["completionSource"]; completed?: boolean }> {
   await ensureFanOauthSchema();
   const ref = input.ref.slice(0, 200);
   if (input.event === "hover") {
@@ -103,17 +107,20 @@ export async function upsertProgress(input: {
          updated_at = now()`,
       [input.userId, ref, input.kind, input.subject ?? null],
     );
-    return null;
+    return { totalSeconds: null, creditedSeconds: 0 };
   }
   if (input.event === "complete" || input.event === "mark_watched") {
     const position = Math.max(0, input.positionSeconds ?? 0);
     const duration = Math.max(0, input.durationSeconds ?? 0);
     const completionSource = input.event === "mark_watched" ? "manual" : "playback";
-    await query(
+    const evidence = (await query<{ seconds: string }>(`SELECT COALESCE(SUM(seconds),0)::text AS seconds
+      FROM fan_watch_time_events WHERE user_id=$1 AND item_ref=$2 AND source='site' AND measured=true`, [input.userId, ref])).rows[0];
+    const verified = hasMeasuredPlaybackCompletion(position, duration, Number(evidence?.seconds ?? 0), input.playbackRate);
+    const result = await query<{ seconds: number; completion_source: ProgressRow["completionSource"]; completed: boolean }>(
       `INSERT INTO fan_watch_progress
          (user_id, item_ref, kind, subject, progress, position_seconds,
           duration_seconds, position_updated_at, completed, completion_source, updated_at)
-       VALUES ($1,$2,$3,$4,1,$5,$6,now(),true,$7,now())
+       VALUES ($1,$2,$3,$4,1,$5,$6,now(),true,CASE WHEN $7='manual' OR $8 THEN $7 ELSE NULL END,now())
        ON CONFLICT (user_id, item_ref) DO UPDATE SET
          progress = 1,
          position_seconds = CASE
@@ -125,33 +132,60 @@ export async function upsertProgress(input: {
          position_updated_at = now(),
          completed = true,
          completion_source = CASE
+           WHEN EXCLUDED.completion_source = 'manual' AND NOT $8 THEN 'manual'
            WHEN EXCLUDED.completion_source = 'playback' THEN 'playback'
            ELSE COALESCE(fan_watch_progress.completion_source, EXCLUDED.completion_source)
          END,
          kind = EXCLUDED.kind,
          subject = COALESCE(EXCLUDED.subject, fan_watch_progress.subject),
-         updated_at = now()`,
-      [input.userId, ref, input.kind, input.subject ?? null, position, duration, completionSource],
+         updated_at = now()
+       RETURNING seconds,completion_source,completed`,
+      [input.userId, ref, input.kind, input.subject ?? null, position, duration, completionSource, verified],
     );
-    return null;
+    return { totalSeconds: result.rows[0]?.seconds ?? null, creditedSeconds: 0, completionSource: result.rows[0]?.completion_source, completed: result.rows[0]?.completed };
   }
-  const add = Math.max(0, Math.min(input.seconds ?? 15, 120));
   const p = Math.min(1, Math.max(0, input.progress ?? 0));
   const position = input.positionSeconds == null
     ? null
     : Math.max(0, input.positionSeconds);
   const duration = Math.max(0, input.durationSeconds ?? 0);
+  const receivedAt = new Date().toISOString();
   const observedAt = input.observedAt && Number.isFinite(Date.parse(input.observedAt))
-    ? input.observedAt
-    : new Date().toISOString();
-  const result = await query<{ seconds: number }>(
+    ? new Date(Math.min(Date.parse(input.observedAt), Date.parse(receivedAt))).toISOString()
+    : receivedAt;
+  const sessionId = input.sessionId ?? "legacy";
+  return withTransaction(async (client) => {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`watch-measurement:${input.userId}`]);
+  const previous = (await client.query<WatchMeasurementCursor>(
+    `SELECT item_ref,session_id,position_seconds,observed_at::text,received_at::text,remainder_seconds
+       FROM fan_watch_measurement_cursors WHERE user_id=$1 FOR UPDATE`, [input.userId],
+  )).rows[0] ?? null;
+  const fresh = isNewWatchObservation(previous, observedAt);
+  const measured = fresh ? measureWatchWindow(previous, {
+    ref, sessionId, positionSeconds: position, seconds: input.seconds ?? 0, observedAt, receivedAt, playbackRate: input.playbackRate,
+  }) : { seconds: 0, remainderSeconds: previous?.remainder_seconds ?? 0 };
+  const add = measured.seconds;
+  // Non-active multiview tiles save their resume point without stealing the
+  // active tile's accounting cursor. A first zero-second observation starts it.
+  if (fresh && position !== null && ((input.seconds ?? 0) > 0 || !previous || (previous.item_ref === ref && previous.session_id === sessionId))) {
+    await client.query(`INSERT INTO fan_watch_measurement_cursors
+      (user_id,item_ref,session_id,position_seconds,observed_at,received_at,remainder_seconds) VALUES($1,$2,$3,$4,$5,$6,$7)
+      ON CONFLICT(user_id) DO UPDATE SET item_ref=EXCLUDED.item_ref,session_id=EXCLUDED.session_id,
+        position_seconds=EXCLUDED.position_seconds,observed_at=EXCLUDED.observed_at,received_at=EXCLUDED.received_at,remainder_seconds=EXCLUDED.remainder_seconds`,
+    [input.userId,ref,sessionId,position,observedAt,receivedAt,measured.remainderSeconds]);
+  }
+  const nearEnd = position !== null && duration > 0 && position >= duration * 0.9;
+  const evidence = nearEnd ? (await client.query<{ seconds: string }>(`SELECT COALESCE(SUM(seconds),0)::text AS seconds
+    FROM fan_watch_time_events WHERE user_id=$1 AND item_ref=$2 AND source='site' AND measured=true`, [input.userId, ref])).rows[0] : null;
+  const verified = nearEnd && hasMeasuredPlaybackCompletion(position, duration, Number(evidence?.seconds ?? 0) + add, input.playbackRate);
+  const result = await client.query<{ seconds: number; completion_source: ProgressRow["completionSource"]; completed: boolean }>(
     `INSERT INTO fan_watch_progress
        (user_id, item_ref, kind, subject, seconds, progress, position_seconds,
         duration_seconds, position_updated_at, completed, completion_source, updated_at)
      VALUES ($1,$2,$3,$4,$5,$6::real,COALESCE($7::real,0::real),$8::real,
              CASE WHEN $7::real IS NULL THEN NULL ELSE LEAST($9::timestamptz, now()) END,
-             $6::real >= 0.9::real,
-             CASE WHEN $6::real >= 0.9::real THEN 'playback' ELSE NULL END, now())
+             $10,
+             CASE WHEN $10 THEN 'playback' ELSE NULL END, now())
      ON CONFLICT (user_id, item_ref) DO UPDATE SET
        seconds = fan_watch_progress.seconds + EXCLUDED.seconds,
        progress = GREATEST(fan_watch_progress.progress, EXCLUDED.progress),
@@ -170,26 +204,27 @@ export async function upsertProgress(input: {
            THEN EXCLUDED.position_updated_at
          ELSE fan_watch_progress.position_updated_at
        END,
-       completed = fan_watch_progress.completed OR EXCLUDED.progress >= 0.9,
+       completed = fan_watch_progress.completed OR EXCLUDED.completed,
        completion_source = CASE
-         WHEN EXCLUDED.progress >= 0.9 THEN 'playback'
+         WHEN EXCLUDED.completion_source = 'playback' THEN 'playback'
          ELSE fan_watch_progress.completion_source
        END,
        kind = EXCLUDED.kind,
        subject = COALESCE(EXCLUDED.subject, fan_watch_progress.subject),
        updated_at = now()
-     RETURNING seconds`,
-    [input.userId, ref, input.kind, input.subject ?? null, add, p, position, duration, observedAt],
+     RETURNING seconds,completion_source,completed`,
+    [input.userId, ref, input.kind, input.subject ?? null, add, p, position, duration, observedAt, verified],
   );
   if (add > 0) {
-    await query(
+    await client.query(
       `INSERT INTO fan_watch_time_events
-         (user_id,item_ref,kind,source,provider,seconds,observed_at)
-       VALUES ($1,$2,$3,'site',NULL,$4,LEAST($5::timestamptz,now()))`,
-      [input.userId, ref, input.kind, add, observedAt],
+         (user_id,item_ref,kind,source,provider,seconds,observed_at,playback_platform,subject,measured)
+       VALUES ($1,$2,$3,'site',NULL,$4,LEAST($5::timestamptz,now()),$6,$7,true)`,
+      [input.userId, ref, input.kind, add, observedAt, input.platform ?? null, input.subject ?? null],
     );
   }
-  return result.rows[0]?.seconds ?? null;
+  return { totalSeconds: result.rows[0]?.seconds ?? null, creditedSeconds: add, completionSource: result.rows[0]?.completion_source, completed: result.rows[0]?.completed };
+  });
 }
 
 /**
@@ -235,9 +270,9 @@ export async function mergeProgress(
           : null,
     completed: Boolean(item.completed),
     completion_source:
-      item.completionSource === "manual" || item.completionSource === "provider"
+      item.completionSource === "manual"
         ? item.completionSource
-        : item.completed ? "playback" : null,
+        : null,
     updated_at:
       item.updatedAt && Number.isFinite(Date.parse(item.updatedAt))
         ? item.updatedAt

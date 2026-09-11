@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Accessibility,
@@ -161,6 +161,7 @@ function isCompanionView(value: unknown): value is PlayerCompanionView {
 export function AccountSettingsHub() {
   const player = usePlayer();
   const { theme, accent, setTheme, setAccent } = useTheme();
+  const initialAppearance = useRef({ theme, accent });
   const [settings, setSettings] = useState<AccountSettings>(() => defaultSettings(theme, accent));
   const [ready, setReady] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -260,6 +261,7 @@ export function AccountSettingsHub() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const { theme, accent } = initialAppearance.current;
     void (async () => {
       try {
         const preferencesResponse = await fetch("/api/account/workspaces?kind=account-settings", { credentials: "same-origin", signal: controller.signal });
@@ -305,7 +307,7 @@ export function AccountSettingsHub() {
       }
     })();
     return () => controller.abort();
-  }, [accent, setAccent, setTheme, theme]);
+  }, [setAccent, setTheme]);
 
   const update = useCallback((patch: Partial<AccountSettings>) => {
     setSettings((current) => {
@@ -319,14 +321,15 @@ export function AccountSettingsHub() {
   }, [persist, setAccent, setTheme]);
 
   const saveLabel = useMemo(() => {
-    if (!ready || saveState === "saving") return "Saving…";
+    if (!ready) return "Loading preferences…";
+    if (saveState === "saving") return "Saving…";
     if (saveState === "error") return "Couldn’t save";
-    return saveState === "saved" ? "Saved" : "Private to your account";
+    return saveState === "saved" ? "Saved" : "Saved to your account";
   }, [ready, saveState]);
 
   return (
     <div className="space-y-6">
-      <section id="experience" className="scroll-mt-24 overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
+      <section id="experience" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={Palette} eyebrow="Appearance" title="Theme and layout" detail="Changes apply immediately and sync to your signed-in account." status={saveLabel} error={saveState === "error"} />
         <div className="grid gap-6 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ChoiceGroup label="Theme" value={settings.theme} onChange={(value) => update({ theme: value as Theme })} options={[
@@ -345,7 +348,7 @@ export function AccountSettingsHub() {
         </div>
       </section>
 
-      <section id="playback" className="scroll-mt-24 overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
+      <section id="playback" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={Play} eyebrow="Playback" title="Your player defaults" detail="These controls use the same preferences as the theater player, previews, live streams, and multiview." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <SelectRow label="Autoplay" value={player.autoplayMode} onChange={(value) => updatePlayer({ autoplayMode: value as AutoplayMode })} options={AUTOPLAY_OPTIONS} />
@@ -366,37 +369,37 @@ export function AccountSettingsHub() {
         </div>
       </section>
 
-      <section id="station-audio" className="scroll-mt-24 overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
-        <SectionHeader icon={Radio} eyebrow="Station audio" title="DJ Cora settings" detail="Every station line is an approved recording. These controls never generate speech or use AI credits." />
+      <section id="station-audio" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
+        <SectionHeader icon={Radio} eyebrow="Station audio" title="DJ Cora settings" detail="Adjust station announcements, captions, and volume." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ToggleRow label="Station audio" detail="Play short DJ Cora IDs and 24/7 handoff cues when your browser allows it." value={radioSettings.enabled} onChange={(enabled) => updateRadio({ enabled })} />
           <ChoiceGroup label="DJ Cora captions" value={radioSettings.captions} onChange={(captions) => updateRadio({ captions: captions as RadioCaptionPreference })} options={RADIO_CAPTION_OPTIONS} />
           <RangeRow label="DJ Cora volume" value={radioSettings.volume} min={0} max={1} step={0.05} format={(value) => `${Math.round(value * 100)}%`} onChange={(volume) => updateRadio({ volume })} />
-          <ToggleRow label="Station data saver" detail="Skip warming optional Cora assets on this connection." value={radioSettings.dataSaver} onChange={(dataSaver) => updateRadio({ dataSaver })} />
+          <ToggleRow label="Station data saver" detail="Load station audio only when it is needed." value={radioSettings.dataSaver} onChange={(dataSaver) => updateRadio({ dataSaver })} />
         </div>
       </section>
 
-      <section id="personalization" className="scroll-mt-24 overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
+      <section id="personalization" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={Eye} eyebrow="Personalization" title="Control what shapes your feed" detail="Favorites, follows, saves, likes, and Not interested feedback remain available from every content card." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ToggleRow label="Personalized recommendations" detail="Use your activity to improve For you and the Guide." value={settings.personalizeRecommendations} onChange={(personalizeRecommendations) => update({ personalizeRecommendations })} />
           <ToggleRow label="Show mature content" detail="Include content marked for mature audiences." value={settings.showMatureContent} onChange={(showMatureContent) => update({ showMatureContent })} />
-          <LinkRow label="Manage my DVR" detail="Review saved videos, channels, and custom lists." href="/dvr" />
-          <LinkRow label="Manage follows" detail="Choose creators and communities you want to hear from." href="/account#connected-accounts" />
+          <LinkRow label="Manage my DVR" detail="Review saved videos, folders, and your watch history." href="/dvr" />
+          <LinkRow label="Manage follows" detail="Choose creators and communities you want to hear from." href="/account/settings#connections" />
         </div>
       </section>
 
-      <section id="privacy" className="scroll-mt-24 overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
+      <section id="privacy" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={ShieldCheck} eyebrow="Privacy & safety" title="Decide what stays private" detail="CORE does not expose your watch activity or connected platforms without an explicit choice." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ToggleRow label="Private viewing session" detail="Keep this session out of recommendations and history." value={settings.privateSession} onChange={(privateSession) => update({ privateSession })} />
           <ToggleRow label="Public profile" detail="Let other signed-in fans see your public fan card." value={settings.publicProfile} onChange={(publicProfile) => update({ publicProfile })} />
           <ToggleRow label="Show activity" detail="Allow your public fan card to show recent CORE activity." value={settings.showActivity} onChange={(showActivity) => update({ showActivity })} />
-          <LinkRow label="Connected accounts" detail="Review permissions, disconnect accounts, or sync on demand." href="/account#connected-accounts" />
+          <LinkRow label="Connected accounts" detail="Review permissions, disconnect accounts, or sync on demand." href="/account/settings#connections" />
         </div>
       </section>
 
-      <section id="accessibility" className="scroll-mt-24 overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
+      <section id="accessibility" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={Accessibility} eyebrow="Accessibility" title="Playback that works for you" detail="Your preset applies to captions, described audio, speed, and preview behavior immediately." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ChoiceGroup label="Player preset" value={player.accessibilityPreset} onChange={(value) => player.applyAccessibilityPreset(value as AccessibilityPreset)} options={[
@@ -415,21 +418,21 @@ function SectionHeader({ icon: Icon, eyebrow, title, detail, status, error }: { 
 }
 
 function ToggleRow({ label, detail, value, onChange }: { label: string; detail: string; value: boolean; onChange: (value: boolean) => void }) {
-  return <div className="flex min-h-20 items-center justify-between gap-4 rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary"><div><p className="text-sm font-semibold text-primary">{label}</p><p className="mt-1 text-xs leading-5 text-tertiary">{detail}</p></div><Toggle size="md" isSelected={value} onChange={onChange} aria-label={label} /></div>;
+  return <div className="flex min-h-20 items-center justify-between gap-4 border-b border-secondary py-4"><div><p className="text-sm font-semibold text-primary">{label}</p><p className="mt-1 text-xs leading-5 text-tertiary">{detail}</p></div><Toggle size="md" isSelected={value} onChange={onChange} aria-label={label} /></div>;
 }
 
 function ChoiceGroup({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: ReadonlyArray<{ value: string; label: string }> }) {
-  return <div data-cursor-context={label} className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary"><p className="text-sm font-semibold text-primary">{label}</p><div className="mt-3 flex flex-wrap gap-2">{options.map((option) => <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={value === option.value} className={cx("min-h-9 rounded-lg px-3 text-xs font-semibold ring-1 ring-inset transition", value === option.value ? "bg-brand-primary text-brand-secondary ring-brand" : "bg-secondary text-tertiary ring-secondary hover:bg-primary_hover hover:text-secondary")}>{option.label}</button>)}</div></div>;
+  return <div data-cursor-context={label} className="border-b border-secondary py-4"><p className="text-sm font-semibold text-primary">{label}</p><div className="mt-3 flex flex-wrap gap-2">{options.map((option) => <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={value === option.value} className={cx("min-h-9 rounded-lg px-3 text-xs font-semibold ring-1 ring-inset transition", value === option.value ? "bg-brand-primary text-brand-secondary ring-brand" : "bg-secondary text-tertiary ring-secondary hover:bg-primary_hover hover:text-secondary")}>{option.label}</button>)}</div></div>;
 }
 
 function SelectRow({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: ReadonlyArray<{ value: string; label: string }> }) {
-  return <div className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary"><NativeSelect label={label} value={value} onChange={(event) => onChange(event.target.value)} options={[...options]} /></div>;
+  return <div className="border-b border-secondary py-4"><NativeSelect label={label} value={value} onChange={(event) => onChange(event.target.value)} options={[...options]} /></div>;
 }
 
 function RangeRow({ label, value, min, max, step, format, onChange }: { label: string; value: number; min: number; max: number; step: number; format: (value: number) => string; onChange: (value: number) => void }) {
-  return <label className="rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary"><span className="flex items-center justify-between text-sm font-semibold text-primary">{label}<span className="text-xs text-tertiary">{format(value)}</span></span><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="mt-4 w-full accent-[var(--core)]" aria-label={label} /></label>;
+  return <label className="border-b border-secondary py-4"><span className="flex items-center justify-between text-sm font-semibold text-primary">{label}<span className="text-xs text-tertiary">{format(value)}</span></span><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="mt-4 w-full accent-[var(--core)]" aria-label={label} /></label>;
 }
 
 function LinkRow({ label, detail, href }: { label: string; detail: string; href: string }) {
-  return <Link href={href as never} className="group flex min-h-20 items-center justify-between gap-4 rounded-xl bg-primary p-4 ring-1 ring-inset ring-secondary transition hover:bg-primary_hover"><div><p className="text-sm font-semibold text-primary">{label}</p><p className="mt-1 text-xs leading-5 text-tertiary">{detail}</p></div><ArrowUpRight className="size-4 shrink-0 text-tertiary transition group-hover:text-brand-secondary" aria-hidden /></Link>;
+  return <Link href={href as never} className="group flex min-h-20 items-center justify-between gap-4 border-b border-secondary py-4 transition hover:bg-primary_hover"><div><p className="text-sm font-semibold text-primary">{label}</p><p className="mt-1 text-xs leading-5 text-tertiary">{detail}</p></div><ArrowUpRight className="size-4 shrink-0 text-tertiary transition group-hover:text-brand-secondary" aria-hidden /></Link>;
 }

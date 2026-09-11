@@ -50,6 +50,7 @@ import {
   playableFromUrl,
   type Playable,
 } from "@/lib/watch/playable";
+import { listenToYouTube, youtubePlaybackSample } from "@/lib/watch/youtube-player";
 import type { WatchCatalog } from "@/lib/watch/types";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
 import {
@@ -66,6 +67,7 @@ import { PlayerNetworkWatermark } from "@/components/watch/PlayerNetworkWatermar
 import { OnScreenIdentityOverlay } from "@/components/watch/OnScreenIdentityOverlay";
 import { PlayerAmbientBloom } from "@/components/watch/PlayerAmbientBloom";
 import { WatchSelect } from "@/components/watch/WatchSelect";
+import { TwitchTileMedia } from "@/components/watch/TwitchTileMedia";
 import { floatingChatViewportStyle } from "@/lib/watch/floating-chat";
 import {
   gridTileToNormalizedRect,
@@ -76,6 +78,7 @@ import {
   presetNormalizedRects,
   resolvePresetRoomLayout,
   roomLayoutMatchesPreset,
+  shouldStackTwitchRoom,
   type NormalizedRect,
   type RoomLayoutTile,
 } from "@/lib/watch/room-layout";
@@ -763,6 +766,16 @@ export function MultiPlayerStage({
           </div>
         </header>
 
+        {(player.dataSaver || player.maxActivePlayers < 2) && player.tiles.length > 1 ? (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 px-4 py-3 text-xs text-white/65">
+            <p>{player.dataSaver ? "Data Saver is keeping one view active." : "Your playback limit is keeping one view active."}</p>
+            <button type="button" onClick={() => {
+              player.setDataSaver(false);
+              player.setMaxActivePlayers(Math.max(2, player.maxActivePlayers));
+            }} className="min-h-10 rounded-lg bg-white px-3 font-semibold text-black">Play multiple views</button>
+          </div>
+        ) : null}
+
         {/* Keep the Theater stage usable at laptop widths. A saved wide chat
             dock still opens at its full width on large displays, but yields
             enough room for a real Twitch companion on a compact desktop. */}
@@ -1413,6 +1426,17 @@ function TheaterRoomSurface({
   // viewer. A pinned tile is the deliberate main view; otherwise the first
   // source keeps the main slot until the user promotes another one.
   const main = tiles.find((tile) => tile.pinned) ?? tiles[0] ?? null;
+  const roomRef = useRef<HTMLElement>(null);
+  const [roomWidth, setRoomWidth] = useState(0);
+  useEffect(() => {
+    const room = roomRef.current;
+    if (!room) return;
+    const measure = () => setRoomWidth(room.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(room);
+    return () => observer.disconnect();
+  }, []);
   const companions = tiles.filter((tile) => tile.id !== main?.id);
   const mainMember = main
     ? MEMBERS.find((entry) => entry.slug === main.item.memberSlug || entry.twitchLogin.toLowerCase() === main.item.twitchLogin?.toLowerCase())
@@ -1458,12 +1482,19 @@ function TheaterRoomSurface({
     }).map((entry) => [entry.id, entry.rect]));
   }, [lockedSlots, main?.id, pairContainsTwitch, studioDensity, tiles]);
 
+  const stacked = !maximizedTileId && tiles.length > 1 && shouldStackTwitchRoom(roomWidth,
+    tiles.filter((tile) => tile.item.platform === "twitch").map((tile) => hasCustomGeometry
+      ? roomTileRect(tile, studioDensity, studioDensity)
+      : presetGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity)));
+
   const tileStyle = (tile: WorkspaceTile): React.CSSProperties => {
+    if (stacked) return { gridColumn: "1 / -1", gridRow: "auto" };
     if (hasCustomGeometry) return roomTileStyle(tile, studioDensity);
     return roomRectStyle(presetGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity), studioDensity);
   };
 
   const lockedStyle = (index: number): React.CSSProperties => {
+    if (stacked) return { gridColumn: "1 / -1", gridRow: "auto" };
     const slot = lockedSlots[index];
     const fallback = presetGeometry[index + tiles.length]?.rect
       ?? roomTileRect(tiles.at(-1) ?? tiles[0]!, studioDensity, studioDensity);
@@ -1472,8 +1503,10 @@ function TheaterRoomSurface({
 
   return (
     <section
+      ref={roomRef}
       aria-label="Theater multiview room"
       className="relative isolate aspect-video min-h-[20rem] overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#070709] shadow-[0_34px_120px_rgba(0,0,0,.56)] sm:min-h-[26rem]"
+      style={stacked ? { aspectRatio: "auto" } : undefined}
     >
       {main && player.ambientLighting && !player.dataSaver && player.accessibilityPreset !== "calm" ? (
         <PlayerAmbientBloom source={main.item.poster} accent={mainMember?.accent ?? "#e9006f"} frame />
@@ -1483,7 +1516,7 @@ function TheaterRoomSurface({
         className="relative z-[2] grid h-full min-h-[inherit] gap-2 p-2.5 sm:gap-3 sm:p-3"
         style={{
           gridTemplateColumns: `repeat(${studioDensity}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${studioDensity}, minmax(0, 1fr))`,
+          gridTemplateRows: stacked ? `repeat(${tiles.length + lockedSlots.length}, minmax(384px, 1fr))` : `repeat(${studioDensity}, minmax(0, 1fr))`,
         }}
       >
         {tiles.map((tile) => (
@@ -1779,6 +1812,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     duration: tile.item.durationSeconds ?? 0,
   });
   const [isTilePlaying, setIsTilePlaying] = useState(false);
+  const [frameReadyToken, setFrameReadyToken] = useState(0);
   const [failedNativeSource, setFailedNativeSource] = useState<string | null>(null);
   const shellRef = useRef<HTMLElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1788,11 +1822,12 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
   const positionRef = useRef(0);
   const durationRef = useRef(tile.item.durationSeconds ?? 0);
   const playingRef = useRef(false);
+  const measurementStartedAtRef = useRef<number | null>(null);
   const timedEmbedRef = useRef(false);
   const finishedRef = useRef(false);
   const tooSmallForTwitch = tile.item.platform === "twitch"
     && size.width > 0
-    && (size.width < 400 || size.height < 300);
+    && (size.width < 400 || size.height - 64 < 300);
   const standby = tile.standby || !active || tooSmallForTwitch;
   const twitchSourceUrl = tile.item.twitchLogin
     ? `https://www.twitch.tv/${encodeURIComponent(tile.item.twitchLogin)}`
@@ -1804,7 +1839,10 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
   );
 
   const checkpointTile = useCallback(() => {
-    if (tile.item.kind === "live" || positionRef.current <= 0) return;
+    if (positionRef.current <= 0) return;
+    const startedAt = measurementStartedAtRef.current;
+    measurementStartedAtRef.current = null;
+    const elapsedPlaying = !passportCredit || startedAt === null ? 0 : Math.max(0, Math.min(30, (performance.now() - startedAt) / 1_000));
     const duration = durationRef.current;
     checkpoint(
       tile.item.key,
@@ -1814,14 +1852,17 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       positionRef.current,
       duration,
       tile.item.platform,
+      elapsedPlaying,
+      tile.item.youtubeId || videoRef.current ? player.playbackRate : 1,
     );
-  }, [checkpoint, tile.item.key, tile.item.kind, tile.item.memberSlug, tile.item.platform]);
+  }, [checkpoint, passportCredit, player.playbackRate, tile.item.key, tile.item.kind, tile.item.memberSlug, tile.item.platform, tile.item.youtubeId]);
 
   const finishPlayback = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     playingRef.current = false;
     setIsTilePlaying(false);
+    checkpointTile();
     if (tile.item.kind !== "live") {
       if (passportCredit) {
         markComplete(
@@ -1845,7 +1886,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       }
     }
     player.finishTile(tile.id);
-  }, [checkpoint, markComplete, passportCredit, player, tile.id, tile.item.key, tile.item.kind, tile.item.memberSlug, tile.item.platform]);
+  }, [checkpoint, checkpointTile, markComplete, passportCredit, player, tile.id, tile.item.key, tile.item.kind, tile.item.memberSlug, tile.item.platform]);
 
   useEffect(() => {
     setParent(window.location.hostname);
@@ -1904,10 +1945,9 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     }
     const interval = window.setInterval(() => {
       if (!playingRef.current || !inViewport || document.visibilityState !== "visible") return;
-      // YouTube/TikTok/native video continuously report their playhead. For
-      // opaque official embeds (for example a Twitch clip), elapsed active
-      // viewing time is the best data the provider makes available.
-      if (!timedEmbedRef.current && !videoRef.current) positionRef.current += 15;
+      // Only media with real playback events and playhead observations earns
+      // watch time. An iframe load alone cannot prove a video is playing.
+      if (!timedEmbedRef.current && !videoRef.current) return;
       const duration = durationRef.current;
       const progress = tile.item.kind === "live" || duration <= 0
         ? 0
@@ -1922,7 +1962,9 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           positionRef.current,
           duration,
           tile.item.platform,
+          tile.item.youtubeId || videoRef.current ? player.playbackRate : 1,
         );
+        measurementStartedAtRef.current = performance.now();
       } else {
         checkpoint(
           tile.item.key,
@@ -1936,7 +1978,20 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       }
     }, 15_000);
     return () => window.clearInterval(interval);
-  }, [checkpoint, checkpointTile, inViewport, passportCredit, standby, tile.item.key, tile.item.kind, tile.item.memberSlug, tile.item.platform, trackTick]);
+  }, [checkpoint, checkpointTile, inViewport, passportCredit, player.playbackRate, standby, tile.item.key, tile.item.kind, tile.item.memberSlug, tile.item.platform, tile.item.youtubeId, trackTick]);
+
+  useEffect(() => {
+    if (!isTilePlaying || !passportCredit || !inViewport) return;
+    const beginObservation = () => {
+      if (document.visibilityState !== "visible") { checkpointTile(); return; }
+      measurementStartedAtRef.current = performance.now();
+      trackTick(tile.item.key, tile.item.kind, tile.item.memberSlug, 0, undefined,
+        positionRef.current, durationRef.current, tile.item.platform, tile.item.youtubeId || videoRef.current ? player.playbackRate : 1);
+    };
+    beginObservation();
+    document.addEventListener("visibilitychange", beginObservation);
+    return () => document.removeEventListener("visibilitychange", beginObservation);
+  }, [checkpointTile, inViewport, isTilePlaying, passportCredit, player.playbackRate, tile.item.key, tile.item.kind, tile.item.memberSlug, tile.item.platform, tile.item.youtubeId, trackTick]);
 
   useEffect(() => () => checkpointTile(), [checkpointTile]);
 
@@ -1949,36 +2004,25 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       }
       if (!message || typeof message !== "object") return;
       const value = message as Record<string, unknown>;
-      const info = value.info;
       if (tile.item.youtubeId) {
-        if (value.event === "infoDelivery" && info && typeof info === "object") {
-          const detail = info as Record<string, unknown>;
-          timedEmbedRef.current = true;
-          if (typeof detail.currentTime === "number") positionRef.current = detail.currentTime;
+        const detail = youtubePlaybackSample(value);
+        if (detail) {
+          if (typeof detail.currentTime === "number") {
+            timedEmbedRef.current = true;
+            positionRef.current = detail.currentTime;
+          }
           if (typeof detail.duration === "number") durationRef.current = detail.duration;
           setTileProgress({ position: positionRef.current, duration: durationRef.current });
           if (detail.playerState === 1) {
             playingRef.current = true;
             setIsTilePlaying(true);
           }
-          if (detail.playerState === 2) {
+          if (detail.playerState === 2 || detail.playerState === 3 || detail.playerState === -1 || detail.playerState === 5) {
+            if (playingRef.current) checkpointTile();
             playingRef.current = false;
             setIsTilePlaying(false);
-            checkpointTile();
           }
           if (detail.playerState === 0) finishPlayback();
-        }
-        if (value.event === "onStateChange") {
-          if (info === 1) {
-            playingRef.current = true;
-            setIsTilePlaying(true);
-          }
-          if (info === 2) {
-            playingRef.current = false;
-            setIsTilePlaying(false);
-            checkpointTile();
-          }
-          if (info === 0) finishPlayback();
         }
       }
       if (value["x-tiktok-player"] === true) {
@@ -2014,7 +2058,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     // required for Twitch/YouTube to start without a provider Play click;
     // room audio can still be enabled intentionally from the CORE controls.
     autoplay: true,
-    muted: tile.muted,
+    muted: true,
     // A room is a queue of full programs, not a hover preview. Muted
     // provider embeds otherwise inherit embedFor's preview-loop default and
     // restart the same YouTube/TikTok item forever instead of advancing the
@@ -2060,7 +2104,11 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
   // concerns separate prevents a 16:9 Twitch or YouTube player from being
   // stretched by a tall companion cell, while still allowing the CORE control
   // overlay to use the whole cell.
-  const mediaFrameStyle: React.CSSProperties = shape === "portrait"
+  const mediaFrameStyle: React.CSSProperties = tile.item.platform === "twitch"
+    // Keep room actions above Twitch instead of covering its visibility
+    // sample points. The remaining native surface must stay 400 × 300.
+    ? { width: "100%", height: "calc(100% - 64px)", top: 64 }
+    : shape === "portrait"
     ? { height: "100%", width: "auto", maxWidth: "100%", aspectRatio: "9 / 16" }
     : shape === "square"
       ? { height: "100%", width: "auto", maxWidth: "100%", aspectRatio: "1 / 1" }
@@ -2077,6 +2125,31 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     if (!tile.muted && (native || src)) player.updateTile(tile.id, { muted: true });
   }, [inViewport, native, player, src, standby, tile.id, tile.item.key, tile.muted]);
 
+  useEffect(() => {
+    const source = iframeRef.current?.contentWindow;
+    if (!source || standby) return;
+    if (tile.item.youtubeId) {
+      for (const command of [
+        { func: tile.muted ? "mute" : "unMute", args: [] },
+        { func: "setVolume", args: [Math.round(tile.volume * 100)] },
+        { func: "setPlaybackRate", args: [player.playbackRate] },
+      ]) source.postMessage(JSON.stringify({ event: "command", ...command }), "*");
+    } else if (tile.item.platform === "tiktok") {
+      source.postMessage({ "x-tiktok-player": true, type: tile.muted ? "mute" : "unMute" }, "*");
+    }
+  }, [frameReadyToken, player.playbackRate, standby, tile.item.platform, tile.item.youtubeId, tile.muted, tile.volume]);
+
+  useEffect(() => {
+    if (standby || !tile.item.youtubeId) return;
+    const notify = () => {
+      const source = iframeRef.current?.contentWindow;
+      if (source) listenToYouTube(source, `core-room-${tile.id}`);
+    };
+    notify();
+    const retries = [200, 600, 1_500, 3_000, 6_000, 10_000].map((delay) => window.setTimeout(notify, delay));
+    return () => retries.forEach(window.clearTimeout);
+  }, [frameReadyToken, standby, tile.id, tile.item.youtubeId]);
+
   // Provider frames expose inconsistent autoplay behavior even with autoplay
   // in the URL. Once the iframe exists, explicitly request a muted start a
   // few times while its API is booting. This does not preload another player
@@ -2091,7 +2164,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       const source = iframeRef.current?.contentWindow;
       if (!source) return;
       if (tile.item.youtubeId) {
-        source.postMessage(JSON.stringify({ event: "listening", id: `core-room-${tile.id}` }), "*");
+        listenToYouTube(source, `core-room-${tile.id}`);
         source.postMessage(JSON.stringify({ event: "command", func: "mute", args: [] }), "*");
         source.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
         return;
@@ -2105,7 +2178,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       disposed = true;
       for (const timer of retries) window.clearTimeout(timer);
     };
-  }, [inViewport, src, standby, tile.id, tile.item.platform, tile.item.youtubeId, tile.muted]);
+  }, [frameReadyToken, inViewport, src, standby, tile.id, tile.item.platform, tile.item.youtubeId, tile.muted]);
 
   const closeMore = useCallback(() => {
     setMoreOpen(false);
@@ -2165,7 +2238,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         aspectRatio: mobile ? (shape === "portrait" ? "9 / 16" : shape === "square" ? "1 / 1" : "16 / 9")
           : theater ? undefined : theaterAspect ?? (shape === "portrait" ? "9 / 16" : "16 / 9"),
         alignSelf: theater ? "stretch" : "start",
-        minHeight: mobile && tile.item.platform === "twitch" ? 300 : undefined,
+        minHeight: mobile && tile.item.platform === "twitch" ? 364 : undefined,
       }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
@@ -2293,6 +2366,32 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           ))}
         </video>
         </div>
+      ) : tile.item.platform === "twitch" && (tile.item.twitchLogin || tile.item.vodId) ? (
+        <div style={mediaFrameStyle} className="absolute inset-0" data-cursor-native>
+          <TwitchTileMedia
+            channel={tile.item.kind === "live" ? tile.item.twitchLogin : null}
+            video={tile.item.vodId}
+            muted={tile.muted}
+            volume={tile.volume}
+            startSeconds={tile.delaySeconds}
+            onPlaying={() => {
+              timedEmbedRef.current = true;
+              playingRef.current = true;
+              setIsTilePlaying(true);
+            }}
+            onPaused={() => {
+              playingRef.current = false;
+              setIsTilePlaying(false);
+              checkpointTile();
+            }}
+            onProgress={(position, duration) => {
+              if (Number.isFinite(position)) positionRef.current = position;
+              if (Number.isFinite(duration) && duration > 0) durationRef.current = duration;
+              setTileProgress({ position: positionRef.current, duration: durationRef.current });
+            }}
+            onEnded={finishPlayback}
+          />
+        </div>
       ) : src ? (
         <div style={mediaFrameStyle} className="absolute left-1/2 top-1/2 overflow-hidden bg-black -translate-x-1/2 -translate-y-1/2">
           <iframe
@@ -2303,14 +2402,10 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           allowFullScreen
           referrerPolicy="origin"
           onLoad={() => {
+            setFrameReadyToken((value) => value + 1);
             const source = iframeRef.current?.contentWindow;
             if (tile.item.youtubeId && source) {
-              source.postMessage(JSON.stringify({ event: "listening", id: 1 }), "*");
-            } else if (tile.item.platform !== "tiktok") {
-              // Twitch clips and other opaque official players expose no
-              // playhead messages, so record active embed time without
-              // pretending it is provider-side watch history.
-              playingRef.current = true;
+              listenToYouTube(source, `core-room-${tile.id}`);
             }
           }}
           className={`pointer-events-auto absolute inset-0 z-10 h-full w-full ${tile.fit === "cover" ? "scale-[1.02]" : ""}`}
@@ -2347,7 +2442,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         </span>
       ) : null}
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start gap-2 bg-gradient-to-b from-black/85 via-black/30 to-transparent p-2.5 opacity-100 transition duration-150 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+      <div className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start gap-2 p-2.5 ${tile.item.platform === "twitch" ? "h-16 bg-[#101014]" : "bg-gradient-to-b from-black/85 via-black/30 to-transparent opacity-100 transition duration-150 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"}`}>
         <IconControlTooltip title="Move player" description="Drag this player to swap its place in the grid." placement="bottom">
           <button
             type="button"
@@ -2457,7 +2552,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         </div>
       ) : null}
 
-      {!standby ? (
+      {!standby && tile.item.platform !== "twitch" ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-2.5 pb-2.5 pt-10 opacity-100 transition duration-150 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           <div className="pointer-events-auto mb-2 flex items-center gap-2 px-0.5">
             <span className="w-9 shrink-0 text-right text-[9px] tabular-nums text-white/65">{formatPlaybackTime(tileProgress.position)}</span>
@@ -2467,18 +2562,25 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
               max={tile.item.kind === "live" ? 1 : Math.max(1, tileProgress.duration || durationRef.current || 1)}
               step="0.1"
               value={tile.item.kind === "live" ? 1 : Math.min(tileProgress.position, Math.max(1, tileProgress.duration || durationRef.current || 1))}
-              disabled={!native || tile.item.kind === "live" || !(tileProgress.duration || durationRef.current)}
+              disabled={(!native && !tile.item.youtubeId && tile.item.platform !== "tiktok") || tile.item.kind === "live" || !(tileProgress.duration || durationRef.current)}
               onClick={(event) => event.stopPropagation()}
               onChange={(event) => {
                 const media = videoRef.current;
                 const position = Number(event.target.value);
-                if (!media || !Number.isFinite(position)) return;
-                media.currentTime = position;
+                if (!Number.isFinite(position)) return;
+                checkpointTile();
+                if (media) media.currentTime = position;
+                else if (tile.item.youtubeId) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func: "seekTo", args: [position, true] }), "*");
+                else if (tile.item.platform === "tiktok") iframeRef.current?.contentWindow?.postMessage({ "x-tiktok-player": true, type: "seekTo", value: position }, "*");
                 positionRef.current = position;
                 setTileProgress((current) => ({ ...current, position }));
+                if (passportCredit && playingRef.current) {
+                  measurementStartedAtRef.current = performance.now();
+                  trackTick(tile.item.key, tile.item.kind, tile.item.memberSlug, 0, undefined, position, durationRef.current, tile.item.platform, tile.item.youtubeId || media ? player.playbackRate : 1);
+                }
               }}
               className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-white/20 accent-[#ff3850] disabled:cursor-default disabled:opacity-55"
-              aria-label={native ? "Seek within this player" : "Provider playback progress"}
+              aria-label={native || tile.item.youtubeId || tile.item.platform === "tiktok" ? "Seek within this player" : "Provider playback progress"}
             />
             {tile.item.kind === "live" ? (
               <span className="inline-flex w-9 items-center gap-1 text-[9px] font-bold uppercase tracking-[0.1em] text-red-400"><span className="size-1.5 rounded-full bg-red-500" />Live</span>
@@ -2488,15 +2590,20 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           </div>
           <div className="flex items-end justify-between gap-2">
           <div className="pointer-events-auto flex items-center gap-1.5">
-            {native ? (
+            {native || tile.item.youtubeId || tile.item.platform === "tiktok" ? (
               <TileButton
                 label={isTilePlaying ? "Pause player" : "Play player"}
-                description="Play or pause this native media source."
+                description="Play or pause this source."
                 icon={isTilePlaying ? Pause : Play}
                 onClick={() => {
                   const media = videoRef.current;
-                  if (!media) return;
-                  if (media.paused) void media.play(); else media.pause();
+                  if (media) {
+                    if (media.paused) void media.play(); else media.pause();
+                  } else if (tile.item.youtubeId) {
+                    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func: isTilePlaying ? "pauseVideo" : "playVideo", args: [] }), "*");
+                  } else if (tile.item.platform === "tiktok") {
+                    iframeRef.current?.contentWindow?.postMessage({ "x-tiktok-player": true, type: isTilePlaying ? "pause" : "play" }, "*");
+                  }
                 }}
               />
             ) : null}

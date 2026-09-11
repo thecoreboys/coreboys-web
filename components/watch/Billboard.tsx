@@ -26,6 +26,7 @@ type BillboardTwitchInstance = {
   setMuted?: (muted: boolean) => void;
   /** Some Twitch builds never emit PLAYING while an ad/interstitial settles. */
   isPaused?: () => boolean;
+  getCurrentTime?: () => number;
 };
 
 type BillboardTwitchApi = {
@@ -230,6 +231,8 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
   const [twitchMounted, setTwitchMounted] = useState(false);
   const [twitchPlaying, setTwitchPlaying] = useState(false);
   const [twitchRecovering, setTwitchRecovering] = useState(false);
+  const [twitchLoadError, setTwitchLoadError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   const [nativePlaying, setNativePlaying] = useState(false);
   // Preview players always begin muted, which is the only autoplay mode that
   // works consistently across Twitch, YouTube, desktop, and mobile browsers.
@@ -460,6 +463,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
     let playbackWatchdog = 0;
     let readinessWatchdog = 0;
     let watchdogPasses = 0;
+    let lastObservedPosition = -1;
     let gestureRecoveryArmed = false;
     const clearPlaybackRetries = () => {
       retryTimers.forEach((timer) => window.clearTimeout(timer));
@@ -519,6 +523,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
     setTwitchMounted(false);
     setTwitchPlaying(false);
     setTwitchRecovering(false);
+    setTwitchLoadError(false);
     mount.replaceChildren();
 
     void loadBillboardTwitch()
@@ -556,7 +561,10 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
             if (disposed || playbackStarted) return;
             watchdogPasses += 1;
             try {
-              if (instance?.isPaused?.() === false) {
+              const position = instance?.getCurrentTime?.() ?? 0;
+              const advanced = lastObservedPosition >= 0 && position > lastObservedPosition + 0.25;
+              lastObservedPosition = position;
+              if (advanced && instance?.isPaused?.() === false) {
                 playbackStarted = true;
                 clearPlaybackRetries();
                 removeGestureRecovery();
@@ -603,6 +611,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
         });
         instance.addEventListener(api.Player.PLAYBACK_BLOCKED, () => {
           if (disposed) return;
+          playbackStarted = false;
           // Keep Twitch's approved player visible so its native Play control
           // can recover when the browser requires a user gesture.
           clearPlaybackRetries();
@@ -634,6 +643,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
         setTwitchMounted(false);
         setTwitchPlaying(false);
         setTwitchRecovering(false);
+        setTwitchLoadError(true);
         mount.replaceChildren();
       });
 
@@ -648,7 +658,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
       if (twitchPlayerRef.current === instance) twitchPlayerRef.current = null;
       mount.replaceChildren();
     };
-  }, [host, isTwitch, twitchChannel, twitchMountId, twitchVideo, wantsAutoplay]);
+  }, [host, isTwitch, retryToken, twitchChannel, twitchMountId, twitchVideo, wantsAutoplay]);
 
   const frameReady = isTwitch
     ? twitchPlaying
@@ -732,11 +742,18 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
           onClick={onOpen}
           aria-label={`Open ${item.title} in the media player`}
         >
-          <span className="watch-billboard-live-core-badge"><i aria-hidden /> {item.kind === "live" || item.format === "live" ? "Live" : "Preview"} · CORE</span>
+          <span className="watch-billboard-live-core-badge"><i aria-hidden /> Preview</span>
           <span className="watch-billboard-live-core-open"><span aria-hidden>▶</span> Open player</span>
           <span className="watch-billboard-live-core-muted">{muted ? "Muted preview" : "Sound on"}</span>
         </button>
       ) : null}
+      {isTwitch ? <><span className="watch-billboard-provider-label">Preview</span><div className="watch-billboard-provider-status">
+        {(twitchRecovering || twitchLoadError) && !twitchPlaying ? <div role="status">
+          <span>Twitch is taking longer to load.</span>
+          <button type="button" onClick={() => setRetryToken((value) => value + 1)}>Try again</button>
+          <a href={twitchChannel ? `https://www.twitch.tv/${encodeURIComponent(twitchChannel)}` : `https://www.twitch.tv/videos/${encodeURIComponent(twitchVideo ?? "")}`} target="_blank" rel="noopener noreferrer">Open on Twitch</a>
+        </div> : null}
+      </div></> : null}
     </div>
   );
 }

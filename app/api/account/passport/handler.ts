@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accountRequestMatches, ACCOUNT_CHANGED_MESSAGE } from "@/lib/account-request";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { PassportError } from "@/lib/passport/policy";
 import { PassportActionSchema } from "@/lib/passport/schemas";
@@ -7,6 +8,7 @@ import { performPassportAction } from "@/lib/passport/store";
 export async function handlePassportAction(req: Request): Promise<NextResponse> {
   const userId = await getCurrentFanUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!accountRequestMatches(req, userId)) return NextResponse.json({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
   const parsed = PassportActionSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
@@ -16,7 +18,7 @@ export async function handlePassportAction(req: Request): Promise<NextResponse> 
   }
   try {
     const result = await performPassportAction(userId, parsed.data);
-    const response = NextResponse.json({ ok: true, result });
+    const response = NextResponse.json({ ok: true, result, accountId: userId });
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   } catch (error) {

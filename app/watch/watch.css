@@ -2749,7 +2749,28 @@
     inset: 0;
     width: 100%;
     height: 100%;
+    border-radius: inherit;
   }
+
+  .watch-billboard-live-player.is-preview.is-twitch { overflow: visible; }
+  .watch-billboard-live-player.is-preview.is-twitch .watch-billboard-live-mount { overflow: hidden; }
+  .watch-billboard-provider-label { position: absolute; top: -1.5rem; left: 0; color: var(--ink-dim); font-size: .7rem; }
+  .watch-billboard-provider-status {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding-top: .55rem;
+    color: var(--ink-dim);
+    font-size: .7rem;
+  }
+  .watch-billboard-provider-status > div { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; }
+  .watch-billboard-provider-status button, .watch-billboard-provider-status a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
   .watch-billboard-live-player.is-preview .watch-billboard-live-fallback {
     z-index: 0;
@@ -6507,8 +6528,7 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   z-index: 70;
 }
 
-/* Twitch VODs keep the approved provider surface interactive. Live Twitch is
-   CORE-controlled and never receives this attribute during normal playback. */
+/* Twitch's native surface stays interactive for visibility checks and controls. */
 .watch-player-media[data-twitch-native-player] iframe {
   pointer-events: auto !important;
 }

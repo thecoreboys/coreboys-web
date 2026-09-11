@@ -7,7 +7,7 @@ test("mobile Multiview gives absolute media a bounded nonzero frame", () => {
   assert.match(source, /width: mobile \? \(shape === "portrait" \? "min\(100%, 19rem\)" : "100%"\)/);
   assert.match(source, /height: mobile \? "auto"/);
   assert.match(source, /aspectRatio: mobile \? \(shape === "portrait" \? "9 \/ 16" : shape === "square" \? "1 \/ 1" : "16 \/ 9"\)/);
-  assert.match(source, /minHeight: mobile && tile.item.platform === "twitch" \? 300/);
+  assert.match(source, /minHeight: mobile && tile.item.platform === "twitch" \? 364/);
 });
 test("expired native media falls back without shielding provider interaction", () => {
   assert.match(source, /failedNativeSource !== `\$\{tile.item.key\}:\$\{nativeCandidate\}`/);
@@ -20,4 +20,10 @@ test("small Twitch tiles explain the provider requirement instead of a dead acti
   assert.match(source, /Turn your phone sideways/);
   assert.match(source, /Open on Twitch/);
   assert.match(source, /aria-label=\{currentLive.length \? "Watch live channels" : "No channels are live"\}/);
+});
+test("Twitch room controls reserve their own space above the native iframe", () => {
+  assert.match(source, /height: "calc\(100% - 64px\)", top: 64/);
+  assert.match(source, /size\.height - 64 < 300/);
+  assert.match(source, /minmax\(384px, 1fr\)/);
+  assert.match(source, /tile\.item\.platform === "twitch" \? "h-16 bg-\[#101014\]"/);
 });

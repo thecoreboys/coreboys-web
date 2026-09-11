@@ -62,7 +62,7 @@ export async function accessTokenFor(
 }
 
 async function refreshConnectionOnce(row: ConnectionRow): Promise<boolean> {
-  const key = `${row.user_id}:${row.provider}`;
+  const key = `${row.user_id}:${row.provider}:${row.id}`;
   const active = refreshes.get(key);
   if (active) return active;
   const task = refreshConnection(row).finally(() => {
@@ -75,7 +75,7 @@ async function refreshConnectionOnce(row: ConnectionRow): Promise<boolean> {
 async function refreshConnection(row: ConnectionRow): Promise<boolean> {
   const refresh = readRefreshToken(row);
   if (!refresh) {
-    await markExpired(row.user_id, row.provider, "token expired — reconnect");
+    await markExpired(row.user_id, row.provider, "token expired — reconnect", row.id);
     return false;
   }
   try {
@@ -84,14 +84,14 @@ async function refreshConnection(row: ConnectionRow): Promise<boolean> {
     if (row.provider === "x") return await refreshX(row, refresh);
     if (row.provider === "tiktok") return await refreshTikTok(row, refresh);
     if (row.provider === "instagram") return await refreshInstagram(row, refresh);
-    await markExpired(row.user_id, row.provider, "reconnect — no refresh for this provider");
+    await markExpired(row.user_id, row.provider, "reconnect — no refresh for this provider", row.id);
     return false;
   } catch (err) {
     const msg = err instanceof Error ? err.message : "refresh failed";
     if (err instanceof RefreshRequestError && err.permanent) {
-      await markExpired(row.user_id, row.provider, msg);
+      await markExpired(row.user_id, row.provider, msg, row.id);
     } else {
-      await markSyncError(row.user_id, row.provider, msg);
+      await markSyncError(row.user_id, row.provider, msg, row.id);
     }
     return false;
   }
@@ -117,7 +117,7 @@ async function refreshTwitch(row: ConnectionRow, refresh: string): Promise<boole
     expires_in?: number;
   };
   if (!json.access_token) throw new RefreshRequestError("twitch refresh missing token", true);
-  await updateTokens(row.user_id, "twitch", json.access_token, json.refresh_token ?? null, json.expires_in ?? 3600);
+  await updateTokens(row.user_id, "twitch", json.access_token, json.refresh_token ?? null, json.expires_in ?? 3600, row.id);
   return true;
 }
 
@@ -141,7 +141,7 @@ async function refreshGoogle(row: ConnectionRow, refresh: string): Promise<boole
     expires_in?: number;
   };
   if (!json.access_token) throw new RefreshRequestError("google refresh missing token", true);
-  await updateTokens(row.user_id, "youtube", json.access_token, json.refresh_token ?? null, json.expires_in ?? 3600);
+  await updateTokens(row.user_id, "youtube", json.access_token, json.refresh_token ?? null, json.expires_in ?? 3600, row.id);
   return true;
 }
 
@@ -169,7 +169,7 @@ async function refreshX(row: ConnectionRow, refresh: string): Promise<boolean> {
     expires_in?: number;
   };
   if (!json.access_token) throw new RefreshRequestError("x refresh missing token", true);
-  await updateTokens(row.user_id, "x", json.access_token, json.refresh_token ?? null, json.expires_in ?? 7200);
+  await updateTokens(row.user_id, "x", json.access_token, json.refresh_token ?? null, json.expires_in ?? 7200, row.id);
   return true;
 }
 
@@ -195,7 +195,7 @@ async function refreshTikTok(row: ConnectionRow, refresh: string): Promise<boole
     expires_in?: number;
   };
   if (!json.access_token) throw new RefreshRequestError("tiktok refresh missing token", true);
-  await updateTokens(row.user_id, "tiktok", json.access_token, json.refresh_token ?? null, json.expires_in ?? 86400);
+  await updateTokens(row.user_id, "tiktok", json.access_token, json.refresh_token ?? null, json.expires_in ?? 86400, row.id);
   return true;
 }
 
@@ -214,6 +214,7 @@ async function refreshInstagram(row: ConnectionRow, refresh: string): Promise<bo
     json.access_token,
     json.access_token,
     json.expires_in ?? 5_184_000,
+    row.id,
   );
   return true;
 }

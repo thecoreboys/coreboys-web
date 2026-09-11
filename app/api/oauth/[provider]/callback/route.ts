@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function bounce(origin: string, params: Record<string, string>) {
-  const url = new URL("/account", origin);
+  const url = new URL("/account/settings#connections", origin);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = NextResponse.redirect(url);
   res.headers.append("Set-Cookie", clearOauthStateCookie());

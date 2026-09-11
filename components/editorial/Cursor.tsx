@@ -325,6 +325,16 @@ export function Cursor() {
 
     const inspectTarget = (target: EventTarget | null, clientX: number, clientY: number) => {
       const element = target instanceof Element ? target : null;
+      // Pointer events stop at a cross-origin frame. Hide before the handoff
+      // so the last CORE pointer position cannot remain stuck at its edge.
+      if (element?.closest("iframe, [data-cursor-native]")) {
+        visible = false;
+        magneticTarget = null;
+        setReactiveTarget(null);
+        setSpotlight(null, clientX, clientY);
+        clearHint(true);
+        return;
+      }
       const editable = element?.closest("textarea, select, [contenteditable='true'], input:not([type='range'])");
       if (editable) {
         visible = false;
@@ -442,9 +452,17 @@ export function Cursor() {
     };
     const onWindowLeave = () => {
       visible = false;
+      magneticTarget = null;
       setSpotlight(null, x, y);
       setReactiveTarget(null);
-      clearHint();
+      clearHint(true);
+    };
+    const onPointerOver = (event: PointerEvent) => {
+      inspectTarget(event.target, event.clientX, event.clientY);
+    };
+    const onPointerOut = (event: PointerEvent) => {
+      if (!event.relatedTarget) onWindowLeave();
+      else inspectTarget(event.relatedTarget, event.clientX, event.clientY);
     };
     const onScroll = () => {
       clearHint();
@@ -515,6 +533,8 @@ export function Cursor() {
     };
 
     window.addEventListener("pointermove", onMove, { passive: true });
+    document.addEventListener("pointerover", onPointerOver, { passive: true, capture: true });
+    document.addEventListener("pointerout", onPointerOut, { passive: true, capture: true });
     window.addEventListener("pointerdown", onDown, { passive: true });
     window.addEventListener("pointerup", onUp, { passive: true });
     window.addEventListener("pointercancel", onUp, { passive: true });
@@ -526,6 +546,8 @@ export function Cursor() {
 
     return () => {
       window.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerover", onPointerOver, true);
+      document.removeEventListener("pointerout", onPointerOut, true);
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);

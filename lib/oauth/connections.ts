@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { query } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
 import { decryptSecret, encryptSecret } from "@/lib/oauth/crypto";
 import { ensureFanOauthSchema } from "@/lib/oauth/schema";
 import { grantedScopeSet, type OauthProvider } from "@/lib/oauth/providers";
@@ -126,24 +126,37 @@ export async function upsertConnection(input: {
     : null;
   const accessEnc = encryptSecret(input.accessToken);
   const refreshEnc = input.refreshToken ? encryptSecret(input.refreshToken) : null;
-  const id = existing?.id ?? randomUUID();
+  // Each authorization is a new grant: in-flight work for an older grant
+  // must not overwrite this one after a reconnect or identity change.
+  const id = randomUUID();
 
-  const { rows } = await query<ConnectionRow>(
+  const saved = await withTransaction(async (client) => {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`oauth:${input.userId}:${input.provider}`]);
+  await client.query(`SELECT id FROM fan_oauth_connections WHERE user_id=$1 AND provider=$2 FOR UPDATE`, [input.userId,input.provider]);
+  await client.query(`DELETE FROM fan_loyalty WHERE user_id=$1 AND platform=$2
+    AND EXISTS (SELECT 1 FROM fan_oauth_connections WHERE user_id=$1 AND provider=$2 AND provider_user_id IS DISTINCT FROM $3)`,
+  [input.userId,input.provider,input.providerUserId]);
+  const { rows } = await client.query<ConnectionRow>(
     `INSERT INTO fan_oauth_connections (
         id, user_id, provider, provider_user_id, provider_username,
         avatar_url, scopes, access_token_enc, refresh_token_enc,
         token_expires_at, status, connected_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active', now())
       ON CONFLICT (user_id, provider) DO UPDATE SET
+        id                 = EXCLUDED.id,
         provider_user_id   = EXCLUDED.provider_user_id,
         provider_username  = EXCLUDED.provider_username,
         avatar_url         = EXCLUDED.avatar_url,
         scopes             = EXCLUDED.scopes,
         access_token_enc   = EXCLUDED.access_token_enc,
-        refresh_token_enc  = COALESCE(EXCLUDED.refresh_token_enc, fan_oauth_connections.refresh_token_enc),
+        refresh_token_enc  = CASE WHEN fan_oauth_connections.provider_user_id = EXCLUDED.provider_user_id
+          THEN COALESCE(EXCLUDED.refresh_token_enc, fan_oauth_connections.refresh_token_enc)
+          ELSE EXCLUDED.refresh_token_enc END,
         token_expires_at   = EXCLUDED.token_expires_at,
         status             = 'active',
-        last_sync_error    = NULL
+        last_sync_error    = NULL,
+        last_sync_at       = NULL,
+        connected_at       = now()
       RETURNING id, user_id, provider, provider_user_id, provider_username, avatar_url,
                 scopes, token_expires_at, last_sync_at, last_sync_error, status, connected_at,
                 access_token_enc, refresh_token_enc`,
@@ -160,7 +173,9 @@ export async function upsertConnection(input: {
       expiresAt,
     ],
   );
-  return toPublic(rows[0]!);
+  return rows[0]!;
+  });
+  return toPublic(saved);
 }
 
 export function readAccessToken(row: ConnectionRow): string {
@@ -179,6 +194,7 @@ export async function updateTokens(
   accessToken: string,
   refreshToken: string | null,
   expiresIn: number | null,
+  expectedConnectionId?: string,
 ): Promise<void> {
   const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null;
   await query(
@@ -187,54 +203,59 @@ export async function updateTokens(
             refresh_token_enc = COALESCE($4, refresh_token_enc),
             token_expires_at  = $5,
             status            = 'active'
-      WHERE user_id = $1 AND provider = $2`,
+      WHERE user_id = $1 AND provider = $2 AND ($6::text IS NULL OR id::text=$6)`,
     [
       userId,
       provider,
       encryptSecret(accessToken),
       refreshToken ? encryptSecret(refreshToken) : null,
       expiresAt,
+      expectedConnectionId ?? null,
     ],
   );
 }
 
-export async function markExpired(userId: string, provider: OauthProvider, err: string): Promise<void> {
+export async function markExpired(userId: string, provider: OauthProvider, err: string, expectedConnectionId?: string): Promise<void> {
   await query(
     `UPDATE fan_oauth_connections
         SET status = 'expired', last_sync_error = $3
-      WHERE user_id = $1 AND provider = $2`,
-    [userId, provider, err.slice(0, 400)],
+      WHERE user_id = $1 AND provider = $2 AND ($4::text IS NULL OR id::text=$4)`,
+    [userId, provider, err.slice(0, 400), expectedConnectionId ?? null],
   );
 }
 
-export async function markSynced(userId: string, provider: OauthProvider): Promise<void> {
+export async function markSynced(userId: string, provider: OauthProvider, expectedConnectionId?: string): Promise<void> {
   await query(
     `UPDATE fan_oauth_connections
         SET last_sync_at = now(), last_sync_error = NULL, status = 'active'
-      WHERE user_id = $1 AND provider = $2`,
-    [userId, provider],
+      WHERE user_id = $1 AND provider = $2 AND ($3::text IS NULL OR id::text=$3)`,
+    [userId, provider, expectedConnectionId ?? null],
   );
 }
 
-export async function markSyncError(userId: string, provider: OauthProvider, err: string): Promise<void> {
+export async function markSyncError(userId: string, provider: OauthProvider, err: string, expectedConnectionId?: string): Promise<void> {
   await query(
     `UPDATE fan_oauth_connections
         SET last_sync_error = $3
-      WHERE user_id = $1 AND provider = $2`,
-    [userId, provider, err.slice(0, 400)],
+      WHERE user_id = $1 AND provider = $2 AND ($4::text IS NULL OR id::text=$4)`,
+    [userId, provider, err.slice(0, 400), expectedConnectionId ?? null],
   );
 }
 
-export async function deleteConnection(userId: string, provider: OauthProvider): Promise<void> {
+export async function deleteConnection(userId: string, provider: OauthProvider, expectedConnectionId?: string): Promise<void> {
   await ensureFanOauthSchema();
-  await query(
-    `DELETE FROM fan_oauth_connections WHERE user_id = $1 AND provider = $2`,
-    [userId, provider],
+  await withTransaction(async (client) => {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`oauth:${userId}:${provider}`]);
+  const removed = await client.query(
+    `DELETE FROM fan_oauth_connections WHERE user_id = $1 AND provider = $2 AND ($3::text IS NULL OR id::text=$3)`,
+    [userId, provider, expectedConnectionId ?? null],
   );
-  await query(
+  if (expectedConnectionId && !removed.rowCount) return;
+  await client.query(
     `DELETE FROM fan_loyalty WHERE user_id = $1 AND platform = $2`,
     [userId, provider],
   );
+  });
 }
 
 /**
@@ -248,6 +269,6 @@ export async function deleteConnectionByProviderUser(
 ): Promise<boolean> {
   const existing = await findConnectionByProviderUser(provider, providerUserId);
   if (!existing) return false;
-  await deleteConnection(existing.user_id, provider);
+  await deleteConnection(existing.user_id, provider, existing.id);
   return true;
 }

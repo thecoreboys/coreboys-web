@@ -1,3 +1,5 @@
+import type { AccountWatchAnalytics } from "@/lib/watch/analytics";
+
 export const PASSPORT_PRIVACY_LEVELS = ["public", "members", "private"] as const;
 export type PassportPrivacyLevel = (typeof PASSPORT_PRIVACY_LEVELS)[number];
 
@@ -228,6 +230,7 @@ export type PassportRecap = {
 };
 
 export type PassportDashboard = {
+  watchAnalytics?: AccountWatchAnalytics;
   profile: PassportProfile;
   globalProgress: { xp: number; level: number; nextLevelXp: number; percent: number };
   channels: PassportChannelProgress[];

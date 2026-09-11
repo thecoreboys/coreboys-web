@@ -191,7 +191,7 @@ test("provider frames can preload muted without beginning playback", () => {
 test("multiview programs use muted autoplay without preview looping", () => {
   assert.match(
     multiview,
-    /autoplay: true,[\s\S]{0,120}muted: tile\.muted,[\s\S]{0,420}loop: false/,
+    /autoplay: true,[\s\S]{0,120}muted: true,[\s\S]{0,420}loop: false/,
   );
   assert.match(multiview, /func: "playVideo"/);
   assert.match(multiview, /type: "play"/);

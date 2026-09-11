@@ -2,7 +2,14 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { isTinyYoutubeStub, youtubeThumbCandidates } from "@/lib/watch/thumbs";
+import { isTinyYoutubeStub, watchThumbCandidates } from "@/lib/watch/thumbs";
+
+// Repeated cards share failed-image knowledge for this browser session.
+const failedImages = new Map<string, number>();
+function markFailed(url: string) {
+  failedImages.set(url, Date.now() + 30_000);
+  if (failedImages.size > 500) failedImages.delete(failedImages.keys().next().value!);
+}
 
 function percent(value: number) {
   return `${Math.round(Math.min(1, Math.max(0, value)) * 100)}%`;
@@ -26,9 +33,9 @@ export function WatchThumb({
   style?: CSSProperties;
 }) {
   const chain = useMemo(() => {
-    const fromYt = youtubeId ? youtubeThumbCandidates(youtubeId) : [];
-    return [...fromYt, src].filter(Boolean);
-  }, [youtubeId, src]);
+    return watchThumbCandidates(src, youtubeId, loading === "eager")
+      .filter((url) => (failedImages.get(url) ?? 0) < Date.now());
+  }, [youtubeId, src, loading]);
   const [index, setIndex] = useState(0);
   const [failed, setFailed] = useState(false);
   const url = chain[Math.min(index, chain.length - 1)] ?? src;
@@ -62,6 +69,7 @@ export function WatchThumb({
       alt={alt}
       className={className}
       loading={loading}
+      fetchPriority={loading === "eager" ? "high" : "low"}
       decoding="async"
       style={{
         ...style,
@@ -71,11 +79,14 @@ export function WatchThumb({
       }}
       onLoad={(e) => {
         const img = e.currentTarget;
-        if (isTinyYoutubeStub(img.naturalWidth, img.naturalHeight) && index < chain.length - 1) {
+        if (/^https?:\/\/(?:i\.ytimg\.com|img\.youtube\.com)\//.test(url)
+          && isTinyYoutubeStub(img.naturalWidth, img.naturalHeight) && index < chain.length - 1) {
+          markFailed(url);
           setIndex((n) => n + 1);
         }
       }}
       onError={() => {
+        markFailed(url);
         if (index < chain.length - 1) setIndex((n) => n + 1);
         else setFailed(true);
       }}

@@ -56,6 +56,7 @@ const migrations = [
   "048_stripe_refund_operations.sql",
   "048_x_social_archive_paging.sql",
   "049_notification_center.sql",
+  "052_account_watch_measurement.sql",
 ];
 
 function loadEnvLocal() {

@@ -18,11 +18,16 @@ export async function setLoyalty(input: {
   kind: string;
   value: boolean;
   meta?: Record<string, unknown> | null;
+  connectionId?: string;
 }): Promise<void> {
   await ensureFanOauthSchema();
-  await query(
-    `INSERT INTO fan_loyalty (user_id, platform, subject, kind, value, meta, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb, now())
+  const result = await query(
+    `WITH current_grant AS (
+       SELECT id FROM fan_oauth_connections WHERE user_id=$1 AND provider::text=$2 AND id::text=$7 AND status='active' FOR SHARE
+     )
+     INSERT INTO fan_loyalty (user_id, platform, subject, kind, value, meta, updated_at)
+     SELECT $1,$2,$3,$4,$5,$6::jsonb, now()
+      WHERE $7::text IS NULL OR EXISTS(SELECT 1 FROM current_grant)
      ON CONFLICT (user_id, platform, subject, kind)
      DO UPDATE SET value = EXCLUDED.value, meta = EXCLUDED.meta, updated_at = now()`,
     [
@@ -32,8 +37,10 @@ export async function setLoyalty(input: {
       input.kind,
       input.value,
       input.meta ? JSON.stringify(input.meta) : null,
+      input.connectionId ?? null,
     ],
   );
+  if (input.connectionId && !result.rowCount) throw new Error("Connection changed during sync. Try syncing again.");
 }
 
 export async function listLoyalty(userId: string): Promise<LoyaltyFact[]> {
@@ -185,8 +192,8 @@ export function buildLoyaltyCard(
     xProfiles: X_PROFILE_TARGETS,
     siteWatch,
     honestGaps: [
-      "Twitch does not give third parties your hours watched or VOD completion on someone else's channel. The numbers below are minutes this tab was open on /chat, plus VOD plays on this site.",
-      "YouTube removed watch-history access for third-party apps. We only count plays you start on /videos.",
+      "Watch time measures advancing playback on CORE, including supported Twitch and YouTube players embedded here. Pauses, seeks and duplicate observations do not add time.",
+      "Connected platforms do not share your personal off-site watch history. Following and subscription checks are shown separately from CORE playback.",
       "X Community membership is not provider-verified. A FanZone self-attestation is only the fan’s own statement.",
       "Twitch shut down third-party whispers. We deep-link you to Twitch instead of sending a whisper from CORE.",
     ],
@@ -231,11 +238,14 @@ export async function siteWatchStats(userId: string): Promise<SiteWatchStats> {
           WHERE user_id=$1 AND created_at>now()-interval '7 days'
             AND kind IN ('heartbeat','chat_open','live_embed','video_play','vod_play'))::text AS minutes,
         (SELECT COALESCE(SUM(seconds),0) FROM fan_watch_time_events
-          WHERE user_id=$1 AND source='site' AND observed_at>now()-interval '7 days')::text AS watch_7d,
-        (SELECT COALESCE(SUM(seconds),0) FROM fan_watch_progress
-          WHERE user_id=$1)::text AS watch_total,
-        (SELECT COUNT(*) FROM fan_watch_progress
-          WHERE user_id=$1 AND completed AND completion_source='playback')::text AS playback_completed,
+          WHERE user_id=$1 AND source='site' AND measured=true AND observed_at>now()-interval '7 days')::text AS watch_7d,
+        (SELECT COALESCE(SUM(seconds),0) FROM fan_watch_time_events
+          WHERE user_id=$1 AND source='site' AND measured=true)::text AS watch_total,
+        (SELECT COUNT(*) FROM fan_watch_progress p
+          WHERE p.user_id=$1 AND p.completed AND p.completion_source='playback' AND p.duration_seconds>0
+            AND (SELECT COALESCE(SUM(e.seconds),0) FROM fan_watch_time_events e
+                  WHERE e.user_id=p.user_id AND e.item_ref=p.item_ref AND e.source='site' AND e.measured=true)
+                >=p.duration_seconds*0.4)::text AS playback_completed,
         (SELECT COUNT(*) FROM fan_watch_progress
           WHERE user_id=$1 AND completed AND completion_source='manual')::text AS manually_completed,
         (SELECT COUNT(*) FROM fan_site_events

@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import { cachedPublicData } from "@/lib/server-cache";
 import { MEMBERS } from "@/lib/members";
 import { GROUP } from "@/lib/group";
 import { getCoreFeed, getHouseFeed, type FeedItem } from "@/lib/social-feed";
@@ -235,16 +237,41 @@ async function getTwitchBroadcasts(
       // channels quickly enough to expose rewind without making the historical
       // archive refresh every minute for offline channels.
       const revalidateSeconds = activeLogins.has(member.twitchLogin.toLowerCase()) ? 60 : 1800;
-      const vods = await fetchChannelVideos(user.id, 16, revalidateSeconds);
+      const vods = await cachedPublicData(`twitch-archive:v1:${user.id}:16`,
+        () => fetchChannelVideos(user.id, 16, revalidateSeconds), {
+          freshSeconds: revalidateSeconds,
+          staleSeconds: 21_600,
+          validate: (value): value is TwitchVod[] => Array.isArray(value) && value.every((vod) => Boolean(
+            vod && typeof vod === "object" && typeof vod.id === "string" && typeof vod.title === "string"
+            && typeof vod.url === "string" && typeof vod.createdAt === "string" && typeof vod.duration === "string"
+            && typeof vod.streamId === "string" && typeof vod.thumbnailUrl === "string" && Number.isFinite(vod.viewCount),
+          )),
+          // A temporary provider failure is represented as [] by the fetcher.
+          // Keep an existing archive until its stale window actually expires.
+          shouldCache: (value) => value.length > 0,
+        });
       return vods.map((vod) => twitchVodItem(member, vod));
     }),
   );
   return normalizeWatchItems(lists.flat());
 }
 
-export async function getWatchCatalog(): Promise<WatchCatalog> {
+export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => cachedPublicData(
+  "watch-catalog:v1",
+  buildWatchCatalog,
+  {
+    freshSeconds: 20,
+    staleSeconds: 40,
+    validate: (value): value is WatchCatalog => Boolean(value && typeof value === "object"
+      && Array.isArray((value as WatchCatalog).all) && Array.isArray((value as WatchCatalog).live)
+      && (value as WatchCatalog).byMember && (value as WatchCatalog).byPlatform),
+    shouldCache: (catalog) => catalog.all.length > 0,
+  },
+));
+
+async function buildWatchCatalog(): Promise<WatchCatalog> {
   const logins = MEMBERS.map((m) => m.twitchLogin);
-  const programming = await getWatchProgrammingSnapshot().catch(() => EMPTY_WATCH_PROGRAMMING);
+  const programmingPromise = getWatchProgrammingSnapshot().catch(() => EMPTY_WATCH_PROGRAMMING);
   const [
     liveRes,
     houseFeed,
@@ -253,6 +280,7 @@ export async function getWatchCatalog(): Promise<WatchCatalog> {
     twitchUsers,
     programmingEntries,
     archivedYoutube,
+    programming,
   ] = await Promise.all([
     buildLiveResponse(logins).catch(() => ({ live: [], fetchedAt: new Date().toISOString() })),
     // Persisted Social Fetch rows are DB-only on public renders. Keep the
@@ -261,28 +289,39 @@ export async function getWatchCatalog(): Promise<WatchCatalog> {
     getCoreFeed(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT).catch(() => []),
     getHouseFeed(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT).catch(() => []),
     getPublicClips().catch(() => []),
-    fetchUsersByLogin(logins).catch(() => ({})),
-    getProgrammingFeedEntries(programming).catch(() => []),
+    cachedPublicData("twitch-directory:v1", () => fetchUsersByLogin(logins), {
+      freshSeconds: 3600,
+      staleSeconds: 86_400,
+      validate: (value): value is Awaited<ReturnType<typeof fetchUsersByLogin>> => Boolean(
+        value && typeof value === "object" && !Array.isArray(value)
+        && Object.values(value).every((user) => Boolean(user && typeof user === "object"
+          && typeof user.id === "string" && typeof user.login === "string" && typeof user.display_name === "string")),
+      ),
+      shouldCache: (value) => Object.keys(value).length > 0,
+    }).catch(() => ({})),
+    programmingPromise.then(getProgrammingFeedEntries).catch(() => []),
     // The background archive walks every page of each linked YouTube uploads
     // playlist. A missing archive database is an allowed staged state.
     loadArchivedYouTubeWatchItems().catch(() => []),
+    programmingPromise,
   ]);
   const activeTwitchLogins = new Set(
     liveRes.live
       .filter((entry) => entry.isLive)
       .map((entry) => entry.login.toLowerCase()),
   );
-  const fetchedTwitchBroadcasts = await getTwitchBroadcasts(twitchUsers, activeTwitchLogins);
-
   // One batched YouTube videos.list pass avoids treating every short watch URL
   // as long-form while keeping RSS as the zero-key fallback.
   const orderedProgrammingEntries = [...programmingEntries].sort((a, b) =>
     Number(Boolean(b.curatedItemId)) - Number(Boolean(a.curatedItemId)),
   );
-  const enriched = await enrichYouTubeItems([
-    ...houseFeed,
-    ...memberFeed,
-    ...orderedProgrammingEntries.map((entry) => entry.feed),
+  const [fetchedTwitchBroadcasts, enriched] = await Promise.all([
+    getTwitchBroadcasts(twitchUsers, activeTwitchLogins),
+    enrichYouTubeItems([
+      ...houseFeed,
+      ...memberFeed,
+      ...orderedProgrammingEntries.map((entry) => entry.feed),
+    ]),
   ]);
   const enrichedHouseFeed = enriched.slice(0, houseFeed.length);
   const enrichedMemberFeed = enriched.slice(houseFeed.length, houseFeed.length + memberFeed.length);

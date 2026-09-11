@@ -2,6 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { hasMeasuredPlaybackCompletion } from "@/lib/watch/measurement";
 
 export type WatchMark = {
   ref: string;
@@ -34,6 +35,7 @@ type Bucket = {
   guestSourceId?: string;
   guestRevision: number;
   guestPersisted: boolean;
+  measurementSessionId?: string;
 };
 
 type GuestState = {
@@ -339,11 +341,12 @@ async function load(key: string, bucket: Bucket, force = false): Promise<void> {
         headers: method === "PUT" ? { "content-type": "application/json" } : undefined,
         body:
           method === "PUT"
-            ? JSON.stringify({ sourceId: guestState!.sourceId, items: guestItems })
+            ? JSON.stringify({ accountId: key, sourceId: guestState!.sourceId, items: guestItems })
             : undefined,
       });
       if (!response.ok) throw new Error(`progress_${response.status}`);
-      const data = (await response.json()) as { items?: WatchMark[] };
+      const data = (await response.json()) as { items?: WatchMark[]; accountId?: string | null };
+      if (data.accountId !== undefined && data.accountId !== key) throw new Error("progress_account_changed");
       if (method === "PUT" && guestState) reconcileMergedGuest(guestState);
       const next: Store = {};
       for (const item of data.items ?? []) next[item.ref] = item;
@@ -441,15 +444,34 @@ export function useWatchProgress() {
   const send = useCallback(
     (body: Record<string, unknown>, keepalive = false) => {
       if (!user) return;
-      void fetch("/api/account/progress", {
+      bucket.measurementSessionId ??= createGuestSourceId();
+      const version = bucket.version;
+      const payload = JSON.stringify({ ...body, accountId: user.id, sessionId: bucket.measurementSessionId });
+      const request = () => fetch("/api/account/progress", {
         method: "POST",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body: payload,
         keepalive,
-      }).catch(() => {});
+      });
+      void (async () => {
+        let response = await request().catch(() => null);
+        // Reuse the observation timestamp when retrying. Server accounting
+        // rejects an already applied observation, including a lost response.
+        if ((!response || response.status >= 500) && !keepalive) response = await request().catch(() => null);
+        if (!response?.ok) return;
+        const result = await response.json() as { totalSeconds?: number | null; completionSource?: WatchMark["completionSource"]; completed?: boolean };
+        const ref = typeof body.ref === "string" ? body.ref : "";
+        if (bucket.version === version && ref && bucket.cache[ref] && typeof result.totalSeconds === "number") {
+          bucket.cache = { ...bucket.cache, [ref]: { ...bucket.cache[ref]!, seconds: result.totalSeconds,
+            ...(result.completionSource !== undefined ? { completionSource: result.completionSource } : {}),
+            ...(result.completed !== undefined ? { completed: result.completed } : {}),
+          } };
+          emit(bucket);
+        }
+      })().catch(() => {});
     },
-    [user],
+    [user, bucket],
   );
 
   const trackHover = useCallback(
@@ -477,6 +499,7 @@ export function useWatchProgress() {
       positionSeconds?: number,
       durationSeconds?: number,
       platform?: string,
+      playbackRate = 1,
     ) => {
       if (!ref) return;
       if (accountKey === "__guest__") synchronizeGuest(bucket);
@@ -488,7 +511,8 @@ export function useWatchProgress() {
           ? Math.min(1, positionSeconds / durationSeconds)
           : previous.progress);
       const nextProgress = Math.max(previous.progress, measured);
-      const completed = nextProgress >= 0.9 || previous.completed;
+      const observedComplete = hasMeasuredPlaybackCompletion(positionSeconds ?? null, durationSeconds ?? 0, previous.seconds + Math.max(0, seconds), playbackRate);
+      const completed = observedComplete || previous.completed;
       mark(ref, {
         kind,
         subject,
@@ -498,7 +522,7 @@ export function useWatchProgress() {
         durationSeconds: Math.max(0, durationSeconds ?? previous.durationSeconds),
         positionUpdatedAt: positionSeconds == null ? previous.positionUpdatedAt : observedAt,
         completed,
-        completionSource: nextProgress >= 0.9 ? "playback" : previous.completionSource,
+        completionSource: observedComplete ? "playback" : previous.completionSource,
       });
       send({
         ref,
@@ -506,10 +530,11 @@ export function useWatchProgress() {
         subject: subject ?? null,
         event: "tick",
         seconds,
-        progress: nextProgress,
+        progress: measured,
         positionSeconds,
         durationSeconds,
         platform,
+        playbackRate,
         observedAt,
       });
     },
@@ -525,6 +550,8 @@ export function useWatchProgress() {
       positionSeconds?: number,
       durationSeconds?: number,
       platform?: string,
+      elapsedPlayingSeconds = 0,
+      playbackRate = 1,
     ) => {
       if (!ref) return;
       if (accountKey === "__guest__") synchronizeGuest(bucket);
@@ -541,15 +568,17 @@ export function useWatchProgress() {
       const measured =
         progress ?? (duration > 0 ? Math.min(1, position / duration) : previous.progress);
       const nextProgress = Math.max(previous.progress, measured);
+      const observedComplete = hasMeasuredPlaybackCompletion(positionSeconds ?? null, duration, previous.seconds + Math.max(0, elapsedPlayingSeconds), playbackRate);
       mark(ref, {
         kind,
         subject,
+        seconds: previous.seconds + Math.max(0, Math.floor(elapsedPlayingSeconds)),
         progress: nextProgress,
         positionSeconds: position,
         durationSeconds: Math.max(previous.durationSeconds, duration),
         positionUpdatedAt: observedAt,
-        completed: previous.completed || nextProgress >= 0.9,
-        completionSource: nextProgress >= 0.9 ? "playback" : previous.completionSource,
+        completed: previous.completed || observedComplete,
+        completionSource: observedComplete ? "playback" : previous.completionSource,
       });
       send(
         {
@@ -557,11 +586,12 @@ export function useWatchProgress() {
           kind,
           subject: subject ?? null,
           event: "tick",
-          seconds: 0,
-          progress: nextProgress,
+          seconds: Math.max(0, Math.min(30, elapsedPlayingSeconds)),
+          progress: measured,
           positionSeconds: position,
           durationSeconds: duration,
           platform,
+          playbackRate,
           observedAt,
         },
         true,
@@ -592,7 +622,7 @@ export function useWatchProgress() {
         durationSeconds: duration,
         positionUpdatedAt: observedAt,
         completed: true,
-        completionSource: "playback",
+        completionSource: hasMeasuredPlaybackCompletion(positionSeconds ?? null, duration, previous.seconds) ? "playback" : previous.completionSource,
       });
       send({
         ref,

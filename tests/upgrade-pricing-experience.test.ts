@@ -24,7 +24,9 @@ test("settings and membership use the same accessible account header", () => {
   assert.match(source, /<AccountPageHeader/);
   assert.match(settings, /<AccountPageHeader/);
   assert.match(header, /aria-current=\{active === key \? "page" : undefined\}/);
-  assert.match(header, /Membership & billing/);
+  assert.match(header, /\["membership", "\/account\/settings\/billing", "Billing"\]/);
+  assert.match(header, /\["settings", "\/account\/settings", "Account settings"\]/);
+  assert.match(header, /\["upgrade", "\/upgrade", "Support the site"\]/);
   assert.match(settings, /var\(--site-header-h/);
   assert.match(settings, /grid grid-cols-1 items-start/);
   assert.match(settings, /<aside className="min-w-0/);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accountRequestMatches, ACCOUNT_CHANGED_MESSAGE } from "@/lib/account-request";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { query } from "@/lib/db";
 import { buildLoyaltyCard, listLoyalty, siteWatchStats } from "@/lib/oauth/loyalty";
@@ -8,9 +9,10 @@ import { validatePublicHandle } from "@/lib/public-handle";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   const uid = await getCurrentFanUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!accountRequestMatches(req, uid)) return NextResponse.json({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
   const [facts, connections, user, watch] = await Promise.all([
     listLoyalty(uid),
     listConnections(uid),
@@ -23,6 +25,7 @@ export async function GET() {
   const row = user.rows[0];
   const card = buildLoyaltyCard(facts, row?.favorite_member ?? null, watch);
   return NextResponse.json({
+    accountId: uid,
     card,
     connections,
     publicCard: Boolean(row?.public_card),
@@ -34,6 +37,7 @@ export async function GET() {
 export async function PATCH(req: Request) {
   const uid = await getCurrentFanUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!accountRequestMatches(req, uid)) return NextResponse.json({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
   let body: { favoriteMember?: string | null; publicCard?: boolean; publicSlug?: string | null };
   try {
     body = (await req.json()) as typeof body;
@@ -65,5 +69,5 @@ export async function PATCH(req: Request) {
       slug === undefined ? null : slug,
     ],
   );
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, accountId: uid });
 }

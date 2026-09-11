@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accountRequestMatches, ACCOUNT_CHANGED_MESSAGE } from "@/lib/account-request";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { PassportError } from "@/lib/passport/policy";
 import { getSettledPassportDashboard } from "@/lib/passport/store";
@@ -7,9 +8,10 @@ import { handlePassportAction } from "@/app/api/account/passport/handler";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await getCurrentFanUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!accountRequestMatches(req, userId)) return NextResponse.json({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
   try {
     const response = NextResponse.json(await getSettledPassportDashboard(userId));
     response.headers.set("Cache-Control", "private, no-store");

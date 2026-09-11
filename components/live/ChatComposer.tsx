@@ -411,7 +411,7 @@ export function ChatComposer({
           ? "Reconnect once to approve live-chat sending."
           : "Connect Twitch once to chat without leaving the hub."}
         actionLabel={reconnect ? "Reconnect Twitch" : "Connect Twitch"}
-        actionHref="/account#connected-accounts"
+        actionHref="/account/settings#connections"
       />
     );
   }
@@ -646,7 +646,7 @@ export function ChatComposer({
             {emoteReconnectRequired ? (
               <div className="border-b border-secondary bg-brand-primary px-3 py-2 text-xs text-secondary">
                 Reconnect Twitch once to add your subscriber and personal emotes. 7TV and BetterTTV stay available.{" "}
-                <a href="/account#connected-accounts" className="font-semibold text-brand-secondary hover:underline">
+                <a href="/account/settings#connections" className="font-semibold text-brand-secondary hover:underline">
                   Reconnect
                 </a>
               </div>

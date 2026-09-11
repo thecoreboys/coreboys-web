@@ -9,13 +9,14 @@ const guide = readFileSync(resolve(root, "components/watch/GuideGrid.tsx"), "utf
 const theater = readFileSync(resolve(root, "components/watch/TheaterStage.tsx"), "utf8");
 const css = readFileSync(resolve(root, "app/watch/watch.css"), "utf8");
 
-test("Theater Twitch live playback uses CORE controls and shields the provider surface", () => {
+test("Theater Twitch keeps native playback interactive with CORE controls outside the frame", () => {
   assert.match(player, /isCoreControlledTwitchLivePlayback\(current/);
-  assert.match(player, /customControls=\{coreTwitchLiveControls\}/);
+  assert.match(player, /const cleanTwitchFrame = playerScreen && twitchInteractive/);
   assert.match(player, /twitchStartRequired/);
   assert.match(player, /Use CORE Play to continue/);
-  assert.match(player, /data-core-twitch-interaction-shield/);
-  assert.match(player, /data-core-twitch-native-controls-cover/);
+  assert.doesNotMatch(player, /data-core-twitch-interaction-shield/);
+  assert.doesNotMatch(player, /data-core-twitch-native-controls-cover/);
+  assert.doesNotMatch(player, /iframe\.style\.pointerEvents = "none"/);
 });
 
 test("Twitch muted autoplay keeps recovering after provider pauses without a retry cutoff", () => {
@@ -36,6 +37,17 @@ test("the live timeline starts at 100 percent and switches into the growing arch
   assert.match(player, /className={`watch-player-go-live/);
   assert.match(css, /\.watch-player-live-track > span::after/);
   assert.match(css, /\.watch-player-go-live:hover/);
+});
+
+test("the external Twitch control rail preserves live rewind and return to live", () => {
+  const rail = player.slice(player.indexOf('<div className="watch-twitch-control-rail"'), player.indexOf('aria-label="CORE playback controls"') + 16000);
+  assert.match(rail, /data-external-twitch-timeline/);
+  assert.match(rail, /value=\{liveDvrPreviewPosition\}/);
+  assert.match(rail, /max=\{liveDvrWindowDuration\}/);
+  assert.match(rail, /onPointerUp=\{\(event\) => startTwitchDvrAt\(Number\(event\.currentTarget\.value\)\)\}/);
+  assert.match(rail, /onKeyUp=\{/);
+  assert.match(rail, /onClick=\{returnToTwitchLive\}/);
+  assert.match(rail, /aria-label="Go to the live edge"/);
 });
 
 test("Guide runtime live refreshes preserve catalog DVR metadata", () => {

@@ -12,6 +12,8 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { loadTwitchPlayer } from "@/lib/watch/twitch-player";
+import { advancingTwitchPlayback, createTwitchLivePlaybackClock, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import {
   Archive,
   ArrowLeft,
@@ -64,6 +66,8 @@ import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { useBrowserTimeZone, type BrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import {
   youtubeCaptionCommands,
+  listenToYouTube,
+  youtubePlaybackSample,
   type YouTubePlayerCommand,
 } from "@/lib/watch/youtube-player";
 import {
@@ -121,6 +125,7 @@ type TwitchInstance = {
   getQuality?: () => string;
   setQuality?: (quality: string) => void;
   isPaused?: () => boolean;
+  getPlaybackStats?: () => { fps?: number; playbackRate?: number; bufferSize?: number };
   play?: () => void;
   pause?: () => void;
   destroy?: () => void;
@@ -166,40 +171,8 @@ type TwitchApi = {
   };
 };
 
-let twitchScript: Promise<TwitchApi> | null = null;
-
 function loadTwitch(): Promise<TwitchApi> {
-  if (twitchScript) return twitchScript;
-  const pending = new Promise<TwitchApi>((resolve, reject) => {
-    const known = (window as typeof window & { Twitch?: TwitchApi }).Twitch;
-    if (known?.Player) {
-      resolve(known);
-      return;
-    }
-    const existing = document.querySelector<HTMLScriptElement>('script[src="https://player.twitch.tv/js/embed/v1.js"]');
-    const script = existing ?? document.createElement("script");
-    const fail = (message: string) => {
-      script.remove();
-      reject(new Error(message));
-    };
-    const done = () => {
-      const api = (window as typeof window & { Twitch?: TwitchApi }).Twitch;
-      if (api?.Player) resolve(api);
-      else fail("twitch_player_unavailable");
-    };
-    script.addEventListener("load", done, { once: true });
-    script.addEventListener("error", () => fail("twitch_script_failed"), { once: true });
-    if (!existing) {
-      script.src = "https://player.twitch.tv/js/embed/v1.js";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  });
-  twitchScript = pending;
-  void pending.catch(() => {
-    if (twitchScript === pending) twitchScript = null;
-  });
-  return pending;
+  return loadTwitchPlayer();
 }
 
 function TwitchMedia({
@@ -214,7 +187,6 @@ function TwitchMedia({
   resumeAt,
   resumeOwner,
   startMuted = false,
-  customControls = false,
 }: {
   item: Playable;
   onEnded: () => void;
@@ -227,7 +199,6 @@ function TwitchMedia({
   resumeAt: number;
   resumeOwner: string;
   startMuted?: boolean;
-  customControls?: boolean;
 }) {
   const reactId = useId();
   const id = `core-twitch-${reactId.replace(/[^a-z0-9_-]/gi, "")}`;
@@ -235,10 +206,8 @@ function TwitchMedia({
   const resumeRef = useRef({ resumeAt, resumeOwner });
   const instanceRef = useRef<TwitchInstance | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const interactionModeRef = useRef({ customControls });
   const resumedOwnerRef = useRef("");
   const readyRef = useRef(false);
-  interactionModeRef.current = { customControls };
   handlersRef.current = { onEnded, onPlaying, onPaused, onProgress, onError, onStartRequired, onReady };
   resumeRef.current = { resumeAt, resumeOwner };
 
@@ -247,17 +216,8 @@ function TwitchMedia({
     if (!iframe) return;
     iframe.setAttribute("allow", withTwitchAutoplayPermissions(iframe.getAttribute("allow")));
     iframe.setAttribute("allowfullscreen", "");
-    const { customControls: ownsControls } = interactionModeRef.current;
-    // CORE owns the interactive surface for full-screen Twitch playback. A
-    // provider-level Play card can otherwise sit above our controls, swallow
-    // its click, and leave viewers unable to start the stream themselves.
-    const inert = ownsControls;
-    if (inert) {
-      iframe.tabIndex = -1;
-      iframe.setAttribute("aria-hidden", "true");
-      iframe.style.pointerEvents = "none";
-      return;
-    }
+    // Twitch checks that its own surface remains visible and interactive.
+    // Keep native controls usable; CORE's actions sit outside this frame.
     iframe.tabIndex = 0;
     iframe.removeAttribute("aria-hidden");
     iframe.style.pointerEvents = "auto";
@@ -265,7 +225,7 @@ function TwitchMedia({
 
   useEffect(() => {
     syncProviderInteraction();
-  }, [customControls, syncProviderInteraction]);
+  }, [syncProviderInteraction]);
 
   useEffect(() => {
     let disposed = false;
@@ -278,6 +238,19 @@ function TwitchMedia({
     let pauseHealthTimer = 0;
     let manualPause = false;
     let lastObservedPosition = -1;
+    let providerPlaying = false;
+    let inView = false;
+    const liveClock = createTwitchLivePlaybackClock();
+    const live = item.kind === "live" && Boolean(item.twitchLogin);
+    const clearHiddenObservation = () => {
+      if (!inView || document.visibilityState !== "visible") liveClock.sample(performance.now(), false);
+    };
+    const visibilityObserver = new IntersectionObserver((entries) => {
+      inView = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
+      clearHiddenObservation();
+    }, { threshold: [0, 0.5] });
+    if (mountRef.current) visibilityObserver.observe(mountRef.current);
+    document.addEventListener("visibilitychange", clearHiddenObservation);
     const autoplayTimers: number[] = [];
     void loadTwitch()
       .then((api) => {
@@ -398,7 +371,7 @@ function TwitchMedia({
           }
         });
         instance.addEventListener(api.Player.PLAYING, () => {
-          markPlaybackStarted();
+          providerPlaying = true;
           window.clearTimeout(pauseHealthTimer);
           pauseHealthTimer = window.setTimeout(() => {
             try {
@@ -409,11 +382,17 @@ function TwitchMedia({
           }, 900);
         });
         if (api.Player.PAUSE) {
-          instance.addEventListener(api.Player.PAUSE, handleProviderPause);
+          instance.addEventListener(api.Player.PAUSE, () => {
+            providerPlaying = false;
+            liveClock.sample(performance.now(), false);
+            handleProviderPause();
+          });
         }
         instance.addEventListener(api.Player.ENDED, () => handlersRef.current.onEnded());
         instance.addEventListener(api.Player.OFFLINE, () => handlersRef.current.onEnded());
         instance.addEventListener(api.Player.PLAYBACK_BLOCKED, () => {
+          providerPlaying = false;
+          liveClock.sample(performance.now(), false);
           if (startMuted) {
             // Twitch can emit this before READY has fully settled. Keep
             // retrying muted playback; an audible retry would be blocked by
@@ -431,21 +410,18 @@ function TwitchMedia({
         interval = window.setInterval(() => {
           if (!instance) return;
           try {
-            const position = instance.getCurrentTime();
-            handlersRef.current.onProgress(position, instance.getDuration());
-            const positionAdvanced = lastObservedPosition >= 0 && position > lastObservedPosition + 0.25;
+            const paused = instance.isPaused?.();
+            const livePlaying = live && observedTwitchLivePlayback(providerPlaying, paused, instance.getPlaybackStats?.());
+            const position = live
+              ? liveClock.sample(performance.now(), Boolean(livePlaying && inView && document.visibilityState === "visible"))
+              : instance.getCurrentTime();
+            handlersRef.current.onProgress(position, live ? 0 : instance.getDuration());
+            const positionAdvanced = live ? livePlaying : advancingTwitchPlayback(lastObservedPosition, position, paused);
             lastObservedPosition = position;
             if (positionAdvanced && !playbackStarted) markPlaybackStarted();
 
             if (!startMuted || !readyRef.current || manualPause) return;
-            const paused = instance.isPaused?.();
-            if (paused === false) {
-              // Twitch occasionally misses PLAYING while an ad or quality
-              // handoff is settling. The SDK's live paused state (or advancing
-              // clock above) is enough to keep CORE's controls in sync.
-              markPlaybackStarted();
-              return;
-            }
+            if (positionAdvanced) return;
             if (paused === true && playbackStarted) {
               handleProviderPause();
               return;
@@ -466,6 +442,8 @@ function TwitchMedia({
       handlersRef.current.onReady(null);
       readyRef.current = false;
       observer?.disconnect();
+      visibilityObserver.disconnect();
+      document.removeEventListener("visibilitychange", clearHiddenObservation);
       window.clearInterval(interval);
       window.clearTimeout(startRequiredTimer);
       window.clearTimeout(readyFallbackTimer);
@@ -478,7 +456,7 @@ function TwitchMedia({
         // Twitch owns its iframe lifecycle.
       }
     };
-  }, [customControls, id, item.key, item.kind, item.twitchLogin, item.vodId, startMuted, syncProviderInteraction]);
+  }, [id, item.key, item.kind, item.twitchLogin, item.vodId, startMuted, syncProviderInteraction]);
 
   useEffect(() => {
     if (!resumeOwner || resumedOwnerRef.current === resumeOwner) return;
@@ -496,8 +474,8 @@ function TwitchMedia({
     <div
       ref={mountRef}
       id={id}
-      aria-hidden={customControls ? true : undefined}
-      className={`absolute inset-0 h-full w-full ${customControls ? "pointer-events-none" : ""}`}
+      data-cursor-native
+      className="absolute inset-0 h-full w-full"
     />
   );
 }
@@ -850,6 +828,7 @@ export function PersistentPlayer() {
   const [uiPosition, setUiPosition] = useState(0);
   const [uiDuration, setUiDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [frameReadyToken, setFrameReadyToken] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [twitchDvrActive, setTwitchDvrActive] = useState(false);
   const [twitchDvrStartSeconds, setTwitchDvrStartSeconds] = useState(0);
@@ -892,6 +871,7 @@ export function PersistentPlayer() {
   const positionRef = useRef(0);
   const durationRef = useRef(0);
   const playingRef = useRef(false);
+  const measurementStartedAtRef = useRef<number | null>(null);
   const endingRef = useRef(false);
   const resumeOwnerRef = useRef("");
   const seenLiveRef = useRef<Set<string> | null>(null);
@@ -1478,22 +1458,41 @@ export function PersistentPlayer() {
   }, [accountKey, activeMark, current, hasActiveResumeState, progressReady, seekRequest]);
 
   useEffect(() => {
-    if (!current) return;
+    if (!current || usesVisibleTimeProxy(current) || current.format === "photo") return;
     const reference = progressRef(current);
     const interval = window.setInterval(() => {
       if (!playingRef.current) return;
-      if (usesVisibleTimeProxy(current) && document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible") return;
       const duration = durationRef.current;
       const position = positionRef.current;
       const progress =
         current.kind === "live" || duration <= 0 ? 0 : Math.min(0.99, Math.max(0, position / duration));
-      trackTick(reference, current.kind, current.memberSlug, 15, progress, position, duration, current.platform);
+      trackTick(reference, current.kind, current.memberSlug, 15, progress, position, duration, current.platform,
+        current.youtubeId || videoRef.current ? playbackRate : 1);
+      measurementStartedAtRef.current = performance.now();
     }, 15_000);
     return () => window.clearInterval(interval);
-  }, [current, trackTick]);
+  }, [current, playbackRate, trackTick]);
+
+  useEffect(() => {
+    if (!current || !isPlaying || usesVisibleTimeProxy(current) || current.format === "photo") return;
+    const beginObservation = () => {
+      if (document.visibilityState !== "visible") return;
+      // Establish a playhead at each play/resume and visible-tab transition.
+      measurementStartedAtRef.current = performance.now();
+      trackTick(progressRef(current), current.kind, current.memberSlug, 0, undefined,
+        positionRef.current, durationRef.current, current.platform, current.youtubeId || videoRef.current ? playbackRate : 1);
+    };
+    beginObservation();
+    document.addEventListener("visibilitychange", beginObservation);
+    return () => document.removeEventListener("visibilitychange", beginObservation);
+  }, [current, isPlaying, playbackRate, trackTick]);
 
   const checkpointCurrent = useCallback(() => {
-    if (!current || !progressReady) return;
+    if (!current || !progressReady || usesVisibleTimeProxy(current) || current.format === "photo") return;
+    const startedAt = measurementStartedAtRef.current;
+    measurementStartedAtRef.current = null;
+    const elapsedPlaying = startedAt === null ? 0 : Math.max(0, Math.min(30, (performance.now() - startedAt) / 1_000));
     const duration = durationRef.current;
     const position = positionRef.current;
     const progress =
@@ -1508,8 +1507,10 @@ export function PersistentPlayer() {
       position,
       duration,
       current.platform,
+      elapsedPlaying,
+      current.youtubeId || videoRef.current ? playbackRate : 1,
     );
-  }, [checkpoint, current, progressReady]);
+  }, [checkpoint, current, playbackRate, progressReady]);
 
   // Save the exact resume point even when a viewer leaves before the regular
   // 15-second tick. `keepalive` in checkpoint also lets pagehide finish it.
@@ -1538,7 +1539,8 @@ export function PersistentPlayer() {
     endingRef.current = true;
     playingRef.current = false;
     setIsPlaying(false);
-      if (reason !== "error" && current.kind !== "live") {
+      checkpointCurrent();
+      if (reason !== "error" && current.kind !== "live" && !usesVisibleTimeProxy(current) && current.format !== "photo") {
         markComplete(
           progressRef(current),
           current.kind,
@@ -1561,7 +1563,7 @@ export function PersistentPlayer() {
       }
       setCountdown(delay);
     },
-    [autoplay, current, markComplete, navigateShortForm, nextUp, skip],
+    [autoplay, checkpointCurrent, current, markComplete, navigateShortForm, nextUp, skip],
   );
 
   useEffect(() => {
@@ -1893,10 +1895,7 @@ export function PersistentPlayer() {
         originHost === "www.youtube-nocookie.com" ||
         originHost === "youtube-nocookie.com";
       if (current.youtubeId && fromYouTube) {
-        const info = message.info;
       if (message.event === "onReady") {
-        playingRef.current = false;
-        setIsPlaying(false);
         postYouTubePlayerCommands(source, youtubeCaptionCommands(captionsEnabled));
         if (autoStartMuted) {
           source.postMessage(
@@ -1923,8 +1922,8 @@ export function PersistentPlayer() {
             youtubeCaptionCommands(captionsEnabled, { moduleReady: true }),
           );
         }
-        if (message.event === "infoDelivery" && info && typeof info === "object") {
-          const details = info as Record<string, unknown>;
+        const details = youtubePlaybackSample(message);
+        if (details) {
           if (typeof details.currentTime === "number") {
             positionRef.current = details.currentTime;
             setUiPosition(details.currentTime);
@@ -1937,10 +1936,10 @@ export function PersistentPlayer() {
             playingRef.current = true;
             setIsPlaying(true);
           }
-          if (details.playerState === 2 && playingRef.current) {
+          if (details.playerState === 2 || details.playerState === 3 || details.playerState === -1 || details.playerState === 5) {
+            if (playingRef.current) checkpointCurrent();
             playingRef.current = false;
             setIsPlaying(false);
-            checkpointCurrent();
           }
           if (details.playerState === 0) {
             setIsPlaying(false);
@@ -1951,10 +1950,7 @@ export function PersistentPlayer() {
             youtubeVolumeRef.current = Math.min(1, Math.max(0, details.volume / 100));
           }
         }
-        if (message.event === "onStateChange" && info === 0) {
-          setIsPlaying(false);
-          finish();
-        }
+        if (message.event === "onError") setPlaybackError(true);
       }
       if (
         current.platform === "tiktok" &&
@@ -2017,7 +2013,8 @@ export function PersistentPlayer() {
   useEffect(() => {
     if (!current?.youtubeId) return;
     const notify = () => {
-      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: 1 }), "*");
+      const source = iframeRef.current?.contentWindow;
+      if (source) listenToYouTube(source, "core-persistent-player");
     };
     const requestAutoplay = () => {
       if (!autoStartMuted) return;
@@ -2026,17 +2023,16 @@ export function PersistentPlayer() {
         "*",
       );
     };
-    const early = window.setTimeout(notify, 400);
-    const later = window.setTimeout(notify, 1_200);
+    notify();
+    const listening = [200, 600, 1_500, 3_000, 6_000, 10_000].map((delay) => window.setTimeout(notify, delay));
     const playEarly = window.setTimeout(requestAutoplay, 250);
     const playLater = window.setTimeout(requestAutoplay, 900);
     return () => {
-      window.clearTimeout(early);
-      window.clearTimeout(later);
+      listening.forEach(window.clearTimeout);
       window.clearTimeout(playEarly);
       window.clearTimeout(playLater);
     };
-  }, [autoStartMuted, current?.key, current?.youtubeId]);
+  }, [autoStartMuted, current?.key, current?.youtubeId, frameReadyToken]);
 
   useEffect(() => {
     if (!current || current.platform !== "tiktok" || !autoStartMuted) return;
@@ -2498,6 +2494,11 @@ export function PersistentPlayer() {
       setIsMuted((value) => !value);
       return;
     }
+    if (current?.platform === "tiktok") {
+      iframeRef.current?.contentWindow?.postMessage({ "x-tiktok-player": true, type: isMuted ? "unMute" : "mute" }, "*");
+      setIsMuted((value) => !value);
+      return;
+    }
     const twitch = twitchPlayerRef.current;
     if (!twitch?.setMuted) return;
     try {
@@ -2506,7 +2507,7 @@ export function PersistentPlayer() {
     } catch {
       // Keep the last provider-confirmed state.
     }
-  }, [current?.youtubeId, isMuted, sendYoutubeCommand]);
+  }, [current?.platform, current?.youtubeId, isMuted, sendYoutubeCommand]);
 
   const revealTouchControls = useCallback(() => {
     setTouchControlsVisible(true);
@@ -2691,10 +2692,6 @@ export function PersistentPlayer() {
     playerScreen,
     guideLivePlayback,
   });
-  const twitchAutoplayWarmup = coreTwitchLiveControls
-    && !isPlaying
-    && !twitchStartRequired
-    && !playbackError;
   const coreTwitchAtLiveEdge = coreTwitchLiveControls && !twitchDvrActive;
   const liveDvrPreviewPosition = clampLiveDvrPosition(
     liveDvrPreviewSeconds,
@@ -2716,8 +2713,7 @@ export function PersistentPlayer() {
       && (activeAiring.status === "replay" || activeAiring.status === "published")
       && current.kind !== "live",
   );
-  const cleanTwitchFrame = playerScreen && twitchInteractive
-    && (!coreTwitchLiveControls || twitchAutoplayWarmup);
+  const cleanTwitchFrame = playerScreen && twitchInteractive;
   const modalTheater = theater && !playerPage;
   const ambientMember = MEMBERS.find((member) => (
     member.slug === current.memberSlug
@@ -3026,6 +3022,7 @@ export function PersistentPlayer() {
                   contextMenu.open(event, { type: "content", item: currentContextItem });
                 }}
                 data-twitch-native-player={cleanTwitchFrame ? true : undefined}
+                data-cursor-native={twitchInteractive ? true : undefined}
                 data-core-twitch-controls={coreTwitchLiveControls ? true : undefined}
                 className={
                   cleanTwitchFrame
@@ -3161,8 +3158,6 @@ export function PersistentPlayer() {
                       : ""
                   }
                   startMuted={autoStartMuted || Boolean(activeTwitchArchiveId)}
-                  customControls={/* customControls={coreTwitchLiveControls} is
-                      enabled after the Twitch surface warms. */ coreTwitchLiveControls && !twitchAutoplayWarmup}
                 />
               ) : nativeMedia ? (
                 <video
@@ -3241,6 +3236,7 @@ export function PersistentPlayer() {
                   allowFullScreen
                   referrerPolicy="origin"
                   onLoad={() => {
+                    setFrameReadyToken((token) => token + 1);
                     // Loading an Instagram document does not prove its Reel is
                     // playing; it may still be showing provider UI. Keep that
                     // opaque transport state unknown.
@@ -3293,6 +3289,7 @@ export function PersistentPlayer() {
                         referrerPolicy="origin"
                         onLoad={() => {
                           if (!active) return;
+                          setFrameReadyToken((token) => token + 1);
                           // Instagram does not expose a supported player event
                           // API, so iframe readiness is only visual readiness.
                           setPlaybackError(false);
@@ -3336,20 +3333,6 @@ export function PersistentPlayer() {
                   aria-label={isPlaying ? "Pause video" : "Play video"}
                   aria-pressed={isPlaying}
                   className="absolute inset-0 z-[12] cursor-pointer border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/85"
-                />
-              ) : coreTwitchLiveControls && !twitchAutoplayWarmup ? (
-                <div
-                  data-core-twitch-interaction-shield
-                  aria-hidden="true"
-                  className="absolute inset-0 z-[12] cursor-default"
-                  onDoubleClick={() => void toggleFullscreen()}
-                />
-              ) : null}
-              {coreTwitchLiveControls && !twitchAutoplayWarmup ? (
-                <div
-                  data-core-twitch-native-controls-cover
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 bottom-0 z-[18] h-[5.5rem] bg-gradient-to-t from-black via-black/95 to-transparent"
                 />
               ) : null}
               {shortFormTheaterNavigation && shortFormNavigation ? (
@@ -3659,17 +3642,17 @@ export function PersistentPlayer() {
                     description="Keep this playing while you choose another title, Twitch stream, or YouTube video."
                     placement="top"
                   >
-                    <button
-                      type="button"
+                    <Link
+                      href="/multiview?picker=1"
                       onClick={() => {
-                        beginCinematicTransition("/multiview?picker=1");
-                        router.push("/multiview?picker=1" as never);
+                        checkpointCurrent();
+                        minimize();
                       }}
                       className={CONTROL_FEEDBACK}
                       aria-label="Add another view"
                     >
                       <LayoutGrid aria-hidden />
-                    </button>
+                    </Link>
                   </Tooltip>
                 ) : null}
                 {playerScreen ? (
@@ -3903,7 +3886,30 @@ export function PersistentPlayer() {
                     {isMuted ? <VolumeX aria-hidden /> : <Volume2 aria-hidden />}
                   </button>
                 </Tooltip>
-                {canScrub ? (
+                {coreTwitchAtLiveEdge ? (
+                  <div className="watch-twitch-control-scrubber" data-external-twitch-timeline style={{ ["--watch-scrubber-progress" as string]: `${liveDvrPreviewProgress}%` }}>
+                    <span>{twitchLiveDvrAvailable ? `−${playbackClock(liveDvrPreviewBehind)}` : "Now"}</span>
+                    {twitchLiveDvrAvailable ? (
+                      <input
+                        type="range"
+                        min={0}
+                        max={liveDvrWindowDuration}
+                        step={1}
+                        value={liveDvrPreviewPosition}
+                        onChange={(event) => setLiveDvrPreviewSeconds(Number(event.currentTarget.value))}
+                        onPointerUp={(event) => startTwitchDvrAt(Number(event.currentTarget.value))}
+                        onKeyUp={(event) => {
+                          if (["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"].includes(event.key)) {
+                            startTwitchDvrAt(Number(event.currentTarget.value));
+                          }
+                        }}
+                        aria-label={`Rewind ${current.title}`}
+                        aria-valuetext={liveDvrPreviewBehind <= 1 ? "At the live edge" : `${playbackClock(liveDvrPreviewBehind)} behind live`}
+                      />
+                    ) : <div className="watch-player-live-track" role="status" aria-label="Live playback is at the live edge"><span /></div>}
+                    <span className="watch-player-live-badge"><i aria-hidden />Live</span>
+                  </div>
+                ) : canScrub ? (
                   <div className="watch-twitch-control-scrubber" style={{ ["--watch-scrubber-progress" as string]: `${scrubberProgress}%` }}>
                     <span>{playbackClock(scrubberPosition)}</span>
                     <input
@@ -3916,7 +3922,11 @@ export function PersistentPlayer() {
                       aria-label={`Seek through ${current.title}`}
                       aria-valuetext={`${playbackClock(scrubberPosition)} of ${playbackClock(scrubberDuration)}`}
                     />
-                    <span>{playbackClock(scrubberDuration)}</span>
+                    {twitchDvrActive ? (
+                      <button type="button" className={`watch-player-go-live ${CONTROL_FEEDBACK}`} onClick={returnToTwitchLive} aria-label="Go to the live edge">
+                        <i aria-hidden />Go live
+                      </button>
+                    ) : <span>{playbackClock(scrubberDuration)}</span>}
                   </div>
                 ) : <span className="watch-player-controls-spacer" />}
                 <div className="watch-twitch-quality">
@@ -3945,12 +3955,12 @@ export function PersistentPlayer() {
                     description="Keep this playing while you choose another title, Twitch stream, or YouTube video."
                     placement="top"
                   >
-                    <button type="button" onClick={() => {
-                      beginCinematicTransition("/multiview?picker=1");
-                      router.push("/multiview?picker=1" as never);
+                    <Link href="/multiview?picker=1" onClick={() => {
+                      checkpointCurrent();
+                      minimize();
                     }} aria-label="Add another view">
                       <LayoutGrid aria-hidden />
-                    </button>
+                    </Link>
                   </Tooltip>
                 ) : null}
                 <Tooltip

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accountRequestMatches } from "@/lib/account-request";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import {
   isOauthProvider,
@@ -28,11 +29,14 @@ export async function GET(
   const uid = await getCurrentFanUserId();
   if (!uid) {
     const login = new URL("/login", req.url);
-    login.searchParams.set("next", "/account");
+    login.searchParams.set("next", "/account/settings#connections");
     return NextResponse.redirect(login);
   }
+  if (!accountRequestMatches(req, uid)) {
+    return NextResponse.redirect(new URL("/account/settings?oauth=account-changed#connections", req.url));
+  }
   if (!providerConfigured(provider)) {
-    const back = new URL("/account", req.url);
+    const back = new URL("/account/settings#connections", req.url);
     back.searchParams.set("oauth", "unconfigured");
     back.searchParams.set("provider", provider);
     return NextResponse.redirect(back);
@@ -40,7 +44,7 @@ export async function GET(
 
   const interactionStepUp = provider === "x" && new URL(req.url).searchParams.get("intent") === "interact";
   if (interactionStepUp && !xNativeActionsEnvironment().enabled) {
-    const back = new URL("/account", req.url);
+    const back = new URL("/account/settings#connections", req.url);
     back.searchParams.set("oauth", "x-actions-disabled");
     return NextResponse.redirect(back);
   }
