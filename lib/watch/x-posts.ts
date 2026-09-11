@@ -172,9 +172,9 @@ function safePortrait(value: string): string {
     const host = url.hostname.toLowerCase();
     return url.protocol === "https:" && (host === "twimg.com" || host.endsWith(".twimg.com"))
       ? url.toString()
-      : "/embed-preview.png";
+      : "";
   } catch {
-    return "/embed-preview.png";
+    return "";
   }
 }
 

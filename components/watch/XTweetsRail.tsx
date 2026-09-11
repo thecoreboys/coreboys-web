@@ -3,6 +3,7 @@
 import { ExternalLink, Link2, MessageCircle, Mic2, Play, Radio } from "lucide-react";
 import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { PlatformLogo } from "@/components/clips/PlatformLogo";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { BrowserRelativeTime } from "@/components/ui/BrowserDateTime";
 import { useSeenXPost } from "@/components/x/useSeenXPost";
 import type { WatchHomeXPost, WatchHomeXSpace } from "@/lib/watch/x-posts";
@@ -26,6 +27,17 @@ type LinkPreview = {
   imageUrl?: string;
   kind: "youtube" | "link";
 };
+
+function linkLabel(entity: WatchHomeXPost["entities"][number]): string {
+  if (entity.label?.trim()) return entity.label.trim();
+  try {
+    const url = new URL(entity.href);
+    const path = url.pathname.split("/").filter(Boolean)[0];
+    return path ? `${url.hostname.replace(/^www\./, "")}/${path}` : url.hostname.replace(/^www\./, "");
+  } catch {
+    return "Open shared link";
+  }
+}
 
 function previewTitleFromUrl(url: URL): string {
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
@@ -130,8 +142,20 @@ function XPostText({
       hasVisibleCopy ||= Boolean(copy.trim());
     }
     if (entity.kind === "url") {
-      // The rich attachment underneath is easier to scan than a raw t.co
-      // address. Keep the surrounding copy and render the destination below.
+      // Entity hrefs are already expanded upstream. Show a concise destination
+      // in the post as well as its rich preview; never leave raw t.co text as
+      // the only visible representation of a shared link.
+      content.push(
+        <a
+          key={`${entity.start}:${entity.end}:${index}`}
+          href={entity.href}
+          target="_blank"
+          rel={EXTERNAL_REL}
+        >
+          {linkLabel(entity)}
+        </a>,
+      );
+      hasVisibleCopy = true;
       cursor = entity.end;
       continue;
     }
@@ -277,7 +301,7 @@ function XQuotePreview({
   );
 }
 
-function XPostCard({ post }: { post: WatchHomeXPost }) {
+function XPostCard({ post, onOpen }: { post: WatchHomeXPost; onOpen?: (post: WatchHomeXPost) => void }) {
   const { rootRef, isNew } = useSeenXPost(post.statusId);
   const visibleMedia = post.media.flatMap((media) => {
     const source = media.thumbnailUrl ?? (media.kind === "image" ? media.mediaUrl : null);
@@ -289,6 +313,17 @@ function XPostCard({ post }: { post: WatchHomeXPost }) {
       ref={rootRef}
       className={styles.postCard}
       style={{ "--member-accent": post.author.accent } as CSSProperties}
+      data-openable={onOpen ? "true" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={(event) => {
+        if (!onOpen || (event.target instanceof Element && event.target.closest("a,button"))) return;
+        onOpen(post);
+      }}
+      onKeyDown={(event) => {
+        if (!onOpen || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        onOpen(post);
+      }}
     >
       {isNew ? <span className={styles.newBadge}>New</span> : null}
       <header className={styles.postHeader}>
@@ -387,6 +422,19 @@ function XPostCard({ post }: { post: WatchHomeXPost }) {
   );
 }
 
+function XPostModal({ post, onClose }: { post: WatchHomeXPost | null; onClose: () => void }) {
+  return (
+    <Dialog open={Boolean(post)} onOpenChange={(open) => { if (!open) onClose(); }}>
+      {post ? (
+        <DialogContent className="w-[min(42rem,calc(100vw-1.5rem))] max-h-[min(48rem,calc(100dvh-1.5rem))] overflow-y-auto bg-[color:var(--bg)] p-3 sm:p-5">
+          <DialogTitle className="sr-only">Post from {post.author.label}</DialogTitle>
+          <XPostCard post={post} />
+        </DialogContent>
+      ) : null}
+    </Dialog>
+  );
+}
+
 function XSpaceCard({ space }: { space: WatchHomeXSpace }) {
   return (
     <a
@@ -426,6 +474,7 @@ export function XTweetsRail({
 }: XTweetsRailProps) {
   const headingId = useId();
   const [creator, setCreator] = useState("all");
+  const [selectedPost, setSelectedPost] = useState<WatchHomeXPost | null>(null);
 
   const creators = useMemo(() => {
     const seen = new Set<string>();
@@ -490,11 +539,12 @@ export function XTweetsRail({
               // deliberately does not make featured posts span rows.
               data-featured={post.media.length > 0 && index % 7 === 0 ? "true" : undefined}
             >
-              <XPostCard post={post} />
+              <XPostCard post={post} onOpen={setSelectedPost} />
             </div>
           ))}
         </div>
       ) : null}
+      <XPostModal post={selectedPost} onClose={() => setSelectedPost(null)} />
     </section>
   );
 }

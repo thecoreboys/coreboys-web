@@ -26,12 +26,17 @@ function ProviderMark({ provider }: { provider: NotificationPreviewData["provide
   );
 }
 
-function XText({ text }: { text: string }) {
+function XText({ text, links }: { text: string; links: NotificationLinkPreview[] }) {
+  let linkIndex = 0;
   const parts = text.split(/(https?:\/\/t\.co\/[^\s]+)/gi);
   return (
     <p className="whitespace-pre-wrap break-words text-[0.98rem] leading-7 text-white/90">
       {parts.map((part, index) => {
-        if (/^https?:\/\/t\.co\//i.test(part)) return null;
+        if (/^https?:\/\/t\.co\//i.test(part)) {
+          const link = links[linkIndex++];
+          if (!link) return <span key={`${part}-${index}`}> shared link</span>;
+          return <a key={`${part}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="font-semibold text-sky-300 underline decoration-sky-300/40 underline-offset-4 hover:text-sky-200"> {link.label ?? sourceHost(link.href)}</a>;
+        }
         return <span key={`${part}-${index}`}>{part}</span>;
       })}
     </p>
@@ -61,9 +66,9 @@ function XPostPreview({ post }: { post: NotificationXPost }) {
         <span className="min-w-0 flex-1"><strong className="block truncate text-sm text-white">{post.authorName}{post.verified ? <span className="ml-1 text-sky-400" aria-label="Verified account">✓</span> : null}</strong><span className="block truncate text-xs text-white/50">{post.authorHandle}</span></span>
         <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" aria-label="Open post on X" className="grid size-8 place-items-center rounded-full text-white/55 transition hover:bg-white/[.08] hover:text-white"><ExternalLink className="size-4" aria-hidden /></a>
       </header>
-      <div className="mt-4"><XText text={post.text} /><XLinks links={post.links} /></div>
+      <div className="mt-4"><XText text={post.text} links={post.links} /><XLinks links={post.links} /></div>
       {post.media.length ? <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-4 block overflow-hidden rounded-xl border border-white/10"><img src={post.media[0]!.thumbnailUrl} alt="" className="max-h-80 w-full object-cover" referrerPolicy="no-referrer" /></a> : null}
-      {post.quote ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.03] p-3"><div className="flex items-center gap-2">{post.quote.authorAvatarUrl ? <img src={post.quote.authorAvatarUrl} alt="" className="size-7 rounded-full object-cover" referrerPolicy="no-referrer" /> : <ProviderMark provider="x" />}<span className="min-w-0 flex-1"><strong className="block truncate text-xs text-white/85">{post.quote.authorName ?? post.quote.authorHandle}</strong><span className="block truncate text-[11px] text-white/45">{post.quote.authorHandle}</span></span></div><div className="mt-3"><XText text={post.quote.text} /><XLinks links={post.quote.links} /></div>{post.quote.media.length ? <a href={post.quote.statusUrl} target="_blank" rel="noopener noreferrer" className="mt-3 block overflow-hidden rounded-lg"><img src={post.quote.media[0]!.thumbnailUrl} alt="" className="max-h-64 w-full object-cover" referrerPolicy="no-referrer" /></a> : null}</div> : null}
+      {post.quote ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.03] p-3"><div className="flex items-center gap-2">{post.quote.authorAvatarUrl ? <img src={post.quote.authorAvatarUrl} alt="" className="size-7 rounded-full object-cover" referrerPolicy="no-referrer" /> : <ProviderMark provider="x" />}<span className="min-w-0 flex-1"><strong className="block truncate text-xs text-white/85">{post.quote.authorName ?? post.quote.authorHandle}</strong><span className="block truncate text-[11px] text-white/45">{post.quote.authorHandle}</span></span></div><div className="mt-3"><XText text={post.quote.text} links={post.quote.links} /><XLinks links={post.quote.links} /></div>{post.quote.media.length ? <a href={post.quote.statusUrl} target="_blank" rel="noopener noreferrer" className="mt-3 block overflow-hidden rounded-lg"><img src={post.quote.media[0]!.thumbnailUrl} alt="" className="max-h-64 w-full object-cover" referrerPolicy="no-referrer" /></a> : null}</div> : null}
     </div>
   );
 }

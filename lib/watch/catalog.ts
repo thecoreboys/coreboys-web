@@ -99,7 +99,10 @@ function fromSocial(item: FeedItem): WatchItem | null {
   if (item.platform === "youtube") return null;
   const member = memberOf(item.authorSlug);
   const sourceUrl = item.sourceUrl ?? item.url;
-  const poster = item.thumbnailUrl || member?.portrait || "/embed-preview.png";
+  // Social CDN artwork is optional and can expire. Do not substitute a
+  // creator portrait or the generic CORE preview: doing so makes unrelated
+  // posts look like duplicated site content when a provider image is gone.
+  const poster = item.thumbnailUrl ?? "";
   const isPhoto = item.mediaType === "image" || item.format === "photo";
   const isPost = item.mediaType === "text";
   const isLive = Boolean(item.isLive || item.format === "live");

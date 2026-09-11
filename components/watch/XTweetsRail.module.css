@@ -33,6 +33,8 @@
 .postCard::before { position:absolute; inset:0 auto auto 1rem; width:2.8rem; height:2px; border-radius:0 0 999px 999px; background:var(--member-accent); content:""; }
 .newBadge { position:absolute; z-index:2; top:.78rem; right:3.35rem; border:1px solid color-mix(in srgb,var(--member-accent) 62%,#fff 20%); border-radius:999px; background:var(--member-accent); color:#fff; padding:.22rem .42rem; font-size:.53rem; font-weight:820; letter-spacing:.09em; line-height:1; text-transform:uppercase; box-shadow:0 .28rem .7rem color-mix(in srgb,var(--member-accent) 30%,transparent); }
 .postCard:hover { border-color:color-mix(in srgb,var(--member-accent) 36%,var(--ink) 16%); box-shadow:0 .8rem 2rem rgba(0,0,0,.13); transform:translateY(-2px); }
+.postCard[data-openable="true"] { cursor:pointer; }
+.postCard[data-openable="true"]:focus-visible { outline:2px solid var(--member-accent); outline-offset:3px; }
 .postCard a { color:inherit; text-decoration:none; }
 .postCard a:focus-visible { border-radius:.25rem; outline:2px solid var(--member-accent); outline-offset:3px; }
 

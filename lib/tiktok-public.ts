@@ -115,14 +115,14 @@ function postFromRecord(value: JsonRecord, expectedHandle: string): PublicTikTok
     id,
     title: firstString(value.desc, value.description, value.title) ?? "TikTok video",
     createdAt,
-    thumbnailUrl: firstString(
+    thumbnailUrl: [
       video.cover,
       video.coverUrl,
       video.originCover,
       video.dynamicCover,
       value.cover,
       value.coverUrl,
-    ),
+    ].map(tiktokCdnUrl).find((url): url is string => Boolean(url)),
     width: firstNumber(video.width, value.width),
     height: firstNumber(video.height, value.height),
   };

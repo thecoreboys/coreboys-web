@@ -111,7 +111,6 @@ function EventsSeriesChallengesRail({ originals }: { originals: CoreOriginal[] }
           CORE Originals
         </h2>
       </div>
-      <p className="mb-4 max-w-2xl text-xs leading-5 text-[color:var(--ink-dim)]">Posters are AI-made placeholders and invitations. If you&apos;re an artist in the community, send us your take and help make CORE feel more personal.</p>
       <div className="watch-events-series-rail" aria-label="Events, series, and challenges">
         {posters.map((poster, index) => (
           <Tooltip key={poster.id} title={poster.title} description="Open this CORE Original collection." placement="top" offset={10}>
@@ -256,7 +255,9 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
     const bySlug = new Map(catalog.byMember.map((member) => [member.slug, member]));
     return preferredMemberSlugs
       .map((slug) => bySlug.get(slug))
-      .filter((member): member is WatchCatalog["byMember"][number] => Boolean(member));
+      .flatMap((member) => member
+        ? [{ ...member, items: member.items.filter((item) => item.platform !== "x") }]
+        : []);
   }, [catalog.byMember, preferredMemberSlugs]);
 
   const applyFilters = (items: WatchItem[]) => personalizeItems(items, feedback);
@@ -475,7 +476,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
           <Shelf title="Clips" kicker="The moments people kept" items={visible(catalog.clips)} {...sharedShelfProps} />
         </div>
         <div id="photos" className="scroll-mt-28">
-          <Shelf title="Photos" items={visible(catalog.photos, 30)} {...sharedShelfProps} />
+          <Shelf title="Photos" items={visible(catalog.photos.filter((item) => item.platform !== "x"), 30)} {...sharedShelfProps} />
         </div>
 
         {memberRows.map((member) => (

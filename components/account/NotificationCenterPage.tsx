@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { Bell, CheckCheck, ChevronRight, Clock3, Inbox, Settings2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bell, CheckCheck, Clock3, Inbox, Play, Settings2 } from "lucide-react";
 import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
+import { NotificationPreviewSurface } from "@/components/notifications/NotificationContentPreview";
 import type { InboxCategory, InboxNotification, NotificationCenterPage as NotificationCenterData } from "@/lib/inbox-notification";
+import { notificationProviderForUrl, notificationTargetFor } from "@/lib/notification-target";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | InboxCategory;
@@ -42,12 +44,90 @@ function categoryLabel(category: InboxCategory): string {
   return "Account";
 }
 
-function NotificationArtwork({ image }: { image: string | null }) {
-  const [failed, setFailed] = useState(false);
-  if (!image || failed) {
-    return <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-brand-primary text-brand-secondary"><Bell className="size-5" aria-hidden /></span>;
-  }
-  return <img src={image} alt="" onError={() => setFailed(true)} className="size-12 shrink-0 rounded-xl object-cover" />;
+function NotificationFeedItem({
+  item,
+  onOpen,
+  onRead,
+}: {
+  item: InboxNotification;
+  onOpen: (item: InboxNotification) => void;
+  onRead: (id: string) => void;
+}) {
+  const rootRef = useRef<HTMLElement>(null);
+  const observedRef = useRef(false);
+  const provider = notificationProviderForUrl(item.href);
+  const target = notificationTargetFor({
+    href: item.href,
+    title: item.title,
+    body: item.body,
+    imageUrl: item.imageUrl,
+    avatarUrl: item.avatarUrl,
+    xPost: item.xPost ?? null,
+  });
+
+  useEffect(() => {
+    if (item.readAt || observedRef.current || !rootRef.current) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting || entry.intersectionRatio < 0.55 || observedRef.current) return;
+      observedRef.current = true;
+      onRead(item.id);
+      observer.disconnect();
+    }, { threshold: [0, 0.55] });
+    observer.observe(rootRef.current);
+    return () => observer.disconnect();
+  }, [item.id, item.readAt, onRead]);
+
+  const preview = provider === "core" ? null : {
+    sourceHref: item.href,
+    title: item.title,
+    body: item.body,
+    imageUrl: item.imageUrl,
+    avatarUrl: item.avatarUrl,
+    provider,
+    xPost: item.xPost ?? null,
+  };
+
+  return (
+    <article
+      ref={rootRef}
+      className={cn(
+        "overflow-hidden rounded-3xl bg-primary shadow-sm ring-1 ring-inset ring-secondary transition",
+        !item.readAt && "ring-brand/45",
+      )}
+      data-notification-feed-item
+      data-read={item.readAt ? "true" : "false"}
+    >
+      <header className="flex items-start justify-between gap-4 border-b border-secondary px-5 py-4 sm:px-6">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-quaternary">{categoryLabel(item.category)} · {relativeTime(item.createdAt)}</p>
+          <h2 className="mt-1 text-base font-semibold leading-6 text-primary">{item.title}</h2>
+        </div>
+        {!item.readAt ? <span className="mt-2 size-2 shrink-0 rounded-full bg-brand-solid" aria-label="Unread" /> : null}
+      </header>
+
+      <div className="p-3 sm:p-4">
+        {preview ? <NotificationPreviewSurface preview={preview} /> : (
+          <div className="overflow-hidden rounded-2xl border border-secondary bg-secondary/55">
+            {item.imageUrl ? <img src={item.imageUrl} alt="" className="max-h-[30rem] w-full object-cover" /> : null}
+            <div className="p-5 sm:p-6">
+              {item.body ? <p className="text-sm leading-6 text-tertiary">{item.body}</p> : <p className="text-sm text-tertiary">Open this CORE update for the full details.</p>}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <footer className="flex flex-wrap items-center gap-2 border-t border-secondary px-5 py-4 sm:px-6">
+        <button
+          type="button"
+          onClick={() => onOpen(item)}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-semibold text-brand-secondary transition hover:bg-brand-primary_hover"
+        >
+          <Play className="size-4" aria-hidden />{target.kind === "theater" ? "Watch now" : "Open update"}
+        </button>
+        {!item.readAt ? <button type="button" onClick={() => onRead(item.id)} className="min-h-10 rounded-xl px-3 text-sm font-semibold text-tertiary ring-1 ring-inset ring-secondary transition hover:bg-secondary hover:text-primary">Mark as read</button> : null}
+      </footer>
+    </article>
+  );
 }
 
 async function fetchPage(filter: Filter, cursor?: string | null): Promise<NotificationCenterData> {
@@ -153,7 +233,7 @@ export function NotificationCenterPage() {
   }
 
   return (
-    <main className="mx-auto min-h-[70vh] max-w-5xl px-5 py-10 sm:px-6 lg:px-8 lg:py-16">
+    <main className="mx-auto min-h-[70vh] max-w-4xl px-5 py-10 sm:px-6 lg:px-8 lg:py-16">
       <div className="flex flex-wrap items-end justify-between gap-5">
         <div className="flex gap-3">
           <span className="mt-1 grid size-10 shrink-0 place-items-center rounded-xl bg-brand-primary text-brand-secondary ring-1 ring-inset ring-brand">
@@ -214,35 +294,15 @@ export function NotificationCenterPage() {
             </div>
           ) : null}
           {!loading && !error ? (
-            <ul className="space-y-1">
+            <ol className="space-y-4" aria-label="Notification feed">
               {items.map((item) => {
-                const image = item.imageUrl;
                 return (
                   <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => activateNotification(item)}
-                      aria-label={`Open notification: ${item.title}`}
-                      className={cn("group flex w-full items-start gap-3 rounded-2xl px-3 py-4 text-left transition hover:bg-primary_hover sm:px-4", !item.readAt ? "bg-primary ring-1 ring-inset ring-secondary" : "hover:ring-1 hover:ring-inset hover:ring-secondary")}
-                    >
-                      <NotificationArtwork image={image} />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-quaternary">{categoryLabel(item.category)}</span>
-                          <span className="text-xs text-quaternary">{relativeTime(item.createdAt)}</span>
-                        </span>
-                        <strong className="mt-1 block text-[15px] leading-6 text-primary">{item.title}</strong>
-                        {item.body ? <span className="mt-1 block text-sm leading-6 text-tertiary line-clamp-2">{item.body}</span> : null}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-3">
-                        {!item.readAt ? <span className="size-2 rounded-full bg-brand-solid" aria-label="Unread" /> : null}
-                        <ChevronRight className="size-4 text-quaternary transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden />
-                      </span>
-                    </button>
+                    <NotificationFeedItem item={item} onOpen={activateNotification} onRead={(id) => void markRead(id)} />
                   </li>
                 );
               })}
-            </ul>
+            </ol>
           ) : null}
           {nextCursor && !loading && !error ? (
             <button type="button" disabled={loadingMore} onClick={() => void load(filter, nextCursor, true)} className="mx-auto mt-4 flex min-h-10 items-center rounded-lg px-4 text-sm font-semibold text-brand-secondary transition hover:bg-brand-primary disabled:cursor-wait disabled:opacity-50">

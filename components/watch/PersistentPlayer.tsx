@@ -1185,7 +1185,15 @@ export function PersistentPlayer() {
   );
   const canStartOver = Boolean(current?.dvr?.enabled || nativeCapabilities.dvr);
   const liveDvrWindowDuration = twitchLiveDvrWindowSeconds(current);
-  const twitchLiveDvrAvailable = liveDvrWindowDuration > 0;
+  // Never expose a timeline that cannot complete a seek. A live channel may
+  // advertise a window before Twitch has published its matching growing VOD.
+  const twitchLiveDvrAvailable = Boolean(
+    current?.kind === "live"
+      && current.platform === "twitch"
+      && current.dvr?.enabled
+      && current.dvr.twitchVodId
+      && liveDvrWindowDuration > 0,
+  );
   const hasActiveResumeState = Boolean(
     activeMark?.completed ||
       activeMark?.positionUpdatedAt ||
