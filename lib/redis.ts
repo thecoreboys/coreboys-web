@@ -1,8 +1,18 @@
 import "server-only";
+import { Buffer } from "node:buffer";
+import { promisify } from "node:util";
+import { gzip, gunzip } from "node:zlib";
 import { createClient } from "@redis/client";
 
 const TIMEOUT_MS = 800;
 const RETRY_AFTER_MS = 15_000;
+// An expanded archive must not evict every smaller cache entry before Redis
+// rejects its SET for exceeding the server's memory limit.
+const MAX_VALUE_BYTES = 16 * 1024 * 1024;
+const MAX_JSON_BYTES = 64 * 1024 * 1024;
+const COMPRESSED_PREFIX = "coreboys:gzip:v1:";
+const gzipAsync = promisify(gzip);
+const gunzipAsync = promisify(gunzip);
 function createNativeClient(url: string) {
   return createClient({
     url,
@@ -93,11 +103,34 @@ async function command(args: string[]): Promise<unknown> {
 export async function redisGetJson(key: string): Promise<unknown | null> {
   const value = await command(["GET", key]);
   if (typeof value !== "string") return null;
-  try { return JSON.parse(value) as unknown; } catch { return null; }
+  try {
+    if (value.startsWith(COMPRESSED_PREFIX)) {
+      if (value.length > MAX_VALUE_BYTES) return null;
+      const decoded = await gunzipAsync(Buffer.from(value.slice(COMPRESSED_PREFIX.length), "base64"), {
+        maxOutputLength: MAX_JSON_BYTES,
+      });
+      return JSON.parse(decoded.toString("utf8")) as unknown;
+    }
+    if (Buffer.byteLength(value, "utf8") > MAX_JSON_BYTES) return null;
+    return JSON.parse(value) as unknown;
+  } catch { return null; }
 }
 
 export async function redisSetJson(key: string, value: unknown, expirySeconds: number): Promise<boolean> {
-  return await command(["SET", key, JSON.stringify(value), "EX", String(Math.max(1, Math.ceil(expirySeconds)))]) === "OK";
+  let serialized: string | undefined;
+  try { serialized = JSON.stringify(value); } catch { return false; }
+  if (typeof serialized !== "string" || serialized.length > MAX_JSON_BYTES) return false;
+  const bytes = Buffer.byteLength(serialized, "utf8");
+  if (bytes > MAX_JSON_BYTES) return false;
+  if (bytes > 64 * 1024) {
+    try {
+      // Archive URLs and metadata repeat heavily. Compress off the event loop
+      // before the short Redis transport deadline begins.
+      serialized = COMPRESSED_PREFIX + (await gzipAsync(serialized, { level: 1 })).toString("base64");
+    } catch { return false; }
+  }
+  if (Buffer.byteLength(serialized, "utf8") > MAX_VALUE_BYTES) return false;
+  return await command(["SET", key, serialized, "EX", String(Math.max(1, Math.ceil(expirySeconds)))]) === "OK";
 }
 
 export async function redisIncrWithExpiry(key: string, expirySeconds: number): Promise<number | null> {

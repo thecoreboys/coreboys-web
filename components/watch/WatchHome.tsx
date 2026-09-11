@@ -5,7 +5,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { PatreonShelfData, WatchCatalog, WatchItem } from "@/lib/watch/types";
 import { MEMBERS } from "@/lib/members";
 import { useMyList } from "@/hooks/useMyList";
-import { useWatchProgress, youtubeIdFromHref } from "@/hooks/useWatchProgress";
+import { useWatchProgress } from "@/hooks/useWatchProgress";
+import { homeItemReferences } from "@/lib/watch/home-catalog";
 import type { WatchProgressMap } from "@/hooks/useWatchProgress";
 import { canonicalWatchKey, personalizeItems } from "@/lib/watch/discovery";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
@@ -74,7 +75,7 @@ function balancedRail(items: WatchItem[], limit = 24) {
 }
 
 function references(item: WatchItem) {
-  return [...new Set([item.id, youtubeIdFromHref(item.href)].filter((ref): ref is string => Boolean(ref)))];
+  return homeItemReferences(item);
 }
 
 const FALLBACK_EVENT_POSTERS = [

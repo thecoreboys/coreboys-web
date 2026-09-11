@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { getPatreonShelfData } from "@/lib/watch/patreon";
 import { getCoreOriginalSnapshot } from "@/lib/core-originals";
-import { WatchChrome } from "@/components/watch/WatchChrome";
-import { WatchHome } from "@/components/watch/WatchHome";
+import { WatchHomeEntry } from "@/components/watch/WatchHomeEntry";
+import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
+import { projectHomeCatalog } from "@/lib/watch/home-catalog";
 import "./watch/watch.css";
 
 export const dynamic = "force-dynamic";
@@ -31,8 +32,6 @@ export default async function HomePage() {
   ]);
 
   return (
-    <WatchChrome catalog={catalog}>
-      <WatchHome catalog={catalog} patreon={patreon} originals={originals.originals} />
-    </WatchChrome>
+    <WatchHomeEntry catalog={compactWatchCatalog(projectHomeCatalog(catalog))} patreon={patreon} originals={originals.originals} />
   );
 }

@@ -14,6 +14,7 @@ import {
 import { getPublicClips } from "@/lib/clips-server";
 import { formatDurationSeconds } from "@/lib/youtube-duration";
 import type { WatchCatalog, WatchItem } from "./types";
+import { compactWatchCatalog, expandWatchCatalog, isCompactWatchCatalog } from "./catalog-cache";
 import {
   groupWatchItemsByPlatform,
   normalizeWatchItems,
@@ -256,18 +257,16 @@ async function getTwitchBroadcasts(
   return normalizeWatchItems(lists.flat());
 }
 
-export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => cachedPublicData(
-  "watch-catalog:v1",
-  buildWatchCatalog,
+export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => expandWatchCatalog(await cachedPublicData(
+  "watch-catalog:v2",
+  async () => compactWatchCatalog(await buildWatchCatalog()),
   {
     freshSeconds: 20,
     staleSeconds: 40,
-    validate: (value): value is WatchCatalog => Boolean(value && typeof value === "object"
-      && Array.isArray((value as WatchCatalog).all) && Array.isArray((value as WatchCatalog).live)
-      && (value as WatchCatalog).byMember && (value as WatchCatalog).byPlatform),
+    validate: isCompactWatchCatalog,
     shouldCache: (catalog) => catalog.all.length > 0,
   },
-));
+)));
 
 async function buildWatchCatalog(): Promise<WatchCatalog> {
   const logins = MEMBERS.map((m) => m.twitchLogin);

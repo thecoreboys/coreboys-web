@@ -4,23 +4,31 @@ import { createServer, type Socket } from "node:net";
 import { resolve } from "node:path";
 import test from "node:test";
 import vm from "node:vm";
+import * as nodeUtil from "node:util";
+import * as nodeZlib from "node:zlib";
 import { createClient } from "@redis/client";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 
-type Adapter = { redisGetJson(key: string): Promise<unknown> };
+type Adapter = {
+  redisGetJson(key: string): Promise<unknown>;
+  redisSetJson(key: string, value: unknown, expirySeconds: number): Promise<boolean>;
+};
 
 function loadAdapter(url: string, clock: { offset: number }) {
   const javascript = transpileModule(readFileSync(resolve("lib/redis.ts"), "utf8"), {
     compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2022 },
   }).outputText;
-  const module = { exports: {} };
+  const adapterModule = { exports: {} };
   const clients: ReturnType<typeof createClient>[] = [];
   class TestDate extends Date { static override now() { return Date.now() + clock.offset; } }
   const context = vm.createContext({
-    module, exports: module.exports, AbortSignal, setTimeout, clearTimeout,
+    module: adapterModule, exports: adapterModule.exports, AbortSignal, setTimeout, clearTimeout,
     Date: TestDate, process: { env: { REDIS_URL: url } },
     require: (name: string) => {
       if (name === "server-only") return {};
+      if (name === "node:buffer") return { Buffer };
+      if (name === "node:util") return nodeUtil;
+      if (name === "node:zlib") return nodeZlib;
       if (name === "@redis/client") return { createClient: (options: Parameters<typeof createClient>[0]) => {
         const client = createClient(options);
         clients.push(client);
@@ -30,12 +38,13 @@ function loadAdapter(url: string, clock: { offset: number }) {
     },
   });
   new vm.Script(javascript, { filename: "redis.ts" }).runInContext(context);
-  return { adapter: module.exports as Adapter, clients };
+  return { adapter: adapterModule.exports as Adapter, clients };
 }
 
 /** Minimal RESP command framing for a local fake Redis; no external service. */
-function respond(socket: Socket) {
+function respond(socket: Socket, observe?: (args: string[]) => void) {
   let buffer = "";
+  const values = new Map<string, string>();
   socket.on("data", (chunk) => {
     buffer += chunk.toString();
     for (;;) {
@@ -53,8 +62,10 @@ function respond(socket: Socket) {
         position = end + 2;
       }
       buffer = buffer.slice(position);
+      observe?.(args);
+      if (args[0] === "SET") values.set(args[1]!, args[2]!);
       if (args[0] === "GET") {
-        const value = JSON.stringify({ cached: true });
+        const value = values.get(args[1]!) ?? JSON.stringify({ cached: true });
         socket.write(`$${Buffer.byteLength(value)}\r\n${value}\r\n`);
       } else socket.write("+OK\r\n");
     }
@@ -94,6 +105,62 @@ test("Redis bounds a silent handshake, shares backoff, destroys the socket and r
     assert.equal(JSON.stringify(await adapter.redisGetJson("catalog")), '{"cached":true}');
     assert.equal(clients.length, 2, "recovery must use a new client, not the abandoned handshake");
     assert.equal(accepts, 2);
+  } finally {
+    for (const client of clients) if (client.isOpen) client.destroy();
+    for (const socket of sockets) socket.destroy();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("oversized UTF-8 cache entries never reach Redis or disturb a healthy connection", async () => {
+  const commands: string[][] = [];
+  const sockets = new Set<Socket>();
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.on("error", () => {});
+    socket.on("close", () => sockets.delete(socket));
+    respond(socket, (args) => commands.push(args));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const { adapter, clients } = loadAdapter(`redis://127.0.0.1:${address.port}`, { offset: 0 });
+  try {
+    assert.equal(await adapter.redisSetJson("small-before", { ok: true }, 60), true);
+    // Below the character limit but above the byte limit after JSON encoding.
+    assert.equal(await adapter.redisSetJson("oversized", "é".repeat(32 * 1024 * 1024), 60), false);
+    assert.equal(await adapter.redisSetJson("small-after", { ok: true }, 60), true);
+    assert.deepEqual(commands.filter(([verb]) => verb === "SET").map((args) => args[1]), ["small-before", "small-after"]);
+    assert.equal(clients.length, 1, "skipping a large value must preserve the ready connection");
+  } finally {
+    for (const client of clients) if (client.isOpen) client.destroy();
+    for (const socket of sockets) socket.destroy();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("large public snapshots use compact Redis storage and round-trip without losing data", async () => {
+  const commands: string[][] = [];
+  const sockets = new Set<Socket>();
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.on("error", () => {});
+    socket.on("close", () => sockets.delete(socket));
+    respond(socket, (args) => commands.push(args));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const { adapter, clients } = loadAdapter(`redis://127.0.0.1:${address.port}`, { offset: 0 });
+  const value = { items: Array.from({ length: 2000 }, (_, i) => ({
+    id: `video-${i}`, title: `Public video ${i}`, poster: `https://i.ytimg.com/vi/video-${i}/hqdefault.jpg`,
+  })) };
+  try {
+    assert.equal(await adapter.redisSetJson("catalog", value, 60), true);
+    const stored = commands.find(([verb]) => verb === "SET")?.[2];
+    assert.ok(stored);
+    assert.ok(Buffer.byteLength(stored) < Buffer.byteLength(JSON.stringify(value)) / 4);
+    assert.equal(JSON.stringify(await adapter.redisGetJson("catalog")), JSON.stringify(value));
   } finally {
     for (const client of clients) if (client.isOpen) client.destroy();
     for (const socket of sockets) socket.destroy();

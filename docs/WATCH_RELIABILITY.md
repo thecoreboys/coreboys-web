@@ -18,6 +18,10 @@ The Azure workflow maps these GitHub repository secrets to runtime secret refere
 
 Redis is optional. Missing configuration or an outage falls back to an in-process public cache. Native startup, including its Redis handshake, and the command share an 800 ms deadline. Failed native connections are destroyed. Both transports back off for 15 seconds after a failure. Simultaneous requests in one process share a connection attempt and cache rebuild; rebuild coordination is not a distributed lock.
 
+Large JSON values are compressed asynchronously before transport. Stored values are limited to 16 MiB and decoded JSON to 64 MiB; an oversized archive is skipped before it can evict the rest of Redis. Plain JSON entries remain readable. The watch catalog stores each distinct item once with indexed collections and restores shared references after a cache read.
+
+The homepage sends a balanced selection of recent items instead of the full archive. Older saved and in-progress titles are resolved in bounded requests after account history loads. Full archives remain available to search, queues, DVR, and creator pages. Passport's public asset registry writes new or changed metadata in batches, renews unchanged archive records daily, and renews live records every five minutes to retain live eligibility.
+
 ## Public cache freshness
 
 Only public catalog, Twitch directory/archive, avatar, and Patreon teaser data uses this cache. Account activity, billing details, and OAuth tokens are excluded. Local memory holds at most 64 entries. Shared keys use a hash of `CORE_CACHE_NAMESPACE`, `NEXT_PUBLIC_SITE_URL`, and `DATABASE_URL`; set a distinct `CORE_CACHE_NAMESPACE` when separate environments otherwise share those values.
