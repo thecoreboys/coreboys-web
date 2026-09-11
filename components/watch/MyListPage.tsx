@@ -8,7 +8,9 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useWatchProgress, youtubeIdFromHref } from "@/hooks/useWatchProgress";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
-import type { WatchCatalog, WatchItem } from "@/lib/watch/types";
+import type { WatchItem } from "@/lib/watch/types";
+import { dvrItemReferences } from "@/lib/watch/dvr-item-references";
+import { homeItemReferences, mergeHomeItems } from "@/lib/watch/home-catalog";
 import { MyListShelf, PosterCard } from "./PosterCard";
 import { DragScrollRail } from "./DragScrollRail";
 import { toggleMyList } from "@/lib/watch/mylist";
@@ -20,7 +22,7 @@ function references(item: WatchItem) {
   return [item.id, youtubeIdFromHref(item.href)].filter((reference): reference is string => Boolean(reference));
 }
 
-export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
+export function MyListPage({ initialItems }: { initialItems: WatchItem[] }) {
   const { ids, loading, signedIn, error, refresh } = useMyList();
   const { map } = useWatchProgress();
   const discovery = useWatchDiscovery();
@@ -32,15 +34,48 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
   const [renameDraft, setRenameDraft] = useState("");
   const [search, setSearch] = useState("");
   const queueTemplatesAllowed = subscription.hasFeature("queue.templates");
+  const [resolved, setResolved] = useState<{ items: WatchItem[]; checked: string[]; error: boolean }>({ items: [], checked: [], error: false });
+  const items = useMemo(() => mergeHomeItems(initialItems, resolved.items), [initialItems, resolved.items]);
+  const known = new Set([...items.flatMap(homeItemReferences), ...resolved.checked]);
+  const wanted = dvrItemReferences(ids, queueTemplatesAllowed ? discovery.state.queues : []).filter((ref) => !known.has(ref));
+  const lookupKey = wanted.slice(0, 100).join("\n");
+  const metadataLoading = Boolean(lookupKey) && !resolved.error;
+  useEffect(() => {
+    setResolved((previous) => previous.checked.length ? { ...previous, checked: [] } : previous);
+  }, [initialItems]);
+
+  // Local saves and cross-device list updates may arrive after the server
+  // render. Resolve every missing reference in batches instead of truncating
+  // the library or classifying an item as unavailable before checking it.
+  useEffect(() => {
+    if (loading || !discovery.ready || !lookupKey || resolved.error) return;
+    const refs = lookupKey.split("\n");
+    const controller = new AbortController();
+    let cancelled = false;
+    const timeout = window.setTimeout(() => controller.abort(), 12_000);
+    fetch("/api/watch/items", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refs }), signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) throw new Error("dvr_items_unavailable");
+      const data = await response.json() as { items?: WatchItem[] };
+      if (!Array.isArray(data.items)) throw new Error("invalid_dvr_items");
+      if (!cancelled) setResolved((previous) => ({ items: mergeHomeItems(previous.items, data.items!),
+        checked: [...previous.checked, ...refs], error: false }));
+    }).catch(() => {
+      if (!cancelled) setResolved((previous) => ({ ...previous, error: true }));
+    }).finally(() => window.clearTimeout(timeout));
+    return () => { cancelled = true; window.clearTimeout(timeout); controller.abort(); };
+  }, [discovery.ready, loading, lookupKey, resolved.error]);
 
   const savedItems = useMemo(() => {
-    const byId = new Map(catalog.all.map((item) => [item.id, item]));
+    const byId = new Map(items.map((item) => [item.id, item]));
     return ids.map((id) => byId.get(id)).filter((item): item is WatchItem => Boolean(item));
-  }, [catalog.all, ids]);
+  }, [items, ids]);
   const unavailableIds = useMemo(() => {
-    const known = new Set(catalog.all.map((item) => item.id));
-    return ids.filter((id) => !known.has(id));
-  }, [catalog.all, ids]);
+    const available = new Set(items.map((item) => item.id));
+    const checked = new Set(resolved.checked);
+    return ids.filter((id) => !available.has(id) && checked.has(id));
+  }, [items, ids, resolved.checked]);
 
   const marks = useMemo(() => {
     const output = new Map<string, { completed: boolean; progress: number }>();
@@ -82,11 +117,11 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
     ?? null;
   const queueItems = useMemo(() => {
     if (!activeQueue) return [];
-    const byId = new Map(catalog.all.map((item) => [item.id, item]));
+    const byId = new Map(items.map((item) => [item.id, item]));
     return activeQueue.itemIds
       .map((id) => byId.get(id))
       .filter((item): item is WatchItem => Boolean(item));
-  }, [activeQueue, catalog.all]);
+  }, [activeQueue, items]);
 
   useEffect(() => {
     if (!queueTemplatesAllowed || !discovery.ready) return;
@@ -118,6 +153,10 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
 
   return (
     <div className="watch-my-list-page">
+      {resolved.error ? <div role="alert" className="mx-auto mb-5 flex max-w-[1520px] items-center justify-between gap-3 rounded-lg border border-white/15 px-4 py-3 text-sm text-white/75">
+        <p>Some saved titles could not load.</p>
+        <button type="button" onClick={() => setResolved((previous) => ({ ...previous, error: false }))} className="rounded-md border border-white/20 px-3 py-2">Retry loading</button>
+      </div> : null}
       {error ? <div role="alert" className="mx-auto mb-5 flex max-w-[1520px] flex-wrap items-center justify-between gap-3 rounded-lg border border-white/15 px-4 py-3 text-sm text-white/75">
         <p>{error}</p>
         <button type="button" onClick={() => void refresh()} disabled={loading} className="rounded-md border border-white/20 px-3 py-2 text-white disabled:opacity-50">Retry sync</button>
@@ -131,9 +170,9 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
       </div> : null}
       <MyListShelf
         items={displayedItems}
-        totalCount={savedItems.length}
+        totalCount={ids.length}
         signedIn={signedIn}
-        loading={loading}
+        loading={loading || metadataLoading}
         view={view}
         onViewChange={(next) => { setView(next); if (next === "all") setSearch(""); }}
         sort={sort}
@@ -268,8 +307,10 @@ export function MyListPage({ catalog }: { catalog: WatchCatalog }) {
                     <div className="watch-named-queue-empty">
                       <Plus aria-hidden />
                       <div>
-                        <h3>No titles in this list</h3>
-                        <p>Use the more-actions menu on a DVR card above, then choose “Add to {activeQueue.name}.”</p>
+                        <h3>{metadataLoading ? "Loading this list" : activeQueue.itemIds.length ? "No available titles" : "No titles in this list"}</h3>
+                        <p>{activeQueue.itemIds.length
+                          ? metadataLoading ? "Retrieving your saved titles." : resolved.error ? "Retry loading your saved titles above." : "These titles are currently unavailable. They remain in your list."
+                          : <>Use the more-actions menu on a DVR card above, then choose “Add to {activeQueue.name}.”</>}</p>
                       </div>
                     </div>
                   )}

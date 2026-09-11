@@ -42,6 +42,7 @@ import { MEMBERS } from "@/lib/members";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useMultiviewSourceSearch } from "@/hooks/useMultiviewSourceSearch";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import {
   catalogPlayables,
@@ -482,13 +483,20 @@ export function MultiPlayerStage({
   };
 
   const needle = query.trim().toLowerCase();
-  const sources = (needle
+  const archiveSearch = useMultiviewSourceSearch(query, sourceOpen, initialLiveRoom);
+  const localSources = (needle
     ? all.filter((item) =>
         item.title.toLowerCase().includes(needle)
         || item.memberLabel.toLowerCase().includes(needle)
         || item.platform.toLowerCase().includes(needle))
     : [...live, ...all.filter((item) => item.kind !== "live")]
   ).slice(0, 80);
+  const sourceKeys = new Set<string>();
+  const sources = [...archiveSearch.items, ...localSources].filter((item) => {
+    if (sourceKeys.has(item.key)) return false;
+    sourceKeys.add(item.key);
+    return true;
+  }).slice(0, 80);
 
   function closeSources() {
     setSourceOpen(false);
@@ -876,6 +884,9 @@ export function MultiPlayerStage({
           onAddUrl={addUrl}
           onChoose={chooseSource}
           onClose={closeSources}
+          searching={archiveSearch.searching}
+          searchFailed={archiveSearch.failed}
+          onRetrySearch={archiveSearch.retry}
         />
       ) : null}
 
@@ -1718,13 +1729,14 @@ type PlayerTileRuntime = Pick<
 
 function PlayerTile(props: PlayerTileProps) {
   const player = usePlayer();
+  const { tiles, updateTile, focusTile } = player;
   const makeMain = useCallback((id: string, options?: { takeAudio?: boolean }) => {
-    for (const candidate of player.tiles) {
+    for (const candidate of tiles) {
       const pinned = candidate.id === id;
-      if (candidate.pinned !== pinned) player.updateTile(candidate.id, { pinned });
+      if (candidate.pinned !== pinned) updateTile(candidate.id, { pinned });
     }
-    player.focusTile(id, options);
-  }, [player.focusTile, player.tiles, player.updateTile]);
+    focusTile(id, options);
+  }, [focusTile, tiles, updateTile]);
   const actionsRef = useRef({
     onReplace: props.onReplace,
     onDragStart: props.onDragStart,
@@ -3976,6 +3988,9 @@ function SourceDrawer({
   onAddUrl,
   onChoose,
   onClose,
+  searching,
+  searchFailed,
+  onRetrySearch,
 }: {
   sources: Playable[];
   query: string;
@@ -3987,6 +4002,9 @@ function SourceDrawer({
   onAddUrl: () => void;
   onChoose: (item: Playable) => void;
   onClose: () => void;
+  searching: boolean;
+  searchFailed: boolean;
+  onRetrySearch: () => void;
 }) {
   const replace = intent === "replace";
   const queue = intent === "queue";
@@ -4014,6 +4032,8 @@ function SourceDrawer({
           <div className="flex gap-2"><input value={url} onChange={(event) => onUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onAddUrl(); }} aria-label="Paste a YouTube, Twitch, TikTok or Instagram URL" placeholder="Paste a video or post URL" className="min-h-11 min-w-0 flex-1 rounded-xl bg-white/5 px-3 text-xs outline-none ring-1 ring-white/10 placeholder:text-white/30 focus:ring-white/25" /><button type="button" onClick={onAddUrl} className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-black">Add URL</button></div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {searching ? <p role="status" className="px-2 pb-3 text-xs text-white/55">Searching the archive…</p> : null}
+          {searchFailed ? <p role="status" className="px-2 pb-3 text-xs text-white/65">Archive search could not load. <button type="button" className="underline" onClick={onRetrySearch}>Retry</button></p> : null}
           <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-1">
             {sources.map((item) => {
               const open = openKeys.has(item.key);
@@ -4025,7 +4045,7 @@ function SourceDrawer({
               );
             })}
           </div>
-          {sources.length === 0 ? <p className="p-8 text-center text-xs text-white/35">No playable titles match.</p> : null}
+          {sources.length === 0 && !searching && !searchFailed ? <p className="p-8 text-center text-xs text-white/35">No playable titles match.</p> : null}
         </div>
       </section>
     </div>

@@ -5,8 +5,7 @@ import test from "node:test";
 import type { createPassportWatchCatalogRegistrar } from "../lib/passport/watch-registry";
 import type { WatchCatalog, WatchItem } from "../lib/watch/types";
 
-// Exercise the server implementation with an injected database/cache, without
-// loading React's client-only marker or contacting either external service.
+// Inject transactions without opening database or Redis connections.
 const requireModule = createRequire(resolve(process.cwd(), "package.json"));
 const markerPath = requireModule.resolve("server-only");
 const previousMarker = requireModule.cache[markerPath];
@@ -21,136 +20,176 @@ const item = (id: string, patch: Partial<WatchItem> = {}): WatchItem => ({
   durationSeconds: 600, ...patch,
 });
 const catalog = (all: WatchItem[]) => ({ all }) as WatchCatalog;
-const readBatch = (values: ReadonlyArray<unknown>) => JSON.parse(String(values[0])) as Array<{ playbackRef: string; aliases: string[]; durationSeconds: number }>;
+type Asset = { playbackRef: string; aliases: string[]; durationSeconds: number; kind: string };
 
-test("large catalogs register every asset in bounded batches and unchanged refreshes perform no writes", async () => {
-  const batches: ReturnType<typeof readBatch>[] = [];
-  const register = registrar({ execute: async (_sql, values) => { const batch = readBatch(values); batches.push(batch); return { rowCount: batch.length }; } });
+function database() {
+  let now = 1_000;
+  let rows = new Map<string, { asset: Asset; lastSeen: number }>();
+  let state: Record<string, unknown> | null = null;
+  let queue: Promise<unknown> = Promise.resolve();
+  let active = 0;
+  let maxActive = 0;
+  let failBatch: number | null = null;
+  let failCommit = false;
+  const batches: Asset[][] = [];
+  const transaction: Parameters<typeof registrar>[0]["transaction"] = (run) => {
+    const result = queue.then(async () => {
+      const oldRows = new Map(rows);
+      const oldState = state;
+      active++;
+      maxActive = Math.max(maxActive, active);
+      try {
+        const count = await run(async (sql, values) => {
+          await Promise.resolve();
+          if (sql.startsWith("SELECT fingerprint")) return { rowCount: state ? 1 : 0, rows: state ? [state] : [] };
+          if (sql.startsWith("INSERT INTO passport_watch_registry_state")) {
+            state = { fingerprint: values[0], archive_confirmed_at: values[1], live_confirmed_at: values[2] };
+            return { rowCount: 1 };
+          }
+          assert.ok(sql.startsWith("WITH assets AS"));
+          const batch = JSON.parse(String(values[0])) as Asset[];
+          batches.push(batch);
+          if (batches.length === failBatch) { failBatch = null; throw new Error("batch failed"); }
+          let changed = 0;
+          for (const asset of batch) {
+            const previous = rows.get(asset.playbackRef);
+            const interval = asset.kind === "live" ? 5 * 60_000 : 24 * 60 * 60_000;
+            if (!previous || JSON.stringify(previous.asset) !== JSON.stringify(asset) || now - previous.lastSeen >= interval) {
+              rows.set(asset.playbackRef, { asset, lastSeen: now });
+              changed++;
+            }
+          }
+          return { rowCount: changed };
+        });
+        if (failCommit) { failCommit = false; throw new Error("commit failed"); }
+        return count;
+      } catch (error) {
+        rows = oldRows;
+        state = oldState;
+        throw error;
+      } finally { active--; }
+    });
+    queue = result.catch(() => undefined);
+    return result;
+  };
+  return {
+    register: () => registrar({ transaction, now: () => now }), batches,
+    advance: (milliseconds: number) => { now += milliseconds; },
+    row: (ref: string) => rows.get(ref)?.asset,
+    size: () => rows.size, state: () => state, maxActive: () => maxActive,
+    failBatch: (number: number) => { failBatch = number; },
+    failCommit: () => { failCommit = true; },
+  };
+}
+
+test("large catalogs compare bounded batches and unchanged generations perform no asset writes", async () => {
+  const db = database();
+  const register = db.register();
   const all = Array.from({ length: 2_503 }, (_, index) => item(`video-${index}`));
   assert.equal(await register(catalog(all)), 2_503);
-  assert.deepEqual(batches.map((batch) => batch.length), [1_000, 1_000, 503]);
-  assert.equal(new Set(batches.flat().map((asset) => asset.playbackRef)).size, all.length);
+  assert.deepEqual(db.batches.map((batch) => batch.length), [1_000, 1_000, 503]);
+  assert.equal(db.size(), all.length);
   assert.equal(await register(catalog(all.map((entry) => ({ ...entry, title: "New title", poster: "/new.jpg" })))), 0);
-  assert.equal(batches.length, 3);
+  assert.equal(db.batches.length, 3);
   const updated = all.map((entry, index) => index === 0 ? { ...entry, durationSeconds: 900 } : entry);
   updated.push(item("new-video"));
-  assert.equal(await register(catalog(updated)), 2);
-  assert.equal(batches[3]!.length, 2);
+  assert.equal(await register(catalog(updated)), 2, "new generations compare every row but only changed rows update");
+  assert.deepEqual(db.batches.slice(3).map((batch) => batch.length), [1_000, 1_000, 504]);
 });
 
-test("success markers skip unchanged catalog writes on another replica, scoped to its database", async () => {
-  let writes = 0;
-  let now = 100_000;
-  const markers = new Map<string, unknown>();
-  const dependencies = {
-    execute: async (_sql: string, values: ReadonlyArray<unknown>) => { writes += 1; return { rowCount: readBatch(values).length }; },
-    readMarker: async (key: string) => markers.get(key),
-    writeMarker: async (key: string, value: unknown) => { markers.set(key, value); },
-    now: () => now,
-  };
-  const first = registrar({ ...dependencies, namespace: "database-a" });
-  const second = registrar({ ...dependencies, namespace: "database-a" });
+test("replicas reuse the durable generation independently of Redis or local fingerprints", async () => {
+  const db = database();
   const all = [item("one"), item("two")];
-  assert.equal(await first(catalog(all)), 2);
-  assert.equal(await second(catalog([...all].reverse())), 0);
-  assert.equal(writes, 1);
-  assert.equal(await registrar({ ...dependencies, namespace: "database-b" })(catalog(all)), 2);
-  assert.equal(writes, 2);
-  now += 24 * 60 * 60 * 1_000;
-  assert.equal(await second(catalog(all)), 2, "renew before the 90-day eligibility window expires");
+  assert.equal(await db.register()(catalog(all)), 2);
+  assert.equal(await db.register()(catalog([...all].reverse())), 0);
+  assert.equal(db.batches.length, 1);
+  assert.equal(await database().register()(catalog(all)), 2, "another database cannot reuse the acknowledgment");
+  db.advance(24 * 60 * 60_000);
+  assert.equal(await db.register()(catalog(all)), 2);
 });
 
-test("new assets cannot indefinitely renew an older archive's cache acknowledgment", async () => {
-  let now = 1_000;
-  const markers = new Map<string, unknown>();
-  const dependencies = {
-    execute: async (_sql: string, values: ReadonlyArray<unknown>) => ({ rowCount: readBatch(values).length }),
-    readMarker: async (key: string) => markers.get(key),
-    writeMarker: async (key: string, value: unknown) => { markers.set(key, value); },
-    now: () => now,
-  };
-  const register = registrar(dependencies);
-  await register(catalog([item("old")]));
-  now += 23 * 60 * 60 * 1_000;
-  const all = [item("old"), item("new")];
-  assert.equal(await register(catalog(all)), 1);
-  now += 2 * 60 * 60 * 1_000;
-  assert.equal(await registrar(dependencies)(catalog(all)), 2, "old marker must expire despite the new asset");
-});
-
-test("live eligibility renews every five minutes without resending unchanged archive assets", async () => {
-  let now = 1_000;
-  const batches: ReturnType<typeof readBatch>[] = [];
-  const register = registrar({
-    execute: async (_sql, values) => { const batch = readBatch(values); batches.push(batch); return { rowCount: batch.length }; },
-    now: () => now,
-  });
+test("live renewals retain the separate daily archive clock", async () => {
+  const db = database();
   const all = catalog([item("archive"), item("live", { id: "live-creator", platform: "twitch", kind: "live", live: { login: "creator" } })]);
-  assert.equal(await register(all), 2);
-  now += 4 * 60 * 1_000;
-  assert.equal(await register(all), 0);
-  now += 60 * 1_000;
-  assert.equal(await register(all), 1);
-  assert.equal(batches[1]![0]!.playbackRef, "twitch:live-creator");
+  assert.equal(await db.register()(all), 2);
+  db.advance(4 * 60_000);
+  assert.equal(await db.register()(all), 0);
+  db.advance(60_000);
+  assert.equal(await db.register()(all), 1);
+  assert.deepEqual(db.batches[1]!.map((asset) => asset.playbackRef), ["twitch:live-creator"]);
+  db.advance(24 * 60 * 60_000 - 5 * 60_000);
+  assert.equal(await db.register()(all), 2);
 });
 
-test("reverting metadata cannot reuse an obsolete successful catalog marker", async () => {
-  const markers = new Map<string, unknown>();
-  const register = registrar({
-    execute: async (_sql, values) => ({ rowCount: readBatch(values).length }),
-    readMarker: async (key) => markers.get(key),
-    writeMarker: async (key, value) => { markers.set(key, value); },
-  });
+test("A/B/A/C replicas cannot certify metadata changed by another instance", async () => {
+  const db = database();
+  const a = db.register(), b = db.register(), c = db.register();
+  const original = catalog([item("one"), item("two")]);
+  await a(original);
+  assert.equal(await b(catalog([item("one", { durationSeconds: 900 }), item("two")])), 1);
+  const next = catalog([item("one"), item("two"), item("three")]);
+  assert.equal(await a(next), 2, "A must reconcile B's change as well as its new asset");
+  assert.equal(db.row("youtube:one")?.durationSeconds, 600);
+  assert.equal(await c(next), 0);
+  assert.equal(db.row("youtube:one")?.durationSeconds, 600);
+});
+
+test("an unchanged local snapshot cannot bypass another instance's durable generation", async () => {
+  const db = database();
+  const a = db.register(), b = db.register();
   const original = catalog([item("one")]);
-  assert.equal(await register(original), 1);
-  assert.equal(await register(catalog([item("one", { durationSeconds: 900 })])), 1);
-  assert.equal(await register(original), 1);
-  assert.equal(markers.size, 1);
+  await a(original);
+  await b(catalog([item("one", { durationSeconds: 900 })]));
+  assert.equal(await a(original), 1);
+  assert.equal(db.row("youtube:one")?.durationSeconds, 600);
 });
 
-test("a failed batch cannot acknowledge missing assets; retry persists the remaining assets", async () => {
-  const batches: ReturnType<typeof readBatch>[] = [];
-  let fail = true;
-  let markerWrites = 0;
-  const register = registrar({
-    execute: async (_sql, values) => {
-      const batch = readBatch(values);
-      if (batches.length === 1 && fail) { fail = false; throw new Error("database unavailable"); }
-      batches.push(batch);
-      return { rowCount: batch.length };
-    },
-    writeMarker: async () => { markerWrites += 1; },
-  });
+test("a failed batch rolls back earlier batches and the acknowledgment", async () => {
+  const db = database();
+  const register = db.register();
   const all = catalog(Array.from({ length: 2_001 }, (_, index) => item(`retry-${index}`)));
-  await assert.rejects(register(all), /database unavailable/);
-  assert.equal(markerWrites, 0);
-  assert.equal(await register(all), 1_001);
-  assert.equal(markerWrites, 1);
-  assert.equal(new Set(batches.flat().map((asset) => asset.playbackRef)).size, 2_001);
+  db.failBatch(2);
+  await assert.rejects(register(all), /batch failed/);
+  assert.equal(db.size(), 0);
+  assert.equal(db.state(), null);
+  assert.equal(await register(all), 2_001);
+  assert.equal(db.size(), 2_001);
 });
 
-test("overlapping refreshes serialize; cache outages preserve database registration", async () => {
-  let writes = 0;
-  const register = registrar({
-    execute: async (_sql, values) => { writes += 1; return { rowCount: readBatch(values).length }; },
-    readMarker: async () => { throw new Error("cache unavailable"); },
-    writeMarker: async () => { throw new Error("cache unavailable"); },
-  });
-  const all = catalog([item("one")]);
-  assert.deepEqual(await Promise.all([register(all), register(all)]), [1, 0]);
-  assert.equal(writes, 1);
+test("commit failure cannot acknowledge uncommitted metadata", async () => {
+  const db = database();
+  const original = catalog([item("one")]);
+  await db.register()(original);
+  const oldState = db.state();
+  db.failCommit();
+  const updated = catalog([item("one", { durationSeconds: 900 })]);
+  await assert.rejects(db.register()(updated), /commit failed/);
+  assert.equal(db.state(), oldState);
+  assert.equal(db.row("youtube:one")?.durationSeconds, 600);
+  assert.equal(await db.register()(updated), 1);
+  assert.equal(db.row("youtube:one")?.durationSeconds, 900);
+});
+
+test("concurrent replicas serialize full multi-batch generations", async () => {
+  const db = database();
+  const all = Array.from({ length: 1_001 }, (_, index) => item(`concurrent-${index}`));
+  const updated = all.map((entry) => ({ ...entry, durationSeconds: 900 }));
+  assert.deepEqual(await Promise.all([db.register()(catalog(all)), db.register()(catalog(updated))]), [1_001, 1_001]);
+  assert.equal(db.maxActive(), 1);
+  assert.equal(db.row("youtube:concurrent-0")?.durationSeconds, 900);
+  assert.equal(db.row("youtube:concurrent-1000")?.durationSeconds, 900);
+  assert.equal(await db.register()(catalog(updated)), 0);
 });
 
 test("all current aliases remain registered while non-playable cards are excluded", async () => {
-  let registered: ReturnType<typeof readBatch> = [];
-  const register = registrar({ execute: async (_sql, values) => { registered = readBatch(values); return { rowCount: registered.length }; } });
-  assert.equal(await register(catalog([
+  const db = database();
+  assert.equal(await db.register()(catalog([
     item("same", { sourceUrl: "https://youtube.com/watch?v=same" }),
     item("same", { sourceUrl: "https://youtu.be/same" }),
     item("photo", { format: "photo" }), item("post", { kind: "post" }), item("blocked", { embeddable: false }),
     item("live", { id: "live-creator", platform: "twitch", kind: "live", live: { login: "creator" } }),
   ])), 2);
-  assert.ok(registered[0]!.aliases.includes("https://youtube.com/watch?v=same"));
-  assert.ok(registered[0]!.aliases.includes("https://youtu.be/same"));
-  assert.ok(registered[1]!.aliases.includes("twitch:stream:creator"));
+  assert.ok(db.row("youtube:same")?.aliases.includes("https://youtube.com/watch?v=same"));
+  assert.ok(db.row("youtube:same")?.aliases.includes("https://youtu.be/same"));
+  assert.ok(db.row("twitch:live-creator")?.aliases.includes("twitch:stream:creator"));
 });

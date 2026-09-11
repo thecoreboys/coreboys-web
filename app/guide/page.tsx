@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { WatchChrome } from "@/components/watch/WatchChrome";
+import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { GuideGrid } from "@/components/watch/GuideGrid";
 import { GuideHistory } from "@/components/watch/GuideHistory";
 import { getWatchCatalog } from "@/lib/watch/catalog";

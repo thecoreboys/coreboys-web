@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Suspense } from "react";
-import { MultiPlayerStage } from "@/components/watch/MultiPlayerStage";
+import { MultiviewEntry } from "@/components/watch/MultiviewEntry";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { entitlementDecision, getAccountSubscriptionState } from "@/lib/subscriptions/entitlements";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { buildMultiviewLiveRoom, restrictCatalogForLiveRoom } from "@/lib/watch/multiview-access";
+import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
+import { multiviewRequestedReferences, projectMultiviewCatalog } from "@/lib/watch/multiview-catalog";
 
 export const metadata: Metadata = {
   title: "Multiview",
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 type MultiviewPageProps = {
-  searchParams: Promise<{ live?: string | string[] }>;
+  searchParams: Promise<{ live?: string | string[]; add?: string | string[]; layout?: string | string[] }>;
 };
 
 async function expandedMultiviewAllowed(): Promise<boolean> {
@@ -47,12 +49,15 @@ export default async function MultiviewPage({ searchParams }: MultiviewPageProps
   const browserCatalog = initialLiveRoom
     ? restrictCatalogForLiveRoom(catalog, initialLiveRoom)
     : catalog;
+  const references = initialLiveRoom ? [] : multiviewRequestedReferences({
+    add: Array.isArray(params.add) ? params.add[0] : params.add,
+    layout: Array.isArray(params.layout) ? params.layout[0] : params.layout,
+  });
   return (
     <Suspense fallback={<div className="min-h-[calc(100dvh-4rem)] bg-[#070709]" />}>
-      <MultiPlayerStage
-        catalog={browserCatalog}
+      <MultiviewEntry
+        catalog={compactWatchCatalog(projectMultiviewCatalog(browserCatalog, references))}
         initialLiveRoom={initialLiveRoom}
-        autoFillLive={Boolean(initialLiveRoom)}
       />
     </Suspense>
   );

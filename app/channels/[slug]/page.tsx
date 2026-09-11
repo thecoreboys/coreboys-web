@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import "../../watch/watch.css";
 import "../../guide/guide.css";
-import { WatchChrome } from "@/components/watch/WatchChrome";
+import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { buildBroadcastHistoryFallback } from "@/lib/watch/airtime-history";
 import { loadAirtimeDailyArchive } from "@/lib/watch/airtime-archive";
 import { NetworkChannelPage, type ChannelCrewMember } from "@/components/watch/NetworkChannelPage";

@@ -20,7 +20,9 @@ Redis is optional. Missing configuration or an outage falls back to an in-proces
 
 Large JSON values are compressed asynchronously before transport. Stored values are limited to 16 MiB and decoded JSON to 64 MiB; an oversized archive is skipped before it can evict the rest of Redis. Plain JSON entries remain readable. The watch catalog stores each distinct item once with indexed collections and restores shared references after a cache read.
 
-The homepage sends a balanced selection of recent items instead of the full archive. Older saved and in-progress titles are resolved in bounded requests after account history loads. Full archives remain available to search, queues, DVR, and creator pages. Passport's public asset registry writes new or changed metadata in batches, renews unchanged archive records daily, and renews live records every five minutes to retain live eligibility.
+The homepage sends a balanced selection of recent items instead of the full archive. Older saved and in-progress titles are resolved in bounded requests after account history loads. Multiview and chat initially send up to 240 balanced suggestions, retaining every permitted live stream and each exact archived source in the URL or shared layout; their source picker searches the full archive on demand. Full archives remain available to search, queues, DVR, and creator pages. Passport's public asset registry writes new or changed metadata in batches, renews unchanged archive records daily, and renews live records every five minutes to retain live eligibility.
+
+Shared watch controls receive a small live-status and recommendation snapshot. DVR loads metadata for the account's saved titles and custom lists, then resolves later list changes in bounded requests. Guide, Tonight, and creator archive pages retain their complete deterministic schedules and scoped archives; those page-specific arrays can still produce larger responses.
 
 ## Public cache freshness
 
@@ -43,6 +45,8 @@ The Twitch archive keeps one shared snapshot per channel. When that channel beco
 
 Migration `scripts/migrations/052_account_watch_measurement.sql` adds measured-event metadata and an account-scoped playback cursor, including fractional-second carry. It is registered in `pnpm db:apply-web-migrations`; the runtime schema guard includes the same additive changes. Apply the migration to the intended production `DATABASE_URL` before production rollout, using the existing migration process. The runner applies its full registered migration list, not just migration 052.
 
+Migration `053_passport_watch_registry_state.sql` adds one public catalog acknowledgment row. Asset metadata batches and their acknowledgment commit in one PostgreSQL transaction under a shared advisory lock, so overlapping web replicas cannot certify an incomplete or outdated registry using local or Redis-only state.
+
 Passport `watchAnalytics` totals include only measured CORE playback events for the signed-in account. Playback advancement, elapsed time, session continuity, and playback speed bound credit; pauses, seeks, duplicate observations, and manual “watched” marks do not add measured time. Existing historical counters are retained without being relabeled as verified playback. Passport event/quest credit remains separate from total measured viewing time.
 
 Twitch and YouTube players watched inside CORE contribute to CORE totals, with a platform breakdown. Connecting an account does **not** import viewing history from that platform’s own website or app. Following/subscription checks depend on provider permissions and available APIs: missing, failed, or stale observations display as unknown; unsupported platforms display that limitation.
@@ -54,3 +58,9 @@ Focused checks include `tests/public-cache.test.ts`, `tests/redis-deadline.test.
 Browser checks covered account/settings and billing, Passport navigation, persistent DVR saves, custom lists, watched filters, YouTube playback controls, and responsive multiview. A temporary account recorded 1m 23s of YouTube and 1m 32s of Twitch playback in Passport's platform breakdown. Warm homepage responses from a local production build measured approximately 80 ms; this is a local observation, not a production latency guarantee.
 
 Twitch's iframe remains unobstructed and interactive, with CORE controls outside it. In the Codex in-app browser, Twitch still rejected muted autoplay with its `style visibility` warning, including on a separate bare HTML page containing only an 800×450 iframe. Native Twitch Play successfully started both a broadcast and a live stream. Autoplay behavior therefore still needs verification in the deployed site's supported browsers. Do not count a loaded or nominally playing iframe as watched without playback evidence.
+
+## Production verification
+
+The September 10, 2026 rollout applied migration 052 and enabled the private Redis service. An admitted preview request inside the production web container measured the homepage response at approximately 1.85 MB, down from 42.15 MB before the catalog projection. Three consecutive warm requests completed in 1.20, 1.11, and 1.32 seconds; the first request after rollout took 14.8 seconds while rebuilding the catalog. The same rebuild can recur after the 60-second cache expiry. These are server-local observations, not browser download or rendering measurements.
+
+The compressed full archive contained 12,967 catalog item records, with approximately 14.03 MB of decoded JSON stored as 2.84 MB in Redis. Cache memory remained about 4.26 MB with no additional out-of-memory errors or evictions during verification. Production checks covered eight homepage images, account and billing redirects, signed-out account boundaries, upgrade, DVR admission, theater, multiview, live status, and exact older-archive item lookup. Guest progress intentionally returns an empty history with a null account ID.

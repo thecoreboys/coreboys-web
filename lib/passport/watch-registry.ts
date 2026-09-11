@@ -1,8 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { query } from "@/lib/db";
-import { redisGetJson, redisSetJson } from "@/lib/redis";
+import { query, withTransaction } from "@/lib/db";
 import { passportPlaybackProviderIds } from "@/lib/passport/policy";
 import type { WatchCatalog, WatchItem } from "@/lib/watch/types";
 
@@ -74,12 +73,15 @@ const REGISTER_ASSETS_SQL = `WITH assets AS (
            EXCLUDED.kind,EXCLUDED.short_form,EXCLUDED.duration_seconds,EXCLUDED.source_url)
        OR passport_watch_assets.last_seen_at < now()-CASE WHEN EXCLUDED.kind='live' THEN interval '5 minutes' ELSE interval '1 day' END`;
 
+type RegistryExecute = (sql: string, values: ReadonlyArray<unknown>) => Promise<{
+  rowCount: number | null;
+  rows?: ReadonlyArray<Record<string, unknown>>;
+}>;
 type RegistryDependencies = {
-  execute: (sql: string, values: ReadonlyArray<unknown>) => Promise<{ rowCount: number | null }>;
-  readMarker?: (key: string) => Promise<unknown>;
-  writeMarker?: (key: string, value: unknown, expirySeconds: number) => Promise<unknown>;
+  // All instances must share this transaction lock. The acknowledgment and
+  // every asset batch commit together, or neither is visible to another reader.
+  transaction: (run: (execute: RegistryExecute) => Promise<number>) => Promise<number>;
   now?: () => number;
-  namespace?: string;
 };
 
 function fingerprint(value: unknown): string {
@@ -92,90 +94,89 @@ function renewalInterval(asset: RegisteredWatchAsset): number {
 
 type RegistryMarker = { fingerprint: string; archiveConfirmedAt: number; liveConfirmedAt: number };
 
+const REGISTRY_STATE_SCHEMA = `CREATE TABLE IF NOT EXISTS passport_watch_registry_state (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  fingerprint text NOT NULL,
+  archive_confirmed_at bigint NOT NULL,
+  live_confirmed_at bigint NOT NULL
+)`;
+let schemaReady: Promise<unknown> | null = null;
+
+function ensureRegistryState(): Promise<unknown> {
+  if (!schemaReady) schemaReady = query(REGISTRY_STATE_SCHEMA).catch((error: unknown) => {
+    schemaReady = null;
+    throw error;
+  });
+  return schemaReady;
+}
+
 /**
- * Keep every current asset available, while registering only changed metadata
- * on ordinary catalog refreshes. Success markers are published only after all
- * writes finish; a failed batch stays eligible for the next attempt.
+ * Compare the complete catalog with a durable acknowledgment shared by every
+ * replica. Redis loss, expiration, or failed publication cannot certify stale
+ * metadata. SQL compares changed generations without rewriting identical rows.
  */
 export function createPassportWatchCatalogRegistrar(dependencies: RegistryDependencies) {
   const now = dependencies.now ?? Date.now;
-  const persisted = new Map<string, { fingerprint: string; confirmedAt: number }>();
-  let queue: Promise<unknown> = Promise.resolve();
 
-  async function register(catalog: WatchCatalog): Promise<number> {
+  return async function register(catalog: WatchCatalog): Promise<number> {
     const byRef = new Map<string, RegisteredWatchAsset>();
     for (const item of catalog.all) {
       const asset = registeredAsset(item);
       if (!asset) continue;
       const previous = byRef.get(asset.playbackRef);
-      if (previous) asset.aliases = [...new Set([...previous.aliases, ...asset.aliases])].sort();
+      asset.aliases = [...new Set([...(previous?.aliases ?? []), ...asset.aliases])].sort();
       byRef.set(asset.playbackRef, asset);
     }
     const assets = [...byRef.values()];
     if (!assets.length) return 0;
     const fingerprints = new Map(assets.map((asset) => [asset.playbackRef, fingerprint({ ...asset, aliases: [...asset.aliases].sort() })]));
-    const timestamp = now();
-    const changed = assets.filter((asset) => {
-      const previous = persisted.get(asset.playbackRef);
-      return !previous || previous.fingerprint !== fingerprints.get(asset.playbackRef)
-        || timestamp - previous.confirmedAt >= renewalInterval(asset) || timestamp < previous.confirmedAt;
-    });
-    if (!changed.length) return 0;
-
-    // Acknowledge only the latest complete catalog. Keeping older content-addressed
-    // markers could skip a metadata change that reverts to an earlier catalog.
-    const key = `passport-watch-registry:v3:${dependencies.namespace ?? "default"}`;
     const catalogFingerprint = fingerprint([...fingerprints].sort(([left], [right]) => left.localeCompare(right)));
-    const marker = await dependencies.readMarker?.(key).catch(() => null);
-    const acknowledgment = marker as Partial<RegistryMarker> | null | undefined;
-    if (acknowledgment?.fingerprint === catalogFingerprint && assets.every((asset) => {
-      const confirmedAt = asset.kind === "live" ? acknowledgment.liveConfirmedAt : acknowledgment.archiveConfirmedAt;
-      return typeof confirmedAt === "number" && timestamp >= confirmedAt && timestamp - confirmedAt < renewalInterval(asset);
-    })) {
-      for (const asset of assets) persisted.set(asset.playbackRef, {
-        fingerprint: fingerprints.get(asset.playbackRef)!,
-        confirmedAt: (asset.kind === "live" ? acknowledgment.liveConfirmedAt : acknowledgment.archiveConfirmedAt)!,
+    return dependencies.transaction(async (execute) => {
+      const state = (await execute(`SELECT fingerprint,archive_confirmed_at,live_confirmed_at
+        FROM passport_watch_registry_state WHERE singleton=true`, [])).rows?.[0];
+      const acknowledgment: RegistryMarker | null = state ? {
+        fingerprint: String(state.fingerprint),
+        archiveConfirmedAt: Number(state.archive_confirmed_at),
+        liveConfirmedAt: Number(state.live_confirmed_at),
+      } : null;
+      const timestamp = now();
+      const sameGeneration = acknowledgment?.fingerprint === catalogFingerprint;
+      const changed = assets.filter((asset) => {
+        if (!sameGeneration) return true;
+        const confirmedAt = asset.kind === "live" ? acknowledgment.liveConfirmedAt : acknowledgment.archiveConfirmedAt;
+        return !Number.isFinite(confirmedAt) || timestamp < confirmedAt || timestamp - confirmedAt >= renewalInterval(asset);
       });
-      for (const ref of persisted.keys()) if (!byRef.has(ref)) persisted.delete(ref);
-      return 0;
-    }
+      if (!changed.length) return 0;
 
-    let count = 0;
-    for (let offset = 0; offset < changed.length; offset += REGISTRY_BATCH_SIZE) {
-      const batch = changed.slice(offset, offset + REGISTRY_BATCH_SIZE);
-      const result = await dependencies.execute(REGISTER_ASSETS_SQL, [JSON.stringify(batch)]);
-      count += result.rowCount ?? 0;
-      for (const asset of batch) persisted.set(asset.playbackRef, { fingerprint: fingerprints.get(asset.playbackRef)!, confirmedAt: timestamp });
-    }
-    for (const ref of persisted.keys()) if (!byRef.has(ref)) persisted.delete(ref);
-    // Keep separate live/archive renewal clocks. Adding an item cannot prolong
-    // older registrations, and a live heartbeat need not resend the archive.
-    const completed: RegistryMarker = { fingerprint: catalogFingerprint, archiveConfirmedAt: timestamp, liveConfirmedAt: timestamp };
-    let expiresAt = timestamp + REGISTRY_RENEWAL_MS;
-    for (const asset of assets) {
-      const confirmedAt = persisted.get(asset.playbackRef)!.confirmedAt;
-      const field = asset.kind === "live" ? "liveConfirmedAt" : "archiveConfirmedAt";
-      completed[field] = Math.min(completed[field], confirmedAt);
-      expiresAt = Math.min(expiresAt, confirmedAt + renewalInterval(asset));
-    }
-    await dependencies.writeMarker?.(key, completed, Math.max(1, Math.ceil((expiresAt - timestamp) / 1_000))).catch(() => undefined);
-    return count;
-  }
-
-  return (catalog: WatchCatalog): Promise<number> => {
-    // One process may receive overlapping refreshes. Serialize registration so
-    // older snapshots cannot overwrite newer metadata, even after an error.
-    const task = queue.then(() => register(catalog));
-    queue = task.catch(() => undefined);
-    return task;
+      let count = 0;
+      for (let offset = 0; offset < changed.length; offset += REGISTRY_BATCH_SIZE) {
+        const batch = changed.slice(offset, offset + REGISTRY_BATCH_SIZE);
+        count += (await execute(REGISTER_ASSETS_SQL, [JSON.stringify(batch)])).rowCount ?? 0;
+      }
+      // Preserve the archive clock when only a live renewal is due. Changed
+      // catalog generations were completely compared, so all clocks may renew.
+      const archiveConfirmedAt = sameGeneration && !changed.some((asset) => asset.kind !== "live")
+        ? acknowledgment.archiveConfirmedAt : timestamp;
+      const liveConfirmedAt = sameGeneration && !changed.some((asset) => asset.kind === "live")
+        ? acknowledgment.liveConfirmedAt : timestamp;
+      await execute(`INSERT INTO passport_watch_registry_state
+        (singleton,fingerprint,archive_confirmed_at,live_confirmed_at) VALUES (true,$1,$2,$3)
+        ON CONFLICT(singleton) DO UPDATE SET fingerprint=EXCLUDED.fingerprint,
+          archive_confirmed_at=EXCLUDED.archive_confirmed_at,live_confirmed_at=EXCLUDED.live_confirmed_at`,
+      [catalogFingerprint, archiveConfirmedAt, liveConfirmedAt]);
+      return count;
+    });
   };
 }
 
 const registerCatalog = createPassportWatchCatalogRegistrar({
-  execute: query,
-  readMarker: redisGetJson,
-  writeMarker: redisSetJson,
-  namespace: createHash("sha256").update(process.env.DATABASE_URL ?? "unconfigured").digest("hex").slice(0, 20),
+  transaction: async (run) => {
+    await ensureRegistryState();
+    return withTransaction(async (client) => {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, ["passport-watch-registry:v1"]);
+      return run((sql, values) => client.query(sql, [...values]));
+    });
+  },
 });
 
 /** Persist the complete server-normalized allowlist before rendering succeeds. */

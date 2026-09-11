@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DvrMembershipGate } from "@/components/watch/DvrMembershipGate";
-import { WatchChrome } from "@/components/watch/WatchChrome";
-import { MyListPage } from "@/components/watch/MyListPage";
+import { WatchChrome } from "@/components/watch/WatchChromeServer";
+import { DvrEntry } from "@/components/watch/DvrEntry";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { entitlementDecision, getAccountSubscriptionState } from "@/lib/subscriptions/entitlements";
 import { minimumPlanForFeature, PLANS } from "@/lib/subscriptions/catalog";
 import { getWatchCatalog } from "@/lib/watch/catalog";
+import { getDvrItems } from "@/lib/watch/dvr-items-server";
 import "../watch/watch.css";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +31,11 @@ export default async function DvrRoute() {
   const dvrAllowed = entitlementDecision(subscription, featureId).allowed;
   const requiredPlanId = minimumPlanForFeature(featureId);
   const planName = requiredPlanId ? PLANS[requiredPlanId].name : "CORE Membership";
+  const items = dvrAllowed ? await getDvrItems(catalog, userId, entitlementDecision(subscription, "queue.templates").allowed) : [];
 
   return (
     <WatchChrome catalog={catalog}>
-      {dvrAllowed ? <MyListPage catalog={catalog} /> : <DvrMembershipGate planName={planName} />}
+      {dvrAllowed ? <DvrEntry ownerId={userId} items={items} /> : <DvrMembershipGate planName={planName} />}
     </WatchChrome>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "../watch/watch.css";
-import { WatchChrome } from "@/components/watch/WatchChrome";
+import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { TonightPage } from "@/components/watch/TonightPage";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { buildNetworkLineup, resolveNetworkChannel } from "@/lib/watch/channels";

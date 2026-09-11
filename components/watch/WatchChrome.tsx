@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import type { WatchCatalog } from "@/lib/watch/types";
 import { usePlayer } from "@/components/providers/PlayerProvider";
-import { catalogPlayables } from "@/lib/watch/playable";
+import { watchChromeSnapshot, type WatchChromeSnapshot } from "@/lib/watch/chrome-snapshot";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useMyList } from "@/hooks/useMyList";
 import { WatchExperienceControls } from "./WatchExperienceControls";
@@ -33,10 +33,13 @@ const unifiedLiveFetcher = async (url: string): Promise<UnifiedLiveSnapshot> => 
 export function WatchChrome({
   children,
   catalog,
+  snapshot,
 }: {
   children: React.ReactNode;
   catalog?: WatchCatalog;
+  snapshot?: WatchChromeSnapshot;
 }) {
+  const chrome = useMemo(() => snapshot ?? (catalog ? watchChromeSnapshot(catalog) : undefined), [catalog, snapshot]);
   const player = usePlayer();
   const router = useRouter();
   const { data: liveStatus } = useLiveStatus();
@@ -47,18 +50,18 @@ export function WatchChrome({
   const refreshedForUnified = useRef("");
   const unifiedFallback = useMemo<UnifiedLiveSnapshot | undefined>(
     () =>
-      catalog
+      chrome
         ? {
-            live: catalog.live.map((item) => ({
+            live: chrome.live.map((item) => ({
               id: item.id,
               platform: item.platform,
               memberSlug: item.memberSlug,
-              dvrVodId: item.dvr?.twitchVodId ?? null,
+              dvrVodId: item.dvrVodId,
             })),
-            fetchedAt: catalog.fetchedAt,
+            fetchedAt: chrome.fetchedAt,
           }
         : undefined,
-    [catalog],
+    [chrome],
   );
   const { data: unifiedLive } = useSWR<UnifiedLiveSnapshot>(
     "/api/watch/live",
@@ -73,13 +76,13 @@ export function WatchChrome({
   );
   const catalogLiveKey = useMemo(
     () =>
-      (catalog?.live ?? [])
+      (chrome?.live ?? [])
         .filter((item) => item.platform === "twitch")
-        .map((item) => item.live?.login?.toLowerCase())
+        .map((item) => item.login)
         .filter((login): login is string => Boolean(login))
         .sort()
         .join(","),
-    [catalog?.live],
+    [chrome?.live],
   );
   const runtimeLiveKey = useMemo(
     () =>
@@ -92,11 +95,11 @@ export function WatchChrome({
   );
   const catalogUnifiedLiveKey = useMemo(
     () =>
-      (catalog?.live ?? [])
-        .map((item) => `${item.platform}:${item.memberSlug ?? "house"}:${item.id}:${item.dvr?.twitchVodId ?? ""}`)
+      (chrome?.live ?? [])
+        .map((item) => `${item.platform}:${item.memberSlug ?? "house"}:${item.id}:${item.dvrVodId ?? ""}`)
         .sort()
         .join(","),
-    [catalog?.live],
+    [chrome?.live],
   );
   const runtimeUnifiedLiveKey = useMemo(
     () =>
@@ -108,16 +111,16 @@ export function WatchChrome({
   );
 
   useEffect(() => {
-    if (catalog) player.refill(catalogPlayables(catalog));
+    if (chrome) player.refill(chrome.recommendations);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog?.fetchedAt]);
+  }, [chrome]);
 
   // Posts do not change the live-key, so they need their own light-weight
   // catalog refresh. Social provider work is coalesced on the server; this
   // merely lets an open home/channel/Shorts page pick up the shared result.
   // Never refresh a background tab or an offline client.
   useEffect(() => {
-    if (!catalog) return;
+    if (!chrome) return;
     const refreshWhenActive = () => {
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
       router.refresh();
@@ -133,7 +136,7 @@ export function WatchChrome({
       window.removeEventListener("focus", refreshWhenActive);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [catalog?.fetchedAt, router]);
+  }, [chrome, router]);
 
   // SWR keeps checking Twitch while the page is open. When somebody starts
   // or ends a stream, refresh the server catalog so live immediately moves to

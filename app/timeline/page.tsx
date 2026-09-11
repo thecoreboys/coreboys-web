@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { WatchChrome } from "@/components/watch/WatchChrome";
+import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { HOUSE_TIMELINE } from "@/lib/watch/timeline";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import "../watch/watch.css";

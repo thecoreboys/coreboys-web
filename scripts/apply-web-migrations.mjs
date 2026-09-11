@@ -57,6 +57,7 @@ const migrations = [
   "048_x_social_archive_paging.sql",
   "049_notification_center.sql",
   "052_account_watch_measurement.sql",
+  "053_passport_watch_registry_state.sql",
 ];
 
 function loadEnvLocal() {

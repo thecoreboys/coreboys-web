@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "../watch/watch.css";
-import { WatchChrome } from "@/components/watch/WatchChrome";
+import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { ShortsStage } from "@/components/watch/ShortsStage";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { selectShortFormRailItems } from "@/lib/watch/short-form";
