@@ -35,6 +35,10 @@ export type XFeedEntity = {
   expanded_url?: string;
   display_url?: string;
   unwound_url?: string;
+  /** Camel-case aliases used by imported provider snapshots. */
+  expandedUrl?: string;
+  displayUrl?: string;
+  unwoundUrl?: string;
   probability?: number;
   type?: string;
   normalized_text?: string;

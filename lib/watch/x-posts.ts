@@ -338,7 +338,9 @@ function entityTarget(
   if (kind === "url") {
     return (
       safeHttpsUrl(typeof entity.unwound_url === "string" ? entity.unwound_url : undefined) ??
+      safeHttpsUrl(typeof entity.unwoundUrl === "string" ? entity.unwoundUrl : undefined) ??
       safeHttpsUrl(typeof entity.expanded_url === "string" ? entity.expanded_url : undefined) ??
+      safeHttpsUrl(typeof entity.expandedUrl === "string" ? entity.expandedUrl : undefined) ??
       safeHttpsUrl(typeof entity.url === "string" ? entity.url : undefined)
     );
   }
@@ -367,7 +369,7 @@ function entityPreview(entity: XFeedEntity, kind: WatchHomeXPostEntity["kind"]) 
     ? entity.images.find((entry) => safeHttpsUrl(entry?.url))?.url
     : undefined;
   return {
-    label: previewCopy(entity.display_url, 80),
+    label: previewCopy(entity.display_url ?? entity.displayUrl, 80),
     title: previewCopy(entity.title, 160),
     description: previewCopy(entity.description, 220),
     imageUrl: safeHttpsUrl(image) ?? undefined,

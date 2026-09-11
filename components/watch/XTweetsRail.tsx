@@ -77,7 +77,7 @@ function linkPreviews(
   entities: readonly WatchHomeXPost["entities"][number][],
   sourceUrl: string,
   suppressStatusId?: string,
-  hasMedia = false,
+  _hasMedia = false,
 ): LinkPreview[] {
   const seen = new Set<string>();
   return entities.flatMap<LinkPreview>((entity): LinkPreview[] => {
@@ -93,20 +93,18 @@ function linkPreviews(
     if (quoted) {
       if (quoted.id === suppressStatusId) return [];
       // Quoted Post data is hydrated with the scheduled X snapshot and is
-      // rendered below as a native nested card. Do not replace it with a
-      // second, generic X link card (or make a browser request for a widget).
-      return [];
+      // rendered below as a native nested card when available. If it was
+      // imported without the quote payload,
+      // retain the resolved X URL as a useful link preview instead of dropping
+      // it and leaving only the original t.co token in the body.
     }
     try {
       const url = new URL(entity.href);
-      // An opaque t.co URL attached to a photo/video is already represented
-      // by the gallery below; it is not useful as a duplicate website card.
-      if (url.hostname.toLowerCase() === "t.co" && hasMedia) return [];
       return [{
         href: entity.href,
         kind: "link" as const,
-        label: entity.label ?? url.hostname.replace(/^www\./, ""),
-        title: entity.title ?? previewTitleFromUrl(url),
+        label: entity.label ?? (quoted ? "X" : url.hostname.replace(/^www\./, "")),
+        title: entity.title ?? (quoted ? "Open linked post on X" : previewTitleFromUrl(url)),
         description: entity.description,
         imageUrl: entity.imageUrl,
       }];

@@ -99,11 +99,11 @@ function fromSocial(item: FeedItem): WatchItem | null {
   if (item.platform === "youtube") return null;
   const member = memberOf(item.authorSlug);
   const sourceUrl = item.sourceUrl ?? item.url;
-  // Social CDN artwork is optional and can expire. Do not substitute a
-  // creator portrait or the generic CORE preview: doing so makes unrelated
-  // posts look like duplicated site content when a provider image is gone.
-  const poster = item.thumbnailUrl ?? "";
   const isPhoto = item.mediaType === "image" || item.format === "photo";
+  // Photo APIs often expose the original image as mediaUrl while omitting a
+  // separate thumbnail. Keep that real provider image in the card and theater
+  // instead of falling through to a generic placeholder.
+  const poster = item.thumbnailUrl ?? (isPhoto ? item.mediaUrl : undefined) ?? "";
   const isPost = item.mediaType === "text";
   const isLive = Boolean(item.isLive || item.format === "live");
   const isShortForm = !isLive && !isPhoto && !isPost && (
@@ -261,7 +261,7 @@ async function getTwitchBroadcasts(
 }
 
 export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => expandWatchCatalog(await cachedPublicData(
-  "watch-catalog:v2",
+  "watch-catalog:v3",
   async () => compactWatchCatalog(await buildWatchCatalog()),
   {
     freshSeconds: 20,

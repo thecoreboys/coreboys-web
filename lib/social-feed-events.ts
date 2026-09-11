@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { FeedItem } from "@/components/feed/types";
+import type { FeedItem, XFeedEntities } from "@/components/feed/types";
 import { query } from "@/lib/db";
 import {
   decodeXSocialArchiveCursor,
@@ -54,6 +54,17 @@ function string(value: unknown): string | undefined {
 function positiveNumber(value: unknown): number | undefined {
   const parsed = typeof value === "number" ? value : Number.NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function inferredXEntities(text: string): XFeedEntities | undefined {
+  const urls = [...text.matchAll(/https?:\/\/t\.co\/[A-Za-z0-9]+/gi)].flatMap((match) => {
+    const start = match.index;
+    const url = match[0];
+    return typeof start === "number" && url
+      ? [{ start, end: start + url.length, url, expanded_url: url, display_url: url.replace(/^https?:\/\//i, "") }]
+      : [];
+  });
+  return urls.length ? { urls } : undefined;
 }
 
 function providerObjectId(row: PersistedSocialEventRow): string | null {
@@ -113,6 +124,36 @@ function persistedFeedItem(row: PersistedSocialEventRow): FeedItem | null {
   const width = positiveNumber(payload.width);
   const height = positiveNumber(payload.height);
   const durationSeconds = positiveNumber(payload.durationSeconds);
+  const authorHandle = string(payload.authorHandle);
+  let sourceHandle: string | undefined;
+  if (isX) {
+    try {
+      const parts = new URL(sourceUrl).pathname.split("/").filter(Boolean);
+      sourceHandle = parts[0] && /^[A-Za-z0-9_]{1,15}$/.test(parts[0]) ? parts[0] : undefined;
+    } catch {
+      sourceHandle = undefined;
+    }
+  }
+  const authorProfileUrl = string(payload.authorProfileUrl) ?? (sourceHandle ? `https://x.com/${sourceHandle}` : undefined);
+  const authorAvatarUrl = string(payload.authorAvatarUrl);
+  const authorName = string(payload.authorName);
+  const notificationPreview = record(payload.notificationPreview);
+  const previewEntities = record(notificationPreview.entities) ? notificationPreview.entities : undefined;
+  const entities = record(payload.entities) ? payload.entities : previewEntities ?? inferredXEntities(row.title);
+  const x = isX && authorProfileUrl
+    ? {
+        statusId: id,
+        statusUrl: sourceUrl,
+        authorId: id,
+        authorHandle: authorHandle?.startsWith("@") ? authorHandle : authorHandle ? `@${authorHandle}` : sourceHandle ? `@${sourceHandle}` : "",
+        authorName,
+        authorProfileUrl,
+        authorAvatarUrl,
+        verified: payload.verified === true,
+        ...(entities ? { entities: entities as XFeedEntities } : {}),
+        ...(typeof notificationPreview.text === "string" ? { noteText: notificationPreview.text } : {}),
+      }
+    : undefined;
   return {
     id: `${row.provider === "tiktok" ? "tt" : row.provider === "instagram" ? "ig" : "x"}-${id}`,
     canonicalProviderId: id,
@@ -143,6 +184,7 @@ function persistedFeedItem(row: PersistedSocialEventRow): FeedItem | null {
     focalPoint: { x: 0.5, y: 0.5 },
     durationSeconds,
     liveCapability: "unsupported",
+    ...(x ? { x } : {}),
   };
 }
 

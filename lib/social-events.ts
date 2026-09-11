@@ -65,8 +65,12 @@ function previewLinks(entities: Array<Record<string, unknown>> | undefined) {
   return (entities ?? []).flatMap((entity) => {
     const href = typeof entity.unwound_url === "string"
       ? validUrl(entity.unwound_url)
+      : typeof entity.unwoundUrl === "string"
+        ? validUrl(entity.unwoundUrl)
       : typeof entity.expanded_url === "string"
         ? validUrl(entity.expanded_url)
+        : typeof entity.expandedUrl === "string"
+          ? validUrl(entity.expandedUrl)
         : typeof entity.url === "string"
           ? validUrl(entity.url)
           : null;
@@ -76,7 +80,7 @@ function previewLinks(entities: Array<Record<string, unknown>> | undefined) {
       : undefined;
     return [{
       href,
-      label: previewText(entity.display_url, 80),
+      label: previewText(entity.display_url ?? entity.displayUrl, 80),
       title: previewText(entity.title, 160),
       description: previewText(entity.description, 220),
       imageUrl: image ? validUrl(String(image.url ?? "")) ?? undefined : undefined,
@@ -174,7 +178,7 @@ export function socialEventFromFeedItem(item: FeedItem): SocialEventInput | null
     body: bounded(item.authorLabel, 160) || null,
     avatarUrl: validUrl(item.x?.authorAvatarUrl ?? ""),
     href,
-    artworkUrl: validUrl(item.thumbnailUrl ?? ""),
+    artworkUrl: validUrl(item.thumbnailUrl ?? ((item.mediaType === "image" || item.format === "photo") ? item.mediaUrl ?? "" : "")),
     orientation: asOrientation(item),
     publishedAt: new Date(publishedAt).toISOString(),
     // Keep only durable rendering metadata in the event snapshot. In

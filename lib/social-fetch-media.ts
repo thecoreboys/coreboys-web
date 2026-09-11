@@ -22,6 +22,7 @@ import {
   type SocialFetchBudgetAdapter,
   type SocialFetchCreditReservationDenialReason,
 } from "@/lib/social-fetch-budget";
+import type { XFeedEntities } from "@/components/feed/types";
 
 const BASE_URL = "https://api.socialfetch.dev/v1";
 // Successful profile reads can take more than 20 seconds while Social Fetch
@@ -91,6 +92,11 @@ export type SocialFetchTwitterTweet = {
   mediaType: "photo" | "video" | "text";
   isReply: boolean;
   isRetweet: boolean;
+  authorName?: string;
+  authorHandle?: string;
+  authorProfileUrl?: string;
+  authorAvatarUrl?: string;
+  entities?: XFeedEntities;
 };
 
 export type SocialFetchMediaResult<T> = {
@@ -688,6 +694,64 @@ function twitterSourceUrl(id: string, requestedHandle: string): string {
   return `https://x.com/${requestedHandle}/status/${id}`;
 }
 
+function inferredTwitterEntities(text: string): XFeedEntities | undefined {
+  const urls = [...text.matchAll(/https?:\/\/t\.co\/[A-Za-z0-9]+/gi)].flatMap((match) => {
+    const start = match.index;
+    const url = match[0];
+    return typeof start === "number" && url ? [{
+      start,
+      end: start + url.length,
+      url,
+      expanded_url: url,
+      display_url: url.replace(/^https?:\/\//i, ""),
+    }] : [];
+  });
+  return urls.length ? { urls } : undefined;
+}
+
+function previewMeta(document: string, key: "og:title" | "og:description" | "og:image"): string | undefined {
+  const escaped = key.replace(":", "\\:");
+  const match = new RegExp(
+    `<meta\\s+[^>]*(?:property|name)=["']${escaped}["'][^>]*content=["']([^"']+)["'][^>]*>`
+      + `|<meta\\s+[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${escaped}["'][^>]*>`,
+    "i",
+  ).exec(document);
+  return (match?.[1] ?? match?.[2])?.replaceAll("&amp;", "&").trim() || undefined;
+}
+
+async function hydrateTwitterLinks(tweet: SocialFetchTwitterTweet): Promise<SocialFetchTwitterTweet> {
+  const entities = tweet.entities ?? inferredTwitterEntities(tweet.text);
+  if (!entities?.urls?.length) return tweet;
+  const urls = await Promise.all((entities.urls ?? []).map(async (entity) => {
+    const raw = entity.url ?? entity.expanded_url;
+    if (typeof raw !== "string" || !/^https:\/\/t\.co\//i.test(raw)) return entity;
+    try {
+      const response = await fetch(raw, {
+        redirect: "follow",
+        headers: { "user-agent": "Mozilla/5.0 (compatible; COREMediaBot/1.0; +https://thecoreboys.com)" },
+        signal: AbortSignal.timeout(3_500),
+      });
+      const landed = safeHttpsUrl(response.url);
+      if (!landed) return entity;
+      const next: Record<string, unknown> = { ...entity, unwound_url: landed, expanded_url: landed };
+      const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+      if (contentType.includes("text/html")) {
+        const html = (await response.text()).slice(0, 256_000);
+        const title = previewMeta(html, "og:title");
+        const description = previewMeta(html, "og:description");
+        const image = safeHttpsUrl(previewMeta(html, "og:image"));
+        if (title) next.title = title;
+        if (description) next.description = description;
+        if (image) next.images = [{ url: image }];
+      }
+      return next;
+    } catch {
+      return entity;
+    }
+  }));
+  return { ...tweet, entities: { ...entities, urls } };
+}
+
 function twitterTweet(value: unknown, requestedHandle: string): SocialFetchTwitterTweet | null {
   const item = record(value);
   if (!item) return null;
@@ -732,6 +796,18 @@ function twitterTweet(value: unknown, requestedHandle: string): SocialFetchTwitt
     mediaType,
     isReply: item.isReply === true || Boolean(nonEmptyString(inReplyToStatusId)),
     isRetweet: item.isRetweet,
+    authorName: author ? (nonEmptyString(author.name) ?? undefined) : undefined,
+    authorHandle: authorHandle ?? undefined,
+    authorProfileUrl: authorHandle
+      ? `https://x.com/${authorHandle}`
+      : (safeHttpsUrl(author?.profileUrl) ?? safeHttpsUrl(author?.url) ?? undefined),
+    authorAvatarUrl: safeHttpsUrl(
+      author?.avatarUrl
+        ?? author?.avatar_url
+        ?? author?.profileImageUrl
+        ?? author?.profile_image_url,
+    ) ?? undefined,
+    entities: record(item.entities) ? item.entities as XFeedEntities : inferredTwitterEntities(item.text),
   };
 }
 
@@ -781,10 +857,11 @@ export async function fetchSocialFetchTwitterTweetsPage(
     );
   }
   const lookupStatus = lookupStatusFrom(data);
-  const items = data.tweets.flatMap((value) => {
+  const parsedItems = data.tweets.flatMap((value) => {
     const tweet = twitterTweet(value, handle);
     return tweet ? [tweet] : [];
   });
+  const items = await Promise.all(parsedItems.map(hydrateTwitterLinks));
   const invalidItems = items.length !== data.tweets.length
     || items.some((item) => item.createdAt === null);
   const lookupFailure = lookupFailureStatus(lookupStatus);

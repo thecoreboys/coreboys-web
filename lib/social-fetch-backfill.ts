@@ -406,8 +406,13 @@ function twitterEvent(target: SocialFetchBackfillTarget, item: SocialFetchTwitte
     publishedAt: item.createdAt!,
     platformPayload: {
       authorLabel: target.accountLabel,
+      authorName: item.authorName,
+      authorHandle: item.authorHandle ?? `@${target.handle}`,
+      authorProfileUrl: item.authorProfileUrl ?? `https://x.com/${target.handle}`,
+      authorAvatarUrl: item.authorAvatarUrl,
       sourceUrl: item.sourceUrl,
       canonicalProviderId: item.id,
+      entities: item.entities,
       mediaType: item.mediaType === "photo" ? "image" : item.mediaType,
       format: item.mediaType === "photo" ? "photo" : undefined,
       width: item.dimensions?.width,
