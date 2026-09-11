@@ -148,6 +148,7 @@ export function NotificationCenterPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const { activate, previewDialog } = useNotificationActivation();
 
   const load = useCallback(async (nextFilter: Filter, cursor?: string | null, append = false) => {
@@ -171,6 +172,16 @@ export function NotificationCenterPage() {
   useEffect(() => {
     void load(filter);
   }, [filter, load]);
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || !nextCursor || loading || loadingMore || error) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) void load(filter, nextCursor, true);
+    }, { rootMargin: "640px 0px" });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [error, filter, load, loading, loadingMore, nextCursor]);
 
   useEffect(() => {
     let active = true;
@@ -305,9 +316,11 @@ export function NotificationCenterPage() {
             </ol>
           ) : null}
           {nextCursor && !loading && !error ? (
-            <button type="button" disabled={loadingMore} onClick={() => void load(filter, nextCursor, true)} className="mx-auto mt-4 flex min-h-10 items-center rounded-lg px-4 text-sm font-semibold text-brand-secondary transition hover:bg-brand-primary disabled:cursor-wait disabled:opacity-50">
-              {loadingMore ? "Loading…" : "Load older notifications"}
-            </button>
+            <div ref={loadMoreRef} className="mt-4 flex justify-center">
+              <button type="button" disabled={loadingMore} onClick={() => void load(filter, nextCursor, true)} className="min-h-10 rounded-lg px-4 text-sm font-semibold text-brand-secondary transition hover:bg-brand-primary disabled:cursor-wait disabled:opacity-50">
+                {loadingMore ? "Loading…" : "Load older notifications"}
+              </button>
+            </div>
           ) : null}
         </div>
       </section>

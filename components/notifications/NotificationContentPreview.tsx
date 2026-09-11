@@ -76,9 +76,11 @@ function XPostPreview({ post }: { post: NotificationXPost }) {
 export function NotificationPreviewSurface({
   preview,
   fullPage = false,
+  dialogTitle = false,
 }: {
   preview: NotificationPreviewData;
   fullPage?: boolean;
+  dialogTitle?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const provider = notificationProviderLabel(preview.provider);
@@ -111,11 +113,9 @@ export function NotificationPreviewSurface({
             <p className="mt-0.5 text-sm font-semibold text-white/90">{provider} post</p>
           </div>
         </div>
-        {!preview.xPost ? <DialogTitle className="relative mt-5 max-w-2xl text-2xl leading-[1.05] text-white sm:text-3xl">{preview.title}</DialogTitle> : <p className="relative mt-5 text-sm font-semibold text-white/75">X post</p>}
+        {!preview.xPost ? (dialogTitle ? <DialogTitle className="relative mt-5 max-w-2xl text-2xl leading-[1.05] text-white sm:text-3xl">{preview.title}</DialogTitle> : <h3 className="relative mt-5 max-w-2xl text-2xl leading-[1.05] text-white sm:text-3xl">{preview.title}</h3>) : <p className="relative mt-5 text-sm font-semibold text-white/75">X post</p>}
         {!preview.xPost && preview.body ? (
-          <DialogDescription className="relative mt-3 max-w-2xl text-sm leading-6 text-white/65">
-            {preview.body}
-          </DialogDescription>
+          dialogTitle ? <DialogDescription className="relative mt-3 max-w-2xl text-sm leading-6 text-white/65">{preview.body}</DialogDescription> : <p className="relative mt-3 max-w-2xl text-sm leading-6 text-white/65">{preview.body}</p>
         ) : null}
       </div>
 
@@ -182,7 +182,7 @@ export function NotificationContentPreview({
     <Dialog open={Boolean(preview)} onOpenChange={(open) => { if (!open) onClose(); }}>
       {preview ? (
         <DialogContent className="w-[min(42rem,calc(100vw-1.5rem))] max-h-[min(48rem,calc(100dvh-1.5rem))] overscroll-y-contain overflow-y-auto rounded-3xl border-white/12 bg-[#111116] p-0 text-white shadow-[0_36px_130px_rgba(0,0,0,.72)]">
-          <NotificationPreviewSurface preview={preview} />
+          <NotificationPreviewSurface preview={preview} dialogTitle />
         </DialogContent>
       ) : null}
     </Dialog>
