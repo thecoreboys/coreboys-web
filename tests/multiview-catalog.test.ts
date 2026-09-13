@@ -8,6 +8,7 @@ import { encodeWorkspace, normalizeWorkspace } from "../lib/watch/workspace";
 import type { WatchCatalog, WatchItem, WatchPlatform } from "../lib/watch/types";
 
 const platforms: WatchPlatform[] = ["youtube", "twitch", "instagram", "tiktok", "x", "house"];
+const multiviewPlatforms = platforms.filter((platform) => platform !== "x");
 function fixture(count = 20_000): WatchCatalog {
   const all: WatchItem[] = Array.from({ length: count }, (_, index) => {
     const platform = platforms[index % platforms.length]!;
@@ -44,7 +45,7 @@ test("20,000 archive records become at most 240 balanced initial sources under 5
   assert.equal(archive.all.length, 20_000);
   assert.equal(preview.all.length, MULTIVIEW_CATALOG_ITEM_LIMIT);
   for (const member of preview.byMember) assert.ok(member.items.length >= 30, member.slug);
-  for (const platform of platforms) assert.ok(preview.byPlatform[platform].length >= 35, platform);
+  for (const platform of multiviewPlatforms) assert.ok(preview.byPlatform[platform].length >= 35, platform);
   const payload = compactWatchCatalog(preview);
   const bytes = Buffer.byteLength(JSON.stringify(payload));
   assert.ok(bytes < 500_000, `${bytes} bytes`);
@@ -95,4 +96,15 @@ test("live sources survive the suggestion limit while locked all-live transports
   const oldVideo = archive.all[19_998]!;
   assert.deepEqual(permittedMultiviewSearchItems([...live, oldVideo], room), [...live.slice(0, 2), oldVideo]);
   assert.deepEqual(permittedMultiviewSearchItems([oldVideo]), [oldVideo]);
+});
+
+test("Multiview excludes X references from its player sources", () => {
+  const archive = fixture(120);
+  const xItem = archive.all.find((item) => item.platform === "x")!;
+  const preview = projectMultiviewCatalog(archive, [xItem.id]);
+
+  assert.equal(itemToPlayable(xItem), null);
+  assert.equal(preview.all.some((item) => item.platform === "x"), false);
+  assert.equal(preview.byPlatform.x.length, 0);
+  assert.deepEqual(permittedMultiviewSearchItems([xItem]), []);
 });

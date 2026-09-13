@@ -345,10 +345,10 @@ export function playableFromUrl(raw: string): Playable | null {
 }
 
 export function itemToPlayable(item: WatchItem): Playable | null {
-  // Social text posts are external documents, not media. Keeping this guard at
-  // the conversion boundary prevents generic cards/search from opening an
-  // empty player for an X post while still allowing attached X video items.
-  if (item.kind === "post") return null;
+  // X is a first-party preview surface in CORE, not an embeddable player
+  // provider. Keep it out of media queues so a post can never become a blank
+  // or unavailable Multiview tile.
+  if (item.kind === "post" || item.platform === "x") return null;
   let search: URLSearchParams;
   try {
     search = new URL(item.href, "https://core.local").searchParams;

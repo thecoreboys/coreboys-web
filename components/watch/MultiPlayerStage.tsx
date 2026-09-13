@@ -479,7 +479,8 @@ export function MultiPlayerStage({
       entry.item.twitchLogin?.toLowerCase() === login.toLowerCase()
       || Boolean(member && entry.item.memberSlug === member.slug),
     );
-    if (tile) player.focusTile(tile.id);
+    // Reading a channel should not replace the room's active audio source.
+    if (tile) player.focusTile(tile.id, { takeAudio: false });
   };
 
   const needle = query.trim().toLowerCase();

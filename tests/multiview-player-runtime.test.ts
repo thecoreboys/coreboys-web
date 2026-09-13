@@ -37,6 +37,11 @@ test("the details panel focuses without silently taking room audio", () => {
   assert.doesNotMatch(details, /player\.focusTile\(focused\.id, \{ takeAudio: true \}\)/);
 });
 
+test("choosing a chat channel preserves the room audio lead", () => {
+  const chatFocus = stage.slice(stage.indexOf("const focusChatChannel"), stage.indexOf("const needle"));
+  assert.match(chatFocus, /player\.focusTile\(tile\.id, \{ takeAudio: false \}\)/);
+});
+
 test("Twitch room audio changes use the SDK without rebuilding its frame", () => {
   const twitch = readFileSync(resolve(process.cwd(), "components/watch/TwitchTileMedia.tsx"), "utf8");
   assert.match(twitch, /\}, \[attempt, channel, id, video\]\)/);

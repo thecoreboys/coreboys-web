@@ -388,6 +388,7 @@ function liveFirst(items: Playable[]): Playable[] {
 function unique(items: Playable[], blocked: Set<string> = new Set()): Playable[] {
   const seen = new Set(blocked);
   return items.filter((item) => {
+    if (item.platform === "x") return false;
     if (item.embeddable === false && !item.mediaUrl && !item.embedUrl) return false;
     if (!item?.key || seen.has(item.key)) return false;
     seen.add(item.key);
