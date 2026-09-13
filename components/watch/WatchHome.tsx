@@ -149,6 +149,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
   const [affinityProgress, setAffinityProgress] = useState<WatchProgressMap>({});
   const affinityLoadedFor = useRef<string | null>(null);
   const [continueInHero, setContinueInHero] = useState(true);
+  const [showFullLibrary, setShowFullLibrary] = useState(false);
 
   const all = useMemo(() => unique(catalog.all), [catalog.all]);
   const playable = useMemo(
@@ -371,10 +372,6 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
           <Shelf title="Live now" items={visible(catalog.live)} {...sharedShelfProps} />
         ) : null}
 
-        <div className="w-full px-5 md:px-10">
-          <SupporterCta placement="watch" />
-        </div>
-
         {defaultRowOrder.map((rowId) => (
           <Fragment key={rowId}>
             {rowId === "continue" && ready && displayedContinue.length ? (
@@ -430,63 +427,67 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
           </div>
         </section>
 
-        {(catalog.programmingSections ?? []).map((section) => {
-          const useVertical = section.layout === "vertical" || (
-            section.layout === "auto" &&
-            section.items.filter((item) => item.format === "short" || item.orientation === "portrait").length >=
-              Math.ceil(section.items.length / 2)
-          );
-          return <Shelf
-            key={section.id}
-            title={section.title}
-            kicker={section.kicker}
-            items={useVertical ? visibleShortForm(section.items, 30) : visible(section.items, 30, false)}
-            variant={useVertical ? "vertical" : undefined}
-            {...sharedShelfProps}
-          />;
-        })}
-
-        <XTweetsRail items={xPosts} spaces={xSpaces} />
-
-        <Shelf
-          title="From the CORE House"
-          items={visible(catalog.house, 30)}
-          {...sharedShelfProps}
-        />
-
-        <div id="videos" className="scroll-mt-28">
-          <Shelf title="Videos & episodes" items={visible(longForm, 30)} {...sharedShelfProps} />
+        <div className="w-full px-5 md:px-10">
+          <SupporterCta placement="watch" />
         </div>
 
-        <PatreonLockedShelf data={patreon} />
+        <section className="watch-library-disclosure px-5 md:px-10" aria-labelledby="watch-library-title">
+          <div>
+            <p className="watch-library-disclosure__eyebrow">CORE library</p>
+            <h2 id="watch-library-title">More from every channel</h2>
+            <p>Browse full streams, shorts, clips, photos, and creator collections when you want more.</p>
+          </div>
+          <button
+            type="button"
+            className="watch-library-disclosure__button"
+            aria-expanded={showFullLibrary}
+            aria-controls="watch-full-library"
+            onClick={() => setShowFullLibrary((visible) => !visible)}
+          >
+            {showFullLibrary ? "Show less" : "Explore more"}
+          </button>
+        </section>
 
-        <Shelf
-          title="Past broadcasts"
-          items={visible(catalog.broadcasts, 30)}
-          {...sharedShelfProps}
-        />
-        <Shelf
-          title="Shorts, reels & TikToks"
-          items={displayedQuickHits}
-          variant="vertical"
-          preloadUpcoming
-          {...sharedShelfProps}
-        />
-        <div id="clips" className="scroll-mt-28">
-          <Shelf title="Clips" kicker="The moments people kept" items={visible(catalog.clips)} {...sharedShelfProps} />
-        </div>
-        <div id="photos" className="scroll-mt-28">
-          <Shelf title="Photos" items={visible(catalog.photos.filter((item) => item.platform !== "x"), 30)} {...sharedShelfProps} />
-        </div>
+        {showFullLibrary ? <div id="watch-full-library" className="watch-full-library">
+          {(catalog.programmingSections ?? []).map((section) => {
+            const useVertical = section.layout === "vertical" || (
+              section.layout === "auto" &&
+              section.items.filter((item) => item.format === "short" || item.orientation === "portrait").length >=
+                Math.ceil(section.items.length / 2)
+            );
+            return <Shelf
+              key={section.id}
+              title={section.title}
+              kicker={section.kicker}
+              items={useVertical ? visibleShortForm(section.items, 30) : visible(section.items, 30, false)}
+              variant={useVertical ? "vertical" : undefined}
+              {...sharedShelfProps}
+            />;
+          })}
 
-        {memberRows.map((member) => (
-          <Shelf
-            key={member.slug}
-            title={member.label}
-            items={visible(member.items, 30)}
-            {...sharedShelfProps}
-          />
-        ))}
+          <XTweetsRail items={xPosts} spaces={xSpaces} />
+
+          <Shelf title="From the CORE House" items={visible(catalog.house, 30)} {...sharedShelfProps} />
+
+          <div id="videos" className="scroll-mt-28">
+            <Shelf title="Videos & episodes" items={visible(longForm, 30)} {...sharedShelfProps} />
+          </div>
+
+          <PatreonLockedShelf data={patreon} />
+
+          <Shelf title="Past broadcasts" items={visible(catalog.broadcasts, 30)} {...sharedShelfProps} />
+          <Shelf title="Shorts, reels & TikToks" items={displayedQuickHits} variant="vertical" preloadUpcoming {...sharedShelfProps} />
+          <div id="clips" className="scroll-mt-28">
+            <Shelf title="Clips" kicker="The moments people kept" items={visible(catalog.clips)} {...sharedShelfProps} />
+          </div>
+          <div id="photos" className="scroll-mt-28">
+            <Shelf title="Photos" items={visible(catalog.photos.filter((item) => item.platform !== "x"), 30)} {...sharedShelfProps} />
+          </div>
+
+          {memberRows.map((member) => (
+            <Shelf key={member.slug} title={member.label} items={visible(member.items, 30)} {...sharedShelfProps} />
+          ))}
+        </div> : null}
       </div>
     </>
   );
