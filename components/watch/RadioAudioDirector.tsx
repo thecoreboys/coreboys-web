@@ -628,8 +628,9 @@ export function RadioAudioDirector({
 
       const active = activeRef.current;
       if (active) {
-        if (radioCuePriority(request.cue) > radioCuePriority(active.request.cue)) {
-          await stop("interrupted", "preempted_by_higher_priority", false);
+        const replacesStationTune = request.kind === "network_tune_in" && active.request.kind === "network_tune_in";
+        if (radioCuePriority(request.cue) > radioCuePriority(active.request.cue) || replacesStationTune) {
+          await stop("interrupted", replacesStationTune ? "replaced_by_new_station_tune" : "preempted_by_higher_priority", false);
           await start(request, resolve);
           return;
         }

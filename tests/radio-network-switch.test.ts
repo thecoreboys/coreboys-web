@@ -7,6 +7,8 @@ import {
 } from "../lib/radio/network-switch";
 
 const system = readFileSync(new URL("../components/watch/RadioAudioSystem.tsx", import.meta.url), "utf8");
+const transition = readFileSync(new URL("../components/watch/CinematicRouteTransition.tsx", import.meta.url), "utf8");
+const director = readFileSync(new URL("../components/watch/RadioAudioDirector.tsx", import.meta.url), "utf8");
 
 test("only actual channel changes request a recorded DJ Cora tune", () => {
   assert.equal(radioNetworkSlugFromPath("/channels/ron?mode=continuous"), "ron");
@@ -24,4 +26,14 @@ test("the radio system validates a dial selection before routing to its continuo
   assert.match(system, /const href = `\/channels\/\$\{target\.slug\}\?mode=continuous`/);
   assert.match(system, /beginCinematicTransition\(href\)/);
   assert.match(system, /router\.push\(href as never\)/);
+});
+
+test("station tune audio uses the shared DJ Cora director lifecycle", () => {
+  assert.match(transition, /requestRadioCue\(\{/);
+  assert.match(transition, /kind: "network_tune_in"/);
+  assert.match(transition, /RADIO_CUE_LIFECYCLE_EVENT/);
+  assert.match(transition, /TUNING_TERMINAL_STATUSES\.includes\(detail\.status\)/);
+  assert.match(transition, /skipRadioCue\("network_tuning_skipped"\)/);
+  assert.match(director, /const isSpeaking = Boolean\(activeCue\)/);
+  assert.match(director, /replacesStationTune/);
 });

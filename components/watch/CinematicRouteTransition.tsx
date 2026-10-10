@@ -34,6 +34,12 @@ import {
   selectNetworkTuneAsset,
 } from "@/lib/radio/public-catalog";
 import { shouldPlayRecordedNetworkTune } from "@/lib/radio/network-switch";
+import {
+  RADIO_CUE_LIFECYCLE_EVENT,
+  requestRadioCue,
+  skipRadioCue,
+  type RadioCueLifecycleEvent,
+} from "@/lib/radio-client";
 import { readRadioAudioSettings } from "@/lib/radio/settings";
 import { NETWORK_CHANNELS, type NetworkChannelSlug } from "@/lib/watch/channels";
 
@@ -87,29 +93,31 @@ const NETWORK_NAVIGATION_TIMEOUT_MS = 12_000;
 // Player surfaces arriving at a network route wait on this promise before
 // starting their own advisory. It prevents DJ Cora and the age warning from
 // talking over one another while keeping a normal direct player opening fast.
-let activeTuningAudio: HTMLAudioElement | null = null;
+let activeTuningCueId: string | null = null;
 let tuningAudioCompletion = Promise.resolve();
+let tuningCueSequence = 0;
+const TUNING_TERMINAL_STATUSES: readonly RadioCueLifecycleEvent["status"][] = [
+  "finished", "skipped", "interrupted", "autoplay_blocked", "unavailable", "invalid", "suppressed",
+];
 
 export function waitForNetworkTuningAudio() {
   return tuningAudioCompletion;
 }
 
 export function hasNetworkTuningAudio() {
-  return activeTuningAudio !== null;
+  return activeTuningCueId !== null;
 }
 
 export function skipNetworkTuningAudio() {
-  if (!activeTuningAudio) return;
-  activeTuningAudio.pause();
-  activeTuningAudio.dispatchEvent(new Event("ended"));
+  if (!activeTuningCueId) return;
+  skipRadioCue("network_tuning_skipped");
 }
 
 /**
- * The station recording is still started directly from the navigation click,
- * preserving the current first-tune behavior and browser sound permission.
  * When the preloaded catalog contains approved variants, the selector avoids
- * the last one heard on that network. It never fetches or synthesizes audio
- * in this click path.
+ * the last one heard on that network. Playback is delegated to the mounted
+ * DJ Cora director so its speaking state, signal strands, skip control, and
+ * audio queue all track the same recording.
  */
 const recentTuneAssetByNetwork = new Map<NetworkChannelSlug, string>();
 
@@ -288,39 +296,42 @@ export function CinematicRouteTransition() {
   const navigationTimer = useRef<number | null>(null);
   const releaseTimer = useRef<number | null>(null);
   const released = useRef(false);
-  const tuningAudio = useRef<HTMLAudioElement | null>(null);
 
   const playTuningAudio = useCallback((networkSlug: string | undefined) => {
     const settings = readRadioAudioSettings();
     if (!settings.enabled || document.documentElement.dataset.radioAudioSuppressed === "true") return;
     const asset = chooseTuningAsset(networkSlug);
     if (!asset) return;
-    if (tuningAudio.current) {
-      tuningAudio.current.pause();
-      tuningAudio.current.dispatchEvent(new Event("ended"));
-    }
-    // This is a saved, approved DJ Cora recording. There is deliberately no
-    // Web Audio/TTS layer here, so each listener only reuses a cached static
-    // asset and never creates an audio-generation request.
-    const audio = new Audio(asset.audioUrl);
-    audio.preload = "auto";
-    audio.volume = settings.volume;
-    tuningAudio.current = audio;
-    activeTuningAudio = audio;
+    const cueId = `network-tune:${asset.id}:${++tuningCueSequence}`;
+    activeTuningCueId = cueId;
     tuningAudioCompletion = new Promise<void>((resolve) => {
       const complete = () => {
-        audio.removeEventListener("ended", complete);
-        audio.removeEventListener("error", complete);
-        if (activeTuningAudio === audio) activeTuningAudio = null;
-        if (tuningAudio.current === audio) tuningAudio.current = null;
+        window.removeEventListener(RADIO_CUE_LIFECYCLE_EVENT, onLifecycle);
+        if (activeTuningCueId === cueId) activeTuningCueId = null;
         resolve();
       };
-      audio.addEventListener("ended", complete, { once: true });
-      audio.addEventListener("error", complete, { once: true });
-      // A navigation click is a user gesture; if the browser still declines
-      // sound, release the next announcement immediately rather than leave a
-      // player behind an impossible audio gate.
-      void audio.play().catch(complete);
+      const onLifecycle = (event: Event) => {
+        const detail = (event as CustomEvent<RadioCueLifecycleEvent>).detail;
+        if (detail?.cueId !== cueId || !TUNING_TERMINAL_STATUSES.includes(detail.status)) return;
+        complete();
+      };
+      window.addEventListener(RADIO_CUE_LIFECYCLE_EVENT, onLifecycle);
+      // This is a saved, approved recording. The shared director starts it
+      // synchronously from the navigation gesture and publishes completion
+      // through the lifecycle event above.
+      void requestRadioCue({
+        id: cueId,
+        kind: "network_tune_in",
+        audioUrl: asset.audioUrl,
+        networkSlug,
+        title: asset.title,
+        transcript: asset.transcript,
+        priority: 70,
+        allowRepeat: true,
+        reason: "network_station_change",
+      }).then((outcome) => {
+        if (outcome.status !== "started") complete();
+      });
     });
   }, []);
 
