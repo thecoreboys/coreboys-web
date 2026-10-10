@@ -43,3 +43,11 @@ test("the channel dial commits one accessible selection to a new network", () =>
   assert.match(director, /onKeyUp=\{\(event\) =>/);
   assert.match(director, /onBlur=\{\(event\) => commitTuner/);
 });
+
+test("DJ Cora's signal strands move clearly while speaking, even without audio analysis", () => {
+  assert.match(director, /const rms = Math\.sqrt\(sum \/ samples\.length\)/);
+  assert.match(director, /const level = clamp\(\(rms - 0\.012\) \* 16\)/);
+  assert.match(director, /isSpeaking \? Math\.max\(voiceLevel, 0\.26\) : 0/);
+  assert.match(director, /speed=\{isSpeaking \? 0\.9 \+ signalLevel \* 2\.4 : 0\.13\}/);
+  assert.match(director, /amplitude=\{isSpeaking \? 0\.85 \+ signalLevel \* 1\.8 : 0\.2\}/);
+});

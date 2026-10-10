@@ -64,6 +64,20 @@ test("portrait and landscape hover media both request muted autoplay", () => {
   assert.match(frameTag, /allow="[^"]*autoplay/);
 });
 
+test("Shorts, Reels, and TikToks retain portrait shape regardless of catalog format", () => {
+  assert.equal(contentShape({
+    format: "long",
+    platform: "youtube",
+    sourceUrl: "https://www.youtube.com/shorts/shortVideo1",
+  }), "portrait");
+  assert.equal(contentShape({
+    format: "long",
+    platform: "instagram",
+    sourceUrl: "https://www.instagram.com/reel/AbC123/",
+  }), "portrait");
+  assert.equal(contentShape({ format: "long", platform: "tiktok" }), "portrait");
+});
+
 test("hover frames actively request provider playback instead of trusting iframe load", () => {
   assert.match(preview, /playVideo/);
   assert.match(preview, /x-tiktok-player[\s\S]{0,160}type:\s*"play"/);

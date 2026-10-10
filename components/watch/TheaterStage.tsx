@@ -66,7 +66,10 @@ export function TheaterStage() {
       || platform === "tiktok"
       || (platform === "instagram" && /\/reels?\//i.test(url))
       || /\/shorts\//i.test(url));
-    const youtube = kind === "youtube" || source === "youtube" ? id : null;
+    // Live YouTube broadcasts use `kind=live` so every live surface can
+    // classify them consistently. Provider identity must therefore come from
+    // the resolved platform too, not only from the old `kind=youtube` shape.
+    const youtube = platform === "youtube" ? id : null;
     const key =
       canonicalRef ||
       (youtube

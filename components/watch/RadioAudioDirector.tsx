@@ -396,7 +396,11 @@ export function RadioAudioDirector({
           analyser.getByteTimeDomainData(samples);
           let sum = 0;
           for (const sample of samples) { const value = (sample - 128) / 128; sum += value * value; }
-          const level = Math.min(1, Math.sqrt(sum / samples.length) * 5.2);
+          // Scale the quieter parts of recorded speech into a useful visual
+          // range; keep the waveform independently animated below as a
+          // graceful fallback when Web Audio analysis is unavailable.
+          const rms = Math.sqrt(sum / samples.length);
+          const level = clamp((rms - 0.012) * 16);
           if (now - lastPaint > 48) { setVoiceLevel(level); lastPaint = now; }
           playback.analysisFrame = requestAnimationFrame(tick);
         };
@@ -777,7 +781,7 @@ export function RadioAudioDirector({
       ? `Signal locked to ${tunedNetwork}. DJ Cora is standing by.`
       : "Choose a network to tune in.";
   const label = activeRequest ? cueLabel(activeRequest) : tunedNetwork ?? "Untuned";
-  const signalLevel = isSpeaking ? Math.max(voiceLevel, 0.1) : 0;
+  const signalLevel = isSpeaking ? Math.max(voiceLevel, 0.26) : 0;
   const selectedNetwork = tunerNetworks[tunerIndex] ?? null;
   const moveTuner = (value: number) => {
     if (value === tunerIndex) return;
@@ -936,14 +940,14 @@ export function RadioAudioDirector({
         {!autoCollapse && !compactScreen && !placement?.hiddenEdge && !reducedMotion ? <Strands
           colors={["#fb7185", "#f97316", "#22d3ee"]}
           count={3}
-          speed={reducedMotion ? 0.04 : 0.13 + signalLevel * 1.5}
-          amplitude={0.35 + signalLevel * 1.45}
+          speed={isSpeaking ? 0.9 + signalLevel * 2.4 : 0.13}
+          amplitude={isSpeaking ? 0.85 + signalLevel * 1.8 : 0.2}
           waviness={1.7}
           thickness={0.72}
           glow={2.8}
           taper={3}
           spread={1}
-          intensity={0.18 + signalLevel * 0.82}
+          intensity={isSpeaking ? 0.42 + signalLevel * 0.58 : 0.18}
           saturation={1.8}
           opacity={enabled ? 1 : 0.32}
           scale={1.6}

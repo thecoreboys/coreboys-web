@@ -334,7 +334,10 @@ function MediaHoverPreview({
 
   useEffect(() => {
     if (!active || !iframeSrc || (!playable?.youtubeId && playable?.platform !== "tiktok")) return;
-    const attempts = [250, 800, 1_600].map((delay) => (
+    // Provider APIs can become ready well after the iframe's load event on a
+    // slow connection. Retry while the preview is active so the first play
+    // command is not lost during that readiness window.
+    const attempts = [250, 800, 1_600, 3_200, 6_000].map((delay) => (
       window.setTimeout(requestProviderPlayback, delay)
     ));
     return () => {

@@ -161,7 +161,7 @@ export function youtubeIdFromHref(href: string): string | null {
       const pathId =
         host === "youtu.be"
           ? url.pathname.split("/").filter(Boolean)[0]
-          : /\/(?:shorts|embed)\/([0-9A-Za-z_-]{6,})/i.exec(url.pathname)?.[1];
+          : /\/(?:live|shorts|embed)\/([0-9A-Za-z_-]{6,})/i.exec(url.pathname)?.[1];
       const id = pathId ?? url.searchParams.get("v");
       return id && /^[0-9A-Za-z_-]{6,}$/.test(id) ? id : null;
     }
@@ -184,9 +184,10 @@ export function playableFromUrl(raw: string): Playable | null {
     const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
     const youtubeId = youtubeIdFromHref(parsed.toString());
     if (youtubeId) {
+      const youtubeLive = /\/live\//i.test(parsed.pathname);
       return {
         key: `yt-${youtubeId}`,
-        kind: "youtube",
+        kind: youtubeLive ? "live" : "youtube",
         platform: "youtube",
         title: "YouTube video",
         poster: `https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`,
@@ -200,7 +201,7 @@ export function playableFromUrl(raw: string): Playable | null {
         url: parsed.toString(),
         sourceUrl: parsed.toString(),
         embeddable: true,
-        format: parsed.pathname.includes("/shorts/") ? "short" : "long",
+        format: youtubeLive ? "live" : parsed.pathname.includes("/shorts/") ? "short" : "long",
       };
     }
     if (host === "twitch.tv" || host.endsWith(".twitch.tv")) {
@@ -355,7 +356,13 @@ export function itemToPlayable(item: WatchItem): Playable | null {
   } catch {
     search = new URLSearchParams();
   }
-  const kind = (search.get("kind") as WatchItem["kind"] | null) ?? item.kind;
+  // A catalog item's normalized kind is authoritative for live state. Older
+  // YouTube catalog links used `kind=youtube`, which otherwise downgraded a
+  // live broadcast back to a regular video in multiview and Theater.
+  const requestedKind = search.get("kind") as WatchItem["kind"] | null;
+  const kind = item.kind === "live" || item.format === "live"
+    ? "live"
+    : requestedKind ?? item.kind;
   const liveLogin = /\/watch\/live\/([^/?#]+)/.exec(item.href)?.[1] ?? search.get("login");
   // Catalog entries normally carry a canonical YouTube href, but imported
   // programming can instead expose the official player URL in `embedUrl` or

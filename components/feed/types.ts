@@ -151,6 +151,8 @@ export type FeedItem = {
   isLive?: boolean;
   /** Actual provider start time for live media; distinct from post publish time. */
   liveStartedAt?: string;
+  /** Current provider viewer count when a live API exposes one. */
+  liveViewers?: number;
   liveCapability?: LiveCapability;
   /** Optional duration string ("12:04") for video items. */
   duration?: string;

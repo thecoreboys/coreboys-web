@@ -2097,6 +2097,82 @@
   transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1), filter 180ms ease;
 }
 
+.watch-poster-art-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: .6rem;
+  background:
+    radial-gradient(ellipse at 50% 37%, rgba(255, 255, 255, .1), transparent 42%),
+    linear-gradient(150deg, #29242e, #111116 68%);
+  color: rgba(255, 255, 255, .78);
+  text-transform: uppercase;
+}
+
+.watch-poster-art-fallback::before,
+.watch-poster-art-fallback::after {
+  position: absolute;
+  width: 150%;
+  height: 1px;
+  background: rgba(255, 255, 255, .07);
+  content: "";
+  transform: rotate(-28deg);
+}
+
+.watch-poster-art-fallback::before { top: 27%; }
+.watch-poster-art-fallback::after { top: 69%; }
+
+.watch-poster-art-fallback.is-tiktok {
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(37, 244, 238, .16), transparent 46%),
+    linear-gradient(150deg, #17282a, #111116 68%);
+}
+
+.watch-poster-art-fallback.is-instagram {
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(221, 42, 123, .2), transparent 48%),
+    linear-gradient(150deg, #2b1c2a, #111116 70%);
+}
+
+.watch-poster-art-platform,
+.watch-poster-art-mark,
+.watch-poster-art-caption { position: relative; z-index: 1; }
+
+.watch-poster-art-platform {
+  padding: .3rem .5rem;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .24);
+  color: rgba(255, 255, 255, .7);
+  font-size: .54rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.watch-poster-art-mark {
+  display: grid;
+  width: 2.25rem;
+  aspect-ratio: 1;
+  place-items: center;
+  padding-left: .1rem;
+  border: 1px solid rgba(255, 255, 255, .24);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .25);
+  color: #fff;
+  font-size: 1rem;
+}
+
+.watch-poster-art-caption {
+  color: rgba(255, 255, 255, .46);
+  font-size: .52rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
 /* Provider APIs do not expose dimensions for every Instagram image. Keep
    stills fully visible inside their tile instead of guessing and cropping a
    portrait photo into a square. Video/Reel cards retain their real shape. */
@@ -3320,6 +3396,13 @@ body:has(.watch-os) .grain-host {
   display: flex;
   flex-direction: column;
   gap: inherit;
+}
+
+.watch-library-empty {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 @media (max-width: 639px) {
@@ -7912,6 +7995,29 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   touch-action: pan-y;
 }
 
+/* Keep query results compact when the match list is short; discovery remains
+   the roomier browsing surface. */
+.watch-search-dialog.has-query {
+  height: auto;
+  max-height: min(39rem, calc(100dvh - 3rem));
+  min-height: 0;
+}
+
+.watch-search-dialog.has-query .watch-search-body,
+.watch-search-dialog.has-query .watch-search-results-shell {
+  flex: 0 1 auto;
+  height: auto;
+}
+
+.watch-search-dialog.has-query .watch-search-results {
+  flex: 0 1 auto;
+  max-height: min(56vh, 27rem);
+}
+
+.watch-search-dialog.has-query .watch-search-no-results {
+  min-height: 8rem;
+}
+
 .watch-search-discovery { padding: 0.7rem 0.72rem 1rem; }
 .watch-search-discovery section + section { margin-top: 0.7rem; padding-top: 0.68rem; }
 .watch-search-discovery section > h2,
@@ -8036,13 +8142,6 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
 
 @keyframes watch-search-shimmer {
   to { background-position: -220% 0; }
-}
-
-.watch-search-refining {
-  min-height: 1rem;
-  margin: 0.22rem 0 0;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.58rem;
 }
 
 .watch-search-membership-hint {

@@ -7,9 +7,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { ChevronRight, Clapperboard, Clock3, ExternalLink, Mail, Play, Radio, RotateCcw, Volume2, VolumeX, Zap } from "lucide-react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import {
-  hasNetworkTuningAudio,
   markNetworkRouteReady,
-  skipNetworkTuningAudio,
   waitForNetworkTuningAudio,
 } from "@/components/watch/CinematicRouteTransition";
 import { GuideHistory } from "@/components/watch/GuideHistory";
@@ -95,62 +93,6 @@ const CHANNEL_TV_PACKAGES: Record<string, { signal: string; transmission: string
   marlon: { signal: "M3 LIVE DESK", transmission: "M3 live desk", treatment: "flash signal" },
   jason: { signal: "NMS CHANNEL", transmission: "NMS neon signal", treatment: "neon signal" },
   silky: { signal: "SLG PRIME", transmission: "SLG prime time", treatment: "gold signal" },
-};
-
-/**
- * The channel landing warning is also DJ Cora's first visual beat.  Keep the
- * copy explicit and the framing stable per network. The station ID uses the
- * community artwork, while the age gate uses the dedicated neutral CoreTV
- * advisory signal so it remains consistent with Theater.
- */
-const NETWORK_ADVISORY_VISUALS: Record<NetworkChannel["slug"], {
-  station: string;
-  tuningLine: string;
-  artworkAlt: string;
-  focalPoint: string;
-}> = {
-  core: {
-    station: "CORE Network",
-    tuningLine: "DJ Cora is opening the all-house signal.",
-    artworkAlt: "CORE Network house artwork",
-    focalPoint: "50% 50%",
-  },
-  adapt: {
-    station: "Flock",
-    tuningLine: "DJ Cora is tuning the Flock frequency.",
-    artworkAlt: "Flock community artwork for Adapt's network",
-    focalPoint: "50% 50%",
-  },
-  ron: {
-    station: "Stable",
-    tuningLine: "DJ Cora is bringing the Stable signal online.",
-    artworkAlt: "Stable community artwork for StableRonaldo's network",
-    focalPoint: "50% 50%",
-  },
-  lacy: {
-    station: "Thugs",
-    tuningLine: "DJ Cora is patching in the Thugs transmission.",
-    artworkAlt: "Thugs community artwork for Lacy's network",
-    focalPoint: "50% 50%",
-  },
-  marlon: {
-    station: "M3",
-    tuningLine: "DJ Cora is opening the M3 live desk.",
-    artworkAlt: "M3 community artwork for Marlon's network",
-    focalPoint: "50% 50%",
-  },
-  jason: {
-    station: "NMS",
-    tuningLine: "DJ Cora is lighting the NMS channel.",
-    artworkAlt: "NMS community artwork for JasonTheWeen's network",
-    focalPoint: "50% 50%",
-  },
-  silky: {
-    station: "SLG",
-    tuningLine: "DJ Cora is catching the SLG city line.",
-    artworkAlt: "SLG community artwork for Silky's network",
-    focalPoint: "50% 50%",
-  },
 };
 
 function channelTvPackage(slug: string) {
@@ -509,31 +451,11 @@ function PlatformMark({ platform }: { platform: WatchPlatform }) {
   );
 }
 
-function NetworkAdvisoryArtwork({
-  channel,
-  showNetworkArt,
-}: {
-  channel: NetworkChannel;
-  /** Network art is reserved for the Cora station ID; the age gate has its own neutral advisory visual. */
-  showNetworkArt: boolean;
-}) {
-  const visual = NETWORK_ADVISORY_VISUALS[channel.slug];
-  const artworkSrc = showNetworkArt ? channel.backdrop : "/watch/advisory/coretv-mature-audience-station-v2.png";
-  const artworkAlt = showNetworkArt ? visual.artworkAlt : "CoreTV mature audience advisory artwork";
-
+function NetworkAdvisoryArtwork() {
   return (
-    <div className={styles.heroPreviewAdvisoryArtwork} data-network={showNetworkArt ? channel.slug : "advisory"} aria-label={artworkAlt} role="img">
+    <div className={styles.heroPreviewAdvisoryArtwork} data-network="advisory" aria-label="CoreTV mature audience advisory artwork" role="img">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={artworkSrc} alt={artworkAlt} style={showNetworkArt ? { objectPosition: visual.focalPoint } : undefined} />
-      {showNetworkArt ? <span className={styles.heroPreviewAdvisoryArtworkVeil} aria-hidden="true" /> : null}
-      {showNetworkArt ? (
-        <div className={styles.heroPreviewAdvisoryStation} aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={channel.artwork} alt="" />
-          <span>{visual.station}</span>
-          <small>DJ Cora is tuning in</small>
-        </div>
-      ) : null}
+      <img src="/watch/advisory/coretv-mature-audience-station-v2.png" alt="CoreTV mature audience advisory artwork" />
     </div>
   );
 }
@@ -585,7 +507,6 @@ function ChannelOnNowPreview({
   const [muted, setMuted] = useState(true);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [advisoryReady, setAdvisoryReady] = useState(!autoStart);
-  const [waitingForTuningAudio, setWaitingForTuningAudio] = useState(false);
   // This component is keyed to the program window, so the embed starts at the
   // live clock once and then plays naturally instead of reloading every tick.
   const [previewStartSeconds] = useState(initialStartSeconds);
@@ -670,26 +591,20 @@ function ChannelOnNowPreview({
   useEffect(() => {
     if (!autoStart) {
       setAdvisoryReady(true);
-      setWaitingForTuningAudio(false);
       return;
     }
-    // Tuning is an entry transition, not part of the once-per-session
-    // advisory. Even when the advisory has already been acknowledged, keep
-    // the hero provider unmounted until DJ Cora's station ID is finished.
     const needsAdvisory = !hasAcknowledgedContentAdvisory();
     if (needsAdvisory) acknowledgeContentAdvisory();
-    setAdvisoryReady(false);
-    setWaitingForTuningAudio(hasNetworkTuningAudio());
+    // Let returning viewers start the channel immediately. DJ Cora's audio
+    // can finish over the live preview instead of blocking it with a poster.
+    setAdvisoryReady(!needsAdvisory);
+    if (!needsAdvisory) return;
+
     let disposed = false;
     let audio: HTMLAudioElement | null = null;
     const beginAfterTuning = async () => {
       await waitForNetworkTuningAudio();
       if (disposed) return;
-      setWaitingForTuningAudio(false);
-      if (!needsAdvisory) {
-        setAdvisoryReady(true);
-        return;
-      }
       audio = new Audio("/brand/content-advisory.mp3");
       audio.preload = "auto";
       advisoryAudioRef.current = audio;
@@ -703,7 +618,6 @@ function ChannelOnNowPreview({
     void beginAfterTuning();
     return () => {
       disposed = true;
-      setWaitingForTuningAudio(false);
       audio?.pause();
       if (audio && advisoryAudioRef.current === audio) advisoryAudioRef.current = null;
     };
@@ -1190,14 +1104,8 @@ function ChannelOnNowPreview({
         <button type="button" className={styles.heroPreviewAction} aria-label={actionLabel} onClick={onActivate} />
       ) : null}
       {!advisoryReady ? (
-        <div className={styles.heroPreviewAdvisory} role="status" aria-live="assertive" aria-label={waitingForTuningAudio ? "DJ Cora is tuning the channel." : "Mature audience advisory. The following program is intended for audiences ages 13 and older. Viewer discretion is advised."}>
-          <NetworkAdvisoryArtwork channel={channel} showNetworkArt={waitingForTuningAudio} />
-          {waitingForTuningAudio ? (
-            <div className={styles.heroPreviewAdvisoryContent}>
-              <small className={styles.heroPreviewAdvisoryTuningLine}>{NETWORK_ADVISORY_VISUALS[channel.slug].tuningLine}</small>
-              <button type="button" onClick={skipNetworkTuningAudio}>Skip DJ Cora</button>
-            </div>
-          ) : null}
+        <div className={styles.heroPreviewAdvisory} role="status" aria-live="assertive" aria-label="Mature audience advisory. The following program is intended for audiences ages 13 and older. Viewer discretion is advised.">
+          <NetworkAdvisoryArtwork />
         </div>
       ) : null}
     </section>

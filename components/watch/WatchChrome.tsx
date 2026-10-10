@@ -6,19 +6,10 @@ import useSWR from "swr";
 import type { WatchCatalog } from "@/lib/watch/types";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { watchChromeSnapshot, type WatchChromeSnapshot } from "@/lib/watch/chrome-snapshot";
+import type { UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useMyList } from "@/hooks/useMyList";
 import { WatchExperienceControls } from "./WatchExperienceControls";
-
-type UnifiedLiveSnapshot = {
-  live: Array<{
-    id: string;
-    platform: WatchCatalog["live"][number]["platform"];
-    memberSlug: string | null;
-    dvrVodId: string | null;
-  }>;
-  fetchedAt: string;
-};
 
 const unifiedLiveFetcher = async (url: string): Promise<UnifiedLiveSnapshot> => {
   const response = await fetch(url, { credentials: "same-origin" });
@@ -57,6 +48,13 @@ export function WatchChrome({
               platform: item.platform,
               memberSlug: item.memberSlug,
               dvrVodId: item.dvrVodId,
+              login: item.login,
+              youtubeId: null,
+              title: null,
+              poster: null,
+              sourceUrl: null,
+              startedAt: null,
+              viewerCount: null,
             })),
             fetchedAt: chrome.fetchedAt,
           }

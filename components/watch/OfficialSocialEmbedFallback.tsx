@@ -23,7 +23,14 @@ type InstagramEmbedWindow = Window & {
 };
 
 function processInstagramEmbeds() {
-  (window as InstagramEmbedWindow).instgrm?.Embeds?.process?.();
+  const process = () => (window as InstagramEmbedWindow).instgrm?.Embeds?.process?.();
+  // Instagram's script can finish before React commits the blockquotes (and
+  // React route changes do not reload it). Give the DOM a couple of chances
+  // to settle, including when the script was already cached by another rail.
+  window.requestAnimationFrame(() => {
+    process();
+    window.setTimeout(process, 350);
+  });
 }
 
 /**
@@ -62,7 +69,10 @@ function TikTokCreatorFallback({ rail }: { rail: CuratedChannelRail }) {
   return (
     <div className={styles.embedFallback} data-ingest-state={rail.ingestState ?? "unknown"}>
       <div className={styles.tiktokEmbedFrame}>
-        <p className={styles.embedNote}>Showing TikTok&apos;s official public Creator Profile Embed.</p>
+        <p className={styles.embedNote}>
+          Showing TikTok&apos;s official public Creator Profile Embed. If it does not load, open the profile directly.
+          <a href={creator.profileUrl} target="_blank" rel="noopener noreferrer"> Open TikTok <span aria-hidden="true">↗</span></a>
+        </p>
         <blockquote
           className="tiktok-embed"
           cite={creator.profileUrl}
@@ -85,11 +95,9 @@ function TikTokCreatorFallback({ rail }: { rail: CuratedChannelRail }) {
 function InstagramPublicFallback({ rail }: { rail: CuratedChannelRail }) {
   const embeds = useMemo(
     () => instagramPublicEmbeds([
-      rail.sourceHref,
-      rail.handle,
       ...(rail.publicEmbedUrls ?? []),
-    ]),
-    [rail.handle, rail.publicEmbedUrls, rail.sourceHref],
+    ]).filter((embed) => embed.kind !== "profile"),
+    [rail.publicEmbedUrls],
   );
   const signature = embeds.map((embed) => embed.permalink).join("|");
   const processEmbeds = useCallback(() => processInstagramEmbeds(), []);
@@ -99,9 +107,19 @@ function InstagramPublicFallback({ rail }: { rail: CuratedChannelRail }) {
   }, [processEmbeds, signature]);
 
   if (!embeds.length) {
+    const profileUrl = instagramPublicEmbeds([rail.sourceHref, rail.handle]).find((embed) => embed.kind === "profile")?.permalink;
     return (
-      <div className={styles.empty} data-ingest-state={rail.ingestState ?? "unknown"} role="status">
-        Instagram&apos;s official embed needs a valid public profile or a known public post/Reel URL.
+      <div className={styles.instagramProfileCard} data-ingest-state={rail.ingestState ?? "unknown"}>
+        <span className={styles.instagramProfileMark} aria-hidden="true">◎</span>
+        <div>
+          <strong>Instagram videos</strong>
+          <p>Instagram only allows individual public Reels and posts to embed here. Connect the public feed or add a Reel link to show videos in this rail.</p>
+        </div>
+        {profileUrl ? (
+          <a href={profileUrl} target="_blank" rel="noopener noreferrer">
+            Open profile <span aria-hidden="true">↗</span>
+          </a>
+        ) : null}
       </div>
     );
   }

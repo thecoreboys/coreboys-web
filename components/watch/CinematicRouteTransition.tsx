@@ -36,7 +36,6 @@ import {
 import { shouldPlayRecordedNetworkTune } from "@/lib/radio/network-switch";
 import { readRadioAudioSettings } from "@/lib/radio/settings";
 import { NETWORK_CHANNELS, type NetworkChannelSlug } from "@/lib/watch/channels";
-import { CoreWordmark } from "@/components/brand/CoreWordmark";
 
 // Kept broad for existing imperative callers. `routeSpec` only accepts
 // network destinations and `mergeSpec` always normalizes accepted overlays to
@@ -82,7 +81,6 @@ const NETWORK_READY_EVENT = "core-network-route-ready";
 // loading screen: release as soon as the destination is ready and never leave
 // users staring at it for multiple seconds if a provider is slow to respond.
 const NETWORK_TRANSITION_INTRO_MS = 180;
-const NETWORK_TRANSITION_EXIT_MS = 90;
 const NETWORK_READY_FALLBACK_MS = 900;
 const NETWORK_NAVIGATION_TIMEOUT_MS = 12_000;
 
@@ -286,9 +284,6 @@ export function CinematicRouteTransition() {
   const reducedMotion = useReducedMotion();
   const [transition, setTransition] = useState<TransitionSpec | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
-  const [leaving, setLeaving] = useState(false);
-  const [loaderProgress, setLoaderProgress] = useState(0);
-  const [tuningAudioPlaying, setTuningAudioPlaying] = useState(false);
   const transitionStartedAt = useRef(0);
   const navigationTimer = useRef<number | null>(null);
   const releaseTimer = useRef<number | null>(null);
@@ -318,7 +313,6 @@ export function CinematicRouteTransition() {
         audio.removeEventListener("error", complete);
         if (activeTuningAudio === audio) activeTuningAudio = null;
         if (tuningAudio.current === audio) tuningAudio.current = null;
-        setTuningAudioPlaying(false);
         resolve();
       };
       audio.addEventListener("ended", complete, { once: true });
@@ -326,12 +320,8 @@ export function CinematicRouteTransition() {
       // A navigation click is a user gesture; if the browser still declines
       // sound, release the next announcement immediately rather than leave a
       // player behind an impossible audio gate.
-      void audio.play().then(() => setTuningAudioPlaying(true)).catch(complete);
+      void audio.play().catch(complete);
     });
-  }, []);
-
-  const skipTuningAudio = useCallback(() => {
-    skipNetworkTuningAudio();
   }, []);
 
   const clearTimers = useCallback(() => {
@@ -343,8 +333,6 @@ export function CinematicRouteTransition() {
 
   const clearTransition = useCallback(() => {
     clearTimers();
-    setLeaving(false);
-    setLoaderProgress(0);
     setTransition(null);
     setActivePath(null);
   }, [clearTimers]);
@@ -352,14 +340,10 @@ export function CinematicRouteTransition() {
   const releaseWhenReady = useCallback(() => {
     if (released.current) return;
     released.current = true;
-    setLoaderProgress(100);
     const elapsed = Math.max(0, performance.now() - transitionStartedAt.current);
     const minimum = reducedMotion ? 0 : NETWORK_TRANSITION_INTRO_MS;
     const wait = Math.max(0, minimum - elapsed);
-    releaseTimer.current = window.setTimeout(() => {
-      setLeaving(true);
-      releaseTimer.current = window.setTimeout(clearTransition, reducedMotion ? 0 : NETWORK_TRANSITION_EXIT_MS);
-    }, wait);
+    releaseTimer.current = window.setTimeout(clearTransition, wait);
   }, [clearTransition, reducedMotion]);
 
   const stage = useCallback((spec: TransitionSpec, destinationPath: string) => {
@@ -372,8 +356,6 @@ export function CinematicRouteTransition() {
     }
     released.current = false;
     transitionStartedAt.current = performance.now();
-    setLeaving(false);
-    setLoaderProgress(reducedMotion ? 100 : 8);
     setTransition(spec);
     setActivePath(destinationPath);
   }, [clearTimers, playTuningAudio, reducedMotion]);
@@ -397,18 +379,6 @@ export function CinematicRouteTransition() {
     clearTimers();
     skipNetworkTuningAudio();
   }, [clearTimers]);
-
-  useEffect(() => {
-    if (!transition || leaving || reducedMotion) return;
-    const interval = window.setInterval(() => {
-      setLoaderProgress((current) => {
-        if (current >= 92) return current;
-        const step = current < 44 ? 8 : current < 76 ? 4 : 1;
-        return Math.min(92, current + step);
-      });
-    }, 135);
-    return () => window.clearInterval(interval);
-  }, [leaving, reducedMotion, transition]);
 
   useEffect(() => {
     const onRequest = (event: Event) => {
@@ -470,66 +440,9 @@ export function CinematicRouteTransition() {
     return () => window.clearTimeout(timeout);
   }, [activePath, clearTransition, pathname, transition]);
 
-  if (!transition) return null;
-  const loaderStatus = leaving || loaderProgress >= 100
-    ? "Channel ready"
-    : loaderProgress < 42
-      ? "Acquiring signal"
-      : loaderProgress < 76
-        ? "Syncing channel guide"
-        : "Warming live feed";
-  return (
-    <div
-      className={`cinematic-route-transition cinematic-route-transition--network${transition.networkSlug ? ` cinematic-route-transition--network-${transition.networkSlug}` : ""}${leaving ? " is-leaving" : ""}`}
-      style={{
-        "--cinematic-accent": transition.accent,
-        ...(transition.backdrop ? { "--cinematic-backdrop": `url(${transition.backdrop})` } : {}),
-      } as React.CSSProperties}
-      aria-live="polite"
-      aria-label={`${transition.eyebrow}: ${transition.title}`}
-    >
-      <span className="cinematic-route-transition__grain" aria-hidden />
-      <span className="cinematic-route-transition__beam cinematic-route-transition__beam--one" aria-hidden />
-      <span className="cinematic-route-transition__beam cinematic-route-transition__beam--two" aria-hidden />
-      {transition.objects?.length ? (
-        <div className="cinematic-route-transition__objects" aria-hidden>
-          {transition.objects.map((object, index) => {
-            const Icon = object.icon;
-            return (
-              <span
-                key={object.label}
-                className={`cinematic-route-transition__object${object.emoji ? " is-emoji" : ""}${object.tone ? ` is-${object.tone}` : ""}`}
-                style={{
-                  "--object-x": object.x,
-                  "--object-y": object.y,
-                  "--object-size": object.size,
-                  "--object-rotation": object.rotation,
-                  "--object-delay": `${object.delay ?? index * 58}ms`,
-                } as React.CSSProperties}
-              >
-                {Icon ? <Icon aria-hidden="true" /> : <span className="cinematic-route-transition__object-emoji">{object.emoji}</span>}
-              </span>
-            );
-          })}
-        </div>
-      ) : null}
-      <div className="cinematic-route-transition__content">
-        <CoreWordmark className="cinematic-route-transition__wordmark" />
-        <span className="cinematic-route-transition__eyebrow">{transition.eyebrow}</span>
-        <strong>{transition.title}</strong>
-        <span className="cinematic-route-transition__signal"><i /><i /><i /></span>
-        <div className="cinematic-route-transition__loader" aria-hidden>
-          <span className="cinematic-route-transition__loader-label"><i /> {loaderStatus}</span>
-          <span className="cinematic-route-transition__loader-value">{loaderProgress}%</span>
-        </div>
-        <span className="cinematic-route-transition__progress" aria-hidden><i style={{ transform: `scaleX(${loaderProgress / 100})` }} /></span>
-        <span className="cinematic-route-transition__status">{transition.tuningDetail ?? "Tuning your viewing room"}</span>
-        {tuningAudioPlaying ? (
-          <button type="button" className="cinematic-route-transition__skip" onClick={skipTuningAudio}>
-            Skip DJ Cora
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
+  // Channel changes still run their normal route readiness and DJ Cora audio
+  // handoff, but they no longer cover the destination with a full-screen
+  // branded loading card. Keep this bridge mounted so existing callers can
+  // coordinate recorded audio without reintroducing the visual interstitial.
+  return null;
 }

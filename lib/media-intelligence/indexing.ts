@@ -5,6 +5,11 @@ import { getEmbeddingProvider } from "./embedding";
 import { getMediaIntelligenceStore } from "./postgres-store";
 import { mediaIntelligenceQuery, withMediaIntelligenceTransaction } from "./schema";
 
+async function loadIndexDocuments() {
+  const embedding = getEmbeddingProvider();
+  return getMediaIntelligenceStore().searchDocuments(embedding.name, embedding.model, {});
+}
+
 export async function publishMediaIndexGeneration(): Promise<{
   generationId: string;
   provider: string;
@@ -16,8 +21,10 @@ export async function publishMediaIndexGeneration(): Promise<{
   const provider = adapter?.name ?? "local-postgres";
   const indexName = config.aiSearch.indexName;
   const generationId = contentFingerprint({ provider, indexName, createdAt: new Date().toISOString() });
-  const embedding = getEmbeddingProvider();
-  const documents = await getMediaIntelligenceStore().searchDocuments(embedding.name, embedding.model, {});
+  // Keep the scheduled local-only path cheap. The full-document scan below is
+  // only needed when publishing to an external search index; without an adapter
+  // it served no purpose and repeatedly exceeded PostgreSQL's statement timeout.
+  const documents = adapter ? await loadIndexDocuments() : [];
   await mediaIntelligenceQuery(
     `INSERT INTO media_intelligence_index_generations
       (generation_id, provider, index_name, status, document_count, config)

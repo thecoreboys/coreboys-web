@@ -276,6 +276,13 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
       : filtered;
     return selectShortFormRailItems(ranked, limit);
   };
+  const libraryPreview = useMemo(() => {
+    const source = catalog.recent.length ? catalog.recent : all;
+    return balancedRail(
+      personalizeItems(source.filter((item) => item.kind !== "live"), feedback),
+      12,
+    );
+  }, [all, catalog.recent, feedback]);
 
   const continueItems = useMemo(
     () => selectContinueWatchingItems(playable, map, references, { limit: 16 }),
@@ -447,6 +454,14 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
             {showFullLibrary ? "Show less" : "Explore more"}
           </button>
         </section>
+
+        {!showFullLibrary ? (
+          libraryPreview.length ? (
+            <Shelf title="A little from the library" items={libraryPreview} {...sharedShelfProps} />
+          ) : (
+            <p className="watch-library-empty px-5 md:px-10">New videos, clips, and Shorts will show up here as they’re added.</p>
+          )
+        ) : null}
 
         {showFullLibrary ? <div id="watch-full-library" className="watch-full-library">
           {(catalog.programmingSections ?? []).map((section) => {

@@ -496,8 +496,7 @@
   isolation: isolate;
 }
 .heroPreviewAdvisoryArtwork,
-.heroPreviewAdvisoryArtwork > img,
-.heroPreviewAdvisoryArtworkVeil {
+.heroPreviewAdvisoryArtwork > img {
   position: absolute;
   inset: 0;
 }
@@ -510,87 +509,8 @@
   filter: saturate(.92) contrast(1.06) brightness(.66);
   transform: scale(1.035);
 }
-.heroPreviewAdvisoryArtworkVeil {
-  z-index: 1;
-  background:
-    linear-gradient(90deg, rgba(4,4,6,.95) 0%, rgba(4,4,6,.74) 45%, rgba(4,4,6,.9) 100%),
-    linear-gradient(0deg, rgba(4,4,6,.9) 0%, transparent 62%),
-    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--channel-accent) 24%, transparent), transparent 56%);
-}
-.heroPreviewAdvisoryStation {
-  position: absolute;
-  z-index: 2;
-  top: 1rem;
-  left: 1rem;
-  display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr);
-  max-width: min(15rem, calc(100% - 2rem));
-  align-items: center;
-  gap: .44rem;
-  padding: .4rem .56rem .4rem .42rem;
-  border: 1px solid color-mix(in srgb, var(--channel-accent) 45%, rgba(255,255,255,.22));
-  border-radius: .68rem;
-  background: rgba(5,5,7,.7);
-  box-shadow: 0 .4rem 1.2rem rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.11);
-  text-align: left;
-  backdrop-filter: blur(12px);
-}
-.heroPreviewAdvisoryStation img {
-  grid-row: 1 / span 2;
-  width: 1.75rem;
-  height: 1.75rem;
-  flex: 0 0 auto;
-  border-radius: .4rem;
-  object-fit: contain;
-  background: rgba(0,0,0,.3);
-}
-.heroPreviewAdvisoryStation span,
-.heroPreviewAdvisoryStation small { display: block; }
-.heroPreviewAdvisoryStation span {
-  min-width: 0;
-  overflow: hidden;
-  color: rgba(255,255,255,.96);
-  font-size: .68rem;
-  font-weight: 800;
-  letter-spacing: .04em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.heroPreviewAdvisoryStation small {
-  grid-column: 2;
-  margin-top: .08rem;
-  color: rgba(255,255,255,.56);
-  font-size: .56rem;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-.heroPreviewAdvisoryContent { position: relative; z-index: 1; max-width: 31rem; }
-.heroPreviewAdvisoryEyebrow {
-  display: block;
-  margin-bottom: .7rem;
-  color: color-mix(in srgb, var(--channel-accent) 78%, #fff);
-  font-size: .62rem;
-  font-weight: 800;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
 .heroPreviewAdvisory strong { display: block; font-size: clamp(1rem, 2.2vw, 1.55rem); line-height: 1.12; }
 .heroPreviewAdvisory p { margin: .58rem 0 0; color: rgba(255,255,255,.7); font-size: .82rem; }
-.heroPreviewAdvisoryTuningLine { display: block; margin-top: .7rem; color: rgba(255,255,255,.58); font-size: .64rem; font-weight: 700; letter-spacing: .025em; }
-.heroPreviewAdvisory button {
-  margin-top: 1rem;
-  padding: .62rem .9rem;
-  border: 1px solid color-mix(in srgb, var(--channel-accent) 54%, rgba(255,255,255,.36));
-  border-radius: .65rem;
-  background: color-mix(in srgb, var(--channel-accent) 36%, #111);
-  color: #fff;
-  font: inherit;
-  font-size: .75rem;
-  font-weight: 760;
-  cursor: pointer;
-}
-.heroPreviewAdvisory button:hover { background: color-mix(in srgb, var(--channel-accent) 56%, #111); }
 
 @media (prefers-reduced-motion: no-preference) {
   .heroPreviewAdvisoryArtwork > img { animation: advisoryArtworkSettle 5.2s ease-in-out infinite alternate; }

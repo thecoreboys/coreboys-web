@@ -1,27 +1,18 @@
 import { NextResponse } from "next/server";
 import { getWatchCatalog } from "@/lib/watch/catalog";
-import type { WatchPlatform } from "@/lib/watch/types";
+import { youtubeIdFromHref } from "@/lib/watch/playable";
+import type { UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type LiveSnapshot = {
-  live: Array<{
-    id: string;
-    platform: WatchPlatform;
-    memberSlug: string | null;
-    dvrVodId: string | null;
-  }>;
-  fetchedAt: string;
-};
-
-let snapshotCache: { expiresAt: number; value: Promise<LiveSnapshot> } | null = null;
+let snapshotCache: { expiresAt: number; value: Promise<UnifiedLiveSnapshot> } | null = null;
 // Browser clients can ask often, but the catalog build itself is coalesced in
 // process. This lets a live transition show up quickly without multiplying
 // provider reads for every open tab.
 const SNAPSHOT_TTL_MS = 20_000;
 
-function getSnapshot(): Promise<LiveSnapshot> {
+function getSnapshot(): Promise<UnifiedLiveSnapshot> {
   const now = Date.now();
   if (snapshotCache && snapshotCache.expiresAt > now) return snapshotCache.value;
   const value = getWatchCatalog().then((catalog) => ({
@@ -30,6 +21,15 @@ function getSnapshot(): Promise<LiveSnapshot> {
       platform: item.platform,
       memberSlug: item.memberSlug,
       dvrVodId: item.dvr?.twitchVodId ?? null,
+      login: item.live?.login?.toLowerCase() ?? null,
+      youtubeId: item.platform === "youtube"
+        ? youtubeIdFromHref(item.sourceUrl ?? item.href)
+        : null,
+      title: item.title ?? null,
+      poster: item.poster ?? null,
+      sourceUrl: item.sourceUrl ?? null,
+      startedAt: item.live?.startedAt ?? item.publishedAt ?? null,
+      viewerCount: item.live?.viewers ?? null,
     })),
     fetchedAt: catalog.fetchedAt,
   }));

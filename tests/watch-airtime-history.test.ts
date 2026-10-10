@@ -47,18 +47,20 @@ function session(overrides: Partial<AirtimeHistorySession> = {}): AirtimeHistory
   };
 }
 
-test("builds real fallback sessions only from recent Twitch broadcasts", () => {
+test("links retained Twitch broadcasts into the full airtime year", () => {
   const now = Date.parse("2026-08-21T12:00:00Z");
   const fallback = buildBroadcastHistoryFallback([
     vod(),
     vod({ id: "youtube-1", kind: "youtube", platform: "youtube" }),
+    vod({ id: "vod-retained", publishedAt: "2025-09-01T00:00:00Z", twitch: { streamId: "stream-retained", vodId: "retained" } }),
     vod({ id: "old", publishedAt: "2026-06-01T00:00:00Z" }),
   ], now);
 
-  assert.equal(fallback.length, 1);
+  assert.equal(fallback.length, 2);
   assert.equal(fallback[0]?.source, "twitch-vod");
   assert.equal(fallback[0]?.totalMinutes, 120);
   assert.equal(fallback[0]?.endedAt, "2026-08-21T01:30:00.000Z");
+  assert.equal(fallback[1]?.id, "twitch-vod:retained");
 });
 
 test("prefers an observed session over its matching Twitch VOD", () => {

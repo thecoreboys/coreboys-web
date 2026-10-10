@@ -218,7 +218,13 @@ export function MultiPlayerStage({
   const currentLive = useMemo(() => {
     if (authoritativeLiveRoom) return live.filter((item) => item.kind === "live");
     const online = new Set((liveStatus?.live ?? []).filter((entry) => entry.isLive).map((entry) => entry.login.toLowerCase()));
-    return live.filter((item) => item.kind === "live" && Boolean(item.twitchLogin && online.has(item.twitchLogin.toLowerCase())));
+    return live.filter((item) => {
+      if (item.kind !== "live") return false;
+      // Twitch has a fast status endpoint; YouTube live state comes from the
+      // refreshed catalog snapshot and has no Twitch login to join against.
+      if (item.platform === "youtube") return Boolean(item.youtubeId);
+      return Boolean(item.twitchLogin && online.has(item.twitchLogin.toLowerCase()));
+    });
   }, [authoritativeLiveRoom, live, liveStatus]);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [sourceIntent, setSourceIntent] = useState<SourceIntent>("tile");
@@ -2020,11 +2026,13 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       if (tile.item.youtubeId) {
         const detail = youtubePlaybackSample(value);
         if (detail) {
-          if (typeof detail.currentTime === "number") {
+          if (typeof detail.currentTime === "number" && Number.isFinite(detail.currentTime)) {
             timedEmbedRef.current = true;
-            positionRef.current = detail.currentTime;
+            positionRef.current = Math.max(0, detail.currentTime);
           }
-          if (typeof detail.duration === "number") durationRef.current = detail.duration;
+          if (typeof detail.duration === "number" && Number.isFinite(detail.duration) && detail.duration >= 0) {
+            durationRef.current = detail.duration;
+          }
           setTileProgress({ position: positionRef.current, duration: durationRef.current });
           if (detail.playerState === 1) {
             playingRef.current = true;

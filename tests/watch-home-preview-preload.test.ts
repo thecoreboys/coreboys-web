@@ -17,6 +17,13 @@ test("the home short-form rail warms upcoming preview resources without eager em
   assert.doesNotMatch(poster, /documentHint\.rel\s*=\s*"prefetch"/);
 });
 
+test("the collapsed CORE library still shows a small content preview", () => {
+  assert.match(home, /const libraryPreview = useMemo\(/);
+  assert.match(home, /personalizeItems\(source\.filter\(\(item\) => item\.kind !== "live"\), feedback\)/);
+  assert.match(home, /!showFullLibrary[\s\S]{0,300}A little from the library/);
+  assert.match(home, /watch-library-empty[\s\S]{0,160}New videos, clips, and Shorts will show up here/);
+});
+
 test("preview warming is bounded and honors bandwidth and motion preferences", () => {
   assert.match(poster, /MAX_WARMED_HOVER_ORIGINS\s*=\s*6/);
   assert.match(poster, /MAX_WARMED_HOVER_STILLS\s*=\s*10/);

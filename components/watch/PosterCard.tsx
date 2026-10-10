@@ -521,11 +521,19 @@ export function PosterCard({
             player.play(item, context, moment ? { startAtSeconds: moment.seconds } : undefined);
           }}
         >
-          <WatchThumb
-            youtubeId={youtubeId}
-            src={item.poster}
-            focalPoint={item.focalPoint}
-          />
+          {item.poster ? (
+            <WatchThumb
+              youtubeId={youtubeId}
+              src={item.poster}
+              focalPoint={item.focalPoint}
+            />
+          ) : (
+            <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">
+              <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
+              <span className="watch-poster-art-mark">{item.platform === "instagram" ? "◎" : item.platform === "tiktok" ? "♪" : "▶"}</span>
+              <span className="watch-poster-art-caption">Video preview</span>
+            </span>
+          )}
         </button>
       ) : (
         <Link
@@ -537,11 +545,19 @@ export function PosterCard({
             ? `View ${item.title} on ${isExternalPost ? "X" : "Instagram"} (opens in a new tab)`
             : `Open ${item.title}`}
         >
-          <WatchThumb
-            youtubeId={youtubeId}
-            src={item.poster}
-            focalPoint={item.focalPoint}
-          />
+          {item.poster ? (
+            <WatchThumb
+              youtubeId={youtubeId}
+              src={item.poster}
+              focalPoint={item.focalPoint}
+            />
+          ) : (
+            <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">
+              <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
+              <span className="watch-poster-art-mark">{item.platform === "instagram" ? "◎" : item.platform === "tiktok" ? "♪" : "▶"}</span>
+              <span className="watch-poster-art-caption">Video preview</span>
+            </span>
+          )}
         </Link>
       )}
 

@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { Route } from "next";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
+import useSWR from "swr";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Award,
@@ -33,6 +34,20 @@ import { cn } from "@/lib/utils";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSupporterBillingControls";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import type { UnifiedLiveEntry, UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
+
+const unifiedLiveFetcher = async (url: string): Promise<UnifiedLiveSnapshot> => {
+  const response = await fetch(url, { credentials: "same-origin" });
+  if (!response.ok) throw new Error(`unified_live_${response.status}`);
+  return (await response.json()) as UnifiedLiveSnapshot;
+};
+
+function isYouTubeLiveEntry(entry: UnifiedLiveEntry): entry is UnifiedLiveEntry & {
+  platform: "youtube";
+  youtubeId: string;
+} {
+  return entry.platform === "youtube" && Boolean(entry.youtubeId);
+}
 
 /**
  * Global top navigation. Sticky, glass-blurred at scroll > 8px.
@@ -69,11 +84,21 @@ export function TopNav({
   const accountTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { data } = useLiveStatus();
   const liveEntries = (data?.live ?? []).filter((l) => l.isLive);
-  const liveCount = liveEntries.length;
+  const { data: unifiedLive } = useSWR<UnifiedLiveSnapshot>(
+    "/api/watch/live",
+    unifiedLiveFetcher,
+    {
+      refreshInterval: 30_000,
+      revalidateOnFocus: true,
+      dedupingInterval: 15_000,
+    },
+  );
+  const youtubeLiveEntries = (unifiedLive?.live ?? []).filter(isYouTubeLiveEntry);
+  const liveCount = liveEntries.length + youtubeLiveEntries.length;
   const combinedViewers = liveEntries.reduce(
     (sum, e) => sum + (e.viewerCount ?? 0),
     0,
-  );
+  ) + youtubeLiveEntries.reduce((sum, e) => sum + (e.viewerCount ?? 0), 0);
   const { theme, toggle: toggleTheme } = useTheme();
   const { user, loading: authLoading, logout } = useAuth();
   const supporterControls = useSupporterBillingControls();
@@ -343,6 +368,16 @@ export function TopNav({
             <span className="hidden text-[10px] font-semibold text-white/70 xl:inline">{supporterPrice}</span>
           </Link>
 
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]"
+          >
+            {theme === "dark" ? <Sun size={17} aria-hidden /> : <Moon size={17} aria-hidden />}
+          </button>
+
           {/* LIVE / OFFLINE pill — opens member-picker modal when live.
               When live, the whole pill blinks red (live-pill-blink) and
               shows the combined viewer count across every live member. */}
@@ -373,8 +408,6 @@ export function TopNav({
               Offline
             </span>
           )}
-
-          {/* Theme stays in account / mobile — not identity chrome. */}
 
           {/* Fan account — signed-in destinations live in this menu instead
               of competing with the primary entertainment navigation. */}
@@ -646,6 +679,7 @@ export function TopNav({
         ? createPortal(
             <LiveNowModal
               entries={liveEntries}
+              youtubeEntries={youtubeLiveEntries}
               combinedViewers={combinedViewers}
               onClose={() => setLiveModalOpen(false)}
             />,

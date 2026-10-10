@@ -3,6 +3,7 @@ import type { WatchItem } from "@/lib/watch/types";
 const DAY_MS = 86_400_000;
 const SESSION_MATCH_WINDOW_MS = 20 * 60_000;
 const MAX_SESSION_MINUTES = 7 * 24 * 60;
+const AIRTIME_HISTORY_WINDOW_DAYS = 370;
 
 export type AirtimeHistorySession = {
   id: string;
@@ -104,7 +105,7 @@ export function dateKeyInTimeZone(valueMs: number, timeZone: string): string {
 export function buildBroadcastHistoryFallback(
   items: readonly WatchItem[],
   nowMs: number,
-  windowDays = 31,
+  windowDays = AIRTIME_HISTORY_WINDOW_DAYS,
 ): AirtimeHistorySession[] {
   const cutoffMs = nowMs - Math.max(1, windowDays) * DAY_MS;
   const output = new Map<string, AirtimeHistorySession>();

@@ -4,6 +4,7 @@ type CompanionPlayable = {
   kind?: string | null;
   platform?: string | null;
   twitchLogin?: string | null;
+  youtubeId?: string | null;
 };
 
 type CompanionChannel = {
@@ -15,6 +16,16 @@ export function twitchLiveChatLogin(item: CompanionPlayable | null | undefined):
   if (item?.kind !== "live" || item.platform !== "twitch") return null;
   const login = item.twitchLogin?.trim();
   return login || null;
+}
+
+export function youtubeLiveChatVideoId(item: CompanionPlayable | null | undefined): string | null {
+  if (item?.kind !== "live" || item.platform !== "youtube") return null;
+  const videoId = item.youtubeId?.trim();
+  return videoId || null;
+}
+
+export function liveChatAvailable(item: CompanionPlayable | null | undefined): boolean {
+  return Boolean(twitchLiveChatLogin(item) || youtubeLiveChatVideoId(item));
 }
 
 export function isGuideLiveTwitchPlayback(

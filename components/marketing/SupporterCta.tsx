@@ -146,17 +146,11 @@ function SupporterDiscoveryGrid({
   return (
     <section className={`supporter-discovery-grid ${className}`} aria-label="Support the site membership benefits">
       <article className="member-hero member-hero--single relative isolate min-h-[24rem] overflow-hidden rounded-2xl bg-[#0b0a0f] p-5 text-white sm:aspect-[1933/814] sm:min-h-0 sm:p-7" aria-label="Support the site">
+        {/* Previous supporter artwork retained for reference; it looked synthetic in the live layout.
         <img src="/brand/supporter/supporter-vault-hero-v3.webp" alt="" aria-hidden decoding="async" fetchPriority="low" className="member-hero__generated-art absolute inset-0 -z-20 h-full w-full object-cover object-center" />
+        */}
+        <img src="/brand/supporter/supporter-workbench-v1.webp" alt="" aria-hidden decoding="async" fetchPriority="low" className="member-hero__generated-art absolute inset-0 -z-20 h-full w-full object-cover object-center" />
         <span aria-hidden className="member-hero__art-wash" />
-        <span aria-hidden className="member-hero__perspective-grid" />
-        <span aria-hidden className="member-hero__center-vignette" />
-        <span aria-hidden className="member-hero__crt" />
-        <span aria-hidden className="member-hero__inner-neon" />
-        <span aria-hidden className="member-hero__edge-bloom" />
-        <span aria-hidden className="member-hero__edge-flow" />
-        <span aria-hidden className="member-hero__feature-particles">
-          {Array.from({ length: 24 }, (_, index) => <i key={index} />)}
-        </span>
         <div className="relative z-10 flex min-h-[20rem] flex-col items-center justify-center py-8 text-center sm:h-full sm:min-h-0">
           <div className="member-hero__offer flex max-w-[34rem] flex-col items-center">
             <p className="member-hero__price inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-[.14em]"><Sparkles className="size-3.5" aria-hidden /> {supportClosed ? "New recurring support closed" : minimum ? `Starting from ${minimum}/month` : "Choose your monthly support"}</p>
@@ -168,12 +162,7 @@ function SupporterDiscoveryGrid({
           <div className="member-unlocks" aria-label="Everything included with membership">
             {DISCOVERY_FEATURES.map(({ key, title, detail, icon: Icon }) => (
               <article key={key} className={`member-unlock member-unlock--${key} relative flex items-center gap-3 overflow-hidden rounded-xl border p-3 text-left`}>
-                <span aria-hidden className="member-unlock__shade" />
-                <span aria-hidden className="member-unlock__flare" />
-                <span aria-hidden className={`member-unlock__visual member-unlock__visual--${key}`}>
-                  <Icon />
-                  <i /><i /><i />
-                </span>
+                <span aria-hidden className="member-unlock__visual"><Icon /></span>
                 <span className="member-unlock__copy min-w-0">
                   <strong className="member-unlock__label flex items-center gap-2"><i aria-hidden />{title}</strong>
                   <span className="member-unlock__detail mt-1 block">{detail}</span>

@@ -453,6 +453,10 @@ test("mounts curated rails on the member channel page with an X Community link a
     resolve(process.cwd(), "components/watch/OfficialSocialEmbedFallback.tsx"),
     "utf8",
   );
+  const posterCard = readFileSync(
+    resolve(process.cwd(), "components/watch/PosterCard.tsx"),
+    "utf8",
+  );
   const channelRoute = readFileSync(
     resolve(process.cwd(), "app/channels/[slug]/page.tsx"),
     "utf8",
@@ -478,6 +482,7 @@ test("mounts curated rails on the member channel page with an X Community link a
   assert.match(component, /rail\.platform !== "instagram" && rail\.platform !== "tiktok"/);
   assert.match(component, /OfficialSocialEmbedFallback/);
   assert.match(component, /shouldUseOfficialEmbedFallback/);
+  assert.match(posterCard, /watch-poster-art-fallback/);
   assert.match(component, /return rail\.items\.length === 0/);
   assert.match(component, /TikTokEmbedScriptLoader signature=\{tiktokEmbedSignature\}/);
   assert.match(component, /automatic feed is not available/);
@@ -485,6 +490,9 @@ test("mounts curated rails on the member channel page with an X Community link a
   assert.match(embedFallback, /data-ingest-state=\{rail\.ingestState \?\? "unknown"\}/);
   assert.match(embedFallback, /TikTok&apos;s official public Creator Profile Embed/);
   assert.match(embedFallback, /Instagram&apos;s official public embed/);
+  assert.match(embedFallback, /instagramProfileCard/);
+  assert.match(embedFallback, /filter\(\(embed\) => embed\.kind !== "profile"\)/);
+  assert.match(embedFallback, /window\.setTimeout\(process, 350\)/);
   assert.match(embedFallback, /monitor indexes individual posts and Reels/);
   assert.match(embedFallback, /Creator alerts use CORE&apos;s public-feed monitor when available/);
   assert.match(page, /sourceDiagnostics/);

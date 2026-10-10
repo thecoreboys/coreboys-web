@@ -1270,7 +1270,7 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
     >
       <div
         ref={dialogRef}
-        className={`watch-search-dialog${isClosing ? " is-closing" : ""}`}
+        className={`watch-search-dialog${hasLocalSearchCriteria ? " has-query" : ""}${isClosing ? " is-closing" : ""}`}
         data-closing={isClosing || undefined}
         role="dialog"
         aria-modal="true"
@@ -1382,10 +1382,9 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
           <section className="watch-search-results-shell" aria-label="Search results">
             <div className="watch-search-results-head">
               <div>
-                <p aria-live="polite">{needle
+                <p aria-live="polite" aria-busy={isRefining}>{needle
                   ? `${hits.length + memberHits.length} result${hits.length + memberHits.length === 1 ? "" : "s"}${hits.length + memberHits.length > rows.length ? ` · top ${rows.length} shown` : ""}`
                   : showDiscovery ? "Browse" : FILTERS.find((entry) => entry.id === filter)?.label}</p>
-                {isRefining ? <small className="watch-search-refining">Refining matches</small> : null}
               </div>
               <span><kbd>↑</kbd><kbd>↓</kbd> move <CornerDownLeft /> open</span>
             </div>

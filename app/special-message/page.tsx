@@ -64,12 +64,11 @@ export default function SpecialMessagePage() {
                 C
               </span>
               <p className={styles.mastheadTitle}>A Personal Message</p>
-              <p className={styles.editionNumber}>Vol. 02 / Built with purpose</p>
+              <p className={styles.editionNumber}>No. 02 / For the CORE community</p>
             </div>
 
             <div className={styles.headlineGrid}>
               <div className={styles.headlineCopy}>
-                <p className={styles.eyebrow}>A personal letter, shared openly</p>
                 <h1>CORE gave me something to look forward to.</h1>
                 <p className={styles.dek}>
                   The streams, videos, and community put a smile on my face and made me laugh,
@@ -81,8 +80,8 @@ export default function SpecialMessagePage() {
 
               <aside className={styles.frontPageAside} aria-label="Edition note">
                 <div className={styles.stamp}>
-                  <span>One story</span>
-                  <strong>Read straight down</strong>
+                  <span>From the builder</span>
+                  <strong>A note of thanks</strong>
                 </div>
               </aside>
             </div>

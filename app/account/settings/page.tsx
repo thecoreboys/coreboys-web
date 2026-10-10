@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell01, Settings01, User01 } from "@untitledui/icons";
+import { Accessibility, Bell, Link2, Palette, Play, Radio, Shield, Sparkles, UserRound } from "lucide-react";
 import { AccountSettingsHub } from "@/components/account/AccountSettingsHub";
 import { AccountPageHeader } from "@/components/account/AccountPageHeader";
 import { AccountProfile } from "@/components/account/AccountProfile";
@@ -19,25 +19,40 @@ import { cx } from "@/utils/cx";
 import billingStyles from "@/components/marketing/PricingExperience.module.css";
 
 const SETTINGS_NAV = [
-  { group: "Account", label: "Profile", href: "#profile", icon: User01 },
-  { group: "Account", label: "Connections", href: "#connections", icon: User01 },
-  { group: "Account", label: "Notifications", href: "#notifications", icon: Bell01 },
-  { group: "Account", label: "Privacy & safety", href: "#privacy", icon: Settings01 },
-  { group: "Watch", label: "Appearance", href: "#experience", icon: Settings01 },
-  { group: "Watch", label: "Playback", href: "#playback", icon: Settings01 },
-  { group: "Watch", label: "Station audio", href: "#station-audio", icon: Settings01 },
-  { group: "Watch", label: "Accessibility", href: "#accessibility", icon: Settings01 },
-  { group: "Watch", label: "Personalization", href: "#personalization", icon: User01 },
+  { group: "Account", label: "Profile", href: "#profile", icon: UserRound },
+  { group: "Account", label: "Connections", href: "#connections", icon: Link2 },
+  { group: "Account", label: "Notifications", href: "#notifications", icon: Bell },
+  { group: "Account", label: "Privacy & safety", href: "#privacy", icon: Shield },
+  { group: "Watch", label: "Appearance", href: "#experience", icon: Palette },
+  { group: "Watch", label: "Playback", href: "#playback", icon: Play },
+  { group: "Watch", label: "Station audio", href: "#station-audio", icon: Radio },
+  { group: "Watch", label: "Accessibility", href: "#accessibility", icon: Accessibility },
+  { group: "Watch", label: "Personalization", href: "#personalization", icon: Sparkles },
 ] as const;
 
 export default function AccountSettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [fanDetailsOpen, setFanDetailsOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("#profile");
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login?next=/account/settings");
   }, [loading, user, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    const sections = SETTINGS_NAV.map(({ href }) => document.querySelector<HTMLElement>(href)).filter(Boolean) as HTMLElement[];
+    if (!sections.length || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      const id = visible[0]?.target.id;
+      if (id) setActiveSection(`#${id}`);
+    }, { rootMargin: "-18% 0px -68% 0px", threshold: 0 });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [user]);
 
   if (loading || !user) {
     return (
@@ -66,7 +81,8 @@ export default function AccountSettingsPage() {
                 return (
                   <div key={item.href} className={cx("shrink-0", item.group !== previous?.group && index > 0 && "lg:mt-3 lg:border-t lg:border-secondary lg:pt-3")}>
                     {item.group !== previous?.group ? <p className="hidden px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-quaternary lg:block">{item.group}</p> : null}
-                    <Link href={item.href as never} className="flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-tertiary transition hover:bg-primary_hover hover:text-secondary">
+                    <Link href={item.href as never} aria-current={activeSection === item.href ? "location" : undefined} className={cx("flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-primary_hover hover:text-secondary", activeSection === item.href ? "bg-primary text-primary ring-1 ring-inset ring-secondary shadow-xs" : "text-tertiary")}>
+                      <item.icon aria-hidden="true" className={cx("size-4 shrink-0", activeSection === item.href ? "text-secondary" : "text-quaternary")} />
                       {item.label}
                     </Link>
                   </div>

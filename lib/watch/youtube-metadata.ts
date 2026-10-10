@@ -9,6 +9,7 @@ export type WatchYoutubeMetadata = {
   liveBroadcastContent: "live" | "upcoming" | "none";
   actualStartTime?: string;
   scheduledStartTime?: string;
+  concurrentViewers?: number;
   chapters?: WatchChapter[];
   relatedFullVideoId?: string;
 };
@@ -88,7 +89,10 @@ export async function fetchWatchYoutubeMetadata(
         key,
       });
       const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`, {
-        next: { revalidate: 600 },
+        // Live state changes independently of the catalog's longer-lived
+        // archive data. Keep this short enough for the live counter and
+        // multiview room to notice a broadcast transition promptly.
+        next: { revalidate: 60 },
         signal: AbortSignal.timeout(4_000),
       });
       if (!response.ok) continue;
@@ -105,6 +109,7 @@ export async function fetchWatchYoutubeMetadata(
           liveStreamingDetails?: {
             actualStartTime?: string;
             scheduledStartTime?: string;
+            concurrentViewers?: string;
           };
         }>;
       };
@@ -120,6 +125,9 @@ export async function fetchWatchYoutubeMetadata(
           item.snippet?.description ?? "",
           ...(item.snippet?.tags ?? []),
         ].join(" ");
+        const concurrentViewers = item.liveStreamingDetails?.concurrentViewers
+          ? Number(item.liveStreamingDetails.concurrentViewers)
+          : undefined;
         output[item.id] = {
           duration: durationSeconds ? formatDurationSeconds(durationSeconds) : undefined,
           durationSeconds,
@@ -133,6 +141,9 @@ export async function fetchWatchYoutubeMetadata(
           liveBroadcastContent: item.snippet?.liveBroadcastContent ?? "none",
           actualStartTime: item.liveStreamingDetails?.actualStartTime,
           scheduledStartTime: item.liveStreamingDetails?.scheduledStartTime,
+          concurrentViewers: concurrentViewers != null && Number.isFinite(concurrentViewers)
+            ? concurrentViewers
+            : undefined,
           chapters: parseYoutubeChapters(item.snippet?.description ?? "", durationSeconds),
           relatedFullVideoId: linkedYoutubeVideo(item.snippet?.description ?? "", item.id),
         };

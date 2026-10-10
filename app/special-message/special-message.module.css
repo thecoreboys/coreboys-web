@@ -166,10 +166,10 @@
 }
 
 .headlineCopy h1 {
-  max-width: 12ch;
+  max-width: 14ch;
   margin: 0.65rem 0 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(3.4rem, 8.6vw, 8.6rem);
+  font-size: clamp(3.2rem, 7.4vw, 7.2rem);
   font-weight: 900;
   letter-spacing: -0.072em;
   line-height: 0.84;

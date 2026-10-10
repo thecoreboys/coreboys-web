@@ -66,7 +66,10 @@ test("renders local candidates first and only lets current indexed work refine t
   assert.match(palette, /writeQueryCache\(/);
   assert.match(palette, /controller\.abort\(\)/);
   assert.match(palette, /mergeRankedResults\(local, indexedSearch\.results/);
-  assert.match(palette, /Refining matches/);
+  assert.match(palette, /aria-busy=\{isRefining\}/);
+  assert.doesNotMatch(palette, /Refining matches/);
+  assert.match(css, /\.watch-search-dialog\.has-query\s*\{[^}]*height:\s*auto/);
+  assert.match(css, /\.watch-search-dialog\.has-query \.watch-search-results\s*\{[^}]*max-height:/);
   assert.doesNotMatch(palette, /Finding the strongest matches/);
 });
 

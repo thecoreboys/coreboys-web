@@ -9,6 +9,12 @@ import { networkLabel } from "@/lib/members-helpers";
 import type { LiveEntry } from "@/lib/twitch";
 import { cn } from "@/lib/utils";
 import { LiveDuration } from "@/components/watch/LiveAirtime";
+import type { UnifiedLiveEntry } from "@/lib/watch/live-snapshot";
+
+type YouTubeLiveEntry = UnifiedLiveEntry & {
+  platform: "youtube";
+  youtubeId: string;
+};
 
 function liveThumb(login: string, thumbnailUrl?: string) {
   if (thumbnailUrl) {
@@ -24,12 +30,32 @@ function formatCount(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+function youtubeThumb(entry: YouTubeLiveEntry): string {
+  return entry.poster || `https://i.ytimg.com/vi/${entry.youtubeId}/hqdefault.jpg`;
+}
+
+function youtubeLiveHref(entry: YouTubeLiveEntry): string {
+  const params = new URLSearchParams({
+    kind: "live",
+    src: "youtube",
+    id: entry.youtubeId,
+    ref: entry.id,
+    url: entry.sourceUrl ?? `https://www.youtube.com/watch?v=${entry.youtubeId}`,
+    title: entry.title ?? "YouTube live",
+    format: "live",
+    slug: entry.memberSlug ?? "house",
+  });
+  return `/theater?${params.toString()}`;
+}
+
 export function LiveNowModal({
   entries,
+  youtubeEntries = [],
   combinedViewers,
   onClose,
 }: {
   entries: LiveEntry[];
+  youtubeEntries?: YouTubeLiveEntry[];
   combinedViewers: number;
   onClose: () => void;
 }) {
@@ -40,7 +66,11 @@ export function LiveNowModal({
     })
     .filter((x): x is NonNullable<typeof x> => Boolean(x));
 
-  const count = rows.length;
+  const youtubeRows = youtubeEntries.map((entry) => ({
+    entry,
+    member: entry.memberSlug ? MEMBERS.find((m) => m.slug === entry.memberSlug) ?? null : null,
+  }));
+  const count = rows.length + youtubeRows.length;
   const wide = count >= 2;
   const many = count >= 3;
   const fourOrMore = count >= 4;
@@ -155,6 +185,67 @@ export function LiveNowModal({
                     <span className="block break-words text-[11px] text-[color:var(--ink-dim)]">
                       {member.stageName}
                       {entry.game ? ` · ${entry.game}` : ""}
+                    </span>
+                    <span className="mt-1 block break-words text-[13px] leading-snug text-[color:var(--ink)]">
+                      {entry.title || "On air"}
+                    </span>
+                    <LiveDuration
+                      startedAt={entry.startedAt}
+                      className="mt-1.5 block text-[11px] tabular-nums text-[color:var(--ink-dim)]"
+                    />
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+          {youtubeRows.map(({ entry, member }) => (
+            <li key={`youtube:${entry.id}`}>
+              <Link
+                href={youtubeLiveHref(entry) as never}
+                onClick={onClose}
+                className="group flex h-full flex-col overflow-hidden rounded-xl bg-[color:var(--bg)] ring-1 ring-[color:var(--rule-strong)] transition hover:ring-[color:var(--core)]/50"
+              >
+                <span className="relative aspect-video overflow-hidden bg-black">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={youtubeThumb(entry)}
+                    alt=""
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                  />
+                  <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                  <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-[color:var(--live)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
+                    Live
+                  </span>
+                  {entry.viewerCount != null ? (
+                    <span
+                      aria-label={`${entry.viewerCount.toLocaleString("en-US")} viewers`}
+                      className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] tabular-nums text-white/90"
+                    >
+                      <Eye aria-hidden="true" className="size-3" />
+                      <span aria-hidden="true">{formatCount(entry.viewerCount)}</span>
+                    </span>
+                  ) : null}
+                  <span
+                    aria-hidden
+                    className="absolute left-1/2 top-1/2 inline-flex min-h-9 -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-lg border border-white/20 bg-black/70 px-3 text-[11px] font-semibold text-white opacity-0 shadow-[0_8px_28px_rgba(0,0,0,.42)] backdrop-blur-md transition-[opacity,background-color,border-color] duration-150 group-hover:border-white/35 group-hover:bg-black/80 group-hover:opacity-100 group-focus-visible:border-white/40 group-focus-visible:opacity-100 motion-reduce:transition-none"
+                  >
+                    <Play className="size-3.5" fill="currentColor" />
+                    Watch live
+                  </span>
+                </span>
+                <span className="flex items-start gap-2.5 px-3 py-3">
+                  <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-black text-[10px] font-bold text-white ring-1 ring-white/10">
+                    {member ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={member.comm.logo} alt="" className="h-[78%] w-[78%] object-contain" style={{ imageRendering: "pixelated" }} />
+                    ) : "YT"}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-sm font-semibold tracking-tight text-[color:var(--ink)]">
+                      {member?.stageName ?? "YouTube"}
+                    </span>
+                    <span className="block break-words text-[11px] text-[color:var(--ink-dim)]">
+                      YouTube live
                     </span>
                     <span className="mt-1 block break-words text-[13px] leading-snug text-[color:var(--ink)]">
                       {entry.title || "On air"}

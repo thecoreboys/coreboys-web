@@ -71,8 +71,10 @@ function fromYoutube(item: FeedItem): WatchItem | null {
     accountLabel: item.authorLabel,
     accent: m?.accent ?? "#db0368",
     // Keep the theater/player transport as YouTube even when the catalog
-    // prioritizes this item as currently live.
-    href: `/theater?kind=youtube&id=${encodeURIComponent(id)}&slug=${encodeURIComponent(item.authorSlug ?? "house")}`,
+    // prioritizes this item as currently live. The explicit provider and
+    // source URL are important: `kind=live` alone historically fell through
+    // to the Twitch default in the query-driven Theater entry point.
+    href: `/theater?kind=${isLive ? "live" : "youtube"}&src=youtube&id=${encodeURIComponent(id)}&ref=${encodeURIComponent(item.id)}&url=${encodeURIComponent(sourceUrl)}&slug=${encodeURIComponent(item.authorSlug ?? "house")}&title=${encodeURIComponent(item.title)}&format=${encodeURIComponent(isLive ? "live" : short ? "short" : "long")}`,
     sourceUrl,
     mediaUrl: item.mediaUrl,
     embedUrl: item.embedUrl,
@@ -90,7 +92,11 @@ function fromYoutube(item: FeedItem): WatchItem | null {
     focalPoint: item.focalPoint ?? CENTER,
     liveCapability: "supported",
     live: isLive || isReplay
-      ? { startedAt: item.liveStartedAt ?? item.publishedAt, type: "video" }
+      ? {
+          startedAt: item.liveStartedAt ?? item.publishedAt,
+          type: "video",
+          ...(item.liveViewers != null ? { viewers: item.liveViewers } : {}),
+        }
       : undefined,
   };
 }
@@ -194,6 +200,7 @@ async function enrichYouTubeItems(items: FeedItem[]): Promise<FeedItem[]> {
       // scheduled start here would incorrectly turn upcoming premieres into
       // past broadcasts while they wait for the Guide's schedule endpoint.
       liveStartedAt: meta.actualStartTime ?? (isLive ? meta.scheduledStartTime : item.liveStartedAt),
+      liveViewers: meta.concurrentViewers,
       format: isLive ? "live" : short ? "short" : "long",
       orientation: short ? "portrait" : item.orientation ?? "landscape",
     };

@@ -369,6 +369,9 @@
   margin: 0 auto;
 }
 
+.tiktokEmbedFrame .embedNote { color: rgba(20, 20, 22, .66); }
+.tiktokEmbedFrame .embedNote a { color: #161619; }
+
 .instagramEmbedGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
@@ -386,6 +389,85 @@
   min-width: 0 !important;
   max-width: 658px !important;
   margin: 1px auto !important;
+}
+
+.embedNote {
+  margin: .85rem 0 0;
+  color: rgba(255, 255, 255, .5);
+  font-size: .72rem;
+  line-height: 1.5;
+}
+
+.embedNote a {
+  margin-left: .3rem;
+  color: rgba(255, 255, 255, .86);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.embedNote a:hover,
+.embedNote a:focus-visible { color: #fff; }
+
+.instagramProfileCard {
+  display: grid;
+  width: calc(100% - 2rem);
+  max-width: 48rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 1rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: .85rem;
+  background: linear-gradient(115deg, rgba(221, 42, 123, .11), rgba(255, 255, 255, .025) 55%);
+}
+
+.instagramProfileMark {
+  display: grid;
+  width: 2.6rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid rgba(238, 74, 142, .34);
+  border-radius: .8rem;
+  background: rgba(221, 42, 123, .12);
+  color: #ff75ad;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.instagramProfileCard strong {
+  color: rgba(255, 255, 255, .92);
+  font-size: .85rem;
+}
+
+.instagramProfileCard p {
+  max-width: 39rem;
+  margin: .2rem 0 0;
+  color: rgba(255, 255, 255, .52);
+  font-size: .72rem;
+  line-height: 1.5;
+}
+
+.instagramProfileCard > a {
+  display: inline-flex;
+  min-height: 2.2rem;
+  align-items: center;
+  gap: .35rem;
+  padding: 0 .75rem;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: .55rem;
+  color: rgba(255, 255, 255, .82);
+  font-size: .72rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.instagramProfileCard > a:hover,
+.instagramProfileCard > a:focus-visible { border-color: rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .06); }
+
+@media (max-width: 600px) {
+  .instagramProfileCard { grid-template-columns: auto minmax(0, 1fr); padding: .95rem; }
+  .instagramProfileCard > a { grid-column: 2; justify-self: start; }
 }
 
 .card {

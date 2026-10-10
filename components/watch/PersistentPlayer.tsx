@@ -62,6 +62,7 @@ import {
 } from "@/components/watch/CinematicRouteTransition";
 import { TheaterNetworkGuide } from "@/components/watch/TheaterNetworkGuide";
 import { ChatDock } from "@/components/live/chat";
+import { YouTubeLiveChat } from "@/components/live/YouTubeLiveChat";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { useBrowserTimeZone, type BrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import {
@@ -76,7 +77,8 @@ import {
   playerCompanionViews,
   isCoreControlledTwitchLivePlayback,
   isGuideLiveTwitchPlayback,
-  twitchLiveChatLogin,
+  liveChatAvailable,
+  youtubeLiveChatVideoId,
 } from "@/lib/watch/player-companion";
 import { previewVolumeRamp } from "@/lib/watch/preview-audio";
 import { redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
@@ -506,13 +508,34 @@ function polishedLabel(value: string) {
 }
 
 function playbackClock(seconds: number) {
-  const value = Math.max(0, Math.floor(seconds));
+  const value = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
   const hours = Math.floor(value / 3_600);
   const minutes = Math.floor((value % 3_600) / 60);
   const remainder = value % 60;
   return hours > 0
     ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
     : `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
+function currentTimeLabel(
+  item: Pick<Playable, "kind" | "platform">,
+  position: number,
+  duration: number,
+  twitchDvrActive: boolean,
+) {
+  const safePosition = Math.max(0, Number.isFinite(position) ? position : 0);
+  const safeDuration = Math.max(0, Number.isFinite(duration) ? duration : 0);
+  if (item.kind === "live" && item.platform === "youtube") {
+    // YouTube reports a live stream's elapsed playhead through its JS bridge.
+    // Keep showing that clock even though live playback is not seekable here.
+    return safeDuration > 0
+      ? `${playbackClock(safePosition)} / ${playbackClock(safeDuration)}`
+      : safePosition > 0
+        ? `${playbackClock(safePosition)} elapsed`
+        : "Live edge";
+  }
+  if (item.kind === "live" && !twitchDvrActive) return "Live edge";
+  return `${playbackClock(safePosition)} / ${playbackClock(safeDuration)}`;
 }
 
 function playbackRateLabel(rate: number) {
@@ -1081,8 +1104,8 @@ export function PersistentPlayer() {
     if (playerPageSidebarInitializedRef.current === playerPageKey) return;
     playerPageSidebarInitializedRef.current = playerPageKey;
     setQueueOpen(true);
-    setCompanionView("details");
-  }, [current?.key, playerPage, setCompanionView, setQueueOpen, shortsPage]);
+    setCompanionView(liveChatAvailable(current) ? "chat" : "details");
+  }, [current?.key, current?.kind, current?.platform, current?.twitchLogin, current?.youtubeId, playerPage, setCompanionView, setQueueOpen, shortsPage]);
 
   useEffect(() => {
     if (!playerPage) playerPageSidebarInitializedRef.current = null;
@@ -1301,7 +1324,7 @@ export function PersistentPlayer() {
     setPlaybackError(false);
     setTwitchStartRequired(false);
     setPlaybackSettingsOpen(false);
-    setCompanionView(twitchLiveChatLogin(current) ? "chat" : "up-next");
+    setCompanionView(liveChatAvailable(current) ? "chat" : "up-next");
     setIsPlaying(false);
     setIsMuted(false);
     twitchDvrActiveRef.current = false;
@@ -1316,9 +1339,13 @@ export function PersistentPlayer() {
     playingRef.current = false;
     if (!current) return;
     const mark = progressMapRef.current[progressRef(current)];
-    positionRef.current = mark?.completed ? 0 : mark?.positionSeconds ?? 0;
+    positionRef.current = current.kind === "live"
+      ? 0
+      : mark?.completed ? 0 : mark?.positionSeconds ?? 0;
     setUiPosition(positionRef.current);
-    durationRef.current = mark?.durationSeconds ?? current.durationSeconds ?? 0;
+    durationRef.current = current.kind === "live"
+      ? current.durationSeconds ?? 0
+      : mark?.durationSeconds ?? current.durationSeconds ?? 0;
     setUiDuration(durationRef.current);
     analytics("watch_start", current);
     void fetch("/api/account/presence", {
@@ -1438,6 +1465,7 @@ export function PersistentPlayer() {
     // successful account refresh must still be able to apply its checkpoint.
     if (!hasActiveResumeState) return;
     resumeOwnerRef.current = owner;
+    if (current.kind === "live") return;
     const resumeAt =
       activeMark && !activeMark.completed && activeMark.positionSeconds > 5
         ? activeMark.positionSeconds
@@ -1932,11 +1960,12 @@ export function PersistentPlayer() {
         }
         const details = youtubePlaybackSample(message);
         if (details) {
-          if (typeof details.currentTime === "number") {
-            positionRef.current = details.currentTime;
-            setUiPosition(details.currentTime);
+          if (typeof details.currentTime === "number" && Number.isFinite(details.currentTime)) {
+            const currentTime = Math.max(0, details.currentTime);
+            positionRef.current = currentTime;
+            setUiPosition(currentTime);
           }
-          if (typeof details.duration === "number") {
+          if (typeof details.duration === "number" && Number.isFinite(details.duration) && details.duration >= 0) {
             durationRef.current = details.duration;
             setUiDuration(details.duration);
           }
@@ -2737,10 +2766,12 @@ export function PersistentPlayer() {
         passportChannelSlug: ambientMember?.slug,
       }
     : null;
-  const availableCompanionViews = playerCompanionViews(Boolean(companionChatChannel));
+  const companionYoutubeLiveChatVideoId = youtubeLiveChatVideoId(current);
+  const companionChatAvailable = Boolean(companionChatChannel || companionYoutubeLiveChatVideoId);
+  const availableCompanionViews = playerCompanionViews(companionChatAvailable);
   const activeCompanionView = normalizePlayerCompanionView(
     companionView,
-    Boolean(companionChatChannel),
+    companionChatAvailable,
   );
   const inlineGuideVodDetails = guideVodDetails
     && !queueOpen
@@ -2785,7 +2816,7 @@ export function PersistentPlayer() {
     const next = movePlayerCompanionView(
       activeCompanionView,
       event.key,
-      Boolean(companionChatChannel),
+      companionChatAvailable,
     );
     setCompanionView(next);
     window.requestAnimationFrame(() => {
@@ -2975,8 +3006,8 @@ export function PersistentPlayer() {
                   </button>
                 ) : null}
                 <Tooltip
-                  title={queueOpen ? "Close side panel" : companionChatChannel ? "Live chat & more" : "Up next & details"}
-                  description={queueOpen ? "Hide the queue, live chat, and video details." : companionChatChannel ? "Open live chat, your queue, and video details." : "Open your queue and video details."}
+                  title={queueOpen ? "Close side panel" : companionChatAvailable ? "Live chat & more" : "Up next & details"}
+                  description={queueOpen ? "Hide the queue, live chat, and video details." : companionChatAvailable ? "Open live chat, your queue, and video details." : "Open your queue and video details."}
                   placement="bottom"
                 >
                   <button
@@ -2984,11 +3015,11 @@ export function PersistentPlayer() {
                     type="button"
                     onClick={() => toggleCompanion()}
                     className={`grid size-10 shrink-0 place-items-center rounded-lg text-white/75 hover:bg-white/12 hover:text-white ${CONTROL_FEEDBACK} ${queueOpen ? "bg-white/12 text-white" : ""}`}
-                    aria-label={queueOpen ? "Close player sidebar" : companionChatChannel ? "Open live chat and player sidebar" : `Open player sidebar${queue.length ? `, ${queue.length} queued items` : ""}`}
+                    aria-label={queueOpen ? "Close player sidebar" : companionChatAvailable ? "Open live chat and player sidebar" : `Open player sidebar${queue.length ? `, ${queue.length} queued items` : ""}`}
                     aria-expanded={queueOpen}
                     aria-controls="player-companion-panel"
                   >
-                    {companionChatChannel ? <MessageSquareText aria-hidden /> : <ListVideo aria-hidden />}
+                    {companionChatAvailable ? <MessageSquareText aria-hidden /> : <ListVideo aria-hidden />}
                   </button>
                 </Tooltip>
                 <div className="watch-player-window-controls is-twitch-header ml-1 flex shrink-0 items-center gap-1">
@@ -3665,8 +3696,8 @@ export function PersistentPlayer() {
                 ) : null}
                 {playerScreen ? (
                   <Tooltip
-                    title={queueOpen ? "Close side panel" : companionChatChannel ? "Live chat & more" : "Up next & details"}
-                    description={queueOpen ? "Hide the queue, live chat, and video details." : companionChatChannel ? "Open live chat, your queue, and video details." : "Open your queue and video details."}
+                    title={queueOpen ? "Close side panel" : companionChatAvailable ? "Live chat & more" : "Up next & details"}
+                    description={queueOpen ? "Hide the queue, live chat, and video details." : companionChatAvailable ? "Open live chat, your queue, and video details." : "Open your queue and video details."}
                     placement="top"
                   >
                     <button
@@ -3674,11 +3705,11 @@ export function PersistentPlayer() {
                       type="button"
                       onClick={() => toggleCompanion()}
                       className={`${CONTROL_FEEDBACK} ${queueOpen ? "is-active" : ""}`}
-                      aria-label={queueOpen ? "Close player sidebar" : companionChatChannel ? "Open live chat and player sidebar" : `Open player sidebar${queue.length ? `, ${queue.length} queued items` : ""}`}
+                      aria-label={queueOpen ? "Close player sidebar" : companionChatAvailable ? "Open live chat and player sidebar" : `Open player sidebar${queue.length ? `, ${queue.length} queued items` : ""}`}
                       aria-expanded={queueOpen}
                       aria-controls="player-companion-panel"
                     >
-                      {companionChatChannel ? <MessageSquareText aria-hidden /> : <ListVideo aria-hidden />}
+                      {companionChatAvailable ? <MessageSquareText aria-hidden /> : <ListVideo aria-hidden />}
                     </button>
                   </Tooltip>
                 ) : null}
@@ -4412,6 +4443,13 @@ export function PersistentPlayer() {
                       ) : null}
                     </div>
                   </>
+                ) : activeCompanionView === "chat" && companionYoutubeLiveChatVideoId ? (
+                  <div className="h-full min-h-0 p-2">
+                    <YouTubeLiveChat
+                      videoId={companionYoutubeLiveChatVideoId}
+                      title={current.title}
+                    />
+                  </div>
                 ) : activeCompanionView === "chat" && companionChatChannel ? (
                   <div className="h-full min-h-0 p-2">
                     <ChatDock
@@ -4448,7 +4486,7 @@ export function PersistentPlayer() {
                       </div>
                       <div>
                         <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/40">Current time</dt>
-                        <dd className="mt-0.5 text-xs font-medium text-white/80">{current.kind === "live" && !twitchDvrActive ? "Live edge" : `${playbackClock(scrubberPosition)} / ${playbackClock(scrubberDuration)}`}</dd>
+                        <dd className="mt-0.5 text-xs font-medium text-white/80">{currentTimeLabel(current, uiPosition, scrubberDuration, twitchDvrActive)}</dd>
                       </div>
                       <div>
                         <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/40">Channel</dt>
