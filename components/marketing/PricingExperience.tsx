@@ -19,7 +19,7 @@ const FEATURE_FOCUS: Record<string, { title: string; copy: string }> = {
   "dvr.extended_retention": { title: "Private DVR", copy: "Keep broadcasts, videos, and moments ready to revisit." },
 };
 
-export function PricingExperience({ accountMode = false, displayName, account, accountLoading = false, accountUnavailable = false, focusFeature, children }: { accountMode?: boolean; displayName?: string; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string; children?: ReactNode }) {
+export function PricingExperience({ accountMode = false, account, accountLoading = false, accountUnavailable = false, focusFeature, children }: { accountMode?: boolean; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string; children?: ReactNode }) {
   const active = account?.source === "subscription" && ["active", "trialing"].includes(account.status);
   const hasManagedSubscription = Boolean(account?.hasManagedSubscription);
   const configured = Boolean(account?.billingConfigured && !accountUnavailable && account.storageState === "ready");
@@ -29,17 +29,18 @@ export function PricingExperience({ accountMode = false, displayName, account, a
   const joinLabel = supportClosed ? "Recurring support closed" : minimum ? `Join from ${minimum}/mo` : "Join the CORE beta";
   const requestedFeature = focusFeature ? FEATURE_FOCUS[focusFeature] : undefined;
 
-  return <div className={styles.shell}>
-    <AccountPageHeader
-      active={accountMode ? "membership" : "upgrade"}
-      title={accountMode ? "Membership & billing" : "Support CORE. Get beta access."}
-      description={accountMode ? `Manage ${displayName ? `${displayName}'s` : "your"} CORE membership and billing in one place.` : "One membership unlocks the current CORE beta and supports development and ongoing updates."}
+  return <div className={`${styles.shell} ${accountMode ? styles.accountMode : ""}`}>
+    {!accountMode ? <AccountPageHeader
+      active="upgrade"
+      title="Support CORE. Get beta access."
+      description="One membership unlocks the current CORE beta and supports development and ongoing updates."
     >
       {requestedFeature ? <FocusCallout feature={requestedFeature} /> : null}
-      {accountMode ? <div className={styles.currentPlan} role="status" aria-live="polite"><span>Current plan</span><strong>{accountLoading ? "Checking…" : active ? "CORE Member" : "Free"}</strong><small>{account?.cancelAtPeriodEnd ? "Ends after this billing period" : active ? "Active" : "No membership yet"}</small></div> : <Link className={styles.primaryCta} href="/account/settings/billing">{joinLabel} <ArrowRight aria-hidden="true" /></Link>}
-    </AccountPageHeader>
+      <Link className={styles.primaryCta} href="/account/settings/billing">{joinLabel} <ArrowRight aria-hidden="true" /></Link>
+    </AccountPageHeader> : null}
 
-    <main className={styles.cleanMain}>
+    <main className={`${styles.cleanMain} ${accountMode ? styles.accountMain : ""}`}>
+      {accountMode ? <div className={styles.currentPlan} role="status" aria-live="polite"><span>Current plan</span><strong>{accountLoading ? "Checking…" : active ? "CORE Member" : "Free"}</strong><small>{account?.cancelAtPeriodEnd ? "Ends after this billing period" : active ? "Active" : "No membership yet"}</small></div> : null}
       <section className={styles.cleanGrid} aria-label="Membership details">
         <article className={`${styles.membershipCard} ${styles.cleanCard}`}>
           <p className={styles.planEyebrow}>One plan · cancel anytime</p><h2>{supportClosed ? "Support is currently closed" : "CORE Membership"}</h2>

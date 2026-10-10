@@ -126,6 +126,7 @@ export function Cursor() {
     let hintText = "";
     let hintSource: Element | null = null;
     let frame = 0;
+    let scheduleFrame = () => {};
 
     const setIdle = (idle: boolean) => {
       document.body.dataset.cursorIdle = idle ? "true" : "false";
@@ -219,6 +220,7 @@ export function Cursor() {
           }
           index += 1;
           hintRef.current.textContent = value.slice(0, index);
+          scheduleFrame();
         }, interval);
       }, 620);
     };
@@ -422,6 +424,7 @@ export function Cursor() {
       y = event.clientY;
       inspectTarget(event.target, x, y);
       scheduleIdle();
+      scheduleFrame();
     };
     const onDown = (event: PointerEvent) => {
       pressed = true;
@@ -445,10 +448,12 @@ export function Cursor() {
         triggerStationFlash(event.target);
         playCommunityClick();
       }
+      scheduleFrame();
     };
     const onUp = () => {
       pressed = false;
       if (reactiveTarget) delete reactiveTarget.dataset.cursorPressed;
+      scheduleFrame();
     };
     const onWindowLeave = () => {
       visible = false;
@@ -456,22 +461,27 @@ export function Cursor() {
       setSpotlight(null, x, y);
       setReactiveTarget(null);
       clearHint(true);
+      scheduleFrame();
     };
     const onPointerOver = (event: PointerEvent) => {
       inspectTarget(event.target, event.clientX, event.clientY);
+      scheduleFrame();
     };
     const onPointerOut = (event: PointerEvent) => {
       if (!event.relatedTarget) onWindowLeave();
       else inspectTarget(event.relatedTarget, event.clientX, event.clientY);
+      scheduleFrame();
     };
     const onScroll = () => {
       clearHint();
       document.documentElement.dataset.cursorScrolling = "true";
       if (scrollTimer !== null) window.clearTimeout(scrollTimer);
       scrollTimer = window.setTimeout(() => delete document.documentElement.dataset.cursorScrolling, 150);
+      scheduleFrame();
     };
 
     const tick = () => {
+      frame = 0;
       let targetX = x;
       let targetY = y;
       if (magneticTarget) {
@@ -529,7 +539,19 @@ export function Cursor() {
           : pointerY + 20;
         hint.style.transform = `translate3d(${hintX}px, ${hintY}px, 0)`;
       }
-      frame = window.requestAnimationFrame(tick);
+      const unsettled = visible && Math.max(
+        Math.abs(pointerX - targetX),
+        Math.abs(pointerY - targetY),
+        Math.abs(auraX - targetX),
+        Math.abs(auraY - targetY),
+        Math.abs(trailX - targetX),
+        Math.abs(trailY - targetY),
+      ) > 0.5;
+      if (unsettled) scheduleFrame();
+    };
+
+    scheduleFrame = () => {
+      if (frame === 0) frame = window.requestAnimationFrame(tick);
     };
 
     window.addEventListener("pointermove", onMove, { passive: true });
@@ -542,7 +564,7 @@ export function Cursor() {
     window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     document.addEventListener("mouseleave", onWindowLeave);
     scheduleIdle();
-    frame = window.requestAnimationFrame(tick);
+    scheduleFrame();
 
     return () => {
       window.removeEventListener("pointermove", onMove);

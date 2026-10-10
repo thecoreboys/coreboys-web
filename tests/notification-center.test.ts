@@ -62,3 +62,28 @@ test("bell uses the private stored-data endpoint and replaces the legacy floatin
   assert.match(nav, /NotificationBell variant="mobile"/);
   assert.doesNotMatch(bridge, /SocialAlertsTray/);
 });
+
+test("social creator alerts stay durable, support multiview, and expose per-content settings", () => {
+  const tray = source("components/watch/SocialAlertsTray.tsx");
+  const global = source("components/watch/GlobalWatchEnhancements.tsx");
+  const settings = source("components/account/SocialNotificationSettings.tsx");
+  const api = source("app/api/account/alerts/route.ts");
+  const preferences = source("app/api/account/social-notifications/route.ts");
+
+  assert.match(global, /<SocialAlertsTray\s*\/>/);
+  assert.match(tray, /\/api\/account\/alerts\?limit=20/);
+  assert.match(tray, /alert\.read/);
+  assert.match(tray, /method: "PATCH"/);
+  assert.match(api, /listSocialAlerts\(userId/);
+  assert.match(api, /markSocialAlertRead\(userId/);
+  assert.match(tray, /player\.addTile\(playable, \{ focus: true, muted: true \}\)/);
+  assert.match(tray, /router\.push\("\/multiview"\)/);
+  assert.match(tray, /overflow-wrap:anywhere/);
+  assert.doesNotMatch(tray, /alert\.title[^\n]*line-clamp/);
+  assert.match(settings, /key: "video", label: "Videos"/);
+  assert.match(settings, /key: "short", label: "Shorts"/);
+  assert.match(settings, /key: "photo", label: "Photos"/);
+  assert.match(settings, /key: "post", label: "Posts"/);
+  assert.match(settings, /social-notifications/);
+  assert.match(preferences, /"live", "video", "short", "photo", "post"/);
+});

@@ -37,3 +37,11 @@ test("station tune audio uses the shared DJ Cora director lifecycle", () => {
   assert.match(director, /const isSpeaking = Boolean\(activeCue\)/);
   assert.match(director, /replacesStationTune/);
 });
+
+test("network dial navigation starts immediately and channel routes expose a lightweight loading shell", () => {
+  assert.match(transition, /router\.push\(href as Route\);/);
+  assert.doesNotMatch(transition, /setTimeout\(\(\) =>\s*\{\s*router\.push/);
+  const loading = readFileSync(new URL("../app/channels/[slug]/loading.tsx", import.meta.url), "utf8");
+  assert.match(loading, /aria-label="Loading network"/);
+  assert.match(loading, /animate-pulse/);
+});

@@ -84,8 +84,8 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
       requestStart();
     };
     const readinessTimeout = window.setTimeout(() => {
-      if (!disposed && !budget.started) setStartRequired(true);
-    }, 18_000);
+      if (!disposed && budget.visible && !budget.started) setStartRequired(true);
+    }, 10_000);
     void loadTwitchPlayer().then((api) => {
       if (disposed) return;
       instance = new api.Player(id, {
@@ -99,7 +99,10 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
         if (disposed || !instance || ready) return;
         ready = true;
         window.clearTimeout(readinessTimeout);
-        instance.setMuted?.(current.current.muted);
+        // Twitch has the most reliable autoplay when it remains muted through
+        // READY. Apply the requested room audio only after a moving playhead
+        // confirms real playback; unmuting here can block the initial start.
+        instance.setMuted?.(true);
         instance.setVolume?.(current.current.volume);
         if (video && current.current.startSeconds > 0) instance.seek?.(current.current.startSeconds);
         requestStart();
@@ -115,7 +118,12 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
             // PLAYING and isPaused=false can precede a stalled 00:00 player.
             // Only advancing media retires autoplay recovery or credits time.
             if (channel ? livePlaying : advancingTwitchPlayback(previousPosition, position, paused)) {
+              const firstConfirmedFrame = !budget.started;
               budget.confirmPlayback();
+              if (firstConfirmedFrame) {
+                instance.setMuted?.(current.current.muted);
+                instance.setVolume?.(current.current.volume);
+              }
               setStartRequired(false);
               setPlaying(true);
             } else if (paused === true) setPlaying(false);
@@ -129,7 +137,7 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
       });
       instance.addEventListener(api.Player.PLAYING, () => {
         // The next advancing playhead sample confirms actual playback.
-        if (!disposed) { providerPlaying = true; setStartRequired(false); }
+        if (!disposed) providerPlaying = true;
       });
       instance.addEventListener(api.Player.PAUSE, () => {
         if (disposed) return;

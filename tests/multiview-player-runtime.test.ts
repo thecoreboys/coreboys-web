@@ -57,3 +57,14 @@ test("YouTube room audio uses player commands and keeps its autoplay URL muted",
   assert.match(stage, /func: tile\.muted \? "mute" : "unMute"/);
   assert.match(stage, /func: "setVolume", args: \[Math\.round\(tile\.volume \* 100\)\]/);
 });
+
+test("multiview collapses same-creator Twitch and YouTube simulcasts and offers source switching", () => {
+  assert.match(stage, /uniqueCrossPlatformLiveSources\(currentLive\)/);
+  assert.match(stage, /groupCrossPlatformLiveSources/);
+  assert.match(stage, /player\.replaceTile\(selectedTileId, item\)/);
+  assert.match(stage, /Switch to \$\{platformLabel\(item\)\}/);
+  assert.match(stage, /keep one tile and switch smoothly/);
+  assert.match(stage, /Older saved rooms can already contain both sides of a YouTube\/Twitch/);
+  assert.match(stage, /openTiles\.find\(\(tile\) => tile\.pinned\)/);
+  assert.match(stage, /player\.removeTile\(tile\.id\)/);
+});

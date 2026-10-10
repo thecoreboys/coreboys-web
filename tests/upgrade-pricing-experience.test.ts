@@ -18,21 +18,21 @@ test("upgrade page presents one clear membership tier with direct calls to actio
   assert.doesNotMatch(source, /Bronze|Silver|Gold|Premium plan/);
 });
 
-test("settings and membership use the same accessible account header", () => {
+test("settings and billing share one accessible account settings shell", () => {
   const header = readFileSync(resolve(process.cwd(), "components/account/AccountPageHeader.tsx"), "utf8");
   const settings = readFileSync(resolve(process.cwd(), "app/account/settings/page.tsx"), "utf8");
+  const billing = readFileSync(resolve(process.cwd(), "app/account/settings/billing/page.tsx"), "utf8");
+  const layout = readFileSync(resolve(process.cwd(), "components/account/AccountSettingsLayout.tsx"), "utf8");
   assert.match(source, /<AccountPageHeader/);
-  assert.match(settings, /<AccountPageHeader/);
+  assert.doesNotMatch(settings, /<AccountPageHeader/);
   assert.match(header, /aria-current=\{active === key \? "page" : undefined\}/);
-  assert.match(header, /\["membership", "\/account\/settings\/billing", "Billing"\]/);
-  assert.match(header, /\["settings", "\/account\/settings", "Account settings"\]/);
-  assert.match(header, /\["upgrade", "\/upgrade", "Support the site"\]/);
-  assert.match(settings, /var\(--site-header-h/);
-  assert.match(settings, /grid grid-cols-1 items-start/);
-  assert.match(settings, /<aside className="min-w-0/);
-  assert.match(settings, /className="min-w-0 space-y-6"/);
-  assert.match(settings, /overscroll-x-contain/);
-  assert.match(settings, /min-h-11 shrink-0 items-center gap-2 whitespace-nowrap/);
+  assert.match(settings, /<AccountSettingsLayout/);
+  assert.match(billing, /<AccountSettingsLayout/);
+  assert.match(billing, /accountMode/);
+  assert.match(layout, /aria-label="Account settings"/);
+  assert.match(layout, /grid-cols-\[15rem_minmax\(0,1fr\)\]/);
+  assert.match(layout, /connected-accounts/);
+  assert.match(layout, /\/account\/settings\/billing/);
 });
 
 test("billing summary distinguishes loading from failure and offers a retry", () => {

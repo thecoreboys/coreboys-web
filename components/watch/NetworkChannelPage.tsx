@@ -1058,7 +1058,15 @@ function ChannelOnNowPreview({
       <div className={styles.heroPreviewTop} aria-hidden="true">
         <span className={styles.heroPreviewLiveDot} />
         <strong>{live ? "Live now" : "On now"}</strong>
-        <span>{channel.name} 24/7</span>
+        {channel.slug === "jason" ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={styles.heroPreviewNetworkLogo} src={channel.artwork} alt="" />
+            <span>24/7</span>
+          </>
+        ) : (
+          <span>{channel.name} 24/7</span>
+        )}
       </div>
       {advisoryReady && playable ? (
         <button
@@ -1566,6 +1574,7 @@ export function NetworkChannelPage({
             <Link
               key={entry.slug}
               href={channelHref(entry, mode) as never}
+              prefetch
               data-cursor-community={entry.slug}
               aria-current={entry.slug === channel.slug ? "page" : undefined}
               aria-label={`Tune to ${entry.name}`}

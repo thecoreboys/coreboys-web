@@ -192,7 +192,7 @@ export function SocialNotificationSettings({ members }: { members: Array<{ slug:
           <div>
             <h2 className="text-lg font-semibold text-primary">Creator alerts</h2>
             <p className="mt-1 max-w-xl text-sm text-tertiary">
-              In-app alerts are on by default. Browser alerts and email only turn on after you opt in.
+              Choose which creators and content types can alert you: live streams, videos, shorts, photos, and posts. In-app alerts are on by default; browser alerts and email are opt-in.
             </p>
           </div>
         </div>

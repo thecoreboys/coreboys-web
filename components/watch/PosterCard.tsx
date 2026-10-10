@@ -218,6 +218,13 @@ export function PosterCard({
   const isExternalPost = item.kind === "post";
   const live = item.kind === "live" || item.format === "live";
   const shortSourceLabel = shortFormPlatformLabel(item);
+  const posterFallback = ["instagram", "tiktok", "youtube"].includes(item.platform) ? (
+    <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">
+      <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
+      <span className="watch-poster-art-mark">{item.platform === "instagram" ? "◎" : item.platform === "tiktok" ? "♪" : "▶"}</span>
+      <span className="watch-poster-art-caption">Preview unavailable</span>
+    </span>
+  ) : undefined;
   const playable = isPhoto ? null : itemToPlayable(item);
   const fallbackHref = item.sourceUrl || item.href;
   const motionEnabled = player.previewAutoplay || hoverAutoplay || item.platform === "twitch";
@@ -526,6 +533,7 @@ export function PosterCard({
               youtubeId={youtubeId}
               src={item.poster}
               focalPoint={item.focalPoint}
+              fallback={posterFallback}
             />
           ) : (
             <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">
@@ -550,6 +558,7 @@ export function PosterCard({
               youtubeId={youtubeId}
               src={item.poster}
               focalPoint={item.focalPoint}
+              fallback={posterFallback}
             />
           ) : (
             <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">

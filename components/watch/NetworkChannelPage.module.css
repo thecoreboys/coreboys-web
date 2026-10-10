@@ -365,6 +365,7 @@
 }
 .heroPreviewTop strong { font-size: inherit; }
 .heroPreviewTop > span:last-child { color: rgba(255,255,255,.58); }
+.heroPreviewNetworkLogo { width: 2.15rem; height: 1.05rem; object-fit: contain; filter: drop-shadow(0 0 .3rem rgba(251,191,36,.32)); }
 .heroPreviewLiveDot {
   width: .5rem;
   height: .5rem;

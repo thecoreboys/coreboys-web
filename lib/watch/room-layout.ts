@@ -28,6 +28,44 @@ export type NormalizedRect = {
   height: number;
 };
 
+/** Keep resizable source tiles close to their native media shape on the 16:9 board. */
+export function enforceRoomRectAspect(
+  rect: NormalizedRect,
+  mediaAspect: number,
+  snapDensity = DEFAULT_ROOM_SNAP_DENSITY,
+  dominant: "width" | "height" = "width",
+): NormalizedRect {
+  const density = normalizeSnapDensity(snapDensity);
+  const safeAspect = Number.isFinite(mediaAspect) && mediaAspect > 0 ? mediaAspect : 16 / 9;
+  const targetSpanRatio = safeAspect * 9 / 16;
+  const left = Math.max(0, Math.min(density - 1, Math.round(rect.x * density)));
+  const top = Math.max(0, Math.min(density - 1, Math.round(rect.y * density)));
+  const maxColumns = density - left;
+  const maxRows = density - top;
+  const requestedColumns = Math.max(1, Math.min(maxColumns, Math.round(rect.width * density)));
+  const requestedRows = Math.max(1, Math.min(maxRows, Math.round(rect.height * density)));
+  let best = { columns: requestedColumns, rows: requestedRows, score: Number.POSITIVE_INFINITY };
+
+  for (let columns = 1; columns <= maxColumns; columns += 1) {
+    for (let rows = 1; rows <= maxRows; rows += 1) {
+      const ratioError = Math.log((columns / rows) / targetSpanRatio);
+      const widthError = columns - requestedColumns;
+      const heightError = rows - requestedRows;
+      const sizeError = dominant === "width"
+        ? widthError ** 2 * 0.3 + heightError ** 2
+        : widthError ** 2 + heightError ** 2 * 0.3;
+      const score = ratioError ** 2 * 2_000 + sizeError;
+      if (score < best.score) best = { columns, rows, score };
+    }
+  }
+
+  return {
+    ...rect,
+    width: best.columns / density,
+    height: best.rows / density,
+  };
+}
+
 /** Keep Twitch's required 400 × 300 player inside the actual room, not the window. */
 export function shouldStackTwitchRoom(roomWidth: number, twitchRects: NormalizedRect[]) {
   if (roomWidth <= 0 || twitchRects.length === 0) return false;

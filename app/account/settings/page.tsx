@@ -1,11 +1,9 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Accessibility, Bell, Link2, Palette, Play, Radio, Shield, Sparkles, UserRound } from "lucide-react";
 import { AccountSettingsHub } from "@/components/account/AccountSettingsHub";
-import { AccountPageHeader } from "@/components/account/AccountPageHeader";
+import { ACCOUNT_SETTINGS_NAV, AccountSettingsLayout } from "@/components/account/AccountSettingsLayout";
 import { AccountProfile } from "@/components/account/AccountProfile";
 import { AccountFanZone } from "@/components/account/AccountFanZone";
 import { ConnectedAccounts } from "@/components/account/ConnectedAccounts";
@@ -15,26 +13,12 @@ import { AccountDeletionCard } from "@/components/account/AccountDeletionCard";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { MEMBERS } from "@/lib/members";
-import { cx } from "@/utils/cx";
-import billingStyles from "@/components/marketing/PricingExperience.module.css";
-
-const SETTINGS_NAV = [
-  { group: "Account", label: "Profile", href: "#profile", icon: UserRound },
-  { group: "Account", label: "Connections", href: "#connections", icon: Link2 },
-  { group: "Account", label: "Notifications", href: "#notifications", icon: Bell },
-  { group: "Account", label: "Privacy & safety", href: "#privacy", icon: Shield },
-  { group: "Watch", label: "Appearance", href: "#experience", icon: Palette },
-  { group: "Watch", label: "Playback", href: "#playback", icon: Play },
-  { group: "Watch", label: "Station audio", href: "#station-audio", icon: Radio },
-  { group: "Watch", label: "Accessibility", href: "#accessibility", icon: Accessibility },
-  { group: "Watch", label: "Personalization", href: "#personalization", icon: Sparkles },
-] as const;
 
 export default function AccountSettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [fanDetailsOpen, setFanDetailsOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("#profile");
+  const [activeSection, setActiveSection] = useState("profile");
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login?next=/account/settings");
@@ -42,56 +26,31 @@ export default function AccountSettingsPage() {
 
   useEffect(() => {
     if (!user) return;
-    const sections = SETTINGS_NAV.map(({ href }) => document.querySelector<HTMLElement>(href)).filter(Boolean) as HTMLElement[];
+    const sections = ACCOUNT_SETTINGS_NAV
+      .filter((item) => item.id !== "billing")
+      .map(({ id }) => document.getElementById(id))
+      .filter(Boolean) as HTMLElement[];
     if (!sections.length || !("IntersectionObserver" in window)) return;
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((entry) => entry.isIntersecting)
         .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
       const id = visible[0]?.target.id;
-      if (id) setActiveSection(`#${id}`);
+      if (id) setActiveSection(id);
     }, { rootMargin: "-18% 0px -68% 0px", threshold: 0 });
     sections.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
   }, [user]);
 
   if (loading || !user) {
-    return (
-      <div className="mx-auto min-h-[70vh] max-w-6xl px-5 py-10 sm:px-6 lg:px-8 lg:py-16">
-        <div className="h-10 w-48 animate-pulse rounded-lg bg-secondary" />
-        <div className="mt-8 grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
-          <div className="h-28 animate-pulse rounded-2xl bg-secondary" />
-          <div className="h-[36rem] animate-pulse rounded-2xl bg-secondary" />
-        </div>
-      </div>
-    );
+    return <AccountSettingsLayout title="Account settings" description="Your profile, connected platforms, and preferences." activeSection={activeSection}>
+      <div className="h-40 animate-pulse rounded-xl border border-secondary bg-primary" />
+      <div className="h-[36rem] animate-pulse rounded-xl border border-secondary bg-primary" />
+    </AccountSettingsLayout>;
   }
 
   return (
     <>
-      <div className={billingStyles.shell}>
-        <AccountPageHeader active="settings" title="Account settings" description="Your profile, connected platforms, and preferences." />
-        <main className={`${billingStyles.cleanMain} grid grid-cols-1 items-start gap-8 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10`}>
-          <aside className="min-w-0 lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)]">
-            <nav
-              aria-label="Account settings"
-              className="flex max-w-full gap-1 overflow-x-auto overscroll-x-contain rounded-xl bg-secondary p-1 ring-1 ring-inset ring-secondary lg:flex-col"
-            >
-              {SETTINGS_NAV.map((item, index) => {
-                const previous = SETTINGS_NAV[index - 1];
-                return (
-                  <div key={item.href} className={cx("shrink-0", item.group !== previous?.group && index > 0 && "lg:mt-3 lg:border-t lg:border-secondary lg:pt-3")}>
-                    {item.group !== previous?.group ? <p className="hidden px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-quaternary lg:block">{item.group}</p> : null}
-                    <Link href={item.href as never} aria-current={activeSection === item.href ? "location" : undefined} className={cx("flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-primary_hover hover:text-secondary", activeSection === item.href ? "bg-primary text-primary ring-1 ring-inset ring-secondary shadow-xs" : "text-tertiary")}>
-                      <item.icon aria-hidden="true" className={cx("size-4 shrink-0", activeSection === item.href ? "text-secondary" : "text-quaternary")} />
-                      {item.label}
-                    </Link>
-                  </div>
-                );
-              })}
-            </nav>
-          </aside>
-
-          <div className="min-w-0 space-y-6">
+      <AccountSettingsLayout title="Account settings" description="Your profile, connected platforms, and preferences." activeSection={activeSection}>
             <AccountProfile user={user} />
             <section id="connections" className="scroll-mt-24">
               <Suspense fallback={<div className="h-80 animate-pulse rounded-2xl bg-secondary" />}>
@@ -115,9 +74,7 @@ export default function AccountSettingsPage() {
               </details>
             </section>
             <AccountDeletionCard />
-          </div>
-        </main>
-      </div>
+      </AccountSettingsLayout>
       <SiteFooter />
     </>
   );

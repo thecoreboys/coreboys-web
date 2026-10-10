@@ -40,6 +40,10 @@ const WatchAlertsBridge = dynamic(
   () => import("@/components/watch/WatchAlertsBridge").then((module) => module.WatchAlertsBridge),
   { ssr: false },
 );
+const SocialAlertsTray = dynamic(
+  () => import("@/components/watch/SocialAlertsTray").then((module) => module.SocialAlertsTray),
+  { ssr: false },
+);
 
 type IdleCallbackWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
@@ -121,6 +125,7 @@ export function GlobalWatchEnhancements() {
       <PassportPresenceBridge />
       <PlayerChatCompanion />
       <WatchAlertsBridge />
+      <SocialAlertsTray />
     </>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { BillingSummaryCard } from "@/components/account/BillingSummaryCard";
+import { AccountSettingsLayout } from "@/components/account/AccountSettingsLayout";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { PricingExperience } from "@/components/marketing/PricingExperience";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -36,30 +37,29 @@ export default function AccountPlanPage() {
 
   if (loading || !user) {
     return (
-      <div className="mx-auto min-h-[70vh] max-w-6xl px-5 py-12 sm:px-6 lg:px-8 lg:py-20" aria-busy="true">
-        <span className="sr-only">Loading account plan</span>
-        <div className="h-7 w-40 animate-pulse rounded-lg bg-secondary" />
-        <div className="mt-8 h-28 max-w-3xl animate-pulse rounded-2xl bg-secondary" />
-        <div className="mt-12 grid gap-3 md:grid-cols-3">
-          <div className="h-[28rem] animate-pulse rounded-2xl bg-secondary" />
-          <div className="h-[28rem] animate-pulse rounded-2xl bg-secondary" />
-          <div className="h-[28rem] animate-pulse rounded-2xl bg-secondary" />
+      <AccountSettingsLayout title="Membership & billing" description="Manage your CORE membership, payment details, and receipts." activeSection="billing">
+        <div className="space-y-4" aria-busy="true">
+          <span className="sr-only">Loading account plan</span>
+          <div className="h-24 animate-pulse rounded-xl border border-secondary bg-primary" />
+          <div className="h-[26rem] animate-pulse rounded-xl border border-secondary bg-primary" />
+          <div className="h-48 animate-pulse rounded-xl border border-secondary bg-primary" />
         </div>
-      </div>
+      </AccountSettingsLayout>
     );
   }
 
   return (
     <>
-    <PricingExperience
-      accountMode
-      displayName={user.displayName}
-      account={subscription?.account}
-      accountLoading={subscriptionLoading}
-      accountUnavailable={Boolean(subscriptionError)}
-    >
-      <BillingSummaryCard />
-    </PricingExperience>
+    <AccountSettingsLayout title="Membership & billing" description="Manage your CORE membership, payment details, and receipts." activeSection="billing">
+      <PricingExperience
+        accountMode
+        account={subscription?.account}
+        accountLoading={subscriptionLoading}
+        accountUnavailable={Boolean(subscriptionError)}
+      >
+        <BillingSummaryCard />
+      </PricingExperience>
+    </AccountSettingsLayout>
     <SiteFooter />
     </>
   );

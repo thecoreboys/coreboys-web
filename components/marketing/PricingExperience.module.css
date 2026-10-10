@@ -478,4 +478,29 @@
 .cleanHeader h1 { font-weight: 650; font-size: clamp(2rem, 4vw, 3rem); }
 .includedCard li, .cleanFaqList strong { color: var(--ink); }
 .includedCard, .cleanCard, .cleanNotice, .cleanFaqList p { border-radius: .75rem; }
+
+/* The signed-in billing view lives inside the shared account settings shell. */
+.accountMode { min-height: 0; overflow: visible; background: transparent; }
+.accountMode .accountMain { width: 100%; margin: 0; padding: 0; }
+.accountMode .currentPlan { width: 100%; margin: 0 0 1rem !important; border-radius: .75rem; background: var(--upgrade-surface); text-align: left; }
+.accountMode .currentPlan strong { color: var(--upgrade-text); }
+.accountMode .cleanGrid { gap: .85rem; }
+.accountMode .membershipCard { border-color: var(--upgrade-line); border-radius: .75rem; background: var(--upgrade-surface); box-shadow: none; }
+.accountMode .membershipCard li { color: var(--upgrade-text); }
+.accountMode .membershipCard ul { border-color: var(--upgrade-line); }
+.accountMode .membershipCard::after { display: none; }
+.accountMode .includedCard { border-radius: .75rem; }
+.accountMode .cleanNotice { background: var(--upgrade-surface); }
+.accountMode .cleanFaqList p { background: var(--upgrade-surface); }
+.accountMode .amountField { border-color: var(--upgrade-line-strong); background: var(--upgrade-bg); }
+.accountMode .amountField > span:first-child,
+.accountMode .amountField input { color: var(--upgrade-text); }
+.accountMode .amountField input { border-color: var(--upgrade-accent); }
+.accountMode .amountOptions button { color: var(--upgrade-text); }
+.accountMode .cleanFaq { margin-top: 2rem; padding-top: 1.5rem; }
+
+@media (max-width: 900px) {
+  .accountMode .cleanGrid { grid-template-columns: 1fr; }
+  .accountMode .membershipCard { width: 100%; }
+}
 @media (max-width: 760px) { .accountNav { display: flex; overflow-x: auto; } .accountNav a { padding: .5rem .7rem; } }

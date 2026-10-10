@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, observedTwitchLivePlayback } from "../lib/watch/twitch-autoplay";
 
@@ -46,6 +47,14 @@ test("live playback requires a playing event plus active decoding, not a buffere
   assert.equal(observedTwitchLivePlayback(true, false, playing), true);
   assert.equal(observedTwitchLivePlayback(true, false, { playbackRate: 3500, bufferSize: 4 }), true);
   assert.equal(observedTwitchLivePlayback(true, false, undefined), false);
+});
+
+test("Twitch starts muted and restores the room audio choice only after playback advances", () => {
+  const source = readFileSync("components/watch/TwitchTileMedia.tsx", "utf8");
+  assert.match(source, /autoplay:\s*true,\s*muted:\s*true/);
+  assert.match(source, /instance\.setMuted\?\.\(true\);[\s\S]{0,140}instance\.play\?\.\(\)/);
+  assert.match(source, /const firstConfirmedFrame = !budget\.started;[\s\S]{0,260}if \(firstConfirmedFrame\)[\s\S]{0,180}instance\.setMuted\?\.\(current\.current\.muted\)/);
+  assert.doesNotMatch(source, /Player\.PLAYING[\s\S]{0,160}setStartRequired\(false\)/);
 });
 
 test("live watch time excludes pause, buffering, hidden tabs, and suspended polling gaps", () => {

@@ -28,7 +28,6 @@ import {
   Video,
   type LucideIcon,
 } from "lucide-react";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
 import {
   isRadioNetworkSlug,
   selectNetworkTuneAsset,
@@ -83,10 +82,6 @@ type TransitionRequest = {
 
 const TRANSITION_EVENT = "core-cinematic-transition";
 const NETWORK_READY_EVENT = "core-network-route-ready";
-// Keep the station handoff snappy. The overlay is a brief signal cue, not a
-// loading screen: release as soon as the destination is ready and never leave
-// users staring at it for multiple seconds if a provider is slow to respond.
-const NETWORK_TRANSITION_INTRO_MS = 180;
 const NETWORK_READY_FALLBACK_MS = 900;
 const NETWORK_NAVIGATION_TIMEOUT_MS = 12_000;
 
@@ -289,12 +284,8 @@ function mergeSpec(href: string, override?: Partial<TransitionSpec>) {
 export function CinematicRouteTransition() {
   const router = useRouter();
   const pathname = usePathname();
-  const reducedMotion = useReducedMotion();
   const [transition, setTransition] = useState<TransitionSpec | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
-  const transitionStartedAt = useRef(0);
-  const navigationTimer = useRef<number | null>(null);
-  const releaseTimer = useRef<number | null>(null);
   const released = useRef(false);
 
   const playTuningAudio = useCallback((networkSlug: string | undefined) => {
@@ -335,30 +326,18 @@ export function CinematicRouteTransition() {
     });
   }, []);
 
-  const clearTimers = useCallback(() => {
-    if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current);
-    if (releaseTimer.current !== null) window.clearTimeout(releaseTimer.current);
-    navigationTimer.current = null;
-    releaseTimer.current = null;
-  }, []);
-
   const clearTransition = useCallback(() => {
-    clearTimers();
     setTransition(null);
     setActivePath(null);
-  }, [clearTimers]);
+  }, []);
 
   const releaseWhenReady = useCallback(() => {
     if (released.current) return;
     released.current = true;
-    const elapsed = Math.max(0, performance.now() - transitionStartedAt.current);
-    const minimum = reducedMotion ? 0 : NETWORK_TRANSITION_INTRO_MS;
-    const wait = Math.max(0, minimum - elapsed);
-    releaseTimer.current = window.setTimeout(clearTransition, wait);
-  }, [clearTransition, reducedMotion]);
+    clearTransition();
+  }, [clearTransition]);
 
   const stage = useCallback((spec: TransitionSpec, destinationPath: string) => {
-    clearTimers();
     // A switch between a channel's tabs is still allowed its visual handoff,
     // but DJ Cora speaks only when the listener truly changes networks. This
     // also makes an initial render of the current channel silent.
@@ -366,10 +345,9 @@ export function CinematicRouteTransition() {
       playTuningAudio(spec.networkSlug);
     }
     released.current = false;
-    transitionStartedAt.current = performance.now();
     setTransition(spec);
     setActivePath(destinationPath);
-  }, [clearTimers, playTuningAudio, reducedMotion]);
+  }, [playTuningAudio]);
 
   const begin = useCallback((href: string, override?: Partial<TransitionSpec>) => {
     const spec = mergeSpec(href, override);
@@ -379,17 +357,11 @@ export function CinematicRouteTransition() {
     if (destinationPath === currentRoutePath()) return false;
     window.scrollTo(0, 0);
     stage(spec, destinationPath);
-    navigationTimer.current = window.setTimeout(() => {
-      navigationTimer.current = null;
-      router.push(href as Route);
-    }, reducedMotion ? 0 : 180);
+    router.push(href as Route);
     return true;
-  }, [reducedMotion, router, stage]);
+  }, [router, stage]);
 
-  useEffect(() => () => {
-    clearTimers();
-    skipNetworkTuningAudio();
-  }, [clearTimers]);
+  useEffect(() => () => skipNetworkTuningAudio(), []);
 
   useEffect(() => {
     const onRequest = (event: Event) => {

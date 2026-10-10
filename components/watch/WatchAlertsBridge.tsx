@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, X } from "lucide-react";
 import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
-import { useLiveStatus } from "@/hooks/useLiveStatus";
-import { MEMBERS } from "@/lib/members";
 import { useWatchReminders } from "@/lib/watch/reminders-client";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { notificationTargetFor } from "@/lib/notification-target";
@@ -61,40 +59,10 @@ function rememberDelivered(ids: Set<string>) {
 }
 
 export function WatchAlertsBridge() {
-  const { data } = useLiveStatus();
-  const { items, creatorAlerts, browserState, ready } = useWatchReminders();
+  const { items, browserState, ready } = useWatchReminders();
   const [notices, setNotices] = useState<AlertNotice[]>([]);
   const { activate, previewDialog } = useNotificationActivation();
-  const initializedLive = useRef(false);
-  const priorLive = useRef(new Set<string>());
   const delivered = useRef<Set<string> | null>(null);
-
-  useEffect(() => {
-    if (!data || !ready) return;
-    const current = new Set(
-      data.live.filter((entry) => entry.isLive).map((entry) => entry.login.toLowerCase()),
-    );
-    if (!initializedLive.current) {
-      priorLive.current = current;
-      initializedLive.current = true;
-      return;
-    }
-    for (const login of current) {
-      if (priorLive.current.has(login)) continue;
-      const member = MEMBERS.find((entry) => entry.twitchLogin.toLowerCase() === login);
-      if (!member || !(creatorAlerts.all || creatorAlerts[member.slug])) continue;
-      const live = data.live.find((entry) => entry.login.toLowerCase() === login);
-      const notice = {
-        id: `live:${login}:${live?.startedAt ?? Date.now()}`,
-        title: `${member.stageName} is live`,
-        body: live?.title || live?.game || "A CORE broadcast just started.",
-        href: `/watch/live/${encodeURIComponent(login)}`,
-      };
-      setNotices((previous) => [notice, ...previous].slice(0, 4));
-      if (browserState === "granted") void browserNotify(notice.title, notice.body, notice.href);
-    }
-    priorLive.current = current;
-  }, [browserState, creatorAlerts, data, ready]);
 
   useEffect(() => {
     if (!ready) return;

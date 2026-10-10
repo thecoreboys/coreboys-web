@@ -385,7 +385,7 @@ export function AccountSettingsHub() {
           <ToggleRow label="Personalized recommendations" detail="Use your activity to improve For you and the Guide." value={settings.personalizeRecommendations} onChange={(personalizeRecommendations) => update({ personalizeRecommendations })} />
           <ToggleRow label="Show mature content" detail="Include content marked for mature audiences." value={settings.showMatureContent} onChange={(showMatureContent) => update({ showMatureContent })} />
           <LinkRow label="Manage my DVR" detail="Review saved videos, folders, and your watch history." href="/dvr" />
-          <LinkRow label="Manage follows" detail="Choose creators and communities you want to hear from." href="/account/settings#connections" />
+          <LinkRow label="Manage follows" detail="Choose creators and communities you want to hear from." href="/account/settings#connected-accounts" />
         </div>
       </section>
 
@@ -395,7 +395,7 @@ export function AccountSettingsHub() {
           <ToggleRow label="Private viewing session" detail="Keep this session out of recommendations and history." value={settings.privateSession} onChange={(privateSession) => update({ privateSession })} />
           <ToggleRow label="Public profile" detail="Let other signed-in fans see your public fan card." value={settings.publicProfile} onChange={(publicProfile) => update({ publicProfile })} />
           <ToggleRow label="Show activity" detail="Allow your public fan card to show recent CORE activity." value={settings.showActivity} onChange={(showActivity) => update({ showActivity })} />
-          <LinkRow label="Connected accounts" detail="Review permissions, disconnect accounts, or sync on demand." href="/account/settings#connections" />
+          <LinkRow label="Connected accounts" detail="Review permissions, disconnect accounts, or sync on demand." href="/account/settings#connected-accounts" />
         </div>
       </section>
 

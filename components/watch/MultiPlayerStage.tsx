@@ -54,6 +54,7 @@ import {
 import { listenToYouTube, youtubePlaybackSample } from "@/lib/watch/youtube-player";
 import type { WatchCatalog } from "@/lib/watch/types";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
+import { groupCrossPlatformLiveSources, uniqueCrossPlatformLiveSources } from "@/lib/watch/live-source-groups";
 import {
   AUTOPLAY_MODES,
   decodeWorkspace,
@@ -73,6 +74,7 @@ import { floatingChatViewportStyle } from "@/lib/watch/floating-chat";
 import {
   gridTileToNormalizedRect,
   LEGACY_FLOATING_REFERENCE_VIEWPORT,
+  enforceRoomRectAspect,
   moveAndResolveRoomLayout,
   normalizeRoomRect,
   normalizedRectToGridPosition,
@@ -226,6 +228,20 @@ export function MultiPlayerStage({
       return Boolean(item.twitchLogin && online.has(item.twitchLogin.toLowerCase()));
     });
   }, [authoritativeLiveRoom, live, liveStatus]);
+  const roomLive = useMemo(() => uniqueCrossPlatformLiveSources(currentLive), [currentLive]);
+  const liveSourceGroups = useMemo(() => {
+    const sources = new Map<string, Playable>();
+    for (const item of [...currentLive, ...player.tiles.filter((tile) => tile.item.kind === "live").map((tile) => tile.item)]) {
+      sources.set(item.key, item);
+    }
+    return groupCrossPlatformLiveSources([...sources.values()]).map((group) => ({
+      ...group,
+      sources: group.sources.map((item) => ({
+        item,
+        tileId: player.tiles.find((tile) => tile.item.key === item.key)?.id ?? null,
+      })),
+    }));
+  }, [currentLive, player.tiles]);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [sourceIntent, setSourceIntent] = useState<SourceIntent>("tile");
   const [replaceTarget, setReplaceTarget] = useState<string | null>(null);
@@ -246,6 +262,25 @@ export function MultiPlayerStage({
   const offlineHandledRef = useRef(new Set<string>());
   const sourceOpenerRef = useRef<HTMLElement | null>(null);
   const sourceWasOpenRef = useRef(false);
+
+  useEffect(() => {
+    // Older saved rooms can already contain both sides of a YouTube/Twitch
+    // simulcast. Keep the intentional main view and release the duplicate;
+    // the alternate remains in the source chooser for an in-place switch.
+    for (const group of liveSourceGroups) {
+      const openTiles = group.sources
+        .map((source) => player.tiles.find((tile) => tile.id === source.tileId))
+        .filter((tile): tile is WorkspaceTile => Boolean(tile));
+      if (openTiles.length < 2) continue;
+      const keep = openTiles.find((tile) => tile.pinned)
+        ?? openTiles.find((tile) => tile.id === player.focusedTile?.id)
+        ?? openTiles[0];
+      for (const tile of openTiles) {
+        if (tile.id !== keep?.id) player.removeTile(tile.id);
+      }
+    }
+  }, [liveSourceGroups, player.focusedTile?.id, player.removeTile, player.tiles]);
+
   const closeMobileSidebar = useCallback(() => {
     setMobileSidebarOpen(false);
   }, []);
@@ -393,16 +428,16 @@ export function MultiPlayerStage({
       // set. removeTile synchronously updates PlayerProvider's backing ref.
       for (const tile of player.tiles) player.removeTile(tile.id);
     }
-    player.fillWithLive(currentLive, { limit: tileLimit });
+    player.fillWithLive(roomLive, { limit: tileLimit });
     player.setChatChannels(currentLive.flatMap((item) => item.twitchLogin ? [item.twitchLogin] : []));
     player.setChatMode("combined");
     if (player.chatDock === "closed") player.setChatDock("right");
     // The Theater panel opens on Details. Chat stays connected and one click
     // away, but a newly assembled room should first explain what is playing.
     setSidebarTab("details");
-    if (currentLive.length) setAudioPickerOpen(true);
-    if (!currentLive.length) setNotice({ text: "No one is live right now. This room will stay ready for the next stream." });
-  }, [authoritativeLiveRoom, autoFillLive, currentLive, liveStatus, player, subscription.loading, tileLimit]);
+    if (roomLive.length) setAudioPickerOpen(true);
+    if (!roomLive.length) setNotice({ text: "No one is live right now. This room will stay ready for the next stream." });
+  }, [authoritativeLiveRoom, autoFillLive, liveStatus, player, roomLive, subscription.loading, tileLimit]);
 
   const focused = player.focusedTile ?? player.tiles[0] ?? null;
   const audioLead = player.tiles.find((tile) => !tile.muted && !tile.standby) ?? null;
@@ -515,6 +550,12 @@ export function MultiPlayerStage({
     if (sourceIntent === "queue") {
       const added = player.addToQueue(item, "end");
       setNotice({ text: added ? `Added “${item.title}” to Up Next` : "That title is already open or queued." });
+    } else if (
+      item.kind === "live"
+      && liveSourceGroups.some((group) => group.sources.length > 1 && group.sources.some((source) => source.item.key === item.key))
+      && (replaceTarget || player.tiles.some((tile) => tile.item.kind === "live" && tile.item.memberSlug === item.memberSlug))
+    ) {
+      switchLiveSource(item, { takeAudio: false, preferredTileId: replaceTarget ?? undefined });
     } else if (replaceTarget) {
       player.replaceTile(replaceTarget, item);
     } else {
@@ -541,6 +582,50 @@ export function MultiPlayerStage({
     }
     closeSources();
     setQuery("");
+  }
+
+  function switchLiveSource(item: Playable, options: { takeAudio: boolean; preferredTileId?: string }) {
+    const group = liveSourceGroups.find((entry) => entry.sources.some((source) => source.item.key === item.key));
+    const sameCreatorTiles = item.memberSlug
+      ? player.tiles.filter((tile) => tile.item.kind === "live" && tile.item.memberSlug === item.memberSlug)
+      : [];
+    const alreadyOpen = player.tiles.find((tile) => tile.item.key === item.key);
+    let selectedTileId = alreadyOpen?.id ?? null;
+
+    const replaceTile = options.preferredTileId
+      ? sameCreatorTiles.find((tile) => tile.id === options.preferredTileId)
+        ?? player.tiles.find((tile) => tile.id === options.preferredTileId)
+      : sameCreatorTiles[0];
+    if (!selectedTileId && replaceTile) {
+      selectedTileId = replaceTile.id;
+      player.replaceTile(selectedTileId, item);
+    } else if (!selectedTileId) {
+      selectedTileId = player.addTile(item, { focus: true, muted: true });
+    }
+
+    if (!selectedTileId) {
+      setNotice({ text: "This room is full. Remove a tile before switching sources.", tone: "error" });
+      return;
+    }
+
+    if ((group?.sources.length ?? 0) > 1) {
+      for (const tile of sameCreatorTiles) {
+        if (tile.id !== selectedTileId) player.removeTile(tile.id);
+      }
+    }
+    if (options.takeAudio) {
+      for (const tile of player.tiles) {
+        if (tile.id !== selectedTileId) player.updateTile(tile.id, { muted: true });
+      }
+      player.updateTile(selectedTileId, { muted: false });
+    }
+    player.focusTile(selectedTileId, { takeAudio: options.takeAudio });
+    if (options.takeAudio) setAudioPickerOpen(false);
+    setNotice({ text: `${options.takeAudio ? "Now watching" : "Switched to"} ${item.memberLabel} on ${platformLabel(item)}.` });
+  }
+
+  function chooseLiveSource(item: Playable) {
+    switchLiveSource(item, { takeAudio: true });
   }
 
   function addUrl() {
@@ -802,7 +887,7 @@ export function MultiPlayerStage({
           <div className="min-w-0">
             {player.tiles.length === 0 ? (
               <EmptyStage
-                liveCount={Math.min(currentLive.length, tileLimit)}
+                liveCount={Math.min(roomLive.length, tileLimit)}
                 onAdd={() => openSources()}
                 onFill={fillLive}
               />
@@ -906,7 +991,7 @@ export function MultiPlayerStage({
           canSaveLayouts={savedLayoutsAllowed}
           savedLayoutsHref={subscription.signedIn ? "/account" : "/login?next=/multiview"}
           savedLayoutsPlan={savedLayoutsLabel}
-          liveCount={Math.min(currentLive.length, tileLimit)}
+          liveCount={Math.min(roomLive.length, tileLimit)}
           onAdd={() => { setSetupOpen(false); openSources(); }}
           onFill={() => { fillLive(); setSetupOpen(false); }}
           onShare={() => void share()}
@@ -915,14 +1000,10 @@ export function MultiPlayerStage({
 
       {audioPickerOpen ? (
         <AudioLeadPicker
-          tiles={player.tiles.filter((tile) => tile.item.kind === "live")}
+          groups={liveSourceGroups}
           mobile={mobile}
           onClose={() => setAudioPickerOpen(false)}
-          onChoose={(tileId) => {
-            for (const tile of player.tiles) player.updateTile(tile.id, { muted: tile.id !== tileId });
-            player.focusTile(tileId, { takeAudio: true });
-            setAudioPickerOpen(false);
-          }}
+          onChoose={chooseLiveSource}
         />
       ) : null}
 
@@ -3531,9 +3612,22 @@ function RoomStudio({
     const mediaDy = action.before.chatDock === "bottom"
       ? dy / Math.max(0.01, 1 - reservedDock.height)
       : dy;
-    const requested = action.kind === "move"
+    let requested = action.kind === "move"
       ? { ...action.startRect, x: action.startRect.x + mediaDx, y: action.startRect.y + mediaDy }
       : { ...action.startRect, width: action.startRect.width + mediaDx, height: action.startRect.height + mediaDy };
+    if (action.kind === "resize") {
+      const tile = action.before.tiles.find((entry) => entry.id === action.tileId);
+      if (tile) {
+        const shape = contentShape(tile.item);
+        const mediaAspect = shape === "portrait" ? 9 / 16 : shape === "square" ? 1 : 16 / 9;
+        requested = enforceRoomRectAspect(
+          requested,
+          mediaAspect,
+          density,
+          Math.abs(mediaDx * action.board.width) >= Math.abs(mediaDy * action.board.height) ? "width" : "height",
+        );
+      }
+    }
     const solution = moveAndResolveRoomLayout(studioTiles(action.before), action.tileId, requested, {
       snapDensity: density,
       minWidth: 1 / density,
@@ -3673,7 +3767,20 @@ function RoomStudio({
 
   const setTileRect = (tileId: string, patch: Partial<NormalizedRect>) => {
     const before = cloneStudioSnapshot(draftRef.current);
-    const solution = moveAndResolveRoomLayout(studioTiles(before), tileId, patch, {
+    const tile = before.tiles.find((entry) => entry.id === tileId);
+    const currentRect = tile ? studioTileRect(tile, before) : null;
+    let requested: Partial<NormalizedRect> | NormalizedRect = currentRect ? { ...currentRect, ...patch } : patch;
+    if (tile && currentRect && (patch.width !== undefined || patch.height !== undefined)) {
+      const shape = contentShape(tile.item);
+      const mediaAspect = shape === "portrait" ? 9 / 16 : shape === "square" ? 1 : 16 / 9;
+      requested = enforceRoomRectAspect(
+        requested as NormalizedRect,
+        mediaAspect,
+        studioDensity(before),
+        patch.height !== undefined && patch.width === undefined ? "height" : "width",
+      );
+    }
+    const solution = moveAndResolveRoomLayout(studioTiles(before), tileId, requested, {
       snapDensity: studioDensity(before), minWidth: 1 / studioDensity(before), minHeight: 1 / studioDensity(before),
     });
     if (!solution.valid) {
@@ -3732,7 +3839,7 @@ function RoomStudio({
           </div>
         </header>
 
-        <div className={`flex min-h-0 flex-1 flex-col lg:grid ${presetTrayOpen ? (inspectorOpen ? "lg:grid-cols-[13rem_minmax(0,1fr)_20rem]" : "lg:grid-cols-[13rem_minmax(0,1fr)_3.25rem]") : (inspectorOpen ? "lg:grid-cols-[3.25rem_minmax(0,1fr)_20rem]" : "lg:grid-cols-[3.25rem_minmax(0,1fr)_3.25rem]")}`}>
+        <div className={`flex min-h-0 flex-1 flex-col lg:grid lg:grid-rows-[minmax(0,1fr)] ${presetTrayOpen ? (inspectorOpen ? "lg:grid-cols-[13rem_minmax(0,1fr)_20rem]" : "lg:grid-cols-[13rem_minmax(0,1fr)_3.25rem]") : (inspectorOpen ? "lg:grid-cols-[3.25rem_minmax(0,1fr)_20rem]" : "lg:grid-cols-[3.25rem_minmax(0,1fr)_3.25rem]")}`}>
           <aside className={`order-2 flex shrink-0 gap-2 overflow-x-auto border-t border-white/8 bg-[#0c0c0f] p-2.5 [scrollbar-width:none] transition-[padding] lg:order-none lg:block lg:overflow-y-auto lg:border-r lg:border-t-0 ${presetTrayOpen ? "lg:p-3" : "lg:p-1.5"}`}>
             <div className="hidden lg:block">
               <div className={`flex min-h-10 items-center gap-2 ${presetTrayOpen ? "justify-between" : "justify-center"}`}>
@@ -3754,7 +3861,7 @@ function RoomStudio({
             </div>
           </aside>
 
-          <main className="relative order-1 min-h-0 flex-1 overflow-auto bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.06),transparent_42%)] p-3 sm:p-5 lg:order-none">
+          <main className="relative order-1 min-h-0 min-w-0 flex-1 overflow-auto bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.06),transparent_42%)] p-3 sm:p-5 lg:order-none">
             <div className="mx-auto flex min-h-full max-w-[1180px] flex-col justify-center">
               <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white/85">Live layout canvas</p><p className="mt-1 text-[10px] text-white/42">Streams keep playing behind this lightweight preview. Release to apply.</p></div><span className={`rounded-full px-2 py-1 text-[9px] font-semibold ring-1 ${blocked ? "bg-amber-300/10 text-amber-200 ring-amber-200/20" : "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20"}`}>{blocked ? "Placement blocked" : "Live on release"}</span></div>
               <div
@@ -3766,14 +3873,14 @@ function RoomStudio({
                 onPointerMove={onBoardPointerMove}
                 onPointerUp={(event) => finishAction(event)}
                 onPointerCancel={(event) => finishAction(event, true)}
-                className="relative grid aspect-video min-h-0 w-full grid-cols-12 grid-rows-12 gap-1.5 overflow-hidden rounded-[1.4rem] border border-white/12 bg-[#09090c] p-2.5 shadow-[0_32px_120px_rgba(0,0,0,.55)] outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:min-h-[18rem] sm:gap-2 sm:p-3"
+                className="relative grid aspect-video min-h-0 max-h-[calc(100dvh-11rem)] w-full grid-cols-12 grid-rows-12 gap-1.5 overflow-hidden rounded-[1.4rem] border border-white/12 bg-[#09090c] p-2.5 shadow-[0_32px_120px_rgba(0,0,0,.55)] outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:gap-2 sm:p-3"
               >
                 {draft.tiles.map((tile) => {
                   const selectedTile = selected === tile.id;
                   return <article key={tile.id} role="button" tabIndex={-1} onClick={() => { setSelected(tile.id); setTab("layout"); boardRef.current?.focus(); }} style={studioPreviewTileStyle(tile, draft)} className={`group relative min-h-0 overflow-hidden rounded-xl border bg-[#15151a] text-left transition ${selectedTile ? "border-white ring-2 ring-white/50" : "border-white/12 hover:border-white/35"}`} aria-label={`${tile.item.title}. Drag the top edge to move and the corner to resize.`}>
                     {tile.item.poster ? <img src={tile.item.poster} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" /> : null}<span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/20" />
                     <button type="button" onPointerDown={(event) => beginTileAction(event, tile, "move")} className="absolute inset-x-0 top-0 z-10 h-9 cursor-grab touch-none active:cursor-grabbing" aria-label={`Move ${tile.item.title}`} />
-                    <span className="relative z-[2] block p-2"><span className="flex items-center gap-1.5"><span className="truncate text-[10px] font-semibold">{tile.item.memberLabel}</span>{tile.item.kind === "live" ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/85 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span> : null}</span><span className="mt-0.5 block line-clamp-2 text-[9px] text-white/58">{tile.item.title}</span><span className="mt-1 flex flex-wrap gap-1 text-[8px] text-white/64"><span className="rounded bg-black/42 px-1 py-0.5">{contentShape(tile.item) === "portrait" ? "9:16" : "16:9"}</span><span className="rounded bg-black/42 px-1 py-0.5">{tile.muted ? "Muted" : "Audio on"}</span>{tile.id === draft.focusedTileId ? <span className="rounded bg-white/16 px-1 py-0.5 font-semibold text-white/90">Main</span> : null}</span></span>
+                    <span className="relative z-[2] block p-2"><span className="flex items-center gap-1.5"><span className="truncate text-[10px] font-semibold">{tile.item.memberLabel}</span>{tile.item.kind === "live" ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/85 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span> : null}</span><span className="mt-0.5 block line-clamp-2 text-[9px] text-white/58">{tile.item.title}</span><span className="mt-1 flex flex-wrap gap-1 text-[8px] text-white/64"><span className="rounded bg-black/42 px-1 py-0.5">{contentShape(tile.item) === "portrait" ? "9:16" : contentShape(tile.item) === "square" ? "1:1" : "16:9"}</span><span className="rounded bg-black/42 px-1 py-0.5">{tile.muted ? "Muted" : "Audio on"}</span>{tile.id === draft.focusedTileId ? <span className="rounded bg-white/16 px-1 py-0.5 font-semibold text-white/90">Main</span> : null}</span></span>
                     <button type="button" onPointerDown={(event) => beginTileAction(event, tile, "resize")} className="absolute bottom-1 right-1 z-20 grid size-7 cursor-nwse-resize place-items-center rounded-md bg-black/75 text-[10px] text-white/80 ring-1 ring-white/15" aria-label={`Resize ${tile.item.title}`}>↘</button>
                   </article>;
                 })}
@@ -3894,32 +4001,50 @@ function RoomStudio({
 }
 
 function AudioLeadPicker({
-  tiles,
+  groups,
   mobile,
   onClose,
   onChoose,
 }: {
-  tiles: WorkspaceTile[];
+  groups: Array<{
+    key: string;
+    memberLabel: string;
+    sources: Array<{ item: Playable; tileId: string | null }>;
+  }>;
   mobile: boolean;
   onClose: () => void;
-  onChoose: (tileId: string) => void;
+  onChoose: (item: Playable) => void;
 }) {
+  const hasAlternates = groups.some((group) => group.sources.length > 1);
   return (
     <div className="fixed inset-0 z-[95] grid place-items-end bg-black/72 p-3 backdrop-blur-sm md:place-items-center md:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="audio-lead-title" className={`w-full overflow-hidden rounded-3xl border border-white/14 bg-[#111116] shadow-[0_32px_120px_rgba(0,0,0,.78)] ${mobile ? "max-w-none" : "max-w-md"}`}>
         <header className="flex items-start justify-between gap-4 border-b border-white/8 px-4 py-4 sm:px-5">
-          <div><p id="audio-lead-title" className="text-sm font-semibold text-white">Choose the room audio</p><p className="mt-1 text-[11px] leading-4 text-white/45">Every live stream is playing muted. Pick the one you want to hear.</p></div>
+          <div><p id="audio-lead-title" className="text-sm font-semibold text-white">{hasAlternates ? "Choose where to watch" : "Choose the room audio"}</p><p className="mt-1 text-[11px] leading-4 text-white/45">{hasAlternates ? "Same creator on YouTube and Twitch? Pick a source. We’ll keep one tile and switch smoothly." : "Every live stream is playing muted. Pick the one you want to hear."}</p></div>
           <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-xl text-white/55 transition hover:bg-white/8 hover:text-white" aria-label="Keep every stream muted"><X className="size-4" aria-hidden /></button>
         </header>
         <div className="max-h-[55dvh] space-y-2 overflow-y-auto p-3">
-          {tiles.map((tile) => (
-            <button key={tile.id} type="button" onClick={() => onChoose(tile.id)} aria-label={`Hear ${tile.item.memberLabel} as room audio`} className="group flex min-h-16 w-full cursor-pointer items-center gap-3 rounded-2xl bg-white/[0.035] p-2 text-left ring-1 ring-white/8 transition duration-150 hover:-translate-y-px hover:bg-white/10 hover:shadow-[0_10px_28px_rgba(0,0,0,.24)] hover:ring-white/30 active:translate-y-0 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              <span className="relative block aspect-video w-20 shrink-0 overflow-hidden rounded-xl bg-black ring-1 ring-white/8 transition group-hover:ring-white/20">{tile.item.poster ? <img src={tile.item.poster} alt="" className="h-full w-full object-cover" /> : null}<span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span></span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-white">{tile.item.memberLabel}</span><span className="mt-0.5 block truncate text-[10px] text-white/45 transition group-hover:text-white/65">{tile.item.title}</span></span>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-white/6 px-2 py-1.5 text-[10px] font-semibold text-white/65 ring-1 ring-inset ring-white/10 transition group-hover:bg-white group-hover:text-black group-hover:ring-white"><Volume2 className="size-3.5" aria-hidden /><span className="hidden sm:inline">Hear</span></span>
-            </button>
+          {groups.map((group) => (
+            <div key={group.key} className="overflow-hidden rounded-2xl bg-white/[0.035] p-2 ring-1 ring-white/8">
+              <div className="flex items-center gap-3">
+                <span className="relative block aspect-video w-20 shrink-0 overflow-hidden rounded-xl bg-black ring-1 ring-white/8">{group.sources[0]?.item.poster ? <img src={group.sources[0].item.poster} alt="" className="h-full w-full object-cover" /> : null}<span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-white">{group.memberLabel}</span><span className="mt-0.5 block truncate text-[10px] text-white/45">{group.sources.length > 1 ? "Live on more than one platform" : group.sources[0]?.item.title}</span></span>
+              </div>
+              {group.sources.length > 1 ? (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {group.sources.map(({ item, tileId }) => (
+                    <button key={item.key} type="button" onClick={() => onChoose(item)} aria-label={`Watch ${group.memberLabel} on ${platformLabel(item)}`} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white/8 px-2 text-[10px] font-semibold text-white/75 ring-1 ring-inset ring-white/10 transition hover:bg-white hover:text-black hover:ring-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                      <Volume2 className="size-3.5" aria-hidden />
+                      <span>{tileId ? `Hear ${platformLabel(item)}` : `Switch to ${platformLabel(item)}`}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : group.sources[0] ? (
+                <button type="button" onClick={() => onChoose(group.sources[0]!.item)} aria-label={`Hear ${group.memberLabel} as room audio`} className="mt-2 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-white/8 px-2 text-[10px] font-semibold text-white/70 ring-1 ring-inset ring-white/10 transition hover:bg-white hover:text-black hover:ring-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Volume2 className="size-3.5" aria-hidden />Hear {platformLabel(group.sources[0].item)}</button>
+              ) : null}
+            </div>
           ))}
-          {!tiles.length ? <p className="p-4 text-center text-xs text-white/45">No live streams are available to use as room audio.</p> : null}
+          {!groups.length ? <p className="p-4 text-center text-xs text-white/45">No live streams are available to use as room audio.</p> : null}
         </div>
         <div className="border-t border-white/8 p-3"><button type="button" onClick={onClose} className="min-h-11 w-full cursor-pointer rounded-xl bg-white/6 px-3 text-xs font-semibold text-white/70 transition hover:bg-white/10 hover:text-white active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Keep all muted</button></div>
       </section>

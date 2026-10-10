@@ -825,7 +825,6 @@ export function PersistentPlayer() {
     playFromQueue,
     refill,
     play,
-    addTile,
   } = player;
   const handoff = usePlaybackHandoff();
   const { data: live } = useLiveStatus();
@@ -846,7 +845,6 @@ export function PersistentPlayer() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [playbackError, setPlaybackError] = useState(false);
   const [twitchStartRequired, setTwitchStartRequired] = useState(false);
-  const [livePrompt, setLivePrompt] = useState<(NonNullable<typeof live>["live"][number]) | null>(null);
   const [playbackSettingsOpen, setPlaybackSettingsOpen] = useState(false);
   const [uiPosition, setUiPosition] = useState(0);
   const [uiDuration, setUiDuration] = useState(0);
@@ -897,7 +895,6 @@ export function PersistentPlayer() {
   const measurementStartedAtRef = useRef<number | null>(null);
   const endingRef = useRef(false);
   const resumeOwnerRef = useRef("");
-  const seenLiveRef = useRef<Set<string> | null>(null);
   const currentKeyRef = useRef<string | null>(null);
   const queueRefillRequestedRef = useRef<string | null>(null);
   const previousPathRef = useRef(path);
@@ -1734,24 +1731,6 @@ export function PersistentPlayer() {
     );
     if (!stillLive) finish("offline");
   }, [live, current, finish]);
-
-  useEffect(() => {
-    if (!live) return;
-    const now = new Set(
-      live.live.filter((entry) => entry.isLive).map((entry) => entry.login.toLowerCase()),
-    );
-    if (!seenLiveRef.current) {
-      seenLiveRef.current = now;
-      return;
-    }
-    if (current && current.kind !== "live") {
-      const newlyLive = live.live.find(
-        (entry) => entry.isLive && !seenLiveRef.current!.has(entry.login.toLowerCase()),
-      );
-      if (newlyLive) setLivePrompt(newlyLive);
-    }
-    seenLiveRef.current = now;
-  }, [live, current]);
 
   useEffect(() => {
     const height = hidden || mode === "theater" ? "0px" : "8.5rem";
@@ -4553,78 +4532,6 @@ export function PersistentPlayer() {
         <HandoffPrompt snapshot={availableHandoff} onContinue={acceptHandoff} onDismiss={handoff.dismiss} />
       ) : null}
 
-      {livePrompt ? (
-        <div className="fixed right-3 top-[4.5rem] z-[95] w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl bg-[#121216] p-3 text-white shadow-2xl ring-1 ring-white/20">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[color:var(--live)]">Just went live</p>
-          <p className="mt-1 truncate text-sm font-semibold">{formatHandleDisplay(livePrompt.login)}</p>
-          <p className="mt-1 line-clamp-2 text-xs text-white/55">{livePrompt.title || "Live now"}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const member = MEMBERS.find(
-                  (entry) => entry.twitchLogin.toLowerCase() === livePrompt.login.toLowerCase(),
-                );
-                play({
-                  key: `live-${member?.slug ?? livePrompt.login}`,
-                  kind: "live",
-                  platform: "twitch",
-                  title: livePrompt.title || `${member?.stageName ?? livePrompt.login} live`,
-                  poster: livePrompt.thumbnailUrl || member?.portrait || "",
-                  memberSlug: member?.slug ?? null,
-                  memberLabel: member?.stageName ?? livePrompt.login,
-                  youtubeId: null,
-                  twitchLogin: livePrompt.login,
-                  vodId: null,
-                  clipSrc: null,
-                  clipId: null,
-                  url: `https://twitch.tv/${livePrompt.login}`,
-                  format: "live",
-                });
-                setLivePrompt(null);
-              }}
-              className={`min-h-11 rounded-xl bg-[color:var(--live)] px-4 text-xs font-semibold hover:brightness-110 hover:shadow-[0_6px_20px_rgba(239,35,60,0.24)] ${CONTROL_FEEDBACK}`}
-            >
-              Switch to live
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const member = MEMBERS.find(
-                  (entry) => entry.twitchLogin.toLowerCase() === livePrompt.login.toLowerCase(),
-                );
-                addTile({
-                  key: `live-${member?.slug ?? livePrompt.login}`,
-                  kind: "live",
-                  platform: "twitch",
-                  title: livePrompt.title || `${member?.stageName ?? livePrompt.login} live`,
-                  poster: livePrompt.thumbnailUrl || member?.portrait || "",
-                  memberSlug: member?.slug ?? null,
-                  memberLabel: member?.stageName ?? livePrompt.login,
-                  youtubeId: null,
-                  twitchLogin: livePrompt.login,
-                  vodId: null,
-                  clipSrc: null,
-                  clipId: null,
-                  url: `https://twitch.tv/${livePrompt.login}`,
-                  format: "live",
-                }, { focus: false });
-                setLivePrompt(null);
-              }}
-              className={`min-h-11 rounded-xl px-4 text-xs font-semibold text-white ring-1 ring-white/20 ${CONTROL_FEEDBACK} ${CONTROL_HOVER}`}
-            >
-              Add tile
-            </button>
-            <button
-              type="button"
-              onClick={() => setLivePrompt(null)}
-              className={`min-h-11 rounded-xl px-4 text-xs text-white/65 ring-1 ring-white/15 ${CONTROL_FEEDBACK} ${CONTROL_HOVER}`}
-            >
-              Keep watching
-            </button>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 }

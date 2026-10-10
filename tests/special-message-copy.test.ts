@@ -8,4 +8,8 @@ test("the personal message uses direct, human copy", () => {
   assert.doesNotMatch(page, /[\u2013\u2014]/);
   assert.doesNotMatch(page, /\bAI\b/);
   assert.doesNotMatch(page, /contribute something meaningful/i);
+  assert.match(page, /Hi\. CORE&apos;s streams and videos/);
+  assert.match(page, /src="\/special-message\/core-huddle\.webp"/);
+  assert.doesNotMatch(page, /origin-storyboard-v2|Special edition|No\. 02|Part 0[1-6]/);
+  assert.match(page, /This community helped me through some hard days/);
 });

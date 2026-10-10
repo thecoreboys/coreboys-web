@@ -19,10 +19,10 @@ export const metadata: Metadata = {
     type: "article",
     images: [
       {
-        url: "/special-message/evidence/origin-storyboard-v2.webp",
-        width: 1823,
-        height: 1025,
-        alt: "Four panels showing code, audio equipment, a control desk, and a live production.",
+        url: "/special-message/core-huddle.webp",
+        width: 1600,
+        height: 2400,
+        alt: "A real group photo of CORE members and friends.",
       },
     ],
   },
@@ -32,17 +32,17 @@ const toolkit = [
   {
     number: "01",
     title: "Software & Engineering",
-    body: "I build full-stack products, custom Java mods and plugins, and the systems behind streaming and digital experiences. I like taking a crazy idea and making it a reality.",
+    body: "I make websites, full-stack apps, and Java mods and plugins. My favorite projects start with a wild idea and end with something people can actually use.",
   },
   {
     number: "02",
     title: "Production & A/V",
-    body: "I have worked with cameras, lenses, lighting, soundboards, live events, microphones, editing, and the full Adobe suite. I understand both the creative idea and the technical setup it needs.",
+    body: "I have set up cameras, lights, microphones, and soundboards, then edited the footage. I like knowing what happens behind the camera as much as what ends up on screen.",
   },
   {
     number: "03",
     title: "Hardware & IT",
-    body: "I build enterprise servers and custom gaming desktops, fly FAA-registered drones, troubleshoot technical problems, and keep learning until the whole system works, not just one part of it.",
+    body: "I build servers and gaming PCs, including the water-cooled computer shown below. I also fly an FAA-registered drone and enjoy figuring out why a setup is not working.",
   },
 ] as const;
 
@@ -53,81 +53,42 @@ export default function SpecialMessagePage() {
         <StoryProgress />
         <div className={styles.paper}>
           <header className={styles.frontPage}>
-            <div className={styles.issueBar}>
-              <span>Special edition</span>
-              <span>For the CORE team, community &amp; everyone reading</span>
-              <time dateTime="2026-08">August 2026</time>
-            </div>
-
-            <div className={styles.masthead}>
-              <span className={styles.mastheadMark} aria-hidden="true">
-                C
-              </span>
-              <p className={styles.mastheadTitle}>A Personal Message</p>
-              <p className={styles.editionNumber}>No. 02 / For the CORE community</p>
-            </div>
-
             <div className={styles.headlineGrid}>
               <div className={styles.headlineCopy}>
+                <p className={styles.eyebrow}>A note from the person who built this</p>
                 <h1>CORE gave me something to look forward to.</h1>
                 <p className={styles.dek}>
-                  The streams, videos, and community put a smile on my face and made me laugh,
-                  even during the darkest times. This website is my way of saying thank you. I
-                  want to share where I came from, why that work mattered to me, and why I
-                  spent so much time building something for this community.
+                  Hi. CORE&apos;s streams and videos gave me an easy way to laugh when life felt
+                  heavy. I made this site to say thank you, and to tell you a little about the
+                  person behind it.
                 </p>
               </div>
-
-              <aside className={styles.frontPageAside} aria-label="Edition note">
-                <div className={styles.stamp}>
-                  <span>From the builder</span>
-                  <strong>A note of thanks</strong>
-                </div>
-              </aside>
             </div>
           </header>
 
           <figure className={styles.heroFigure}>
             <Image
               className={styles.heroImage}
-              src="/special-message/evidence/origin-storyboard-v2.webp"
-              alt="A tactile four-panel storyboard showing the author learning to code, creating a block world with friends, designing systems beside his custom water-cooled computer, and operating a live production console."
-              width={1823}
-              height={1025}
+              src="/special-message/core-huddle.webp"
+              alt="A real group photo of CORE members and friends looking down toward the camera."
+              width={1600}
+              height={2400}
               sizes="100vw"
               priority
             />
-            <ol className={styles.heroPanelNotes} aria-label="What each origin-story panel shows">
-              <li>
-                <span>01</span>
-                <p>Nerding out about technology</p>
-              </li>
-              <li>
-                <span>02</span>
-                <p>Playing Minecraft with friends</p>
-              </li>
-              <li>
-                <span>03</span>
-                <p>Designing custom desktops</p>
-              </li>
-              <li>
-                <span>04</span>
-                <p>BTS production</p>
-              </li>
-            </ol>
             <figcaption className={styles.heroCaption}>
-              <span>Origin story</span>
+              <span>A photo of the people and community that made this project matter to me.</span>
             </figcaption>
           </figure>
 
           <section id="beginning" className={styles.chapter}>
             <div className={styles.chapterLabel}>
-              <span>Part 01 / Age 11</span>
-              <p>How I started</p>
+              <span>When I was 11</span>
+              <p>My first big idea</p>
             </div>
 
             <div className={styles.storyCopy}>
-              <p className={styles.previously}>The beginning</p>
+              <p className={styles.previously}>A Miami Heat game, a soccer field, and Minecraft</p>
               <h2>I was always the kid behind the scenes.</h2>
               <p className={styles.dropCap}>
                 I was 11 when I first got into programming. One of my earliest site ideas came
@@ -155,7 +116,7 @@ export default function SpecialMessagePage() {
             </div>
 
             <aside className={styles.marginFile}>
-              <span className={styles.marginFileKicker}>Age 11 / first build</span>
+              <span className={styles.marginFileKicker}>My first website idea</span>
               <strong>Cranberry Crush</strong>
               <p>
                 A made-up basketball team and an early hosting idea. I tried to purchase hosting
@@ -168,8 +129,8 @@ export default function SpecialMessagePage() {
 
           <section id="creator-work" className={`${styles.chapter} ${styles.creatorChapter}`}>
             <div className={styles.chapterLabel}>
-              <span>Part 02 / 2018 to 2021</span>
-              <p>The creator years</p>
+              <span>2018 to 2021</span>
+              <p>Building for creators</p>
             </div>
 
             <div className={styles.storyCopy}>
@@ -230,7 +191,7 @@ export default function SpecialMessagePage() {
                     sizes="80px"
                   />
                   <span>
-                    <small>Creator work / 2018 to 2021</small>
+                    <small>Projects I helped with</small>
                     <strong>PopularMMOs</strong>
                     <em>Official channel ↗</em>
                   </span>
@@ -251,7 +212,7 @@ export default function SpecialMessagePage() {
                     sizes="80px"
                   />
                   <span>
-                    <small>Creator work / 2018 to 2021</small>
+                    <small>Projects I helped with</small>
                     <strong>GamingWithJen</strong>
                     <em>Official channel ↗</em>
                   </span>
@@ -277,12 +238,12 @@ export default function SpecialMessagePage() {
 
           <section id="hard-years" className={`${styles.chapter} ${styles.chapterDark}`}>
             <div className={styles.chapterLabel}>
-              <span>Part 03 / 2020 to college</span>
-              <p>The hard years</p>
+              <span>A difficult stretch</span>
+              <p>High school through college</p>
             </div>
 
             <div className={styles.storyCopy}>
-              <p className={styles.previously}>This is the order it happened</p>
+              <p className={styles.previously}>A lot changed in a short time</p>
               <h2>Then I stopped feeling like myself for a while.</h2>
               <p>
                 First, COVID hit while I was still in high school. After high school, I moved
@@ -296,11 +257,9 @@ export default function SpecialMessagePage() {
                 stuck and unsure of what I was supposed to do next.
               </p>
               <p>
-                If you&apos;ve ever felt like everyone else got a rule you somehow missed, or like
-                you were in the room without really feeling part of it, I know that feeling. You
-                might call it autism, neurodivergence, or anxiety. Or you might not
-                have a name for it at all. Needing extra time, a little more context, or a quieter
-                way in doesn&apos;t make you less capable. You still deserve a place in the room.
+                I live with chronic anxiety and am neurodivergent. I struggled to feel grounded,
+                my confidence dipped, and communication got harder. For a while, I did not know
+                what I needed or what was supposed to come next.
               </p>
               <p>
                 I kept making things whenever I had the energy. I helped with sound, lighting,
@@ -323,12 +282,12 @@ export default function SpecialMessagePage() {
 
           <section id="why-core" className={styles.chapter}>
             <div className={styles.chapterLabel}>
-              <span>Part 04 / College to now</span>
-              <p>Why CORE mattered</p>
+              <span>Why I started again</span>
+              <p>College to now</p>
             </div>
 
             <div className={styles.storyCopy}>
-              <p className={styles.previously}>The honest reason for this website</p>
+              <p className={styles.previously}>The reason I made this site</p>
               <h2>CORE gave me something to come back to on hard days.</h2>
               <p className={styles.dropCap}>
                 There were days when I woke up already exhausted, went through the motions,
@@ -338,10 +297,10 @@ export default function SpecialMessagePage() {
                 helped me laugh, reset, and get through the day.
               </p>
               <p>
-                Maybe you know that feeling too: scrolling because the quiet is too loud, then
-                finding something that gives you a few minutes of relief. It can look small from
-                the outside, but small things still matter when a day is going badly. That is the
-                kind of impact creative work can have, often without its creators ever knowing.
+                Sometimes I put a stream on just to have something in the room with me. Then a
+                joke would catch me off guard and I would laugh. It did not solve what I was
+                dealing with, but it helped in that moment. That is why those videos mattered to
+                me.
               </p>
               <p>
                 That is why I made this. I wanted to turn that feeling into something practical:
@@ -367,23 +326,23 @@ export default function SpecialMessagePage() {
             <div className={styles.toolkitImageWrap}>
               <Image
                 className={styles.toolkitImage}
-                src="/special-message/technical-workbench.webp"
-                alt="An overhead editorial still life of a camera, audio recorder, lighting controls, drone, notebook, keyboard, and custom water-cooled computer hardware."
-                width={1536}
-                height={1024}
+                src="/special-message/app-screens/home.png"
+                alt="A screenshot of CORE Watch, the website I built, open to its home page."
+                width={1265}
+                height={710}
                 sizes="(max-width: 900px) 100vw, 58vw"
               />
               <span className={styles.imageTape} aria-hidden="true" />
-              <p className={styles.imageIndex}>Field kit / 04</p>
+              <p className={styles.imageIndex}>The site I built</p>
             </div>
 
             <div className={styles.toolkitIntro}>
-              <p className={styles.eyebrow}>Part 05 / What I can actually do</p>
+              <p className={styles.eyebrow}>The work I enjoy</p>
               <h2>This is the kind of work I love doing.</h2>
               <p>
-                I am a software engineer, but I do not stay in one lane. I like the point where
-                code, production, hardware, and creative ideas meet. That mix is where I feel
-                most creative.
+                Most of my work happens where code, cameras, sound, and hardware meet. I like
+                learning how the pieces fit together, then getting my hands on the part that
+                needs fixing or building.
               </p>
             </div>
 
@@ -403,12 +362,13 @@ export default function SpecialMessagePage() {
           <section id="receipts" className={styles.receiptsSection}>
             <header className={styles.receiptsHeader}>
               <div>
-                <p className={styles.eyebrow}>Part 05 / A few things I have made</p>
-                <h2>I would rather show the work than oversell myself.</h2>
+                <p className={styles.eyebrow}>A few things I have made</p>
+                <h2>A few projects I am proud of.</h2>
               </div>
               <p>
-                These are real builds, footage, and project files from my life. They are here
-                to give a simple picture of how I think and what I could help with.
+                Here are a few things I have actually worked on: a computer I built, a project
+                for the Army Reserve, and the degree I finished at UCF. I will let the work
+                speak for itself.
               </p>
             </header>
 
@@ -484,7 +444,7 @@ export default function SpecialMessagePage() {
                     height={788}
                     sizes="(max-width: 760px) 100vw, 46vw"
                   />
-                  <span>Project case study / U.S. Army Reserve</span>
+                  <span>A project for the U.S. Army Reserve</span>
                 </div>
                 <div className={styles.mercuryCopy}>
                   <p className={styles.eyebrow}>A project I built / Army Reserve Mercury</p>
@@ -524,7 +484,7 @@ export default function SpecialMessagePage() {
                     height={220}
                   />
                   <div>
-                    <span>Credential file / 2026</span>
+                    <span>What I studied</span>
                     <h3>B.S. in Computer Science</h3>
                     <p>University of Central Florida</p>
                   </div>
@@ -572,20 +532,20 @@ export default function SpecialMessagePage() {
             </div>
           </section>
 
-          <p className={styles.continuedNote}>Continued / one last thing I want to say clearly</p>
+          <p className={styles.continuedNote}>One last thing</p>
 
           <section id="thank-you" className={`${styles.chapter} ${styles.chapterProof}`}>
             <div className={styles.chapterLabel}>
-              <span>Part 06 / What I hope</span>
-              <p>Thank you and an open door</p>
+              <span>To the CORE team and community</span>
+              <p>Thank you</p>
             </div>
 
             <div className={styles.storyCopy}>
-              <h2>I hope this starts a conversation.</h2>
+              <h2>I wanted to say thank you.</h2>
               <p>
-                I built this because CORE and its community have meant a lot to me. If it gives
-                someone something fun to come back to or helps the community feel a little more
-                connected, I will be proud of it.
+                I built this because CORE and its community have meant a lot to me. I wanted the
+                streams, clips, and old memories I kept going back to in one place. If it helps
+                someone else find something to watch, that would make me happy.
               </p>
               <div className={styles.supportNote}>
                 <span>A practical note</span>
@@ -604,10 +564,9 @@ export default function SpecialMessagePage() {
                 </p>
               </div>
               <p className={styles.craftClosing}>
-                Create. Own. Run. Everything. is what CORE stands for. I love that because it
-                is the same instinct that has followed me since I was 11: take the idea
-                seriously, learn every part of it, build it for real, and never sell it out or
-                lose control of the craft.
+                CORE&apos;s phrase, Create. Own. Run. Everything., has stuck with me. It sounds like
+                the kid I was at 11: take an idea seriously, learn what it takes, and build it
+                with your own hands.
               </p>
             </div>
 
@@ -755,33 +714,20 @@ export default function SpecialMessagePage() {
           </section> : null}
 
           <section className={styles.closingSpread}>
-            <div className={styles.closingImageWrap}>
-              <Image
-                className={styles.closingImage}
-                src="/special-message/core-huddle.webp"
-                alt="The CORE group huddled together and looking down toward the camera."
-                fill
-                sizes="(max-width: 900px) 100vw, 58vw"
-              />
-              <div className={styles.halftone} aria-hidden="true" />
-            </div>
-
             <div className={styles.closingCopy}>
-              <p className={styles.eyebrow}>The end / for everyone watching</p>
-              <h2>For anyone who needed a little light on a hard day.</h2>
+              <p className={styles.eyebrow}>One last note</p>
+              <h2>This community helped me through some hard days.</h2>
               <p>
-                You never really know what brings someone into a stream. Maybe they need a laugh,
-                a little background company, or a place to feel less alone after a hard day.
+                There were days when I put on a stream because I didn&apos;t want the room to feel
+                so quiet. It gave me company and, more than once, a reason to laugh.
               </p>
               <p>
-                A creator may only see a username in chat, but the time, jokes, and care they share
-                can reach much farther than they realize. A stream can give someone a breather, a
-                reason to stay a little longer, or something to look forward to tomorrow. To
-                everyone watching and everyone streaming: thank you for making moments like that
-                possible.
+                I know a stream can be just another night at work for the person making it. I
+                wanted you to know that those jokes and little moments reached me. To everyone
+                who made them, and everyone who was there in chat: thank you.
               </p>
               <div className={styles.closingRule} aria-hidden="true" />
-              <strong>Thank you to the creators and the community for making people laugh when they need it.</strong>
+              <strong>This site is my small way of giving something back.</strong>
             </div>
           </section>
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   moveAndResolveRoomLayout,
+  enforceRoomRectAspect,
   presetNormalizedRects,
   resolvePresetRoomLayout,
   roomLayoutMatchesPreset,
@@ -160,6 +161,20 @@ test("theater-first reserves the cinematic main surface before the companion rai
     roomLayoutHasCollisions(rects.map((rect, index) => ({ id: `theater-${index}`, rect }))),
     false,
   );
+});
+
+test("Studio resize keeps source cards close to native landscape, square, and portrait ratios", () => {
+  const resize = (aspect: number, dominant: "width" | "height") => enforceRoomRectAspect(
+    { x: 0, y: 0, width: 0.5, height: 0.5 }, aspect, 12, dominant,
+  );
+  for (const aspect of [16 / 9, 1, 9 / 16]) {
+    for (const dominant of ["width", "height"] as const) {
+      const rect = resize(aspect, dominant);
+      const actual = rect.width / rect.height * 16 / 9;
+      assert.ok(Math.abs(actual - aspect) < 0.08, `${dominant} resize should preserve ${aspect}:1, got ${actual}`);
+      assert.ok(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= 1 && rect.y + rect.height <= 1);
+    }
+  }
 });
 
 test("solver keeps the requested tile in place and deterministically repacks collisions", () => {
