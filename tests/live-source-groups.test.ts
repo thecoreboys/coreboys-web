@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 // Node's type-stripping test runner requires the explicit suffix.
 // @ts-expect-error App TypeScript does not enable allowImportingTsExtensions.
 import { groupCrossPlatformLiveSources, uniqueCrossPlatformLiveSources } from "../lib/watch/live-source-groups.ts";
@@ -16,6 +18,15 @@ test("same-creator YouTube and Twitch lives group as one switchable source", () 
   assert.equal(groups.length, 1);
   assert.deepEqual(groups[0]?.sources, [youtube, twitch]);
   assert.deepEqual(uniqueCrossPlatformLiveSources([youtube, twitch]), [youtube]);
+});
+
+test("Live Now renders one card per creator group with source toggles", () => {
+  const modal = readFileSync(resolve(process.cwd(), "components/live/LiveNowModal.tsx"), "utf8");
+  assert.match(modal, /const groups = groupCrossPlatformLiveSources\(sources\)/);
+  assert.match(modal, /groups\.map\(\(group\) => <LiveNowCard/);
+  assert.match(modal, /aria-label="Choose a live source"/);
+  assert.match(modal, /aria-pressed=\{active\}/);
+  assert.match(modal, /setSelectedKey\(item\.key\)/);
 });
 
 test("different creators and single-platform lives stay separate", () => {

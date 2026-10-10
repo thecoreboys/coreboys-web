@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle } from "@untitledui/icons";
-import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/base/buttons/button";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { Input } from "@/components/base/input/input";
@@ -39,9 +39,11 @@ export function AuthModal() {
   const [mode, setMode] = useState<AuthMode | null>(() => authModeFrom(params.get("auth")));
   const [nextPath, setNextPath] = useState(() => safeNext(params.get("next"), pathname));
   const [slide, setSlide] = useState(0);
-  const [carouselCycle, setCarouselCycle] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const activeSlideRef = useRef(0);
+  const remainingMsRef = useRef(SLIDE_DURATION_MS);
+  const deadlineRef = useRef<number | null>(null);
 
   const open = useCallback((nextMode: AuthMode, next?: string | null) => {
     const query = new URLSearchParams(window.location.search);
@@ -115,28 +117,49 @@ export function AuthModal() {
   }, []);
 
   const selectSlide = useCallback((value: number) => {
+    activeSlideRef.current = value;
+    remainingMsRef.current = SLIDE_DURATION_MS;
     setSlide(value);
-    setCarouselCycle((cycle) => cycle + 1);
   }, []);
 
   useEffect(() => {
-    if (!mode || paused || reducedMotion) return;
+    if (!mode) {
+      remainingMsRef.current = SLIDE_DURATION_MS;
+      deadlineRef.current = null;
+      return;
+    }
+    if (paused || reducedMotion) return;
+
+    const currentSlide = slide;
+    const deadline = Date.now() + remainingMsRef.current;
+    deadlineRef.current = deadline;
     const timer = window.setTimeout(() => {
-      setSlide((value) => (value + 1) % SLIDES.length);
-      setCarouselCycle((cycle) => cycle + 1);
-    }, SLIDE_DURATION_MS);
-    return () => window.clearTimeout(timer);
-  }, [carouselCycle, mode, paused, reducedMotion]);
+      const nextSlide = (currentSlide + 1) % SLIDES.length;
+      remainingMsRef.current = SLIDE_DURATION_MS;
+      deadlineRef.current = null;
+      activeSlideRef.current = nextSlide;
+      setSlide(nextSlide);
+    }, remainingMsRef.current);
+
+    return () => {
+      window.clearTimeout(timer);
+      // Preserve the elapsed portion when hover/focus pauses the carousel.
+      // A slide change owns a fresh full interval and must not inherit this one.
+      if (activeSlideRef.current === currentSlide && deadlineRef.current === deadline) {
+        remainingMsRef.current = Math.max(0, deadline - Date.now());
+        deadlineRef.current = null;
+      }
+    };
+  }, [mode, paused, reducedMotion, slide]);
 
   useEffect(() => {
     if (mode) return;
+    activeSlideRef.current = 0;
     setSlide(0);
-    setCarouselCycle((cycle) => cycle + 1);
   }, [mode]);
 
   const setShowcasePaused = useCallback((value: boolean) => {
     setPaused(value);
-    setCarouselCycle((cycle) => cycle + 1);
   }, []);
 
   useEffect(() => {
@@ -162,7 +185,7 @@ export function AuthModal() {
   return (
     <div className="auth-modal-backdrop fixed inset-0 z-[120] flex items-end bg-black/80 p-0 backdrop-blur-xl sm:items-center sm:justify-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" className="auth-modal-panel grid max-h-[100dvh] w-full overflow-y-auto rounded-t-[1.6rem] border border-white/12 bg-[#151518] shadow-[0_34px_140px_rgba(0,0,0,.76)] sm:max-h-[min(46rem,calc(100dvh-2.5rem))] sm:max-w-5xl sm:grid-cols-[minmax(0,1.05fr)_minmax(25rem,.95fr)] sm:overflow-hidden sm:rounded-3xl">
-        <AuthShowcase slide={slide} cycle={carouselCycle} isPaused={paused} reducedMotion={reducedMotion} onSlide={selectSlide} onPause={setShowcasePaused} />
+        <AuthShowcase slide={slide} isPaused={paused} reducedMotion={reducedMotion} onSlide={selectSlide} onPause={setShowcasePaused} />
         <div className="auth-modal-form relative flex min-h-[34rem] flex-col px-5 py-6 sm:min-h-0 sm:px-10 sm:py-9">
           <button type="button" onClick={close} className="absolute right-4 top-4 grid size-10 place-items-center rounded-xl text-white/45 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label="Close sign in"><X className="size-4" /></button>
           <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
@@ -176,18 +199,28 @@ export function AuthModal() {
   );
 }
 
-function AuthShowcase({ slide, cycle, isPaused, reducedMotion, onSlide, onPause }: { slide: number; cycle: number; isPaused: boolean; reducedMotion: boolean; onSlide: (value: number) => void; onPause: (value: boolean) => void }) {
+function AuthShowcase({ slide, isPaused, reducedMotion, onSlide, onPause }: { slide: number; isPaused: boolean; reducedMotion: boolean; onSlide: (value: number) => void; onPause: (value: boolean) => void }) {
   const active = SLIDES[slide]!;
-  return <aside className="auth-modal-showcase relative isolate hidden min-h-0 overflow-hidden p-5 sm:block" onMouseEnter={() => onPause(true)} onMouseLeave={() => onPause(false)} onFocusCapture={() => onPause(true)} onBlurCapture={() => onPause(false)}>
+  const pointerInside = useRef(false);
+  const focusInside = useRef(false);
+  const syncPaused = () => onPause(pointerInside.current || focusInside.current);
+  return <aside className="auth-modal-showcase relative isolate hidden min-h-0 overflow-hidden p-5 sm:block"
+    onMouseEnter={() => { pointerInside.current = true; syncPaused(); }}
+    onMouseLeave={() => { pointerInside.current = false; syncPaused(); }}
+    onFocusCapture={() => { focusInside.current = true; syncPaused(); }}
+    onBlurCapture={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        focusInside.current = false;
+        syncPaused();
+      }
+    }}>
     <img src={active.art} alt="" aria-hidden decoding="async" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-75 transition-opacity duration-500" />
     <span className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(7,7,9,.04),rgba(7,7,9,.2)_42%,rgba(7,7,9,.95))]" />
     <div className="flex h-full flex-col justify-end">
       <h2 className="max-w-sm text-4xl font-semibold leading-[.94] tracking-[-.055em] text-white">{active.title}</h2>
       <p className="mt-4 max-w-sm text-sm leading-6 text-white/68">{active.copy}</p>
       <div className="mt-7 flex items-center gap-2" role="tablist" aria-label="Account feature slides">
-        <button type="button" onClick={() => onSlide((slide + SLIDES.length - 1) % SLIDES.length)} className="grid size-9 place-items-center rounded-lg bg-black/30 text-white/70 ring-1 ring-white/12 transition hover:bg-black/55 hover:text-white" aria-label="Previous feature"><ChevronLeft className="size-4" /></button>
-        <div className="flex flex-1 gap-1.5">{SLIDES.map((entry, index) => <button key={entry.label} type="button" onClick={() => onSlide(index)} role="tab" aria-selected={index === slide} aria-label={`Show ${entry.label.toLowerCase()}`} className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/22 transition hover:bg-white/35">{index < slide ? <span className="absolute inset-y-0 left-0 w-full rounded-full bg-white" /> : null}{index === slide && !isPaused && !reducedMotion ? <span key={`${slide}-${cycle}`} className="auth-showcase-progress absolute inset-y-0 left-0 rounded-full bg-white" /> : null}</button>)}</div>
-        <button type="button" onClick={() => onSlide((slide + 1) % SLIDES.length)} className="grid size-9 place-items-center rounded-lg bg-black/30 text-white/70 ring-1 ring-white/12 transition hover:bg-black/55 hover:text-white" aria-label="Next feature"><ChevronRight className="size-4" /></button>
+        <div className="flex w-full gap-1.5">{SLIDES.map((entry, index) => <button key={entry.label} type="button" onClick={() => onSlide(index)} role="tab" aria-selected={index === slide} aria-label={`Show ${entry.label.toLowerCase()}`} className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/22 transition hover:bg-white/35">{index < slide ? <span className="absolute inset-y-0 left-0 w-full rounded-full bg-white" /> : null}{index === slide && !reducedMotion ? <span style={{ animationPlayState: isPaused ? "paused" : "running" }} className="auth-showcase-progress absolute inset-y-0 left-0 rounded-full bg-white" /> : null}</button>)}</div>
       </div>
     </div>
   </aside>;

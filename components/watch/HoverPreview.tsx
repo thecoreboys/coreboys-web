@@ -597,19 +597,19 @@ function MediaHoverPreview({
                   return;
                 }
                 requestProviderPlayback();
-                if (playable?.platform === "twitch" || playable?.platform === "instagram") {
+                if (playable?.platform === "twitch" || playable?.platform === "instagram" || playable?.platform === "tiktok") {
                   // Twitch handles muted autoplay from its parameters, while
-                  // Instagram's official Reel embed exposes no playback event
-                  // API. In both cases frame load is the strongest readiness
-                  // signal available. Keep the still for one short paint, then
-                  // reveal the provider surface without claiming play progress.
+                  // Instagram and TikTok do not reliably report autoplay
+                  // readiness on every browser/network. Frame load is enough
+                  // to reveal the official provider player; it is not playback
+                  // evidence and never advances watch progress.
                   if (providerRevealTimerRef.current != null) {
                     window.clearTimeout(providerRevealTimerRef.current);
                   }
                   providerRevealTimerRef.current = window.setTimeout(() => {
                     providerRevealTimerRef.current = null;
                     setReadyMotionSource(iframeSrc);
-                  }, playable.platform === "instagram" ? 280 : 220);
+                  }, playable.platform === "instagram" ? 280 : playable.platform === "tiktok" ? 360 : 220);
                 }
               }}
             />

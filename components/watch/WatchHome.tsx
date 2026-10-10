@@ -9,6 +9,7 @@ import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { homeItemReferences } from "@/lib/watch/home-catalog";
 import type { WatchProgressMap } from "@/hooks/useWatchProgress";
 import { canonicalWatchKey, personalizeItems } from "@/lib/watch/discovery";
+import { isLiveWatchItem } from "@/lib/watch/is-live-item";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import {
   buildCreatorAffinity,
@@ -279,7 +280,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
   const libraryPreview = useMemo(() => {
     const source = catalog.recent.length ? catalog.recent : all;
     return balancedRail(
-      personalizeItems(source.filter((item) => item.kind !== "live"), feedback),
+      personalizeItems(source.filter((item) => !isLiveWatchItem(item)), feedback),
       12,
     );
   }, [all, catalog.recent, feedback]);
@@ -315,7 +316,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
       playable
         .filter((item) => {
           if (item.programming?.community) return false;
-          if (item.kind === "live" || item.format === "photo") return false;
+          if (isLiveWatchItem(item) || item.format === "photo") return false;
           if (references(item).some((reference) => map[reference]?.completed)) return false;
           return (recommendationAffinity.scores.get(item.memberSlug ?? "house") ?? 0) > 0;
         }),
@@ -325,7 +326,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
   const latest = useMemo(
     () =>
       unique(playable)
-        .filter((item) => item.kind !== "live" && !item.programming?.community)
+        .filter((item) => !isLiveWatchItem(item) && !item.programming?.community)
         .sort(
           (a, b) =>
             new Date(b.publishedAt ?? 0).getTime() - new Date(a.publishedAt ?? 0).getTime(),

@@ -7,9 +7,8 @@ const source = readFileSync(resolve(process.cwd(), "components/marketing/Pricing
 
 test("upgrade page presents one clear membership tier with direct calls to action", () => {
   assert.match(source, /Support CORE\. Get beta access\./);
-  assert.match(source, /joinLabel/);
-  assert.match(source, /Join the CORE beta/);
-  assert.match(source, /Continue to billing/);
+  assert.match(source, /Choose your amount/);
+  assert.doesNotMatch(source, /joinLabel|Continue to billing/);
   assert.match(source, /One plan · cancel anytime/);
   assert.match(source, /Every member gets the same beta access\./);
   assert.match(source, /Full access to current CORE beta features/);
@@ -25,7 +24,7 @@ test("settings and billing share one accessible account settings shell", () => {
   const layout = readFileSync(resolve(process.cwd(), "components/account/AccountSettingsLayout.tsx"), "utf8");
   assert.match(source, /<AccountPageHeader/);
   assert.doesNotMatch(settings, /<AccountPageHeader/);
-  assert.match(header, /aria-current=\{active === key \? "page" : undefined\}/);
+  assert.doesNotMatch(header, /accountNav|Account settings|Support the site/);
   assert.match(settings, /<AccountSettingsLayout/);
   assert.match(billing, /<AccountSettingsLayout/);
   assert.match(billing, /accountMode/);
@@ -33,6 +32,14 @@ test("settings and billing share one accessible account settings shell", () => {
   assert.match(layout, /grid-cols-\[15rem_minmax\(0,1fr\)\]/);
   assert.match(layout, /connected-accounts/);
   assert.match(layout, /\/account\/settings\/billing/);
+});
+
+test("public upgrade page keeps account-navigation tabs out of the membership pitch", () => {
+  const header = readFileSync(resolve(process.cwd(), "components/account/AccountPageHeader.tsx"), "utf8");
+  const styles = readFileSync(resolve(process.cwd(), "components/marketing/PricingExperience.module.css"), "utf8");
+  assert.doesNotMatch(header, /<nav|accountNav/);
+  assert.match(header, /CORE membership/);
+  assert.match(styles, /\.cleanHeader h1 \{ max-width: 44rem/);
 });
 
 test("billing summary distinguishes loading from failure and offers a retry", () => {

@@ -44,6 +44,7 @@ export function WatchThumb({
   focalPoint,
   style,
   fallback,
+  placeholder,
 }: {
   youtubeId?: string | null;
   src: string;
@@ -53,6 +54,8 @@ export function WatchThumb({
   focalPoint?: { x: number; y: number };
   style?: CSSProperties;
   fallback?: ReactNode;
+  /** Render a designed underlay while a social poster is still downloading. */
+  placeholder?: ReactNode;
 }) {
   const chain = useMemo(() => {
     return watchThumbCandidates(src, youtubeId, loading === "eager")
@@ -60,11 +63,13 @@ export function WatchThumb({
   }, [youtubeId, src, loading]);
   const [index, setIndex] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const url = chain[index] ?? ((failedImages.get(src) ?? 0) >= Date.now() ? "" : src);
 
   useEffect(() => {
     setIndex(0);
     setFailed(false);
+    setLoaded(false);
   }, [youtubeId, src]);
 
   if (failed || !url) {
@@ -85,13 +90,13 @@ export function WatchThumb({
     );
   }
 
-  return (
+  const image = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       crossOrigin={/^https?:\/\/(?:i\.ytimg\.com|img\.youtube\.com)\//.test(url) ? "anonymous" : undefined}
       src={url}
       alt={alt}
-      className={className}
+      className={[className, placeholder ? "watch-thumb-image" : "", placeholder && loaded ? "is-loaded" : ""].filter(Boolean).join(" ")}
       loading={loading}
       fetchPriority={loading === "eager" ? "high" : "low"}
       decoding="async"
@@ -113,6 +118,8 @@ export function WatchThumb({
         } else if (isUnavailableYoutubeImage) {
           markFailed(url);
           setFailed(true);
+        } else {
+          setLoaded(true);
         }
       }}
       onError={() => {
@@ -121,5 +128,13 @@ export function WatchThumb({
         else setFailed(true);
       }}
     />
+  );
+
+  if (!placeholder) return image;
+  return (
+    <span className="watch-thumb-shell" style={{ ...style, display: "block", width: "100%", height: "100%" }}>
+      {!loaded ? <span className="watch-thumb-placeholder" aria-hidden="true">{placeholder}</span> : null}
+      {image}
+    </span>
   );
 }

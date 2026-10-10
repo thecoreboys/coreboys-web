@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { cachedPublicData } from "@/lib/server-cache";
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Barlow_Condensed, Inter, Inter_Tight } from "next/font/google";
@@ -121,38 +120,9 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-// Pre-fetch Twitch profile pictures so the navbar dropdown renders them
-// on first paint instead of waiting for the client SWR hook.
-import { MEMBERS } from "@/lib/members";
-import { fetchUsersByLogin } from "@/lib/twitch";
-
-async function getMemberAvatars(): Promise<Record<string, string>> {
-  return cachedPublicData("member-avatars:v1", loadMemberAvatars, {
-    freshSeconds: 3600,
-    staleSeconds: 86400,
-    validate: (value): value is Record<string, string> => Boolean(value && typeof value === "object"
-      && Object.values(value).every((url) => typeof url === "string")),
-    shouldCache: (avatars) => Object.keys(avatars).length > 0,
-  });
-}
-
-async function loadMemberAvatars(): Promise<Record<string, string>> {
-  try {
-    const users = await fetchUsersByLogin(MEMBERS.map((m) => m.twitchLogin));
-    const out: Record<string, string> = {};
-    for (const [login, u] of Object.entries(users)) {
-      if (u.profile_image_url) out[login] = u.profile_image_url;
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const requestHeaders = await headers();
   const accessPage = requestHeaders.get("x-coreboys-access-page") === "1";
-  const avatars = accessPage ? {} : await getMemberAvatars();
   return (
     <html
       lang="en"
@@ -180,7 +150,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <SiteHeader>
                 <UnreleasedBanner />
                 <Suspense fallback={null}>
-                  <TopNav initialAvatars={avatars} />
+                  <TopNav />
                 </Suspense>
                 <LiveRibbon />
               </SiteHeader>

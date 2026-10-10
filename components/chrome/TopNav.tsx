@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import type { Route } from "next";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
@@ -23,7 +24,6 @@ import {
 } from "lucide-react";
 import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import { Button } from "@/components/base/buttons/button";
-import { LiveNowModal } from "@/components/live/LiveNowModal";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { openAuthModal } from "@/lib/auth/modal";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
@@ -35,6 +35,11 @@ import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSupporterBillingControls";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import type { UnifiedLiveEntry, UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
+
+const LiveNowModal = dynamic(
+  () => import("@/components/live/LiveNowModal").then((module) => module.LiveNowModal),
+  { ssr: false },
+);
 
 const unifiedLiveFetcher = async (url: string): Promise<UnifiedLiveSnapshot> => {
   const response = await fetch(url, { credentials: "same-origin" });
@@ -56,11 +61,7 @@ function isYouTubeLiveEntry(entry: UnifiedLiveEntry): entry is UnifiedLiveEntry 
  * accessible). It closes on pointer exit, outside click, Escape, or route
  * selection.
  */
-export function TopNav({
-  initialAvatars: _initialAvatars,
-}: {
-  initialAvatars?: Record<string, string>;
-} = {}) {
+export function TopNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const watchSearchAvailable = !pathname.startsWith("/admin")

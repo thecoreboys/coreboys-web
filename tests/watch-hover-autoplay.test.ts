@@ -78,16 +78,19 @@ test("Shorts, Reels, and TikToks retain portrait shape regardless of catalog for
   assert.equal(contentShape({ format: "long", platform: "tiktok" }), "portrait");
 });
 
-test("hover frames actively request provider playback instead of trusting iframe load", () => {
+test("hover frames request provider playback and reveal TikTok after its embed loads", () => {
   assert.match(preview, /playVideo/);
   assert.match(preview, /x-tiktok-player[\s\S]{0,160}type:\s*"play"/);
   assert.match(preview, /x-tiktok-player[\s\S]{0,160}type:\s*"mute"/);
 
   const frameTag = /<iframe[\s\S]*?\/>/.exec(preview)?.[0] ?? "";
+  assert.match(frameTag, /playable\?\.platform === "tiktok"/);
+  assert.match(frameTag, /playable\.platform === "tiktok" \? 360/);
+  assert.match(frameTag, /setReadyMotionSource\(iframeSrc\)/);
   assert.doesNotMatch(
     frameTag,
-    /onLoad=\{\(\)\s*=>\s*setReadyMotionSource/,
-    "loading a provider document is not evidence that its video started",
+    /playbackStartedRef\.current\s*=\s*true/,
+    "revealing a loaded TikTok embed must not claim playback or credit watch progress",
   );
 });
 

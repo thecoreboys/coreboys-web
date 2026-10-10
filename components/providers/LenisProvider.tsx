@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Lenis from "lenis";
+import type Lenis from "lenis";
 import { detectWeakGpu, devicePerformanceProfile } from "@/lib/device-performance";
 
 /**
@@ -29,34 +29,72 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
     // Smooth scrolling is a visual enhancement. On constrained devices it
     // competes with media decoding and feed work, so native scrolling wins.
     if (profile === "conserve" || connection?.saveData) return;
-
-    const lenis = new Lenis({
-      // `lerp` produces a smoother / less janky feel than a fixed duration.
-      lerp: 0.12,
-      smoothWheel: true,
-      wheelMultiplier: 1,
-      touchMultiplier: 1.4,
-    });
-
-    document.documentElement.classList.add("lenis", "lenis-smooth");
-
+    let cancelled = false;
+    let started = false;
     let raf = 0;
-    let visible = document.visibilityState === "visible";
-    const tick = (time: number) => {
-      if (visible) lenis.raf(time);
+    let idleHandle: number | null = null;
+    let idleTimer: number | null = null;
+    let lenis: Lenis | null = null;
+    let removeVirtualScroll: (() => void) | null = null;
+    const scheduleFrame = () => {
+      if (raf || !lenis || document.visibilityState !== "visible") return;
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    const onVisibilityChange = () => {
-      visible = document.visibilityState === "visible";
-      if (visible) lenis.resize();
+    const tick = (time: number) => {
+      raf = 0;
+      if (!lenis || document.visibilityState !== "visible") return;
+      lenis.raf(time);
+      if (lenis.isScrolling === "smooth") scheduleFrame();
     };
+    const start = async () => {
+      if (started || cancelled) return;
+      started = true;
+      const { default: Lenis } = await import("lenis");
+      if (cancelled) return;
+      lenis = new Lenis({
+        // `lerp` produces a smoother / less janky feel than a fixed duration.
+        lerp: 0.12,
+        smoothWheel: true,
+        wheelMultiplier: 1,
+        touchMultiplier: 1.4,
+      });
+      document.documentElement.classList.add("lenis", "lenis-smooth");
+      removeVirtualScroll = lenis.on("virtual-scroll", scheduleFrame);
+    };
+    const browserWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        if (raf) cancelAnimationFrame(raf);
+        raf = 0;
+      } else {
+        lenis?.resize();
+        if (lenis?.isScrolling === "smooth") scheduleFrame();
+      }
+    };
+    // Load the optional smooth-scroll chunk only after the page is idle (or
+    // the first real scroll gesture), so it does not compete with hydration.
+    const onFirstScroll = () => { void start(); };
+    window.addEventListener("wheel", onFirstScroll, { once: true, passive: true });
+    window.addEventListener("touchmove", onFirstScroll, { once: true, passive: true });
+    if (browserWindow.requestIdleCallback) {
+      idleHandle = browserWindow.requestIdleCallback(() => void start(), { timeout: 2_000 });
+    } else {
+      idleTimer = window.setTimeout(() => void start(), 1_200);
+    }
     document.addEventListener("visibilitychange", onVisibilityChange, { passive: true });
-
     return () => {
+      cancelled = true;
+      window.removeEventListener("wheel", onFirstScroll);
+      window.removeEventListener("touchmove", onFirstScroll);
+      if (idleHandle !== null) browserWindow.cancelIdleCallback?.(idleHandle);
+      if (idleTimer !== null) window.clearTimeout(idleTimer);
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      lenis.destroy();
+      removeVirtualScroll?.();
+      lenis?.destroy();
       document.documentElement.classList.remove("lenis", "lenis-smooth");
     };
   }, []);

@@ -419,14 +419,10 @@
 }
 
 /* Clean billing layout shared by /upgrade and /account/plan. */
-.cleanHeader { width: min(100% - 3rem, 68rem); margin: 0 auto; padding: clamp(2rem, 5vw, 4rem) 0 2rem; }
-.cleanHeader h1 { max-width: 48rem; margin-top: .7rem; font-size: clamp(2.1rem, 4vw, 3.5rem); line-height: 1.08; letter-spacing: -.045em; text-wrap: balance; }
-.accountNav { display:flex; gap:.35rem; margin-bottom:2rem; overflow-x:auto; overscroll-behavior-x:contain; padding:.15rem; }
-.accountNav a { display:inline-flex; align-items:center; flex-shrink:0; min-height:44px; padding:.6rem .85rem; border:1px solid transparent; border-radius:.7rem; color:#a1a1aa; font-size:.8rem; font-weight:600; }
-.accountNav a[aria-current="page"] { background:#1b1b21; border-color:#ffffff24; color:#f5f5f7; }
-.accountNav a:hover { color:#fff; }
-.accountNav a:focus-visible { outline:2px solid #f493bf; outline-offset:2px; }
-.cleanHeader .heroCopy { max-width: 38rem; }
+.cleanHeader { position: relative; width: min(100% - 3rem, 68rem); margin: 0 auto; padding: clamp(3.25rem, 7vw, 5.5rem) 0 clamp(2rem, 4vw, 3rem); }
+.cleanHeader::after { position:absolute; right:0; bottom:0; left:0; height:1px; content:""; background:linear-gradient(90deg,var(--upgrade-line),rgba(240,107,173,.28),var(--upgrade-line)); }
+.cleanHeader h1 { max-width: 44rem; margin-top: .8rem; font-size: clamp(2.35rem, 5vw, 4.1rem); font-weight: 700; line-height: 1.02; letter-spacing: -.06em; text-wrap: balance; }
+.cleanHeader .heroCopy { max-width: 42rem; margin-top: 1rem !important; font-size: clamp(.98rem, 1.5vw, 1.12rem); line-height: 1.7; }
 .cleanHeader > .primaryCta { margin-top: 1.5rem; }
 .cleanMain { width: min(100% - 3rem, 68rem); margin: 0 auto; padding: 0 0 6rem; }
 .cleanGrid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(18rem, .95fr); align-items: start; gap: 1rem; }
@@ -450,8 +446,6 @@
 
 @media (max-width: 760px) {
   .cleanHeader, .cleanMain { width: min(100% - 2rem, 68rem); }
-  .accountNav { display:grid; grid-template-columns:.8fr 1.4fr 1fr; overflow:visible; gap:.15rem; }
-  .accountNav a { justify-content:center; padding:.5rem .3rem; text-align:center; font-size:.75rem; line-height:1.35; }
   .cleanGrid, .cleanFaq { grid-template-columns: 1fr; }
   .cleanFaq { gap: 1.25rem; }
 }
@@ -472,10 +466,7 @@
 
 /* Account and billing inherit the selected site theme. */
 .shell { --upgrade-bg: var(--bg); --upgrade-surface: var(--bg-elev); --upgrade-line: var(--rule); --upgrade-line-strong: var(--rule-strong); --upgrade-text: var(--ink); --upgrade-muted: var(--ink-dim); --upgrade-subtle: var(--ink-faint); }
-.accountNav a { color: var(--ink-dim); border-radius: .5rem; }
-.accountNav a[aria-current="page"] { color: var(--ink); border-color: var(--rule); background: var(--bg-elev); }
-.accountNav a:hover { color: var(--ink); }
-.cleanHeader h1 { font-weight: 650; font-size: clamp(2rem, 4vw, 3rem); }
+.cleanHeader h1 { color: var(--upgrade-text); }
 .includedCard li, .cleanFaqList strong { color: var(--ink); }
 .includedCard, .cleanCard, .cleanNotice, .cleanFaqList p { border-radius: .75rem; }
 
@@ -503,4 +494,3 @@
   .accountMode .cleanGrid { grid-template-columns: 1fr; }
   .accountMode .membershipCard { width: 100%; }
 }
-@media (max-width: 760px) { .accountNav { display: flex; overflow-x: auto; } .accountNav a { padding: .5rem .7rem; } }

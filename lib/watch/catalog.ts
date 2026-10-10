@@ -14,6 +14,7 @@ import {
 import { getPublicClips } from "@/lib/clips-server";
 import { formatDurationSeconds } from "@/lib/youtube-duration";
 import type { WatchCatalog, WatchItem } from "./types";
+import { isLiveWatchItem } from "./is-live-item";
 import { compactWatchCatalog, expandWatchCatalog, isCompactWatchCatalog } from "./catalog-cache";
 import {
   groupWatchItemsByPlatform,
@@ -510,7 +511,7 @@ async function buildWatchCatalog(): Promise<WatchCatalog> {
   const videos = all.filter(
     (item) =>
       !item.programming?.community &&
-      item.kind !== "live" &&
+      !isLiveWatchItem(item) &&
       item.kind !== "vod" &&
       item.format !== "photo" &&
       item.format !== "short" &&
@@ -521,7 +522,7 @@ async function buildWatchCatalog(): Promise<WatchCatalog> {
       if (it.programming?.community) return false;
       if (!it.publishedAt) return false;
       const age = Date.now() - new Date(it.publishedAt).getTime();
-      return it.kind !== "live" && age >= 0 && age < 30 * 86_400_000;
+      return !isLiveWatchItem(it) && age >= 0 && age < 30 * 86_400_000;
     })
     .slice(0, 64);
 

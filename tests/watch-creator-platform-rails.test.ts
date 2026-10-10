@@ -484,7 +484,8 @@ test("mounts curated rails on the member channel page with an X Community link a
   assert.match(component, /shouldUseOfficialEmbedFallback/);
   assert.match(posterCard, /watch-poster-art-fallback/);
   assert.match(posterCard, /fallback=\{posterFallback\}/);
-  assert.match(posterCard, /Preview unavailable/);
+  assert.match(posterCard, /SocialIcon platform=\{item\.platform\}/);
+  assert.match(posterCard, /Open video/);
   assert.match(component, /return rail\.items\.length === 0/);
   assert.match(component, /TikTokEmbedScriptLoader signature=\{tiktokEmbedSignature\}/);
   assert.match(component, /automatic feed is not available/);

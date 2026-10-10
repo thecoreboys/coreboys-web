@@ -12,6 +12,7 @@ import type { WatchMark } from "@/hooks/useWatchProgress";
 import { DRAG_SCROLL_START_EVENT, type DragScrollStartDetail } from "@/hooks/useDragScroll";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
+import { SocialIcon } from "@/components/ui/SocialIcon";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { shortFormPlatformLabel } from "@/lib/watch/short-form";
@@ -221,8 +222,12 @@ export function PosterCard({
   const posterFallback = ["instagram", "tiktok", "youtube"].includes(item.platform) ? (
     <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">
       <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
-      <span className="watch-poster-art-mark">{item.platform === "instagram" ? "◎" : item.platform === "tiktok" ? "♪" : "▶"}</span>
-      <span className="watch-poster-art-caption">Preview unavailable</span>
+      <span className="watch-poster-art-mark">
+        {item.platform === "tiktok" || item.platform === "instagram" || item.platform === "youtube"
+          ? <SocialIcon platform={item.platform} size={24} />
+          : null}
+      </span>
+      <span className="watch-poster-art-caption">Open video</span>
     </span>
   ) : undefined;
   const playable = isPhoto ? null : itemToPlayable(item);
@@ -252,7 +257,9 @@ export function PosterCard({
       warmTimer = window.setTimeout(() => {
         warmTimer = null;
         if (avoidsPreviewWarm(player.dataSaver)) return;
-        warmHoverStill(item, false);
+        // A small, bounded set of near-visible social covers gets high
+        // priority so the next card does not arrive as a black tile.
+        warmHoverStill(item, true);
         if (!avoidsMotionWarm(player.dataSaver, motionEnabled)) {
           preconnectHoverEmbed(item, moment?.seconds ?? positionSeconds);
         }
@@ -534,13 +541,10 @@ export function PosterCard({
               src={item.poster}
               focalPoint={item.focalPoint}
               fallback={posterFallback}
+              placeholder={posterFallback}
             />
           ) : (
-            <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">
-              <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
-              <span className="watch-poster-art-mark">{item.platform === "instagram" ? "◎" : item.platform === "tiktok" ? "♪" : "▶"}</span>
-              <span className="watch-poster-art-caption">Video preview</span>
-            </span>
+            posterFallback ?? <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true"><span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span><span className="watch-poster-art-caption">Open video</span></span>
           )}
         </button>
       ) : (
@@ -559,13 +563,10 @@ export function PosterCard({
               src={item.poster}
               focalPoint={item.focalPoint}
               fallback={posterFallback}
+              placeholder={posterFallback}
             />
           ) : (
-            <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">
-              <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
-              <span className="watch-poster-art-mark">{item.platform === "instagram" ? "◎" : item.platform === "tiktok" ? "♪" : "▶"}</span>
-              <span className="watch-poster-art-caption">Video preview</span>
-            </span>
+            posterFallback ?? <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true"><span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span><span className="watch-poster-art-caption">Open video</span></span>
           )}
         </Link>
       )}

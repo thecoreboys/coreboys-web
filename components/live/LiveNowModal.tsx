@@ -1,19 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Calendar, Eye, LayoutGrid01, Play, XClose } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import { MEMBERS } from "@/lib/members";
-import { networkLabel } from "@/lib/members-helpers";
 import type { LiveEntry } from "@/lib/twitch";
 import { cn } from "@/lib/utils";
 import { LiveDuration } from "@/components/watch/LiveAirtime";
 import type { UnifiedLiveEntry } from "@/lib/watch/live-snapshot";
+import { groupCrossPlatformLiveSources } from "@/lib/watch/live-source-groups";
 
 type YouTubeLiveEntry = UnifiedLiveEntry & {
   platform: "youtube";
   youtubeId: string;
+};
+
+type ModalLiveSource = {
+  key: string;
+  kind: "live";
+  platform: "twitch" | "youtube";
+  memberSlug: string | null;
+  memberLabel: string;
+  entry: LiveEntry | YouTubeLiveEntry;
+  member: (typeof MEMBERS)[number] | null;
 };
 
 function liveThumb(login: string, thumbnailUrl?: string) {
@@ -48,6 +59,74 @@ function youtubeLiveHref(entry: YouTubeLiveEntry): string {
   return `/theater?${params.toString()}`;
 }
 
+function LiveNowCard({ sources, onClose }: { sources: ModalLiveSource[]; onClose: () => void }) {
+  const [selectedKey, setSelectedKey] = useState(sources[0]?.key ?? "");
+  const source = sources.find((item) => item.key === selectedKey) ?? sources[0]!;
+  const isYoutube = source.platform === "youtube";
+  const twitchEntry = isYoutube ? null : source.entry as LiveEntry;
+  const youtubeEntry = isYoutube ? source.entry as YouTubeLiveEntry : null;
+  const title = source.entry.title || "On air";
+  const poster = youtubeEntry
+    ? youtubeThumb(youtubeEntry)
+    : liveThumb(twitchEntry!.login, twitchEntry!.thumbnailUrl);
+  const href = youtubeEntry
+    ? youtubeLiveHref(youtubeEntry)
+    : `/watch/live/${twitchEntry!.login}`;
+  const viewers = source.entry.viewerCount;
+  const startedAt = source.entry.startedAt;
+
+  return (
+    <li className="flex min-w-0 flex-col overflow-hidden rounded-xl bg-[color:var(--bg)] ring-1 ring-[color:var(--rule-strong)]">
+      <Link href={href as never} onClick={onClose} className="group relative block aspect-video overflow-hidden bg-black" aria-label={`Watch ${source.member?.stageName ?? source.memberLabel} live on ${isYoutube ? "YouTube" : "Twitch"}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={poster} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]" />
+        <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+        <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-[color:var(--live)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">Live</span>
+        {viewers != null ? (
+          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] tabular-nums text-white/90">
+            <Eye aria-hidden="true" className="size-3" /><span>{formatCount(viewers)}</span>
+          </span>
+        ) : null}
+        <span className="absolute bottom-2 right-2 rounded-lg border border-white/20 bg-black/75 px-3 py-1.5 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+          <Play aria-hidden="true" className="mr-1 inline size-3" fill="currentColor" />Watch {isYoutube ? "YouTube" : "Twitch"}
+        </span>
+      </Link>
+      <div className="flex min-w-0 flex-1 items-start gap-2.5 px-3 py-3">
+        <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-black text-[10px] font-bold text-white ring-1 ring-white/10">
+          {source.member ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={source.member.comm.logo} alt="" className="h-[78%] w-[78%] object-contain" style={{ imageRendering: "pixelated" }} />
+          ) : "YT"}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block break-words text-sm font-semibold tracking-tight text-[color:var(--ink)]">{source.member?.stageName ?? source.memberLabel}</span>
+          <span className="block text-[11px] text-[color:var(--ink-dim)]">{isYoutube ? "YouTube live" : `${source.member?.stageName ?? "Twitch"}${twitchEntry?.game ? ` · ${twitchEntry.game}` : ""}`}</span>
+          <span className="mt-1 block break-words text-[13px] leading-snug text-[color:var(--ink)]">{title}</span>
+          <LiveDuration startedAt={startedAt ?? undefined} className="mt-1.5 block text-[11px] tabular-nums text-[color:var(--ink-dim)]" />
+          {sources.length > 1 ? (
+            <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Choose a live source">
+              {sources.map((item) => {
+                const active = item.key === source.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setSelectedKey(item.key)}
+                    className={cn("min-h-8 rounded-full border px-3 text-xs font-semibold transition-colors", active ? "border-[color:var(--core)] bg-[color:var(--core)]/15 text-[color:var(--ink)]" : "border-[color:var(--rule-strong)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)]/60 hover:text-[color:var(--ink)]")}
+                  >
+                    {item.platform === "youtube" ? "YouTube" : "Twitch"}{item.entry.viewerCount != null ? ` · ${formatCount(item.entry.viewerCount)}` : ""}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </span>
+      </div>
+    </li>
+  );
+}
+
 export function LiveNowModal({
   entries,
   youtubeEntries = [],
@@ -59,18 +138,18 @@ export function LiveNowModal({
   combinedViewers: number;
   onClose: () => void;
 }) {
-  const rows = entries
-    .map((e) => {
-      const member = MEMBERS.find((m) => m.twitchLogin.toLowerCase() === e.login.toLowerCase());
-      return member ? { entry: e, member } : null;
-    })
-    .filter((x): x is NonNullable<typeof x> => Boolean(x));
-
-  const youtubeRows = youtubeEntries.map((entry) => ({
-    entry,
-    member: entry.memberSlug ? MEMBERS.find((m) => m.slug === entry.memberSlug) ?? null : null,
-  }));
-  const count = rows.length + youtubeRows.length;
+  const sources: ModalLiveSource[] = [
+    ...entries.flatMap((entry) => {
+      const member = MEMBERS.find((item) => item.twitchLogin.toLowerCase() === entry.login.toLowerCase());
+      return member ? [{ key: `twitch:${entry.login.toLowerCase()}`, kind: "live" as const, platform: "twitch" as const, memberSlug: member.slug, memberLabel: member.stageName, entry, member }] : [];
+    }),
+    ...youtubeEntries.map((entry) => {
+      const member = entry.memberSlug ? MEMBERS.find((item) => item.slug === entry.memberSlug) ?? null : null;
+      return { key: `youtube:${entry.id}`, kind: "live" as const, platform: "youtube" as const, memberSlug: entry.memberSlug, memberLabel: member?.stageName ?? "YouTube", entry, member };
+    }),
+  ];
+  const groups = groupCrossPlatformLiveSources(sources);
+  const count = groups.length;
   const wide = count >= 2;
   const many = count >= 3;
   const fourOrMore = count >= 4;
@@ -133,132 +212,7 @@ export function LiveNowModal({
                   : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
           )}
         >
-          {rows.map(({ entry, member }) => (
-            <li key={entry.login}>
-              <Link
-                href={`/watch/live/${entry.login}` as never}
-                onClick={onClose}
-                className="group flex h-full flex-col overflow-hidden rounded-xl bg-[color:var(--bg)] ring-1 ring-[color:var(--rule-strong)] transition hover:ring-[color:var(--core)]/50"
-              >
-                <span className="relative aspect-video overflow-hidden bg-black">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={liveThumb(entry.login, entry.thumbnailUrl)}
-                    alt=""
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
-                  />
-                  <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                  <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-[color:var(--live)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
-                    Live
-                  </span>
-                  {entry.viewerCount != null ? (
-                    <span
-                      aria-label={`${entry.viewerCount.toLocaleString("en-US")} viewers`}
-                      className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] tabular-nums text-white/90"
-                    >
-                      <Eye aria-hidden="true" className="size-3" />
-                      <span aria-hidden="true">{formatCount(entry.viewerCount)}</span>
-                    </span>
-                  ) : null}
-                  <span
-                    aria-hidden
-                    className="absolute left-1/2 top-1/2 inline-flex min-h-9 -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-lg border border-white/20 bg-black/70 px-3 text-[11px] font-semibold text-white opacity-0 shadow-[0_8px_28px_rgba(0,0,0,.42)] backdrop-blur-md transition-[opacity,background-color,border-color] duration-150 group-hover:border-white/35 group-hover:bg-black/80 group-hover:opacity-100 group-focus-visible:border-white/40 group-focus-visible:opacity-100 motion-reduce:transition-none"
-                  >
-                    <Play className="size-3.5" fill="currentColor" />
-                    Watch live
-                  </span>
-                </span>
-                <span className="flex items-start gap-2.5 px-3 py-3">
-                  <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-black ring-1 ring-white/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={member.comm.logo}
-                      alt=""
-                      className="h-[78%] w-[78%] object-contain"
-                      style={{ imageRendering: "pixelated" }}
-                    />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block break-words text-sm font-semibold tracking-tight text-[color:var(--ink)]">
-                      {networkLabel(member.comm.name)}
-                    </span>
-                    <span className="block break-words text-[11px] text-[color:var(--ink-dim)]">
-                      {member.stageName}
-                      {entry.game ? ` · ${entry.game}` : ""}
-                    </span>
-                    <span className="mt-1 block break-words text-[13px] leading-snug text-[color:var(--ink)]">
-                      {entry.title || "On air"}
-                    </span>
-                    <LiveDuration
-                      startedAt={entry.startedAt}
-                      className="mt-1.5 block text-[11px] tabular-nums text-[color:var(--ink-dim)]"
-                    />
-                  </span>
-                </span>
-              </Link>
-            </li>
-          ))}
-          {youtubeRows.map(({ entry, member }) => (
-            <li key={`youtube:${entry.id}`}>
-              <Link
-                href={youtubeLiveHref(entry) as never}
-                onClick={onClose}
-                className="group flex h-full flex-col overflow-hidden rounded-xl bg-[color:var(--bg)] ring-1 ring-[color:var(--rule-strong)] transition hover:ring-[color:var(--core)]/50"
-              >
-                <span className="relative aspect-video overflow-hidden bg-black">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={youtubeThumb(entry)}
-                    alt=""
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
-                  />
-                  <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                  <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-[color:var(--live)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
-                    Live
-                  </span>
-                  {entry.viewerCount != null ? (
-                    <span
-                      aria-label={`${entry.viewerCount.toLocaleString("en-US")} viewers`}
-                      className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] tabular-nums text-white/90"
-                    >
-                      <Eye aria-hidden="true" className="size-3" />
-                      <span aria-hidden="true">{formatCount(entry.viewerCount)}</span>
-                    </span>
-                  ) : null}
-                  <span
-                    aria-hidden
-                    className="absolute left-1/2 top-1/2 inline-flex min-h-9 -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-lg border border-white/20 bg-black/70 px-3 text-[11px] font-semibold text-white opacity-0 shadow-[0_8px_28px_rgba(0,0,0,.42)] backdrop-blur-md transition-[opacity,background-color,border-color] duration-150 group-hover:border-white/35 group-hover:bg-black/80 group-hover:opacity-100 group-focus-visible:border-white/40 group-focus-visible:opacity-100 motion-reduce:transition-none"
-                  >
-                    <Play className="size-3.5" fill="currentColor" />
-                    Watch live
-                  </span>
-                </span>
-                <span className="flex items-start gap-2.5 px-3 py-3">
-                  <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-black text-[10px] font-bold text-white ring-1 ring-white/10">
-                    {member ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={member.comm.logo} alt="" className="h-[78%] w-[78%] object-contain" style={{ imageRendering: "pixelated" }} />
-                    ) : "YT"}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block break-words text-sm font-semibold tracking-tight text-[color:var(--ink)]">
-                      {member?.stageName ?? "YouTube"}
-                    </span>
-                    <span className="block break-words text-[11px] text-[color:var(--ink-dim)]">
-                      YouTube live
-                    </span>
-                    <span className="mt-1 block break-words text-[13px] leading-snug text-[color:var(--ink)]">
-                      {entry.title || "On air"}
-                    </span>
-                    <LiveDuration
-                      startedAt={entry.startedAt}
-                      className="mt-1.5 block text-[11px] tabular-nums text-[color:var(--ink-dim)]"
-                    />
-                  </span>
-                </span>
-              </Link>
-            </li>
-          ))}
+          {groups.map((group) => <LiveNowCard key={group.key} sources={group.sources} onClose={onClose} />)}
         </ul>
 
         <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-[color:var(--rule)] bg-[color:var(--bg)] p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] md:px-4">

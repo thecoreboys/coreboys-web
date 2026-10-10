@@ -2127,15 +2127,69 @@
 .watch-poster-art-fallback::after { top: 69%; }
 
 .watch-poster-art-fallback.is-tiktok {
-  background:
-    radial-gradient(ellipse at 50% 38%, rgba(37, 244, 238, .16), transparent 46%),
-    linear-gradient(150deg, #17282a, #111116 68%);
+  background: #101215;
+}
+
+.watch-poster-art-fallback.is-tiktok::before,
+.watch-poster-art-fallback.is-tiktok::after {
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform: none;
+}
+
+.watch-poster-art-fallback.is-tiktok::before {
+  left: 0;
+  background: #25f4ee;
+}
+
+.watch-poster-art-fallback.is-tiktok::after {
+  right: 0;
+  background: #fe2c55;
+}
+
+.watch-poster-art-fallback.is-tiktok .watch-poster-art-mark {
+  border-color: rgba(255, 255, 255, .18);
+  background: #08090a;
+  color: #fff;
+  filter: drop-shadow(-2px 0 #25f4ee) drop-shadow(2px 0 #fe2c55);
 }
 
 .watch-poster-art-fallback.is-instagram {
-  background:
-    radial-gradient(ellipse at 50% 38%, rgba(221, 42, 123, .2), transparent 48%),
-    linear-gradient(150deg, #2b1c2a, #111116 70%);
+  background: linear-gradient(145deg, #515bd4 0%, #833ab4 36%, #c13584 68%, #f77737 100%);
+}
+
+.watch-poster-art-fallback.is-instagram::before,
+.watch-poster-art-fallback.is-instagram::after {
+  display: none;
+}
+
+.watch-poster-art-fallback.is-instagram .watch-poster-art-mark {
+  width: 2.6rem;
+  border-color: rgba(255, 255, 255, .62);
+  background: rgba(18, 18, 18, .22);
+  box-shadow: 0 8px 24px rgba(34, 10, 45, .24);
+}
+
+.watch-thumb-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.watch-thumb-shell > .watch-thumb-placeholder {
+  position: absolute;
+  inset: 0;
+}
+
+.watch-thumb-shell > img {
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.watch-thumb-shell > img.is-loaded {
+  opacity: 1;
 }
 
 .watch-poster-art-platform,
