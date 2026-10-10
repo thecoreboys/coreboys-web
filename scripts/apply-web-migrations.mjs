@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { applyMigrationTransaction } from "./migration-transaction.mjs";
 
 const { Client } = pg;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -102,15 +103,10 @@ async function main() {
   try {
     for (const name of migrations) {
       const sql = readFileSync(resolve(repoRoot, "scripts", "migrations", name), "utf8");
-      await client.query("BEGIN");
-      try {
-        await client.query(sql);
-        await client.query("COMMIT");
-        console.log(`Applied ${name}`);
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      }
+      await applyMigrationTransaction(client, name, sql, {
+        onRetry: ({ attempt, delayMs, code }) => console.warn(`Retrying ${name} after PostgreSQL ${code} (attempt ${attempt + 1}, wait ${delayMs}ms).`),
+      });
+      console.log(`Applied ${name}`);
     }
   } finally {
     await client.end();
