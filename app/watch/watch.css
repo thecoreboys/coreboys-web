@@ -8517,3 +8517,23 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
 .watch-dvr-gate__secondary { border:1px solid var(--rule-strong); color:var(--ink-dim); }
 .watch-dvr-gate__secondary:hover,.watch-dvr-gate__secondary:focus-visible { border-color:var(--ink-dim); color:var(--ink); }
 @media (max-width:700px) { .watch-dvr-gate { padding-top:3rem; }.watch-dvr-gate__shell { grid-template-columns:1fr; gap:2rem; }.watch-dvr-gate__actions { align-self:auto; }.watch-dvr-gate__primary,.watch-dvr-gate__secondary { flex:1; } }
+
+/* Player settings should stay inside the viewport when opened from a narrow
+   embedded player, where the player itself may be much narrower than the page. */
+@media (max-width:640px) {
+  [data-player-settings] {
+    position:fixed !important;
+    inset-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
+    bottom: max(12px, calc(var(--now-playing-h, 0px) + 12px));
+    width:auto !important;
+    max-width:none;
+    max-height:calc(100dvh - max(24px, var(--now-playing-h, 0px) + 24px));
+  }
+}
+
+/* A little extra overscan on hovered artwork hides stray source-frame edges
+   without changing how cards look at rest. */
+.watch-poster:hover > .watch-poster-link img,
+.watch-poster:focus-within > .watch-poster-link img {
+  transform:scale(1.09);
+}
