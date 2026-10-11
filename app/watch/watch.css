@@ -2171,6 +2171,59 @@
   box-shadow: 0 8px 24px rgba(34, 10, 45, .24);
 }
 
+/* Social stills can expire at the provider CDN. While they load (or if one is
+   gone), use the creator's own portrait as quiet editorial artwork instead of
+   showing a repeated oversized platform splash beneath the card title. */
+.watch-poster-art-fallback.has-member-art {
+  isolation: isolate;
+  gap: .45rem;
+  background: #141419;
+}
+
+.watch-poster-art-fallback.has-member-art::before,
+.watch-poster-art-fallback.has-member-art::after {
+  z-index: -1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  transform: none;
+}
+
+.watch-poster-art-fallback.has-member-art::before {
+  background: linear-gradient(180deg, rgba(8, 8, 10, .05) 10%, rgba(8, 8, 10, .2) 44%, rgba(8, 8, 10, .94) 100%);
+}
+
+.watch-poster-art-fallback.has-member-art::after {
+  background: linear-gradient(115deg, rgba(8, 8, 10, .2), transparent 56%);
+}
+
+.watch-poster-art-portrait {
+  position: absolute;
+  z-index: -2;
+  inset: -5%;
+  width: 110%;
+  height: 110%;
+  object-fit: cover;
+  object-position: center 35%;
+  filter: blur(2px) saturate(.78) brightness(.68);
+  transform: scale(1.02);
+}
+
+.watch-poster-art-fallback.has-member-art .watch-poster-art-platform {
+  background: rgba(8, 8, 10, .62);
+  color: #fff;
+  backdrop-filter: blur(8px);
+}
+
+.watch-poster-art-fallback.has-member-art.is-tiktok .watch-poster-art-mark,
+.watch-poster-art-fallback.has-member-art.is-instagram .watch-poster-art-mark {
+  width: 2rem;
+  border-color: rgba(255, 255, 255, .44);
+  background: rgba(8, 8, 10, .4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .24);
+}
+
 .watch-thumb-shell {
   position: relative;
   overflow: hidden;
@@ -3333,8 +3386,10 @@ body:has(.watch-os) .grain-host {
 }
 
 .watch-billboard .watch-title.is-extra-long {
-  font-size: clamp(1.85rem, 3.45vw, 3rem);
-  line-height: 1.02;
+  max-width: 43rem;
+  font-size: clamp(1.65rem, 2.7vw, 2.45rem);
+  line-height: 1.06;
+  -webkit-line-clamp: 4;
 }
 
 .watch-billboard-kicker {
@@ -3386,6 +3441,56 @@ body:has(.watch-os) .grain-host {
 
 .watch-content-rails {
   background: linear-gradient(180deg, #070709 0%, #09090b 45%, #070709 100%);
+}
+
+/* Watch surfaces are deliberately dark in the default theme. In light mode,
+   let the page and its content shelves follow the shared surface tokens so
+   headings never inherit near-black ink on a near-black rail. */
+html[data-theme="light"] .watch-os {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+html[data-theme="light"] .watch-content-rails {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+html[data-theme="light"] .watch-content-rails .watch-shelf-title,
+html[data-theme="light"] .watch-content-rails .watch-library-disclosure h2 {
+  color: var(--ink) !important;
+}
+
+html[data-theme="light"] .watch-billboard-kicker {
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+  text-shadow: 0 1px 8px rgba(255, 255, 255, .65);
+}
+
+html[data-theme="light"] .watch-content-rails .watch-library-disclosure {
+  border-color: var(--rule);
+}
+
+html[data-theme="light"] .watch-content-rails .watch-library-disclosure p:not(.watch-library-disclosure__eyebrow) {
+  color: var(--ink-dim);
+}
+
+html[data-theme="light"] .watch-content-rails .watch-library-disclosure__button {
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+html[data-theme="light"] .watch-content-rails .watch-library-disclosure__button:hover,
+html[data-theme="light"] .watch-content-rails .watch-library-disclosure__button:focus-visible {
+  background: var(--surface);
+}
+
+html[data-theme="light"] .watch-status-strip {
+  border-bottom-color: var(--rule) !important;
+  background: var(--bg-elev) !important;
+}
+
+html[data-theme="light"] .watch-status-strip .watch-status-inner > p {
+  color: var(--ink-dim);
 }
 
 .watch-library-disclosure {
@@ -4263,6 +4368,10 @@ html[data-watch-density="theater"] .watch-poster.format-short { width: min(11rem
 .watch-shelf-section {
   position: relative;
   scroll-margin-top: 7rem;
+  /* Long home/channel pages contain many image-heavy rails. Skip layout and
+     paint for distant shelves until scrolling brings them near the viewport. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 24rem;
 }
 
 .watch-shelf-heading {
@@ -7167,6 +7276,15 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   flex: 0 0 auto;
 }
 
+/* WatchSelect popovers render in a portal, outside the player's dark token scope. */
+.watch-select-popover [slot="label"] {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.watch-select-popover [slot="description"] {
+  color: rgba(255, 255, 255, 0.58) !important;
+}
+
 @media (max-width: 760px) {
   .watch-player-frame-shell.is-guide-vod {
     display: block;
@@ -7332,7 +7450,7 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   z-index: 39;
   display: flex;
   align-items: center;
-  gap: 0.38rem;
+  gap: 0.5rem;
   padding: 0.42rem;
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 0.85rem;
@@ -8476,13 +8594,15 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
 .watch-together button,.watch-together a,.watch-together input { pointer-events: auto; }
 .watch-together__trigger {
   display: flex;
+  position: relative;
+  width: 3.25rem;
   min-height: 3.25rem;
-  max-width: 20rem;
+  justify-content: center;
   align-items: center;
-  gap: .7rem;
+  gap: 0;
   border: 1px solid rgba(255,255,255,.15);
   border-radius: 1rem;
-  padding: .48rem .65rem .48rem .5rem;
+  padding: .48rem;
   background: linear-gradient(145deg,rgba(23,20,30,.9),rgba(8,8,12,.92));
   box-shadow: inset 0 1px rgba(255,255,255,.1),0 .8rem 2rem rgba(0,0,0,.42),0 0 1.6rem rgba(229,0,111,.12);
   backdrop-filter: blur(22px) saturate(1.35);
@@ -8491,14 +8611,14 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   transition: transform 180ms ease,border-color 180ms ease,box-shadow 180ms ease;
 }
 .watch-together__trigger:hover,.watch-together__trigger:focus-visible,.watch-together[data-open="true"] .watch-together__trigger { transform: translateY(-2px); border-color: rgba(255,116,181,.42); box-shadow: inset 0 1px rgba(255,255,255,.14),0 1rem 2.4rem rgba(0,0,0,.5),0 0 2rem rgba(229,0,111,.22); }
-.watch-together__trigger > span:nth-child(2) { min-width: 0; display: grid; flex: 1; }
+.watch-together__trigger > span:nth-child(2) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .watch-together__trigger strong { overflow: hidden; color: rgba(255,255,255,.94); font-size: .72rem; font-weight: 750; letter-spacing: -.015em; text-overflow: ellipsis; white-space: nowrap; }
 .watch-together__trigger small { margin-top: .12rem; color: rgba(255,255,255,.43); font-size: .58rem; font-weight: 600; }
-.watch-together__trigger > b { display: grid; min-width: 1.45rem; height: 1.45rem; place-items: center; border-radius: 999px; background: rgba(255,63,150,.13); color: #ff9fc9; font-size: .6rem; box-shadow: inset 0 0 0 1px rgba(255,116,181,.2); }
+.watch-together__trigger > b { position: absolute; top: -.2rem; right: -.2rem; display: grid; min-width: 1.15rem; height: 1.15rem; place-items: center; border-radius: 999px; background: #e90070; color: #fff; font-size: .55rem; box-shadow: 0 0 0 2px #100d13; }
 .watch-together__signal { position: relative; display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 2.25rem; place-items: center; border-radius: .75rem; background: radial-gradient(circle at 35% 28%,rgba(255,151,204,.32),rgba(229,0,111,.14) 44%,rgba(255,255,255,.035)); color: #ffabd0; box-shadow: inset 0 1px rgba(255,255,255,.14),0 0 1.2rem rgba(229,0,111,.2); }
 .watch-together__signal svg { width: .95rem; height: .95rem; }
 .watch-together__signal::after { content:""; position:absolute; inset:.35rem; border:1px solid rgba(255,121,185,.38); border-radius:.55rem; animation:watch-room-signal 2.4s ease-out infinite; }
-.watch-together__panel { position: relative; isolation: isolate; width: 100%; overflow: hidden; border: 1px solid rgba(255,255,255,.15); border-radius: 1.25rem; background: linear-gradient(145deg,rgba(24,21,30,.95),rgba(8,8,12,.96)); box-shadow: inset 0 1px rgba(255,255,255,.12),inset 0 0 2.5rem rgba(229,0,111,.055),0 1.5rem 4rem rgba(0,0,0,.64),0 0 2.5rem rgba(229,0,111,.14); backdrop-filter:blur(30px) saturate(1.45); -webkit-backdrop-filter:blur(30px) saturate(1.45); pointer-events:auto; animation:watch-room-panel-in 260ms cubic-bezier(.16,1,.3,1) both; }
+.watch-together__panel { position: relative; isolation: isolate; width: 100%; max-height: min(34rem,calc(100dvh - var(--now-playing-h,0px) - 5rem)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border: 1px solid rgba(255,255,255,.15); border-radius: 1.25rem; background: linear-gradient(145deg,rgba(24,21,30,.95),rgba(8,8,12,.96)); box-shadow: inset 0 1px rgba(255,255,255,.12),inset 0 0 2.5rem rgba(229,0,111,.055),0 1.5rem 4rem rgba(0,0,0,.64),0 0 2.5rem rgba(229,0,111,.14); backdrop-filter:blur(30px) saturate(1.45); -webkit-backdrop-filter:blur(30px) saturate(1.45); pointer-events:auto; animation:watch-room-panel-in 260ms cubic-bezier(.16,1,.3,1) both; }
 .watch-together__panel::before { content:""; position:absolute; z-index:-1; inset:-45% 35% 45% -20%; border-radius:999px; background:radial-gradient(circle,rgba(229,0,111,.25),transparent 70%); filter:blur(18px); }
 .watch-together__panel > header { display:flex; min-height:3.4rem; align-items:center; justify-content:space-between; gap:1rem; border-bottom:1px solid rgba(255,255,255,.08); padding:.7rem .8rem; }
 .watch-together__panel > header > span { display:flex; align-items:center; gap:.5rem; color:rgba(255,255,255,.86); font-size:.68rem; }
@@ -8530,7 +8650,7 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
 .watch-together__error { margin:0 .8rem .8rem;border:1px solid rgba(251,113,133,.2);border-radius:.7rem;padding:.55rem .65rem;background:rgba(190,24,93,.09);color:#fda4af;font-size:.58rem;line-height:1.45; }
 @keyframes watch-room-panel-in { from { opacity:0; transform:translateY(.75rem) scale(.975); } to { opacity:1; transform:translateY(0) scale(1); } }
 @keyframes watch-room-signal { 0% { opacity:.7;transform:scale(.72); } 75%,100% { opacity:0;transform:scale(1.45); } }
-@media (max-width:640px) { .watch-together { right:.75rem;bottom:calc(var(--now-playing-h,0px) + .75rem); }.watch-together__panel { max-height:min(34rem,calc(100dvh - 7rem));overflow-y:auto; }.watch-together__trigger { max-width:16rem; } }
+@media (max-width:640px) { .watch-together { right:.75rem;bottom:calc(var(--now-playing-h,0px) + .75rem); }.watch-together__panel { max-height:min(34rem,calc(100dvh - var(--now-playing-h,0px) - 5rem)); } }
 @media (prefers-reduced-motion:reduce) { .watch-together__panel,.watch-together__signal::after { animation:none; } }
 
 /* Keep the DVR focused and product-like instead of cinematic. */
@@ -8578,11 +8698,13 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   [data-player-settings] {
     position:fixed !important;
     inset-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
-    bottom: max(12px, calc(var(--now-playing-h, 0px) + 12px));
+    bottom: max(4.75rem, calc(var(--now-playing-h, 0px) + 4.75rem));
     width:auto !important;
     max-width:none;
-    max-height:calc(100dvh - max(24px, var(--now-playing-h, 0px) + 24px));
+    max-height:calc(100dvh - max(5.5rem, var(--now-playing-h, 0px) + 5.5rem)) !important;
   }
+
+  .watch-player-custom-controls { gap: 0.24rem; }
 }
 
 /* A little extra overscan on hovered artwork hides stray source-frame edges

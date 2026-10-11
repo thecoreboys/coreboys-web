@@ -36,7 +36,7 @@ export function WatchSelect({
       className={`w-full gap-0 ${
         compact ? "[&_button]:min-h-9" : "[&_button]:min-h-11"
       } [&_button]:rounded-xl [&_button]:bg-white/10 [&_button]:shadow-none [&_button]:ring-white/20 [&_button]:transition-[background-color,box-shadow,transform] [&_button]:duration-100 [&_button:hover]:bg-white/[0.14] [&_button:active]:scale-[0.99] [&_button_p]:text-xs [&_button_p]:font-semibold [&_button_p]:text-white [&_button_svg]:text-white/55 ${className}`}
-      popoverClassName={`z-[120] rounded-xl bg-[#151519] py-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.58)] ring-white/15 ${popoverClassName}`}
+      popoverClassName={`watch-select-popover z-[120] rounded-xl bg-[#151519] py-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.58)] ring-white/15 ${popoverClassName}`}
     >
       {(item) => (
         <UntitledSelect.Item

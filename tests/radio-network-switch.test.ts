@@ -38,6 +38,13 @@ test("station tune audio uses the shared DJ Cora director lifecycle", () => {
   assert.match(director, /replacesStationTune/);
 });
 
+test("DJ Cora resumes and routes the audio meter before awaiting browser playback", () => {
+  const start = director.slice(director.indexOf("const start = async ("));
+  assert.ok(start.indexOf("startVoiceMeter(playback)") < start.indexOf("await audio.play()"));
+  assert.match(start, /await audio\.play\(\);[\s\S]*?stopVoiceMeter\(playback\)/);
+  assert.match(director, /void context\.resume\(\)\.catch\(\(\) => undefined\)/);
+});
+
 test("network dial navigation starts immediately and channel routes expose a lightweight loading shell", () => {
   assert.match(transition, /router\.push\(href as Route\);/);
   assert.doesNotMatch(transition, /setTimeout\(\(\) =>\s*\{\s*router\.push/);

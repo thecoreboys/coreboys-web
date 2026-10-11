@@ -13,6 +13,7 @@ import { DRAG_SCROLL_START_EVENT, type DragScrollStartDetail } from "@/hooks/use
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { SocialIcon } from "@/components/ui/SocialIcon";
+import { MEMBERS_BY_SLUG } from "@/lib/members";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { shortFormPlatformLabel } from "@/lib/watch/short-form";
@@ -219,15 +220,19 @@ export function PosterCard({
   const isExternalPost = item.kind === "post";
   const live = item.kind === "live" || item.format === "live";
   const shortSourceLabel = shortFormPlatformLabel(item);
+  const memberPortrait = item.memberSlug ? MEMBERS_BY_SLUG[item.memberSlug]?.portrait : undefined;
   const posterFallback = ["instagram", "tiktok", "youtube"].includes(item.platform) ? (
-    <span className={`watch-poster-art-fallback is-${item.platform}`} aria-hidden="true">
+    <span className={`watch-poster-art-fallback is-${item.platform}${memberPortrait ? " has-member-art" : ""}`} aria-hidden="true">
+      {memberPortrait ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="watch-poster-art-portrait" src={memberPortrait} alt="" loading="lazy" decoding="async" />
+      ) : null}
       <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
       <span className="watch-poster-art-mark">
         {item.platform === "tiktok" || item.platform === "instagram" || item.platform === "youtube"
           ? <SocialIcon platform={item.platform} size={24} />
           : null}
       </span>
-      <span className="watch-poster-art-caption">Open video</span>
     </span>
   ) : undefined;
   const playable = isPhoto ? null : itemToPlayable(item);

@@ -49,6 +49,7 @@ export type ChatDockProps = {
   showComposer?: boolean;
   focusedHeaderActions?: ReactNode;
   nameplate?: string | null;
+  themeOverride?: "dark" | "light";
   className?: string;
 };
 
@@ -146,6 +147,7 @@ function ChatDockContent({
   showComposer = true,
   focusedHeaderActions,
   nameplate,
+  themeOverride,
   className = "",
 }: Omit<ChatDockProps, "maxConnected" | "paused"> & {
   connectedChannels: ChatSessionChannel[];
@@ -357,7 +359,11 @@ function ChatDockContent({
   const gridColumns = separateColumnCount >= 3 ? "grid-cols-3" : separateColumnCount === 2 ? "grid-cols-2" : "grid-cols-1";
 
   return (
-    <div ref={dockRef} className={`flex min-h-0 flex-col gap-3 ${className}`}>
+    <div
+      ref={dockRef}
+      className={`flex min-h-0 flex-col gap-3 ${themeOverride === "dark" ? "dark-mode" : ""} ${className}`}
+      style={themeOverride ? { colorScheme: themeOverride } : undefined}
+    >
       {showToolbar ? (
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
           <div data-cursor-context="chat view" className="inline-flex rounded-lg bg-secondary p-0.5 ring-1 ring-inset ring-secondary" aria-label="Chat view">
@@ -515,6 +521,7 @@ function ChatDockContent({
             viewerLogin={viewerLogin}
             viewerIdentity={chatIdentity}
             passportIdentities={publicIdentities}
+            themeOverride={themeOverride}
             className="h-full"
           />
         ) : selectedMode === "focused" ? (
@@ -530,6 +537,7 @@ function ChatDockContent({
             viewerLogin={viewerLogin}
             viewerIdentity={chatIdentity}
             passportIdentities={publicIdentities}
+            themeOverride={themeOverride}
             className="h-full"
             headerActions={focusedHeaderActions}
           />
@@ -546,6 +554,7 @@ function ChatDockContent({
             viewerLogin={viewerLogin}
             viewerIdentity={chatIdentity}
             passportIdentities={publicIdentities}
+            themeOverride={themeOverride}
             className="h-full"
             headerActions={separateTabChannel ? (
               <span className="flex items-center gap-0.5">
@@ -595,6 +604,7 @@ function ChatDockContent({
                     viewerLogin={viewerLogin}
                     viewerIdentity={chatIdentity}
                     passportIdentities={publicIdentities}
+                    themeOverride={themeOverride}
                     className="h-full"
                     headerActions={
                       <span className="flex items-center gap-0.5">

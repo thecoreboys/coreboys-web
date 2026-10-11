@@ -29,6 +29,22 @@ test("Twitch muted autoplay keeps recovering after provider pauses without a ret
   assert.doesNotMatch(player, /blockedFallbackTimer/);
 });
 
+test("Twitch Play waits for provider confirmation and carries clicks through SDK startup", () => {
+  const intentHandler = player.slice(player.indexOf('const setPlaybackIntent = useCallback'));
+  assert.ok(intentHandler.indexOf('current?.platform === "twitch"') < intentHandler.indexOf("current?.youtubeId"));
+  assert.match(player, /twitchPlayPendingRef\.current = shouldPlay && !twitch/);
+  assert.match(player, /if \(twitchPlayPendingRef\.current\)[\s\S]{0,240}instance\.setMuted\?\.\(true\)[\s\S]{0,100}instance\.play\?\.\(\)/);
+  assert.match(player, /if \(shouldPlay\) \{[\s\S]{0,180}twitch\.setMuted\?\.\(true\)[\s\S]{0,100}twitch\.play\?\.\(\)/);
+  assert.doesNotMatch(player, /playingRef\.current = shouldPlay;\s*setIsPlaying\(shouldPlay\);\s*if \(shouldPlay\) twitch\.play/);
+});
+
+test("Twitch live details prefer the current stream snapshot, title, and polished platform label", () => {
+  assert.match(player, /live\?\.live\.find\(\(entry\) => entry\.isLive && entry\.login\.toLowerCase\(\) === current\.twitchLogin\?\.toLowerCase\(\)\)/);
+  assert.match(player, /const detailPoster = detailSnapshot \?\? current\.poster/);
+  assert.match(player, /const detailTitle = currentTwitchLive\?\.title\?\.trim\(\) \|\| current\.title/);
+  assert.match(player, /· \{formatDisplayLabel\(current\.platform\)\} ·/);
+});
+
 test("the live timeline starts at 100 percent and switches into the growing archive", () => {
   assert.match(player, /data-player-live-edge/);
   assert.match(player, /liveDvrProgressPercent/);

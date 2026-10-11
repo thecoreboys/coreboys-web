@@ -676,5 +676,5 @@ test("backfill operational state never changes public saved-feed or official-emb
   assert.match(embeds, /tiktokCreatorEmbed\(rail\.handle\)/);
   assert.match(embeds, /instagramPublicEmbeds\(/);
   assert.match(embeds, /TIKTOK_EMBED_SCRIPT_SRC/);
-  assert.match(embeds, /INSTAGRAM_EMBED_SCRIPT_SRC/);
+  assert.doesNotMatch(embeds, /INSTAGRAM_EMBED_SCRIPT_SRC/);
 });

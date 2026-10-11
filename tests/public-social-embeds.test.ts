@@ -90,7 +90,7 @@ test("uses only explicit Watch Programming Instagram picks as post embed configu
   assert.deepEqual(urls, ["https://www.instagram.com/p/CONFIGURED_1/"]);
 });
 
-test("renders official embed.js markup and honest notification limitations", () => {
+test("keeps TikTok embeds and routes Instagram fallback posts to their originals", () => {
   const component = readFileSync(
     resolve(process.cwd(), "components/watch/OfficialSocialEmbedFallback.tsx"),
     "utf8",
@@ -98,14 +98,10 @@ test("renders official embed.js markup and honest notification limitations", () 
   assert.match(component, /data-embed-type="creator"/);
   assert.match(component, /data-embed-from="oembed"/);
   assert.match(component, /TIKTOK_EMBED_SCRIPT_SRC/);
-  assert.match(component, /data-instgrm-permalink=\{embed\.permalink\}/);
-  assert.match(component, /INSTAGRAM_EMBED_SCRIPT_SRC/);
-  assert.match(component, /instgrm\?\.Embeds\?\.process/);
-  assert.match(component, /up to 10 recent public videos/);
-  assert.match(component, /profile embed is the live public fallback/);
-  assert.match(component, /monitor indexes individual posts and Reels/);
-  assert.match(component, /This public profile view updates from the platform/);
-  assert.match(component, /Creator alerts use CORE&apos;s public-feed monitor when available/);
+  assert.match(component, /instagramLinkCard/);
+  assert.match(component, /Open original on Instagram/);
+  assert.doesNotMatch(component, /INSTAGRAM_EMBED_SCRIPT_SRC|data-instgrm-permalink|instgrm\?\.Embeds/);
+  assert.match(component, /Instagram sometimes removes or restricts public posts/);
   assert.match(component, /document\.createElement\("script"\)/);
   assert.match(component, /script\.src = TIKTOK_EMBED_SCRIPT_SRC/);
   assert.match(component, /coreTikTokCreatorEmbeds = signature/);

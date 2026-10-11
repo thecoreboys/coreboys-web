@@ -7,7 +7,7 @@ import type { Route } from "next";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Award,
   Bookmark,
@@ -63,6 +63,7 @@ function isYouTubeLiveEntry(entry: UnifiedLiveEntry): entry is UnifiedLiveEntry 
  */
 export function TopNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const watchSearchAvailable = !pathname.startsWith("/admin")
     && pathname !== "/login"
@@ -79,6 +80,7 @@ export function TopNav() {
   // and createPortal can quietly resolve into a containing-block-bound
   // ancestor instead of body. This guarantees a post-hydration mount.
   const [mounted, setMounted] = useState(false);
+  const prefetchedRoutes = useRef(new Set<string>());
   useEffect(() => setMounted(true), []);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const accountDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -113,6 +115,14 @@ export function TopNav() {
     : supporterControls
       ? `Support the CORE website from ${supporterPriceLabel(supporterControls.minimumAmountCents)} per month`
       : "Explore CORE website membership";
+
+  const prefetchOnIntent = (href: string) => {
+    if (prefetchedRoutes.current.has(href)) return;
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+    prefetchedRoutes.current.add(href);
+    router.prefetch(href as never);
+  };
 
   const openAuth = (mode: "login" | "signup" = "login") => {
     openAuthModal({ mode, next: `${pathname}${searchParams.size ? `?${searchParams}` : ""}` });
@@ -203,6 +213,7 @@ export function TopNav() {
         <nav className="hidden items-center justify-center gap-0.5 lg:flex">
           <NavLink
             href="/"
+            onIntent={() => prefetchOnIntent("/")}
             primary
             active={pathname === "/" || pathname.startsWith("/watch") || pathname.startsWith("/theater")}
           >
@@ -211,15 +222,16 @@ export function TopNav() {
           <span aria-hidden className="mx-1 h-4 w-px bg-[color:var(--rule)]" />
           <NavLink
             href={"/channels/core?mode=continuous" as never}
+            onIntent={() => prefetchOnIntent("/channels/core?mode=continuous")}
             primary
             active={pathname === "/channels/core" && (searchParams.get("mode") === "continuous" || !searchParams.get("mode"))}
           >
             24/7
           </NavLink>
-          <NavLink href="/shorts" primary active={pathname.startsWith("/shorts")}>
+          <NavLink href="/shorts" onIntent={() => prefetchOnIntent("/shorts")} primary active={pathname.startsWith("/shorts")}>
             Shorts
           </NavLink>
-          <NavLink href="/guide" primary active={pathname === "/guide"}>
+          <NavLink href="/guide" onIntent={() => prefetchOnIntent("/guide")} primary active={pathname === "/guide"}>
             Guide
           </NavLink>
           <span aria-hidden className="mx-1 h-4 w-px bg-[color:var(--rule)]" />
@@ -273,6 +285,8 @@ export function TopNav() {
                       <li key={network.slug}>
                         <Link
                           href={`/channels/${network.slug}` as `/channels/${string}`}
+                          onPointerEnter={() => prefetchOnIntent(`/channels/${network.slug}`)}
+                          onFocus={() => prefetchOnIntent(`/channels/${network.slug}`)}
                           data-accent={network.accent}
                           data-cursor-community={network.slug}
                           onClick={() => setMembersOpen(false)}
@@ -559,6 +573,8 @@ export function TopNav() {
                   <li key={network.slug}>
                     <Link
                       href={`/channels/${network.slug}` as `/channels/${string}`}
+                      onPointerEnter={() => prefetchOnIntent(`/channels/${network.slug}`)}
+                      onFocus={() => prefetchOnIntent(`/channels/${network.slug}`)}
                       data-cursor-community={network.slug}
                       onClick={() => setOpen(false)}
                       className="group relative flex min-h-[6.5rem] items-end overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black p-2.5 cursor-pointer transition-colors hover:border-[color:var(--rule-strong)]"
@@ -589,6 +605,8 @@ export function TopNav() {
                 <Link
                   key={href}
                   href={href as never}
+                  onPointerEnter={() => prefetchOnIntent(href)}
+                  onFocus={() => prefetchOnIntent(href)}
                   onClick={() => setOpen(false)}
                   className="flex min-h-11 items-center rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3.5 py-2 text-sm font-medium text-[color:var(--ink)] cursor-pointer transition-colors hover:bg-[color:var(--surface)]"
                 >
@@ -693,11 +711,13 @@ export function TopNav() {
 
 function NavLink({
   href,
+  onIntent,
   children,
   primary = false,
   active = false,
 }: {
   href: string;
+  onIntent?: () => void;
   children: React.ReactNode;
   primary?: boolean;
   active?: boolean;
@@ -705,6 +725,9 @@ function NavLink({
   return (
     <Link
       href={href as never}
+      prefetch={false}
+      onPointerEnter={onIntent}
+      onFocus={onIntent}
       className={cn(
         "cursor-pointer rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors xl:px-3",
         active

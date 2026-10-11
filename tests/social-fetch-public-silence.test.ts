@@ -98,7 +98,9 @@ test("public channel surfaces cannot expose Social Fetch billing or cutoff diagn
   assert.doesNotMatch(fallback, /diagnostic\s*:\s*string/);
   assert.doesNotMatch(rails, /<OfficialSocialEmbedFallback[^>]*diagnostic=/);
   assert.match(fallback, /Showing TikTok&apos;s official public Creator Profile Embed/);
-  assert.match(fallback, /Showing Instagram&apos;s official public embed/);
+  assert.match(fallback, /Instagram sometimes removes or restricts public posts/);
+  assert.match(fallback, /Open original on Instagram/);
+  assert.doesNotMatch(fallback, /INSTAGRAM_EMBED_SCRIPT_SRC|instagram-media/);
 });
 
 test("saved posts remain visible when paid discovery is paused or capped", () => {
@@ -166,5 +168,5 @@ test("public reads retain durable snapshots and neutral official embeds as fallb
   assert.match(embedFallback, /tiktokCreatorEmbed\(rail\.handle\)/);
   assert.match(embedFallback, /instagramPublicEmbeds\(/);
   assert.match(embedFallback, /TIKTOK_EMBED_SCRIPT_SRC/);
-  assert.match(embedFallback, /INSTAGRAM_EMBED_SCRIPT_SRC/);
+  assert.doesNotMatch(embedFallback, /INSTAGRAM_EMBED_SCRIPT_SRC|instagram-media/);
 });

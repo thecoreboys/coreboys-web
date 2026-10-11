@@ -673,6 +673,7 @@ export function WatchTogetherBridge() {
           className="watch-together__trigger"
           onClick={() => setPanelOpen(true)}
           aria-expanded={false}
+          aria-label={session ? `Open watch room: ${room?.title ?? "Watch room"}` : "Open Watch Together"}
         >
           <span className="watch-together__signal"><Radio aria-hidden /></span>
           <span><strong>{session ? room?.title ?? "Watch room" : "Watch together"}</strong><small>{connectionLabel}</small></span>

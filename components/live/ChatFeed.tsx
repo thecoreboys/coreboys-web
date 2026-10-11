@@ -180,6 +180,7 @@ export function ChatFeed({
   viewerLogin,
   viewerIdentity,
   passportIdentities = {},
+  themeOverride,
 }: {
   messages: ChatMessage[];
   channels: ChatSessionChannel[];
@@ -197,6 +198,7 @@ export function ChatFeed({
   viewerLogin?: string | null;
   viewerIdentity?: PassportChatIdentity | null;
   passportIdentities?: Record<string, PassportChatIdentity>;
+  themeOverride?: "dark" | "light";
 }) {
   const [autoScroll, setAutoScroll] = useState(true);
   // Preserve the existing progressive-history behavior, while virtualizing
@@ -217,7 +219,8 @@ export function ChatFeed({
   const previousMeasurementSignatureRef = useRef(measurementSignature);
   const historyControlHeightRef = useRef(0);
   const pendingPrependRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
-  const { resolvedTheme: theme } = useTheme();
+  const { resolvedTheme } = useTheme();
+  const theme = themeOverride ?? resolvedTheme;
   const { detailFor: badgeDetailFor } = useTwitchBadgesByChannel(channels);
   const channelByLogin = useMemo(
     () => new Map(channels.map((channel) => [normalize(channel.login), channel])),

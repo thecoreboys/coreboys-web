@@ -162,7 +162,7 @@ test("every refreshed platform reaches canonical persistence and account-user fa
   assert.match(feed, /refreshCoreFeed[\s\S]{0,500}getXFeedSnapshot\(\)/);
   assert.match(reconcile, /const normalizedEvents = [\s\S]{0,180}\[\.\.\.houseEvents, \.\.\.coreEvents\]/);
   assert.match(reconcile, /for \(const item of normalizedEvents\)[\s\S]{0,240}socialEventFromFeedItem\(item\)[\s\S]{0,240}recordSocialEvent\(event\)/);
-  assert.match(events, /ON CONFLICT \(canonical_id\) DO NOTHING/);
+  assert.match(events, /ON CONFLICT \(canonical_id\) DO UPDATE[\s\S]*?artwork_url = COALESCE\(EXCLUDED\.artwork_url, social_content_events\.artwork_url\)/);
   assert.match(events, /return withTransaction\(async \(client\) => \{[\s\S]*createEventDeliveries\(client/);
   assert.match(events, /FROM fan_users u/);
   assert.match(events, /COALESCE\(s\.in_app_enabled,true\)=true/);

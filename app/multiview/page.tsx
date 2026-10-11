@@ -42,9 +42,15 @@ export default async function MultiviewPage({ searchParams }: MultiviewPageProps
   const params = await searchParams;
   const liveParam = Array.isArray(params.live) ? params.live[0] : params.live;
   const openAllCurrentLive = liveParam === "all";
-  const catalog = await getWatchCatalog();
+  // The paid-cap check is independent of the public catalog. Resolve both
+  // together so opening the all-live room doesn't add an avoidable serial
+  // account/database wait after the catalog is ready.
+  const [catalog, canUseExpandedMultiview] = await Promise.all([
+    getWatchCatalog(),
+    openAllCurrentLive ? expandedMultiviewAllowed() : Promise.resolve(false),
+  ]);
   const initialLiveRoom = openAllCurrentLive
-    ? buildMultiviewLiveRoom(catalog.live, await expandedMultiviewAllowed())
+    ? buildMultiviewLiveRoom(catalog.live, canUseExpandedMultiview)
     : undefined;
   const browserCatalog = initialLiveRoom
     ? restrictCatalogForLiveRoom(catalog, initialLiveRoom)

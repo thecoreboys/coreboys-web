@@ -93,6 +93,7 @@ import {
   shouldUpgradeTwitchLiveAutoplay,
   withTwitchAutoplayPermissions,
 } from "@/lib/watch/player-autoplay";
+import { twitchLiveSnapshotUrl } from "@/lib/watch/twitch-snapshot";
 import {
   clampLiveDvrPosition,
   liveDvrBehindSeconds,
@@ -374,6 +375,10 @@ function TwitchMedia({
         });
         instance.addEventListener(api.Player.PLAYING, () => {
           providerPlaying = true;
+          // PLAYING is Twitch's signal that media has actually begun, unlike
+          // PLAY (which only means the player was unpaused and may still be
+          // buffering). Sync CORE's transport as soon as the provider confirms.
+          markPlaybackStarted();
           window.clearTimeout(pauseHealthTimer);
           pauseHealthTimer = window.setTimeout(() => {
             try {
@@ -888,6 +893,7 @@ export function PersistentPlayer() {
   const guideDetailsCollapseRef = useRef<HTMLButtonElement | null>(null);
   const guideDetailsRestoreRef = useRef<HTMLButtonElement | null>(null);
   const twitchPlayerRef = useRef<TwitchInstance | null>(null);
+  const twitchPlayPendingRef = useRef(false);
   const twitchDvrActiveRef = useRef(false);
   const positionRef = useRef(0);
   const durationRef = useRef(0);
@@ -1332,6 +1338,7 @@ export function PersistentPlayer() {
     setTouchControlsVisible(false);
     setNativeCapabilities({ pip: false, remote: false, airplay: false, dvr: false });
     twitchPlayerRef.current = null;
+    twitchPlayPendingRef.current = false;
     endingRef.current = false;
     playingRef.current = false;
     if (!current) return;
@@ -2433,6 +2440,32 @@ export function PersistentPlayer() {
       }
       return;
     }
+    if (current?.platform === "twitch") {
+      const twitch = twitchPlayerRef.current;
+      playingRef.current = shouldPlay;
+      twitchPlayPendingRef.current = shouldPlay && !twitch;
+      if (!twitch) {
+        // The first Play click can arrive while Twitch's SDK is still
+        // initializing. Keep the UI in the paused state and replay the intent
+        // when READY arrives instead of pretending playback has started.
+        setIsPlaying(false);
+        return;
+      }
+      try {
+        if (shouldPlay) {
+          // Twitch autoplay is intentionally muted so browsers permit it.
+          twitch.setMuted?.(true);
+          setIsMuted(true);
+          twitch.play?.();
+        } else {
+          twitch.pause?.();
+        }
+      } catch {
+        // The provider may still be settling; its muted recovery loop retries.
+      }
+      if (!shouldPlay) setIsPlaying(false);
+      return;
+    }
     if (current?.youtubeId) {
       sendYoutubeCommand(shouldPlay ? "playVideo" : "pauseVideo");
       playingRef.current = shouldPlay;
@@ -2447,19 +2480,6 @@ export function PersistentPlayer() {
       playingRef.current = shouldPlay;
       setIsPlaying(shouldPlay);
       return;
-    }
-    const twitch = twitchPlayerRef.current;
-    if (!twitch) return;
-    try {
-      // Set CORE's intent before notifying Twitch. Its PAUSE event can arrive
-      // immediately, and the embed must treat that event as intentional only
-      // when it originated from this control.
-      playingRef.current = shouldPlay;
-      setIsPlaying(shouldPlay);
-      if (shouldPlay) twitch.play?.();
-      else twitch.pause?.();
-    } catch {
-      // Twitch retains its approved controls if the SDK command is rejected.
     }
   }, [current?.platform, current?.youtubeId, sendYoutubeCommand]);
 
@@ -2591,6 +2611,13 @@ export function PersistentPlayer() {
     embeddable: current.embeddable,
   } as const;
 
+  const currentTwitchLive = current.kind === "live" && current.platform === "twitch"
+    ? live?.live.find((entry) => entry.isLive && entry.login.toLowerCase() === current.twitchLogin?.toLowerCase())
+    : undefined;
+  const detailSnapshot = twitchLiveSnapshotUrl(currentTwitchLive?.thumbnailUrl);
+  const detailPoster = detailSnapshot ?? current.poster;
+  const detailTitle = currentTwitchLive?.title?.trim() || current.title;
+
   const activeAiring = channel?.airing?.itemKey === current.key ? channel.airing : null;
   const activeAiringLabel = activeAiring && viewerTime.ready
     ? airingTimeLabel(activeAiring, viewerTime)
@@ -2616,7 +2643,9 @@ export function PersistentPlayer() {
     toggleMyList(current.key);
   };
   const shape = contentShape(current);
-  const src = embedFor(current, {
+  const src = current.platform === "instagram" && current.format !== "photo" && !current.mediaUrl
+    ? null
+    : embedFor(current, {
     parent,
     origin,
     autoplay: true,
@@ -2810,7 +2839,7 @@ export function PersistentPlayer() {
       : null;
   const ambientActive = playerScreen && ambientLighting && !ambientPausedReason;
   const playerPanelPosition = playerScreen
-    ? "fixed bottom-3 right-3 w-[min(25rem,calc(100vw-1.5rem))]"
+    ? "fixed bottom-20 right-3 w-[min(25rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-6rem)]"
     : `absolute ${shape === "portrait" ? "bottom-[8.5rem]" : "bottom-[5.75rem]"} left-0 w-[min(24rem,calc(100vw-1.5rem))]`;
   const aspect =
     shape === "portrait" ? "aspect-[9/16]" : shape === "square" ? "aspect-square" : "aspect-video";
@@ -3134,6 +3163,12 @@ export function PersistentPlayer() {
                     setTwitchReadyToken((token) => token + 1);
                     if (!instance) return;
                     try {
+                      if (twitchPlayPendingRef.current) {
+                        twitchPlayPendingRef.current = false;
+                        instance.setMuted?.(true);
+                        setIsMuted(true);
+                        instance.play?.();
+                      }
                       const qualities = (instance.getQualities?.() ?? []).flatMap((quality) => {
                         if (typeof quality === "string") {
                           return quality ? [{ id: quality, label: quality, isDefault: quality === "auto" }] : [];
@@ -3267,17 +3302,25 @@ export function PersistentPlayer() {
                   style={current.youtubeId || current.platform === "twitch" ? { pointerEvents: "none", userSelect: "none" } : undefined}
                 />
               ) : src ? null : (
-                <div className="absolute inset-0 grid place-items-center bg-[#101014] p-6 text-center">
-                  <div>
-                    <p className="text-sm font-semibold text-white">This title plays on {current.platform}.</p>
-                    {current.url ? (
+                <div className="absolute inset-0 z-10 grid place-items-center bg-[#101014]/90 p-6 text-center backdrop-blur-sm">
+                  <div className="max-w-md">
+                    <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">
+                      {current.platform === "instagram" ? "Instagram video" : `Video on ${current.platform}`}
+                    </span>
+                    <p className="mt-3 text-base font-semibold leading-snug text-white">{current.title}</p>
+                    <p className="mt-2 text-sm leading-6 text-white/65">
+                      {current.platform === "instagram"
+                        ? "This Reel may be private or no longer available to embed. The original post is one tap away."
+                        : `This title plays on ${current.platform}.`}
+                    </p>
+                    {current.url || current.sourceUrl ? (
                       <a
-                        href={current.url}
+                        href={current.sourceUrl ?? current.url!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`mt-4 inline-flex min-h-11 items-center rounded-xl bg-white px-4 text-xs font-semibold text-black ${CONTROL_FEEDBACK} ${PRIMARY_CONTROL_HOVER}`}
                       >
-                        Open source
+                        {current.platform === "instagram" ? "Open on Instagram ↗" : "Open source ↗"}
                       </a>
                     ) : null}
                   </div>
@@ -4439,19 +4482,30 @@ export function PersistentPlayer() {
                       dataSaver={dataSaver}
                       showTimestamps={showChatTimestamps}
                       showToolbar={false}
+                      themeOverride="dark"
                       className="h-full min-h-0"
                     />
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    {current.poster ? (
-                      <img src={current.poster} alt="" className="h-24 w-full rounded-xl object-cover ring-1 ring-white/10" />
+                    {detailPoster ? (
+                      <img
+                        src={detailPoster}
+                        alt=""
+                        title={currentTwitchLive?.title || undefined}
+                        onError={(event) => {
+                          if (detailSnapshot && current.poster && event.currentTarget.src !== current.poster) {
+                            event.currentTarget.src = current.poster;
+                          }
+                        }}
+                        className="aspect-video w-full rounded-xl object-cover ring-1 ring-white/10"
+                      />
                     ) : null}
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#ff5364]">Now playing</p>
-                      <h2 className="mt-0.5 line-clamp-2 text-base font-semibold leading-tight text-white">{current.title}</h2>
+                      <h2 className="mt-0.5 line-clamp-3 text-base font-semibold leading-tight text-white" title={detailTitle}>{detailTitle}</h2>
                       <p className="mt-0.5 truncate text-[11px] text-white/50">
-                        {formatDisplayLabel(current.accountLabel ?? current.memberLabel)} · {current.platform} · {current.kind === "live" ? "Live" : playbackClock(scrubberDuration)}
+                        {formatDisplayLabel(current.accountLabel ?? current.memberLabel)} · {formatDisplayLabel(current.platform)} · {current.kind === "live" ? "Live" : playbackClock(scrubberDuration)}
                       </p>
                     </div>
                     <dl className="grid grid-cols-2 gap-x-2 gap-y-1 rounded-xl bg-white/[0.035] p-2.5 ring-1 ring-white/10">
@@ -4469,7 +4523,7 @@ export function PersistentPlayer() {
                       </div>
                       <div>
                         <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/40">Channel</dt>
-                        <dd className="mt-0.5 truncate text-xs font-medium text-white/80">{channel?.title ?? current.memberLabel}</dd>
+                        <dd className="mt-0.5 truncate text-xs font-medium text-white/80">{channel?.title || current.memberLabel}</dd>
                       </div>
                     </dl>
                     <div className="grid grid-cols-2 gap-2">

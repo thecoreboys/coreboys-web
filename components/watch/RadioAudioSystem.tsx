@@ -143,8 +143,10 @@ export function RadioAudioSystem() {
       ? "CORE Network"
       : null;
   }, [pathname, player.channel?.id]);
-  const immersivePlayerPage = pathname.startsWith("/theater") || pathname.startsWith("/multiview")
-    || pathname.startsWith("/account") || pathname === "/upgrade";
+  // Keep the floating dial tucked away on dense surfaces such as the Guide.
+  // This only hides the dock; it does not stop DJ Cora or change the tune.
+  const compactDockPage = pathname.startsWith("/theater") || pathname.startsWith("/multiview")
+    || pathname.startsWith("/account") || pathname.startsWith("/guide") || pathname === "/upgrade";
 
   return (
     <RadioAudioDirector
@@ -154,7 +156,7 @@ export function RadioAudioSystem() {
       cueCatalog={activeCatalog}
       tunedNetwork={tunedNetwork}
       tunerNetworks={NETWORK_CHANNELS.map(({ slug, name, artwork }) => ({ slug, name, artwork }))}
-      autoCollapse={immersivePlayerPage}
+      autoCollapse={compactDockPage}
       onTuneNetwork={(slug) => {
         const target = resolveNetworkChannel(slug);
         if (!target) return;

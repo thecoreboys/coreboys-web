@@ -274,7 +274,7 @@ function MediaHoverPreview({
     // in a hover card is noisy and makes a healthy cached thumbnail look
     // broken. Keep the preview on the known-good still and let the explicit
     // “View on Instagram” action open the canonical permalink.
-    if (isInstagramPhoto) return null;
+    if (isInstagramPhoto || item.platform === "instagram") return null;
     if (!wantsMotion || !playable || item.embeddable === false) return null;
     if (item.previewStrategy === "external" || item.previewStrategy === "image") return null;
     if (!(["youtube", "twitch", "tiktok", "instagram"] as string[]).includes(item.platform)) return null;

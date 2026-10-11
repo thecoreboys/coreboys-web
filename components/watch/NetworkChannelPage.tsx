@@ -1131,6 +1131,8 @@ export function NetworkChannelRail({
   preferredMemberSlugs?: readonly string[];
   variant?: "home" | "detail";
 }) {
+  const router = useRouter();
+  const prefetchedRoutes = useRef(new Set<string>());
   const isHomeShelf = variant === "home";
   const headingId = isHomeShelf ? "home-network-channel-heading" : "network-channel-heading";
   const channels = useMemo(() => {
@@ -1143,6 +1145,15 @@ export function NetworkChannelRail({
       return leftRank - rightRank;
     });
   }, [isHomeShelf, preferredMemberSlugs]);
+  const prefetchChannel = (href: string) => {
+    if (prefetchedRoutes.current.has(href)) return;
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+    prefetchedRoutes.current.add(href);
+    router.prefetch(href as Route);
+  };
   return (
     <section
       id={isHomeShelf ? "core-channels" : undefined}
@@ -1183,7 +1194,13 @@ export function NetworkChannelRail({
         {channels.map((channel) => (
           <Link
             key={channel.slug}
-            href={channelHref(channel, "continuous") as never}
+            href={channelHref(channel, "continuous") as Route}
+            prefetch={false}
+            onPointerEnter={(event) => {
+              if (event.pointerType === "mouse" || event.pointerType === "pen") prefetchChannel(channelHref(channel, "continuous"));
+            }}
+            onFocus={() => prefetchChannel(channelHref(channel, "continuous"))}
+            onTouchStart={() => prefetchChannel(channelHref(channel, "continuous"))}
             aria-label={`Open ${channel.name} community`}
             data-cursor-community={channel.slug}
             className={`watch-home-promo-card ${styles.homeChannelTile}`}
@@ -1564,6 +1581,16 @@ export function NetworkChannelPage({
 
   const tvPackage = channelTvPackage(channel.slug);
   const mailingAddress = member?.poBox ?? null;
+  const prefetchedDialRoutes = useRef(new Set<string>());
+  const prefetchDialRoute = (href: string) => {
+    if (prefetchedDialRoutes.current.has(href)) return;
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+    prefetchedDialRoutes.current.add(href);
+    router.prefetch(href as Route);
+  };
 
   return (
     <div className={styles.page} data-cursor-community={channel.slug} data-tv-package={channel.slug} style={{ "--channel-accent": channel.accent } as React.CSSProperties}>
@@ -1574,7 +1601,12 @@ export function NetworkChannelPage({
             <Link
               key={entry.slug}
               href={channelHref(entry, mode) as never}
-              prefetch
+              prefetch={false}
+              onPointerEnter={(event) => {
+                if (event.pointerType === "mouse" || event.pointerType === "pen") prefetchDialRoute(channelHref(entry, mode));
+              }}
+              onFocus={() => prefetchDialRoute(channelHref(entry, mode))}
+              onTouchStart={() => prefetchDialRoute(channelHref(entry, mode))}
               data-cursor-community={entry.slug}
               aria-current={entry.slug === channel.slug ? "page" : undefined}
               aria-label={`Tune to ${entry.name}`}

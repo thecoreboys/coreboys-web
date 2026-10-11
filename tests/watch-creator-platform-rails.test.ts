@@ -492,12 +492,11 @@ test("mounts curated rails on the member channel page with an X Community link a
   assert.match(component, /CORE could not refresh \$\{platform\} right now/);
   assert.match(embedFallback, /data-ingest-state=\{rail\.ingestState \?\? "unknown"\}/);
   assert.match(embedFallback, /TikTok&apos;s official public Creator Profile Embed/);
-  assert.match(embedFallback, /Instagram&apos;s official public embed/);
+  assert.match(embedFallback, /Instagram sometimes removes or restricts public posts/);
+  assert.match(embedFallback, /Open original on Instagram/);
   assert.match(embedFallback, /instagramProfileCard/);
   assert.match(embedFallback, /filter\(\(embed\) => embed\.kind !== "profile"\)/);
-  assert.match(embedFallback, /window\.setTimeout\(process, 350\)/);
-  assert.match(embedFallback, /monitor indexes individual posts and Reels/);
-  assert.match(embedFallback, /Creator alerts use CORE&apos;s public-feed monitor when available/);
+  assert.doesNotMatch(embedFallback, /INSTAGRAM_EMBED_SCRIPT_SRC|instagram-media|processInstagramEmbeds/);
   assert.match(page, /sourceDiagnostics/);
   assert.match(page, /configuredInstagramEmbedUrls\(scopedItems\)/);
   assert.match(page, /publicEmbedUrls: social\.platform === "instagram"/);

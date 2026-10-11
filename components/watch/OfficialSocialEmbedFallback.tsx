@@ -1,37 +1,17 @@
 "use client";
 
-import Script from "next/script";
-import { useCallback, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { CuratedChannelRail } from "@/lib/watch/creator-platform-rails";
 import {
-  INSTAGRAM_EMBED_SCRIPT_SRC,
   instagramPublicEmbeds,
   TIKTOK_EMBED_SCRIPT_SRC,
   tiktokCreatorEmbed,
 } from "@/lib/watch/public-social-embeds";
 import styles from "./CreatorPlatformRails.module.css";
 
-// Official profile embed is the live public fallback; the monitor indexes individual posts and Reels.
-// This public profile view updates from the platform when its embed script is available.
-
-type InstagramEmbedWindow = Window & {
-  instgrm?: {
-    Embeds?: {
-      process?: () => void;
-    };
-  };
-};
-
-function processInstagramEmbeds() {
-  const process = () => (window as InstagramEmbedWindow).instgrm?.Embeds?.process?.();
-  // Instagram's script can finish before React commits the blockquotes (and
-  // React route changes do not reload it). Give the DOM a couple of chances
-  // to settle, including when the script was already cached by another rail.
-  window.requestAnimationFrame(() => {
-    process();
-    window.setTimeout(process, 350);
-  });
-}
+// TikTok still uses its public embed as a fallback. Instagram content is
+// linked directly because its iframe often renders a provider error page for
+// removed, restricted, or otherwise unavailable posts.
 
 /**
  * TikTok exposes no documented manual process function. Re-run its documented
@@ -99,12 +79,6 @@ function InstagramPublicFallback({ rail }: { rail: CuratedChannelRail }) {
     ]).filter((embed) => embed.kind !== "profile"),
     [rail.publicEmbedUrls],
   );
-  const signature = embeds.map((embed) => embed.permalink).join("|");
-  const processEmbeds = useCallback(() => processInstagramEmbeds(), []);
-
-  useEffect(() => {
-    processEmbeds();
-  }, [processEmbeds, signature]);
 
   if (!embeds.length) {
     const profileUrl = instagramPublicEmbeds([rail.sourceHref, rail.handle]).find((embed) => embed.kind === "profile")?.permalink;
@@ -126,29 +100,25 @@ function InstagramPublicFallback({ rail }: { rail: CuratedChannelRail }) {
 
   return (
     <div className={styles.embedFallback} data-ingest-state={rail.ingestState ?? "unknown"}>
-      <div className={styles.instagramEmbedGrid}>
+      <p className={styles.embedNotice}>
+        Instagram sometimes removes or restricts public posts. Open a post directly to check whether it is still available.
+      </p>
+      <div className={styles.instagramLinkGrid}>
         {embeds.map((embed) => (
-          <div className={styles.instagramEmbedFrame} key={embed.key} data-instagram-embed-kind={embed.kind}>
-            <blockquote
-              className="instagram-media"
-              data-instgrm-permalink={embed.permalink}
-              data-instgrm-version="14"
-            >
-              <a href={embed.permalink} target="_blank" rel="noopener noreferrer">
-                {embed.label}
-              </a>
-            </blockquote>
-          </div>
+          <a
+            className={styles.instagramLinkCard}
+            data-instagram-embed-kind={embed.kind}
+            href={embed.permalink}
+            key={embed.key}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className={styles.instagramProfileMark} aria-hidden="true">◎</span>
+            <span><strong>{embed.label}</strong><small>Open original on Instagram ↗</small></span>
+          </a>
         ))}
       </div>
-      <p className={styles.embedNote}>Showing Instagram&apos;s official public embed. Official embeds show up to 10 recent public videos; Creator alerts use CORE&apos;s public-feed monitor when available.</p>
-      <Script
-        id="instagram-public-embed-script"
-        src={INSTAGRAM_EMBED_SCRIPT_SRC}
-        strategy="afterInteractive"
-        onLoad={processEmbeds}
-        onReady={processEmbeds}
-      />
+      <p className={styles.embedNote}>Only publicly available posts can be opened. The CORE library keeps showing cached artwork when Instagram restricts an embed.</p>
     </div>
   );
 }

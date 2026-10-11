@@ -225,14 +225,19 @@ export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: 
       content_type: SocialContentType;
       published_at: string;
       notification_eligible: boolean;
+      created?: boolean;
     };
     const inserted = await client.query<StoredEvent>(
       `INSERT INTO social_content_events
          (provider,member_slug,content_type,canonical_id,title,body,href,artwork_url,orientation,
           platform_payload,published_at,notification_eligible,notification_suppressed_reason)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13)
-       ON CONFLICT (canonical_id) DO NOTHING
-       RETURNING id::text,member_slug,content_type,published_at::text,notification_eligible`,
+       ON CONFLICT (canonical_id) DO UPDATE
+         SET artwork_url = COALESCE(EXCLUDED.artwork_url, social_content_events.artwork_url)
+         WHERE EXCLUDED.artwork_url IS NOT NULL
+           AND social_content_events.artwork_url IS DISTINCT FROM EXCLUDED.artwork_url
+       RETURNING id::text,member_slug,content_type,published_at::text,notification_eligible,
+                 (xmax = 0) AS created`,
       [
         input.provider,
         input.memberSlug,
@@ -249,7 +254,7 @@ export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: 
         suppressionReason,
       ],
     );
-    const created = Boolean(inserted.rows[0]);
+    const created = inserted.rows[0]?.created === true;
     const event = inserted.rows[0] ?? (await client.query<StoredEvent>(
       `SELECT id::text,member_slug,content_type,published_at::text,notification_eligible
          FROM social_content_events WHERE canonical_id=$1 LIMIT 1`,

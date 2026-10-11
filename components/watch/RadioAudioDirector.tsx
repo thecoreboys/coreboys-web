@@ -515,6 +515,7 @@ export function RadioAudioDirector({
         audio.removeEventListener("ended", onEnded);
         audio.removeEventListener("error", onError);
         activeRef.current = null;
+        stopVoiceMeter(playback);
         setActiveCue((current) => current?.token === token ? null : current);
         clearPresentation(token);
         const outcome: RadioCueOutcome = { status: "autoplay_blocked", cueId: request.id, kind: request.kind, reason: "audio_error" };
@@ -531,6 +532,10 @@ export function RadioAudioDirector({
       activeRef.current = playback;
       audio.addEventListener("ended", onEnded, { once: true });
       audio.addEventListener("error", onError, { once: true });
+      // Attach/resume the Web Audio graph before awaiting play(). Creating or
+      // resuming AudioContext after that promise settles can lose the browser's
+      // user-activation window; some browsers then leave the routed audio silent.
+      startVoiceMeter(playback);
 
       try {
         await audio.play();
@@ -540,6 +545,7 @@ export function RadioAudioDirector({
         audio.removeEventListener("ended", onEnded);
         audio.removeEventListener("error", onError);
         activeRef.current = null;
+        stopVoiceMeter(playback);
         setActiveCue((current) => current?.token === token ? null : current);
         const outcome: RadioCueOutcome = { status: "autoplay_blocked", cueId: request.id, kind: request.kind, reason: "play_rejected" };
         showBlockedFallback(request, "play_rejected");
@@ -566,7 +572,6 @@ export function RadioAudioDirector({
         setPresentation({ token, request, blocked: false });
       }
       setActiveCue({ token, request });
-      startVoiceMeter(playback);
       const outcome: RadioCueOutcome = { status: "started", cueId: request.id, kind: request.kind };
       publish(request, outcome);
       playback.requestResolved = true;
