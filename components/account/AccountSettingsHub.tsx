@@ -25,6 +25,7 @@ import {
   type RadioCaptionPreference,
 } from "@/lib/radio/settings";
 import { cx } from "@/utils/cx";
+import { createDebouncedWorkspaceSave } from "@/lib/account/workspace-save-queue";
 
 type LandingPage = "/watch" | "/guide" | "/chat" | "/account";
 
@@ -166,6 +167,9 @@ export function AccountSettingsHub() {
   const [ready, setReady] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [radioSettings, setRadioSettings] = useState<RadioAudioSettings>(() => readRadioAudioSettings());
+  const settingsRef = useRef(settings);
+  const radioSettingsRef = useRef(radioSettings);
+  const playerSettingsRef = useRef<PlayerSettings | null>(null);
 
   const persist = useCallback(async (next: AccountSettings) => {
     setSaveState("saving");
@@ -200,38 +204,41 @@ export function AccountSettingsHub() {
     maxActivePlayers: player.maxActivePlayers,
   }), [player]);
 
-  const persistPlayer = useCallback(async (patch: Partial<PlayerSettings>) => {
-    const next = { ...playerSettings(), ...patch };
+  // Keep range controls responsive locally while batching remote writes. The
+  // queue also preserves order if an earlier request is still in flight.
+  const playerSaveQueue = useMemo(() => createDebouncedWorkspaceSave(async (payload: PlayerSettings) => {
     try {
+      // Accessibility presets can update several provider fields at once. Use
+      // the latest committed provider snapshot when the debounce expires.
+      const latest = playerSettingsRef.current;
+      const currentPayload = latest ? { ...payload, ...latest } : payload;
       const response = await fetch("/api/account/workspaces", {
         method: "PUT",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "account-settings", name: "player", payload: next }),
+        body: JSON.stringify({ kind: "account-settings", name: "player", payload: currentPayload }),
       });
       if (!response.ok) throw new Error(`player_settings_${response.status}`);
+      setSaveState("saved");
     } catch {
-      // Local player preferences still persist through PlayerProvider, but the
-      // shared save indicator must make a failed account sync visible.
       setSaveState("error");
     }
-  }, [playerSettings]);
+  }, 350), []);
 
-  const persistRadio = useCallback(async (next: RadioAudioSettings) => {
+  const radioSaveQueue = useMemo(() => createDebouncedWorkspaceSave(async (payload: RadioAudioSettings) => {
     try {
       const response = await fetch("/api/account/workspaces", {
         method: "PUT",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "account-settings", name: "radio", payload: next }),
+        body: JSON.stringify({ kind: "account-settings", name: "radio", payload }),
       });
       if (!response.ok) throw new Error(`radio_settings_${response.status}`);
+      setSaveState("saved");
     } catch {
-      // The local listener preference remains active, but failed account sync
-      // should not be presented as if it were saved remotely.
       setSaveState("error");
     }
-  }, []);
+  }, 350), []);
 
   const updatePlayer = useCallback((patch: Partial<PlayerSettings>) => {
     if (patch.autoplayMode !== undefined) player.setAutoplayMode(patch.autoplayMode);
@@ -248,16 +255,19 @@ export function AccountSettingsHub() {
     if (patch.companionView !== undefined) player.setCompanionView(patch.companionView);
     if (patch.mixAudio !== undefined) player.setMixAudio(patch.mixAudio);
     if (patch.maxActivePlayers !== undefined) player.setMaxActivePlayers(patch.maxActivePlayers);
-    void persistPlayer(patch);
-  }, [persistPlayer, player]);
+    const next = { ...(playerSettingsRef.current ?? playerSettings()), ...patch };
+    playerSettingsRef.current = next;
+    setSaveState("saving");
+    playerSaveQueue.schedule(next);
+  }, [player, playerSaveQueue, playerSettings]);
 
   const updateRadio = useCallback((patch: Partial<RadioAudioSettings>) => {
-    setRadioSettings((current) => {
-      const next = writeRadioAudioSettings({ ...current, ...patch });
-      void persistRadio(next);
-      return next;
-    });
-  }, [persistRadio]);
+    const next = writeRadioAudioSettings({ ...radioSettingsRef.current, ...patch });
+    radioSettingsRef.current = next;
+    setRadioSettings(next);
+    setSaveState("saving");
+    radioSaveQueue.schedule(next);
+  }, [radioSaveQueue]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -270,6 +280,7 @@ export function AccountSettingsHub() {
           const stored = data.items?.find((item) => item.name === "experience")?.payload;
           const next = restoreSettings(stored, defaultSettings(theme, accent));
           setSettings(next);
+          settingsRef.current = next;
           setTheme(next.theme);
           setAccent(next.accent);
           applyExperience(next);
@@ -295,6 +306,7 @@ export function AccountSettingsHub() {
           if (radioStored) {
             const nextRadioSettings = normalizeRadioAudioSettings(radioStored);
             setRadioSettings(nextRadioSettings);
+            radioSettingsRef.current = nextRadioSettings;
             writeRadioAudioSettings(nextRadioSettings);
           }
         } else {
@@ -310,15 +322,18 @@ export function AccountSettingsHub() {
   }, [setAccent, setTheme]);
 
   const update = useCallback((patch: Partial<AccountSettings>) => {
-    setSettings((current) => {
-      const next = { ...current, ...patch };
-      if (patch.theme) setTheme(patch.theme);
-      if (patch.accent) setAccent(patch.accent);
-      applyExperience(next);
-      void persist(next);
-      return next;
-    });
+    const next = { ...settingsRef.current, ...patch };
+    settingsRef.current = next;
+    setSettings(next);
+    if (patch.theme) setTheme(patch.theme);
+    if (patch.accent) setAccent(patch.accent);
+    applyExperience(next);
+    void persist(next);
   }, [persist, setAccent, setTheme]);
+
+  // Reconcile the refs with provider/state updates after hydration and render.
+  playerSettingsRef.current = playerSettings();
+  radioSettingsRef.current = radioSettings;
 
   const saveLabel = useMemo(() => {
     if (!ready) return "Loading preferences…";

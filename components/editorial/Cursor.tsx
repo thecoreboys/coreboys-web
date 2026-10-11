@@ -113,6 +113,7 @@ export function Cursor() {
     let magneticTarget: HTMLElement | null = null;
     let reactiveTarget: HTMLElement | null = null;
     let spotlightTarget: HTMLElement | null = null;
+    let spotlightRect: DOMRect | null = null;
     let idleTimer: number | null = null;
     let rippleTimer: number | null = null;
     let flashTimer: number | null = null;
@@ -129,6 +130,7 @@ export function Cursor() {
     let scheduleFrame = () => {};
 
     const setIdle = (idle: boolean) => {
+      if ((document.body.dataset.cursorIdle === "true") === idle) return;
       document.body.dataset.cursorIdle = idle ? "true" : "false";
     };
 
@@ -318,11 +320,14 @@ export function Cursor() {
         spotlightTarget.style.removeProperty("--cursor-y");
       }
       spotlightTarget = element;
+      spotlightRect = element?.getBoundingClientRect() ?? null;
       if (!element) return;
-      const rect = element.getBoundingClientRect();
       element.dataset.cursorSpotlight = "true";
-      element.style.setProperty("--cursor-x", `${((clientX - rect.left) / rect.width) * 100}%`);
-      element.style.setProperty("--cursor-y", `${((clientY - rect.top) / rect.height) * 100}%`);
+      const rect = spotlightRect;
+      if (rect?.width && rect.height) {
+        element.style.setProperty("--cursor-x", `${((clientX - rect.left) / rect.width) * 100}%`);
+        element.style.setProperty("--cursor-y", `${((clientY - rect.top) / rect.height) * 100}%`);
+      }
     };
 
     const inspectTarget = (target: EventTarget | null, clientX: number, clientY: number) => {
@@ -422,7 +427,13 @@ export function Cursor() {
       if (Math.abs(deltaX) > 1) dragDirection = deltaX > 0 ? 1 : -1;
       x = event.clientX;
       y = event.clientY;
-      inspectTarget(event.target, x, y);
+      // Target inspection performs DOM queries, computed-style reads, and
+      // geometry work. Pointer enter/leave already detects target changes, so
+      // keep the high-frequency move path to coordinates and transforms only.
+      if (spotlightTarget && spotlightRect?.width && spotlightRect.height) {
+        spotlightTarget.style.setProperty("--cursor-x", `${((x - spotlightRect.left) / spotlightRect.width) * 100}%`);
+        spotlightTarget.style.setProperty("--cursor-y", `${((y - spotlightRect.top) / spotlightRect.height) * 100}%`);
+      }
       scheduleIdle();
       scheduleFrame();
     };
@@ -474,6 +485,7 @@ export function Cursor() {
     };
     const onScroll = () => {
       clearHint();
+      if (spotlightTarget) setSpotlight(spotlightTarget, x, y);
       document.documentElement.dataset.cursorScrolling = "true";
       if (scrollTimer !== null) window.clearTimeout(scrollTimer);
       scrollTimer = window.setTimeout(() => delete document.documentElement.dataset.cursorScrolling, 150);

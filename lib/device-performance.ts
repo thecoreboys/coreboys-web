@@ -1,5 +1,7 @@
 export type DevicePerformanceProfile = "conserve" | "standard" | "enhanced";
 
+let weakGpu: boolean | null = null;
+
 type NavigatorLike = {
   hardwareConcurrency?: number;
   deviceMemory?: number;
@@ -22,9 +24,17 @@ export function devicePerformanceProfile(navigatorLike: NavigatorLike | null | u
 /** Read only a coarse local GPU capability; no renderer string leaves the browser. */
 export function detectWeakGpu(): boolean {
   if (typeof document === "undefined") return false;
+  if (weakGpu !== null) return weakGpu;
   const canvas = document.createElement("canvas");
   const gl = (canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
-  if (!gl) return true;
+  if (!gl) {
+    weakGpu = true;
+    return weakGpu;
+  }
   const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
-  return !Number.isFinite(maxTextureSize) || maxTextureSize < 4096;
+  weakGpu = !Number.isFinite(maxTextureSize) || maxTextureSize < 4096;
+  // This is a one-time capability probe, not a rendering context. Release its
+  // GPU resources immediately; PlayerProvider and Lenis share the cached result.
+  gl.getExtension("WEBGL_lose_context")?.loseContext();
+  return weakGpu;
 }

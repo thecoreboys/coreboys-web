@@ -273,7 +273,10 @@ export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => expandWa
   async () => compactWatchCatalog(await buildWatchCatalog()),
   {
     freshSeconds: 20,
-    staleSeconds: 40,
+    // Keep the last usable snapshot available while a refresh runs (and during
+    // brief upstream/DB stalls) instead of making the next visitor wait for
+    // the entire Twitch + social + YouTube catalog rebuild.
+    staleSeconds: 180,
     validate: isCompactWatchCatalog,
     shouldCache: (catalog) => catalog.all.length > 0,
   },

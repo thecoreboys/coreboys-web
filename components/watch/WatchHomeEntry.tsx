@@ -24,13 +24,16 @@ export function WatchHomeEntry({ catalog: compact, patreon, originals }: {
   const owned = resolved.owner === accountKey;
   const extra = owned ? resolved.items : EMPTY_ITEMS;
   const catalog = useMemo(() => ({ ...base, all: mergeHomeItems(base.all, extra) }), [base, extra]);
-  const known = new Set([...catalog.all.flatMap(homeItemReferences), ...(owned ? resolved.checked : [])]);
+  const known = useMemo(
+    () => new Set([...catalog.all.flatMap(homeItemReferences), ...(owned ? resolved.checked : [])]),
+    [catalog.all, owned, resolved.checked],
+  );
   // A small public-metadata request restores older saves and Continue Watching
   // without sending everyone's complete archive in the initial document.
-  const wanted = [...new Set([
+  const wanted = useMemo(() => [...new Set([
     ...Object.entries(map).filter(([, mark]) => isContinueWatchingMark(mark)).map(([reference]) => reference),
     ...ids,
-  ])].filter((reference) => !known.has(reference));
+  ])].filter((reference) => !known.has(reference)), [ids, known, map]);
   const lookupKey = wanted.slice(0, 100).join("\n");
   const failed = owned && resolved.error;
   useEffect(() => {
