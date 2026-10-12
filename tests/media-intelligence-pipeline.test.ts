@@ -227,7 +227,7 @@ test("scheduled operations are resumable, rights-aware, and maintain every lifec
   assert.match(worker, /startLeaseHeartbeat/);
   assert.match(operations, /runMediaIntelligenceRetention/);
   assert.match(operations, /publishMediaIndexGeneration/);
-  assert.match(workflow, /for action in cleanup sync archive publish-index/);
+  assert.match(workflow, /for action in cleanup sync archive creators publish-index/);
   assert.match(workflow, /--max-time 180/);
   assert.match(workflow, /exit "\$failed"/);
   assert.doesNotMatch(ingest, /reconcileCatalog\(/);

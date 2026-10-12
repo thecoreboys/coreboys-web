@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/admin-api";
 import { getAiUsageDashboard, updateAiProviderControl } from "@/lib/ai-usage";
 
 const Body = z.object({
-  provider: z.enum(["anthropic", "elevenlabs"]),
+  provider: z.enum(["anthropic", "elevenlabs", "azure"]),
   enabled: z.boolean(),
   dailyRequestLimit: z.number().int().min(0).max(100_000),
   subjectHourlyLimit: z.number().int().min(0).max(10_000),

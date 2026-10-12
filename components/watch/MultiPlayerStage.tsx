@@ -67,6 +67,8 @@ import {
 import type { MultiviewLiveRoom } from "@/lib/watch/multiview-access";
 import { PlayerNetworkWatermark } from "@/components/watch/PlayerNetworkWatermark";
 import { OnScreenIdentityOverlay } from "@/components/watch/OnScreenIdentityOverlay";
+import { CreatorTags } from "@/components/watch/CreatorTags";
+import { creatorTimelineSeconds } from "@/lib/creator-tags/model";
 import { PlayerAmbientBloom } from "@/components/watch/PlayerAmbientBloom";
 import { WatchSelect } from "@/components/watch/WatchSelect";
 import { TwitchTileMedia } from "@/components/watch/TwitchTileMedia";
@@ -2533,6 +2535,12 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         />
       ) : null}
 
+      {focused && !standby && !photo && !tooSmallForTwitch && (tile.item.platform === "youtube" || tile.item.platform === "twitch" || tile.item.platform === "house") ? (
+        <CreatorTags key={`creators:${tile.item.key}:${tile.item.publishedAt ?? ""}`} assetKey={`${tile.item.platform}:${tile.item.key}`} title={tile.item.title}
+          liveStartedAt={tile.item.kind === "live" ? tile.item.publishedAt : undefined}
+          sourceRatio={contentShape(tile.item) === "portrait" ? 9 / 16 : contentShape(tile.item) === "square" ? 1 : 16 / 9}
+          getTime={() => creatorTimelineSeconds({ platform: tile.item.platform, kind: tile.item.kind, seconds: positionRef.current })} mediaRef={videoRef} fit={tile.fit} compact />
+      ) : null}
       {focused ? <PlayerNetworkWatermark channel={player.channel} compact /> : null}
 
       {!standby ? (

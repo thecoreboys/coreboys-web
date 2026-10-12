@@ -1,0 +1,81 @@
+/** Exercise real creator-tag SQL in a temporary schema; all writes roll back. */
+import assert from 'node:assert/strict';
+import pg from 'pg';
+import vm from 'node:vm';
+import ts from 'typescript';
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const require = createRequire(import.meta.url);
+const url = new URL(process.env.MEDIA_INTELLIGENCE_DATABASE_URL);
+if (!['localhost','127.0.0.1'].includes(url.hostname) || url.pathname !== '/coreboys_media_ai') throw new Error('Requires isolated local coreboys_media_ai');
+const client = new pg.Client({ connectionString: url.href });
+const schema = { mediaIntelligenceQuery: (...args) => client.query(...args), withMediaIntelligenceTransaction: (work) => work(client) };
+const modules = new Map();
+function load(path) {
+  const full = resolve(root, path);
+  if (modules.has(full)) return modules.get(full);
+  const source = ts.transpileModule(readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const api = {}; modules.set(full, api);
+  vm.runInNewContext(`(function(exports,require){${source}\n})`, { process, Date, Buffer, URL })(api, (id) => {
+    if (id === 'server-only') return {};
+    if (id === '@/lib/media-intelligence/schema') return schema;
+    if (id === '@/lib/server-cache') return { cachedPublicData: (_key, work) => work() };
+    if (id === './directory') return { defaultCreatorDirectory: () => [] };
+    if (id.startsWith('.')) return load(resolve(dirname(full), `${id}.ts`));
+    return require(id);
+  });
+  return api;
+}
+try {
+  await client.connect(); await client.query('BEGIN');
+  const temporary = `creator_test_${randomUUID().replaceAll('-', '')}`;
+  await client.query(`CREATE SCHEMA ${temporary}`);
+  await client.query(`SET LOCAL search_path TO ${temporary},public`);
+  for (const name of ['012_media_intelligence.sql','027_deep_media_intelligence.sql','050_reviewed_transcripts.sql','055_creator_tags.sql']) await client.query(readFileSync(resolve(root,'scripts/migrations',name),'utf8'));
+  const service = load('lib/creator-tags/store.ts');
+  const creator = { id: 'test-creator', name: 'Test Creator', aliases: ['testcreator'], active: true, socials: [{ platform: 'twitch', url: 'https://www.twitch.tv/testcreator' }] };
+  await service.saveCreator(creator, 'fixture-admin');
+  await client.query(`INSERT INTO media_intelligence_assets(asset_key,platform,external_id,content_type,creator_label,title,duration_seconds,is_live,item)
+    VALUES('youtube:creator-test','youtube','creator-test','video','External','Test Creator is mentioned',120,false,'{}')`);
+  await client.query(`INSERT INTO media_intelligence_revisions(revision_id,asset_key,fingerprint,analyzer_input_hash) VALUES('test-revision','youtube:creator-test','test','test')`);
+  await client.query(`INSERT INTO media_intelligence_transcript_imports(import_id,asset_key,revision_id,content_hash,language,cues,rights_reference,submitted_by,status,reviewed_at,expires_at)
+    VALUES('test-caption','youtube:creator-test','test-revision','test','en',$1::jsonb,'test fixture','test','approved',now(),now()+interval '1 day')`, [JSON.stringify([{ startSeconds: 30, endSeconds: 35, text: 'testcreator says hello' }])]);
+  assert.equal((await service.scanCreatorMentions()).candidatesAdded, 2);
+  assert.equal((await service.scanCreatorMentions()).candidatesAdded, 0, 'cron retries cannot duplicate candidates');
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'draft mentions cannot claim on-screen identity');
+  let dashboard = await service.creatorTagDashboard();
+  const caption = dashboard.annotations.find((tag) => tag.evidenceKind === 'caption');
+  await service.reviewCreatorAnnotation(caption.id, 'publish', 'fixture-admin');
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags[0].startSeconds, 30);
+  await client.query("UPDATE media_intelligence_transcript_imports SET status='revoked'");
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'revoked evidence cannot reappear');
+  await client.query("UPDATE media_intelligence_transcript_imports SET status='approved',expires_at=now()-interval '1 day'");
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'expired caption evidence is hidden');
+  await client.query("UPDATE media_intelligence_transcript_imports SET expires_at=now()+interval '1 day'");
+  const manual = await service.submitCreatorAnnotation({ assetKey: 'youtube:creator-test', creatorId: creator.id, startSeconds: 60, endSeconds: 65, evidenceKind: 'manual', evidence: 'editor confirmed placement', box: { x: .2, y: .2, width: .1, height: .1 } }, 'fixture-admin');
+  await client.query("UPDATE media_intelligence_revisions SET is_current=false");
+  await assert.rejects(() => service.reviewCreatorAnnotation(manual.id, 'publish', 'fixture-admin'), /source or transcript changed/);
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'a different revision hides old tags');
+  await client.query("UPDATE media_intelligence_revisions SET is_current=true");
+  await service.reviewCreatorAnnotation(manual.id, 'publish', 'fixture-admin');
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 2);
+  await service.submitCreatorAnnotation({ assetKey: 'youtube:creator-test', creatorId: creator.id, startSeconds: 70, endSeconds: 75, evidenceKind: 'manual', evidence: 'updated editorial placement' }, 'fixture-admin', manual.id);
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 1, 'editing a published tag requires a new review');
+  await service.reviewCreatorAnnotation(manual.id, 'publish', 'fixture-admin');
+  await service.reviewCreatorAnnotation(manual.id, 'revoke', 'fixture-admin');
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 1);
+  await service.saveCreator({ ...creator, active: false }, 'fixture-admin');
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'hidden profiles suppress public tags');
+  await service.saveCreator(creator, 'fixture-admin');
+  await client.query("UPDATE media_intelligence_assets SET platform='twitch',is_live=true,published_at='2026-10-11T12:00:00Z'");
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'unknown Twitch sessions cannot display positioned tags');
+  assert.equal((await service.publicCreatorTags('youtube:creator-test','2026-10-11T12:00:00Z')).tags.length, 1);
+  assert.equal((await service.publicCreatorTags('youtube:creator-test','2026-10-11T13:00:00Z')).tags.length, 0, 'the next live session cannot reuse tags');
+  await client.query("INSERT INTO media_intelligence_tombstones(tombstone_id,asset_key,reason,delete_after) VALUES('test','youtube:creator-test','removed',now())");
+  assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'deleted sources suppress tags');
+  console.log(JSON.stringify({ ok: true, checks: ['scheduled candidates','retry idempotency','draft isolation','publication','timestamps','revoked captions','expiry','revision isolation','edit review','unpublish','hidden creators','live session scope','removed sources'], rollback: true, paidCalls: 0 }));
+} finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }

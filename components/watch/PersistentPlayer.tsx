@@ -51,6 +51,8 @@ import { PlayerNetworkWatermark } from "@/components/watch/PlayerNetworkWatermar
 import { TwitchSubscribeCta } from "@/components/watch/TwitchSubscribeCta";
 import { YouTubeSubscribeCta } from "@/components/watch/YouTubeSubscribeCta";
 import { OnScreenIdentityOverlay } from "@/components/watch/OnScreenIdentityOverlay";
+import { CreatorTags } from "@/components/watch/CreatorTags";
+import { creatorTimelineSeconds } from "@/lib/creator-tags/model";
 import { SocialIcon } from "@/components/ui/SocialIcon";
 import { WatchSelect } from "@/components/watch/WatchSelect";
 import { useWatchContextMenu } from "@/components/watch/WatchContextMenu";
@@ -3384,6 +3386,18 @@ export function PersistentPlayer() {
                   getMediaTimeMs={readPresenceTimeMs}
                   mediaElementRef={videoRef}
                   mediaFit="contain"
+                />
+              ) : null}
+              {(current.platform === "youtube" || current.platform === "twitch" || current.platform === "house") && !imageMedia ? (
+                <CreatorTags
+                  key={`creators:${current.platform}:${current.key}:${current.publishedAt ?? ""}`}
+                  assetKey={`${current.platform}:${current.key}`}
+                  title={current.title}
+                  liveStartedAt={current.kind === "live" ? current.publishedAt : undefined}
+                  getTime={() => creatorTimelineSeconds({ platform: current.platform, kind: current.kind, seconds: positionRef.current, replay: Boolean(activeTwitchArchiveId) })}
+                  mediaRef={videoRef}
+                  sourceRatio={shape === "portrait" ? 9 / 16 : shape === "square" ? 1 : 16 / 9}
+                  compact={!playerScreen}
                 />
               ) : null}
               {current.youtubeId ? (

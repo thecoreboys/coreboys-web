@@ -5,6 +5,7 @@ import { publishMediaIndexGeneration } from "@/lib/media-intelligence/indexing";
 import { runScheduledMediaMaintenance } from "@/lib/media-intelligence/operations";
 import { runMediaIntelligenceRetention } from "@/lib/media-intelligence/retention";
 import { runOriginalSuggestions } from "@/lib/core-originals-suggestions";
+import { scanCreatorMentions } from "@/lib/creator-tags/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   let body: {
-    action?: "maintenance" | "sync" | "archive" | "cleanup" | "publish-index" | "originals";
+    action?: "maintenance" | "sync" | "archive" | "cleanup" | "publish-index" | "originals" | "creators";
     maxJobs?: unknown;
     maxArchivePages?: unknown;
     archivePageSize?: unknown;
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     return Number.isFinite(parsed) ? Math.max(0, Math.min(max, Math.trunc(parsed))) : fallback;
   };
   const action = body.action ?? "maintenance";
-  if (!["maintenance", "sync", "archive", "cleanup", "publish-index", "originals"].includes(action)) {
+  if (!["maintenance", "sync", "archive", "cleanup", "publish-index", "originals", "creators"].includes(action)) {
     return NextResponse.json({ error: "invalid_media_intelligence_action" }, { status: 400 });
   }
   const maxJobs = bounded(body.maxJobs, 100, 500);
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
   const archivePageSize = bounded(body.archivePageSize, 50, 100);
   const retentionLimit = bounded(body.retentionLimit, 250, 2_000);
   try {
+    if (action === "creators") return NextResponse.json(await scanCreatorMentions(50));
     if (action === "originals") return NextResponse.json(await runOriginalSuggestions());
     if (action === "sync") {
       const result = await runCurrentWatchCatalogSync({ trigger: "scheduled", maxJobs });
