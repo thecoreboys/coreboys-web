@@ -138,8 +138,13 @@ export function resolveSubscriptionSnapshot(input: {
     status = "active";
   }
 
-  const allowed = FEATURE_IDS.filter((featureId) => planIncludesFeature(effectivePlanId, featureId));
-  const denied = FEATURE_IDS.filter((featureId) => !planIncludesFeature(effectivePlanId, featureId));
+  const granted = new Set((snapshot.featureGrants ?? []).filter((grant) => {
+    const expiresAt = instant(grant.expiresAt);
+    return grant.featureId === "player.creator_tags" && grant.status === "active"
+      && (grant.expiresAt === null || (expiresAt !== null && expiresAt > now.getTime()));
+  }).map((grant) => grant.featureId));
+  const allowed = FEATURE_IDS.filter((featureId) => planIncludesFeature(effectivePlanId, featureId) || granted.has(featureId));
+  const denied = FEATURE_IDS.filter((featureId) => !allowed.includes(featureId));
   const activeAddOns = snapshot.addOns.filter((addOn) => addOnIsActive(addOn, now));
 
   const meters = Object.fromEntries(METER_IDS.map((meterId) => {

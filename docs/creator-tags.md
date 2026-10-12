@@ -6,6 +6,14 @@ tags, search or suggestion APIs. Responses are private and never browser/CDN cac
 the source's reviewed tag data uses the existing shared Redis cache behind this gate.
 Public playback remains free.
 
+Complimentary account access can be granted without starting or changing a
+subscription. The server reads the latest administrative
+`feature_entitlement_granted` / `feature_entitlement_revoked` event for
+`player.creator_tags` from the existing append-only subscription ledger.
+`expiresAt` may be null or a future ISO timestamp. Revocation, expiry and invalid
+expiry values fail closed. The grant applies only to this enhancement and does
+not enable metered AI utilities or modify Stripe contracts.
+
 The player **Creators** control searches an editorial directory. The six CORE
 members and Adin Ross, PlaqueBoyMax and YourRAGE have initial verified profile
 links. Administrators can add other creators and update aliases or social links

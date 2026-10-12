@@ -23,6 +23,7 @@ function load(path) {
   vm.runInNewContext(`(function(exports,require){${source}\n})`, { process, Date, Buffer, URL })(api, (id) => {
     if (id === 'server-only') return {};
     if (id === '@/lib/media-intelligence/schema') return schema;
+    if (id === '@/lib/db') return { query: (...args) => client.query(...args), withTransaction: (work) => work(client) };
     if (id === '@/lib/server-cache') return { cachedPublicData: (_key, work) => work() };
     if (id === './directory') return { defaultCreatorDirectory: () => [] };
     if (id.startsWith('.')) return load(resolve(dirname(full), `${id}.ts`));
@@ -77,5 +78,21 @@ try {
   assert.equal((await service.publicCreatorTags('youtube:creator-test','2026-10-11T13:00:00Z')).tags.length, 0, 'the next live session cannot reuse tags');
   await client.query("INSERT INTO media_intelligence_tombstones(tombstone_id,asset_key,reason,delete_after) VALUES('test','youtube:creator-test','removed',now())");
   assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'deleted sources suppress tags');
-  console.log(JSON.stringify({ ok: true, checks: ['scheduled candidates','retry idempotency','draft isolation','publication','timestamps','revoked captions','expiry','revision isolation','edit review','unpublish','hidden creators','live session scope','removed sources'], rollback: true, paidCalls: 0 }));
+  await client.query('CREATE TABLE fan_users(id text PRIMARY KEY)');
+  await client.query(readFileSync(resolve(root,'scripts/migrations/016_subscription_entitlements.sql'),'utf8'));
+  await client.query("INSERT INTO fan_users(id) VALUES('owner'),('other')");
+  await client.query("INSERT INTO fan_subscriptions(user_id,plan_id,status,source,billing_interval,external_contract_ref) VALUES('owner','plus','canceled','future_billing','month','previous-contract')");
+  const subscriptions = load('lib/subscriptions/store.ts');
+  const billingBefore = JSON.stringify((await subscriptions.getSubscriptionStorageSnapshot('owner')).subscription);
+  const grant = (type, expiry = null) => client.query(`INSERT INTO fan_subscription_events(user_id,event_type,actor_type,payload)
+    VALUES('owner',$1,'admin',$2::jsonb)`, [type, JSON.stringify({ featureId:'player.creator_tags', expiresAt:expiry })]);
+  await grant('feature_entitlement_granted');
+  assert.equal((await subscriptions.getSubscriptionStorageSnapshot('owner')).featureGrants[0].status, 'active');
+  assert.equal((await subscriptions.getSubscriptionStorageSnapshot('other')).featureGrants.length, 0, 'grants cannot cross accounts');
+  await grant('feature_entitlement_revoked');
+  assert.equal((await subscriptions.getSubscriptionStorageSnapshot('owner')).featureGrants[0].status, 'revoked', 'latest administrative event is authoritative');
+  await grant('feature_entitlement_granted','invalid');
+  assert.equal((await subscriptions.getSubscriptionStorageSnapshot('owner')).featureGrants.length, 0, 'malformed expiry cannot become permanent access');
+  assert.equal(JSON.stringify((await subscriptions.getSubscriptionStorageSnapshot('owner')).subscription), billingBefore, 'grants cannot rewrite billing history');
+  console.log(JSON.stringify({ ok: true, checks: ['scheduled candidates','retry idempotency','draft isolation','publication','timestamps','revoked captions','expiry','revision isolation','edit review','unpublish','hidden creators','live session scope','removed sources','account-specific complimentary access','grant revocation','invalid grant expiry','unchanged billing'], rollback: true, paidCalls: 0 }));
 } finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }
