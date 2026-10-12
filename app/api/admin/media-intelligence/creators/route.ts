@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-api";
 import { AnnotationInput, CreatorInput } from "@/lib/creator-tags/model";
 import { creatorTagDashboard, saveCreator, submitCreatorAnnotation, reviewCreatorAnnotation, scanCreatorMentions } from "@/lib/creator-tags/store";
-import { creatorOcrConfigured } from "@/lib/creator-tags/ocr";
 import { boundedCreatorJson, creatorError, sameOrigin } from "@/lib/creator-tags/http";
 import { playableFromUrl } from "@/lib/watch/playable";
 import { getLocalMetadataAnalyzer, prepareWatchItem } from "@/lib/media-intelligence/analyzer";
@@ -21,7 +20,7 @@ const Input = z.discriminatedUnion("action", [
 ]);
 export async function GET(request: Request) {
   const auth = await requireAdmin(); if (!auth.ok) return auth.response;
-  try { return NextResponse.json({ ...await creatorTagDashboard(new URL(request.url).searchParams.get("q") ?? ""), imageTextReady: creatorOcrConfigured() }, { headers: { "Cache-Control": "private, no-store" } }); }
+  try { return NextResponse.json(await creatorTagDashboard(new URL(request.url).searchParams.get("q") ?? ""), { headers: { "Cache-Control": "private, no-store" } }); }
   catch { return creatorError("Creator tags are unavailable. Check media-index connectivity.", 503); }
 }
 export async function POST(request: Request) {

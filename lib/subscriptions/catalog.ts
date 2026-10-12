@@ -66,6 +66,7 @@ export const FEATURE_IDS = [
   "chat.saved_layouts",
   "rooms.private",
   "player.advanced_preferences",
+  "player.creator_tags",
   "bookmarks.timestamps",
   "guide.custom_channels",
   "channels.smart",
@@ -176,6 +177,7 @@ const PLUS_FEATURES = [
   "passport.card_customization",
   "economy.cosmetics",
   "player.advanced_preferences",
+  "player.creator_tags",
 ] as const satisfies readonly FeatureId[];
 const PRO_FEATURES = [
   ...PLUS_FEATURES,

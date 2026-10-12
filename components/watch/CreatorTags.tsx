@@ -1,11 +1,11 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- Crops are temporary browser data URLs, not remote catalog images. */
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { ExternalLink, ScanText, Users, X } from "lucide-react";
+import { ExternalLink, LockKeyhole, ScanText, Users, X } from "lucide-react";
 import { useEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
 import { activeCreatorTags, matchCreatorText, normalizeCreatorText, videoRectangle, type CreatorBox, type CreatorProfile, type CreatorTagPayload } from "@/lib/creator-tags/model";
 import styles from "./CreatorTags.module.css";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const empty: CreatorTagPayload = { creators: [], tags: [], mentions: [] };
 const stamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -21,8 +21,11 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
 }) {
   const root = useRef<HTMLDivElement>(null);
   const reader = useRef(getTime); reader.current = getTime;
+  const subscription = useSubscription();
+  const memberAllowed = subscription.hasFeature("player.creator_tags");
+  const [accessBlocked, setAccessBlocked] = useState(false);
+  const loaded = memberAllowed && !accessBlocked;
   const [data, setData] = useState<CreatorTagPayload>(empty);
-  const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [box, setBox] = useState<CreatorBox | null>(null);
@@ -30,26 +33,31 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
   const [time, setTime] = useState<number | null>(null);
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
   const [query, setQuery] = useState("");
-  const [crop, setCrop] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [geometry, setGeometry] = useState({ x: 0, y: 0, width: 1, height: 1 });
   const [expandedTag, setExpandedTag] = useState<string | null>(null);
   const sequence = useRef(0);
-  const searchSequence = useRef(0);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [visible, setVisible] = useState(true);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    setData(empty); setLoaded(false); setOpen(false); setSelecting(false); setBox(null); setCrop(null); setQuery(""); setMessage(""); setExpandedTag(null);
+    setData(empty); setOpen(false); setSelecting(false); setBox(null); setQuery(""); setMessage(""); setExpandedTag(null); setSelectedTime(null); setTime(null);
     sequence.current++;
-    searchSequence.current++;
     const host = root.current?.parentElement;
-    const activate = () => setLoaded(true);
-    host?.addEventListener("pointerenter", activate, { once: true });
-    host?.addEventListener("focusin", activate, { once: true });
-    return () => { host?.removeEventListener("pointerenter", activate); host?.removeEventListener("focusin", activate); };
-  }, [assetKey]);
+    const enter = () => setHovered(true), leave = () => setHovered(false);
+    host?.addEventListener("pointerenter", enter);
+    host?.addEventListener("pointerleave", leave);
+    host?.addEventListener("focusin", enter);
+    const blur = (event: FocusEvent) => { if (!host?.contains(event.relatedTarget as Node | null)) leave(); };
+    host?.addEventListener("focusout", blur);
+    return () => { host?.removeEventListener("pointerenter", enter); host?.removeEventListener("pointerleave", leave); host?.removeEventListener("focusin", enter); host?.removeEventListener("focusout", blur); };
+  }, [assetKey, liveStartedAt]);
+
+  useEffect(() => {
+    setAccessBlocked(false);
+    if (!memberAllowed) { setData(empty); setSelecting(false); setExpandedTag(null); }
+  }, [memberAllowed]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -61,9 +69,12 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
       try {
         const params = new URLSearchParams({ assetKey });
         if (liveStartedAt) params.set("liveStartedAt", liveStartedAt);
-        const response = await fetch(`/api/watch/creator-tags?${params}`, { signal: controller.signal });
+        const response = await fetch(`/api/watch/creator-tags?${params}`, { signal: controller.signal, cache: "no-store" });
         const value = await response.json();
-        if (response.ok && Array.isArray(value.creators) && Array.isArray(value.tags) && currentSequence === sequence.current) setData(value);
+        if (currentSequence !== sequence.current) return;
+        if (response.status === 401 || response.status === 403) { setData(empty); setAccessBlocked(true); setSelecting(false); return; }
+        if (response.ok && Array.isArray(value.creators) && Array.isArray(value.tags)) { setData(value); if (value.unavailable) setMessage("Video tags are temporarily unavailable. Name lookup still works."); }
+        else setMessage("Creator tags could not load. Try again shortly.");
       } catch { /* Tags enhance playback; network failure never interrupts video. */ }
     };
     void load();
@@ -98,7 +109,9 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
   const normalizedQuery = normalizeCreatorText(query);
   const matches = normalizedQuery ? data.creators.filter((creator) => creator.active && (textMatches.some((entry) => entry.id === creator.id) || [creator.name, ...creator.aliases].some((alias) => normalizeCreatorText(alias).includes(normalizedQuery)))).slice(0, 12)
     : [...new Map([...named, ...data.mentions.map((entry) => data.creators.find((creator) => creator.id === entry.creatorId)).filter((creator): creator is CreatorProfile => Boolean(creator))].map((creator) => [creator.id, creator])).values()];
-  const tags = visible ? activeCreatorTags(data.tags, time) : [];
+  const tags = loaded && visible ? activeCreatorTags(data.tags, time) : [];
+  const currentCreators = [...new Map(tags.map((tag) => data.creators.find((creator) => creator.id === tag.creatorId))
+    .filter((creator): creator is CreatorProfile => Boolean(creator)).map((creator) => [creator.id, creator])).values()];
 
   function point(event: PointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -110,7 +123,7 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
     event.preventDefault(); event.stopPropagation();
     anchor.current = { ...point(event), pointerId: event.pointerId };
     event.currentTarget.setPointerCapture(event.pointerId);
-    setSelectedTime(reader.current()); setCrop(null); setMessage(""); setBox(null);
+    setSelectedTime(reader.current()); setMessage(""); setBox(null);
   }
   function move(event: PointerEvent<HTMLDivElement>) {
     if (!anchor.current || anchor.current.pointerId !== event.pointerId) return;
@@ -119,46 +132,15 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
   }
   function finish(event: PointerEvent<HTMLDivElement>) {
     if (!anchor.current || anchor.current.pointerId !== event.pointerId) return;
+    const start = anchor.current, end = point(event);
+    const selected = { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.abs(end.x - start.x), height: Math.abs(end.y - start.y) };
     event.stopPropagation(); anchor.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
-    if (!box || box.width < .005 || box.height < .005) { setBox(null); return; }
-    const video = mediaRef?.current;
-    if (video?.videoWidth && video.videoHeight) {
-      try {
-        const canvas = document.createElement("canvas");
-        const width = video.videoWidth * box.width, height = video.videoHeight * box.height;
-        const scale = Math.min(1, 1280 / width, 720 / height);
-        canvas.width = Math.max(1, Math.round(width * scale)); canvas.height = Math.max(1, Math.round(height * scale));
-        canvas.getContext("2d")!.drawImage(video, video.videoWidth * box.x, video.videoHeight * box.y, width, height, 0, 0, canvas.width, canvas.height);
-        setCrop(canvas.toDataURL("image/jpeg", .8));
-      } catch { setMessage("This player cannot provide a frame. Upload a screenshot containing visible text, or enter the name or username."); }
-    } else setMessage("This embed cannot provide a frame. Upload a screenshot containing visible text, or enter the name or username.");
+    if (selected.width < .005 || selected.height < .005) { setBox(null); return; }
+    setBox(selected);
+    // Store normalized placement only. No image capture, upload, model call or face processing.
+    setMessage("Position selected. Choose the creator’s name to submit this tag for review.");
     setSelecting(false); setOpen(true);
-  }
-  async function upload(file?: File) {
-    if (!file) return;
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 8_000_000) { setMessage("Choose a PNG, JPEG or WebP screenshot under 8 MB."); return; }
-    try {
-      const bitmap = await createImageBitmap(file);
-      const scale = Math.min(1, 1280 / bitmap.width, 720 / bitmap.height);
-      const canvas = document.createElement("canvas"); canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
-      canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
-      setCrop(canvas.toDataURL("image/jpeg", .8)); setMessage("Screenshot ready. Read the visible text to search the directory.");
-    } catch { setMessage("That image could not be opened."); }
-  }
-  async function readText() {
-    if (!crop) return;
-    setBusy(true); setMessage("");
-    const request = ++searchSequence.current;
-    try {
-      const response = await fetch("/api/watch/creator-tags/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: crop }) });
-      const value = await response.json();
-      if (request !== searchSequence.current) return;
-      if (!response.ok) throw new Error(value.error || "Text search could not complete.");
-      setQuery(value.text || "");
-      setMessage(value.text ? `Read: ${value.text}` : "No readable name or username found. Enter the visible text yourself.");
-    } catch (error) { if (request === searchSequence.current) setMessage(error instanceof Error ? error.message : "Text search could not complete."); }
-    finally { setBusy(false); }
   }
   async function suggest(creator: CreatorProfile) {
     const at = selectedTime ?? time;
@@ -166,7 +148,7 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
     setBusy(true);
     try {
       const response = await fetch("/api/watch/creator-tags/suggest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assetKey, creatorId: creator.id,
-        startSeconds: Math.floor(at), endSeconds: Math.floor(at) + 5, box, liveStartedAt, evidenceKind: "visible-text", evidence: query || `Viewer selected ${creator.name} at ${stamp(at)}` }) });
+        startSeconds: Math.floor(at), endSeconds: Math.floor(at) + 5, box, liveStartedAt, evidenceKind: "manual", evidence: `Viewer selected ${creator.name} at ${stamp(at)}` }) });
       const value = await response.json();
       if (!response.ok) throw new Error(value.error);
       setMessage("Tag submitted for review.");
@@ -181,9 +163,9 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
     document.addEventListener("keydown", cancel);
     return () => document.removeEventListener("keydown", cancel);
   }, [selecting]);
-  return <div ref={root} className={styles.overlay} data-creator-tags data-cursor-native onKeyDown={(event) => { if (event.key === "Escape") { setSelecting(false); setExpandedTag(null); } }}>
+  return <div ref={root} className={styles.overlay} data-creator-tags data-active={hovered || expandedTag ? "true" : undefined} data-cursor-native onKeyDown={(event) => { if (event.key === "Escape") { setSelecting(false); setExpandedTag(null); } }}>
     <div className={styles.toolbar}>
-      <button type="button" aria-label="Open creator tags and social links" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setLoaded(true); setSelectedTime(reader.current()); setOpen(true); }}><Users size={15} aria-hidden />{compact ? null : "Creators"}</button>
+      <button type="button" disabled={subscription.loading} aria-label="Open creator tags and social links" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setSelectedTime(reader.current()); setOpen(true); }}><Users size={15} aria-hidden />{compact ? null : "Creators"}{!loaded && !subscription.loading ? <LockKeyhole size={12} aria-hidden /> : null}</button>
       {tags.length ? <button type="button" aria-label="Hide creator tags" onClick={() => setVisible(false)}><X size={14} /></button> : null}
     </div>
     {tags.map((tag, index) => {
@@ -195,8 +177,8 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
         <div className={styles.tooltip} data-expanded={expandedTag === tag.id ? "true" : undefined}><strong>{creator.name}</strong><SocialLinks creator={creator} /></div>
       </div>;
     })}
-    {selecting ? <div className={styles.selection} role="region" aria-label="Drag over a visible name or watermark" onPointerDown={begin} onPointerMove={move} onPointerUp={finish} onPointerCancel={() => { anchor.current = null; setBox(null); }} onClick={(event) => event.stopPropagation()}>
-      <span className={styles.selectionHint}>Drag over a name or watermark · Esc to cancel</span>
+    {selecting && loaded ? <div className={styles.selection} role="region" aria-label="Drag to place a creator tag" onPointerDown={begin} onPointerMove={move} onPointerUp={finish} onPointerCancel={() => { anchor.current = null; setBox(null); }} onClick={(event) => event.stopPropagation()}>
+      <span className={styles.selectionHint}>Drag to place a creator tag · Esc to cancel</span>
       <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setSelecting(false); }}>Cancel</button>
       {box ? <div className={styles.box} style={boxStyle(box)} /> : null}
     </div> : null}
@@ -205,22 +187,22 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
         <Dialog.Overlay className={styles.backdrop} />
         <Dialog.Content className={styles.dialog} onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
           <Dialog.Title className={styles.heading}>Creators & socials</Dialog.Title>
-          <Dialog.Description className={styles.description}>Find a creator by their visible name, username, or a verified video tag.</Dialog.Description>
+          <Dialog.Description className={styles.description}>{loaded ? "Verified tags appear as you watch. Select a name to see their socials, or search the directory." : "See reviewed creator tags at the right moment and open their verified social profiles. Included with CORE Membership."}</Dialog.Description>
           <Dialog.Close className={styles.close} aria-label="Close creator search"><X size={20} /></Dialog.Close>
+          {loaded ? <>
+          {!query && currentCreators.length ? <section className={styles.current} aria-label="Creators at this moment"><p className={styles.description}>At this moment</p><div className={styles.results}>{currentCreators.map((creator) => <article key={creator.id}><strong>{creator.name}</strong><SocialLinks creator={creator} /></article>)}</div></section> : null}
           <label className={styles.label}>Name or username<input value={query} onChange={(event) => { setQuery(event.target.value); setMessage(""); }} placeholder="e.g. @adinross" maxLength={1000} /></label>
           <div className={styles.actions}>
-            <button type="button" onClick={() => { setOpen(false); setSelecting(true); setBox(null); setCrop(null); }}><ScanText size={16} /> Select text in video</button>
-            <button type="button" onClick={() => fileRef.current?.click()}>Upload screenshot</button>
+            <button type="button" disabled={(selectedTime ?? time) == null} onClick={() => { setOpen(false); setSelecting(true); setBox(null); }}><ScanText size={16} /> Place a tag in video</button>
           </div>
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = ""; }} />
-          {crop ? <div className={styles.crop}><img src={crop} alt="Selected text to read" /><button type="button" disabled={busy} onClick={() => void readText()}>{busy ? "Reading…" : "Read visible text"}</button></div> : null}
           {message ? <p role="status" className={styles.notice}>{message}</p> : null}
-          {!query && matches.length ? <p className={styles.description}>Names mentioned in this video’s metadata. A mention does not confirm who is on screen.</p> : null}
+          {!query && matches.length ? <p className={styles.description}>From the title or description. These mentions do not confirm who is on screen.</p> : null}
           <div className={styles.results}>
             {matches.map((creator) => <article key={creator.id}><strong>{creator.name}</strong><SocialLinks creator={creator} /><button type="button" disabled={busy || (selectedTime ?? time) == null} onClick={() => void suggest(creator)}>{(selectedTime ?? time) == null ? "Open replay for timed tags" : `Suggest tag at ${stamp(selectedTime ?? time ?? 0)}`}</button></article>)}
-            {!matches.length ? <p className={styles.description}>{query ? "No verified match yet. Try a full name or username." : "Search the creator directory to find verified social links."}</p> : null}
+            {!matches.length ? <p className={styles.description}>{query ? "No verified match yet. Try a full name or username." : tags.length ? "Search the creator directory to find verified social links." : "No reviewed tags at this moment. Search by name or suggest a tag."}</p> : null}
           </div>
           <label className={styles.toggle}><input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} /> Show verified video tags</label>
+          </> : <a className={styles.membership} href={subscription.featureHref("player.creator_tags")} onClick={() => setOpen(false)}>{subscription.signedIn ? "View CORE Membership" : "Sign in to continue"} <ExternalLink size={15} aria-hidden /></a>}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

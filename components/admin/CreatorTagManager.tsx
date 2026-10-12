@@ -5,12 +5,12 @@ import { SocialPlatform, type CreatorAnnotation, type CreatorProfile } from "@/l
 const endpoint = "/api/admin/media-intelligence/creators";
 const field = "mt-1 min-h-11 w-full rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary";
 const button = "inline-flex min-h-11 items-center justify-center rounded-lg border border-secondary bg-primary px-4 text-sm font-semibold text-primary disabled:opacity-50";
-type Dashboard = { creators: CreatorProfile[]; annotations: CreatorAnnotation[]; assets: Array<{ assetKey: string; title: string; duration: number | null; isLive: boolean; publishedAt: string | null }>; imageTextReady: boolean };
+type Dashboard = { creators: CreatorProfile[]; annotations: CreatorAnnotation[]; assets: Array<{ assetKey: string; title: string; duration: number | null; isLive: boolean; publishedAt: string | null }> };
 const initial = { id: "", name: "", aliases: "", socials: "", active: true };
 const stamp = (time: number) => `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, "0")}`;
 
 export function CreatorTagManager() {
-  const [data, setData] = useState<Dashboard>({ creators: [], annotations: [], assets: [], imageTextReady: false });
+  const [data, setData] = useState<Dashboard>({ creators: [], annotations: [], assets: [] });
   const [profile, setProfile] = useState(initial);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -59,7 +59,7 @@ export function CreatorTagManager() {
   const drafts = data.annotations.filter((tag) => tag.status === "draft");
   return <section className="space-y-8" aria-labelledby="creator-manager-heading">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="creator-manager-heading" className="text-xl font-semibold text-primary">Creator tags</h2><p className="mt-2 max-w-2xl text-sm text-tertiary">Maintain verified social profiles and publish tags for specific moments. Names found in captions or titles enter the review queue.</p></div><button type="button" className={button} disabled={busy} onClick={() => void mutate({ action: "scan" })}>Find text mentions</button></div>
-    <p className="text-sm text-tertiary">Image text search: {data.imageTextReady ? "Ready" : "Not configured. Viewers can search by name."}</p>
+    <p className="text-sm text-tertiary">Included with CORE Membership. Text matching and reviewed tags use no paid image analysis.</p>
     {message ? <p role="status" className="rounded-lg border border-secondary bg-primary p-3 text-sm text-primary">{message}</p> : null}
     {loading ? <p role="status" className="text-sm text-tertiary">Loading creator tags…</p> : null}
     <div className="grid items-start gap-6 lg:grid-cols-2">

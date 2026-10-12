@@ -29,6 +29,9 @@ test("every plan keeps playback, accessibility, privacy, and account rights free
   assert.equal(planIncludesFeature("plus", "multiview.saved_layouts"), true);
   assert.equal(planIncludesFeature("plus", "search.semantic"), true);
   assert.equal(planIncludesFeature("plus", "search.moments"), true);
+  assert.equal(minimumPlanForFeature("player.creator_tags"), "plus");
+  assert.equal(planIncludesFeature("free", "player.creator_tags"), false);
+  assert.equal(planIncludesFeature("plus", "player.creator_tags"), true);
   assert.equal(planIncludesFeature("business", "workspace.roles"), true);
 });
 

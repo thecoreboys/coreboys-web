@@ -12,6 +12,7 @@ import styles from "./PricingExperience.module.css";
 type AccountPlanPreview = AccountSubscriptionApiResponse["account"];
 const INCLUDED = ["Full access to current CORE beta features", "Multiview rooms, saved layouts, and queues", "Extended history, DVR folders, and notes", "Advanced alerts and account preferences", "Member card customization and profile tools", "Public content remains free for everyone"];
 const FEATURE_FOCUS: Record<string, { title: string; copy: string }> = {
+  "player.creator_tags": { title: "Creator tags", copy: "See reviewed creator tags as you watch and open their verified social profiles." },
   "multiview.expanded": { title: "Expanded multiview", copy: "Watch more live channels in one room." },
   "multiview.saved_layouts": { title: "Saved layouts", copy: "Keep your preferred room setup ready." },
   "rooms.private": { title: "Private rooms", copy: "Bring your people into one shared watch room." },
