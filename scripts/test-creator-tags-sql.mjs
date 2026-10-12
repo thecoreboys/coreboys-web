@@ -15,6 +15,8 @@ if (!['localhost','127.0.0.1'].includes(url.hostname) || url.pathname !== '/core
 const client = new pg.Client({ connectionString: url.href });
 const schema = { mediaIntelligenceQuery: (...args) => client.query(...args), withMediaIntelligenceTransaction: (work) => work(client) };
 const modules = new Map();
+let avatarLookupHook = null;
+const avatarUsers = { testcreator: { login:'testcreator', profile_image_url:'https://static-cdn.jtvnw.net/jtv_user_pictures/test-avatar.png' } };
 function load(path) {
   const full = resolve(root, path);
   if (modules.has(full)) return modules.get(full);
@@ -24,6 +26,7 @@ function load(path) {
     if (id === 'server-only') return {};
     if (id === '@/lib/media-intelligence/schema') return schema;
     if (id === '@/lib/db') return { query: (...args) => client.query(...args), withTransaction: (work) => work(client) };
+    if (id === '@/lib/twitch') return { fetchUsersByLogin: async () => { if(avatarLookupHook) await avatarLookupHook(); return avatarUsers; } };
     if (id === '@/lib/server-cache') return { cachedPublicData: (_key, work) => work() };
     if (id === './directory') return { defaultCreatorDirectory: () => [] };
     if (id.startsWith('.')) return load(resolve(dirname(full), `${id}.ts`));
@@ -40,6 +43,9 @@ try {
   const service = load('lib/creator-tags/store.ts');
   const creator = { id: 'test-creator', name: 'Test Creator', aliases: ['testcreator'], active: true, socials: [{ platform: 'twitch', url: 'https://www.twitch.tv/testcreator' }] };
   await service.saveCreator(creator, 'fixture-admin');
+  assert.equal((await service.refreshCreatorAvatars()).updated, 1);
+  assert.equal((await service.creatorDirectory())[0].avatarUrl, avatarUsers.testcreator.profile_image_url);
+  assert.equal((await service.refreshCreatorAvatars()).updated, 0, 'fresh profile checks cannot repeat provider work');
   await client.query(`INSERT INTO media_intelligence_assets(asset_key,platform,external_id,content_type,creator_label,title,duration_seconds,is_live,item)
     VALUES('youtube:creator-test','youtube','creator-test','video','External','Test Creator is mentioned',120,false,'{}')`);
   await client.query(`INSERT INTO media_intelligence_revisions(revision_id,asset_key,fingerprint,analyzer_input_hash) VALUES('test-revision','youtube:creator-test','test','test')`);
@@ -78,6 +84,11 @@ try {
   assert.equal((await service.publicCreatorTags('youtube:creator-test','2026-10-11T13:00:00Z')).tags.length, 0, 'the next live session cannot reuse tags');
   await client.query("INSERT INTO media_intelligence_tombstones(tombstone_id,asset_key,reason,delete_after) VALUES('test','youtube:creator-test','removed',now())");
   assert.equal((await service.publicCreatorTags('youtube:creator-test')).tags.length, 0, 'deleted sources suppress tags');
+  await service.saveCreator(creator,'fixture-admin');
+  avatarLookupHook = () => service.saveCreator({...creator,name:'Updated by admin'},'fixture-admin');
+  assert.equal((await service.refreshCreatorAvatars()).updated, 0, 'an avatar lookup cannot overwrite a concurrent curated edit');
+  assert.equal((await service.creatorDirectory())[0].name,'Updated by admin');
+  avatarLookupHook = null;
   await client.query('CREATE TABLE fan_users(id text PRIMARY KEY)');
   await client.query(readFileSync(resolve(root,'scripts/migrations/016_subscription_entitlements.sql'),'utf8'));
   await client.query("INSERT INTO fan_users(id) VALUES('owner'),('other')");
@@ -94,5 +105,5 @@ try {
   await grant('feature_entitlement_granted','invalid');
   assert.equal((await subscriptions.getSubscriptionStorageSnapshot('owner')).featureGrants.length, 0, 'malformed expiry cannot become permanent access');
   assert.equal(JSON.stringify((await subscriptions.getSubscriptionStorageSnapshot('owner')).subscription), billingBefore, 'grants cannot rewrite billing history');
-  console.log(JSON.stringify({ ok: true, checks: ['scheduled candidates','retry idempotency','draft isolation','publication','timestamps','revoked captions','expiry','revision isolation','edit review','unpublish','hidden creators','live session scope','removed sources','account-specific complimentary access','grant revocation','invalid grant expiry','unchanged billing'], rollback: true, paidCalls: 0 }));
+  console.log(JSON.stringify({ ok: true, checks: ['scheduled candidates','retry idempotency','draft isolation','publication','timestamps','revoked captions','expiry','revision isolation','edit review','unpublish','hidden creators','live session scope','removed sources','account-specific complimentary access','grant revocation','invalid grant expiry','unchanged billing','profile avatars','avatar cooldown','concurrent curated edits'], rollback: true, paidCalls: 0 }));
 } finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }

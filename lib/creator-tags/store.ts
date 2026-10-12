@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mediaIntelligenceQuery, withMediaIntelligenceTransaction } from "@/lib/media-intelligence/schema";
 import { cachedPublicData } from "@/lib/server-cache";
 import { defaultCreatorDirectory } from "./directory";
+import { fetchCreatorAvatarUpdates } from "./avatars";
 import { AnnotationInput, Box, CreatorInput, createCreatorTextMatcher, matchCreatorText, type CreatorAnnotation, type CreatorProfile, type CreatorTagPayload } from "./model";
 
 export async function creatorDirectory(): Promise<CreatorProfile[]> {
@@ -22,6 +23,18 @@ export async function saveCreator(input: unknown, actor: string) {
   return profile;
 }
 
+export async function refreshCreatorAvatars(limit = 50) {
+  const updates = await fetchCreatorAvatarUpdates(await creatorDirectory(), limit);
+  let updated = 0;
+  for (const entry of updates) {
+    const result = await mediaIntelligenceQuery(`INSERT INTO media_creator_directory(creator_id,profile,updated_by) VALUES($1,$2::jsonb,'cron:profile-avatars')
+      ON CONFLICT(creator_id) DO UPDATE SET profile=EXCLUDED.profile,updated_by=EXCLUDED.updated_by,updated_at=now()
+      WHERE media_creator_directory.profile=$3::jsonb`, [entry.profile.id, JSON.stringify(entry.profile), JSON.stringify(entry.previous)]);
+    updated += result.rowCount ?? 0;
+  }
+  return { updated, mode: "provider-profile-metadata" };
+}
+
 type TagRow = { id: string; asset_key: string; creator_id: string; start_seconds: number; end_seconds: number; box: unknown; evidence_kind: string; evidence: string; status: string; current: boolean };
 function annotation(row: TagRow): CreatorAnnotation {
   const parsed = Box.safeParse(row.box);
@@ -36,7 +49,7 @@ const CURRENT_SOURCE = `a.active AND r.is_current AND NOT EXISTS (
 
 /** Public reads expose editorially published tags only; candidates stay private. */
 export async function publicCreatorTags(assetKey: string, liveStartedAt: string | null = null): Promise<CreatorTagPayload> {
-  return cachedPublicData(`creator-tags:v1:${assetKey}:${liveStartedAt ?? "unknown"}`, async () => {
+  return cachedPublicData(`creator-tags:v2:${assetKey}:${liveStartedAt ?? "unknown"}`, async () => {
     const [directory, result, asset] = await Promise.all([
       creatorDirectory(),
       mediaIntelligenceQuery<TagRow>(`SELECT n.*,true AS current FROM media_creator_annotations n
@@ -116,7 +129,7 @@ export async function creatorTagDashboard(search = "") {
 export async function scanCreatorMentions(limit = 50) {
   const creators = (await creatorDirectory()).filter((creator) => creator.active);
   const match = createCreatorTextMatcher(creators);
-  const directoryHash = createHash("sha256").update(JSON.stringify(creators)).digest("hex");
+  const directoryHash = createHash("sha256").update(JSON.stringify(creators.map(({ id, name, aliases, active }) => ({ id, name, aliases, active })))).digest("hex");
   const assets = await mediaIntelligenceQuery<{ asset_key: string; revision_id: string; title: string; description: string | null; duration_seconds: number | null }>(`SELECT a.asset_key,r.revision_id,a.title,a.description,a.duration_seconds
     FROM media_intelligence_assets a JOIN media_intelligence_revisions r ON r.asset_key=a.asset_key AND r.is_current
     LEFT JOIN media_creator_scans s ON s.revision_id=r.revision_id

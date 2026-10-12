@@ -16,12 +16,24 @@ export function verifiedSocialUrl(platform: string, value: string): boolean {
   } catch { return false; }
 }
 const Social = z.object({ platform: SocialPlatform, url: z.string().max(500) }).refine((link) => verifiedSocialUrl(link.platform, link.url), "Use a direct HTTPS creator profile URL.");
+export function verifiedCreatorAvatar(value: string): boolean {
+  if (/^\/(?:members|group|crew|avatars|brand)\/[A-Za-z0-9_./-]+\.(?:jpe?g|png|webp|svg)$/i.test(value)) return !/(?:^|\/)\.{1,2}(?:\/|$)/.test(value);
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash) return false;
+    return ["static-cdn.jtvnw.net", "files.kick.com", "media.thecoreboys.com", "pbs.twimg.com", "yt3.ggpht.com", "yt3.googleusercontent.com"].includes(url.hostname)
+      || [".cdninstagram.com", ".tiktokcdn.com", ".tiktokcdn-us.com"].some((suffix) => url.hostname.endsWith(suffix));
+  } catch { return false; }
+}
 export const CreatorInput = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{1,79}$/),
   name: z.string().trim().min(2).max(100),
   aliases: z.array(z.string().trim().min(3).max(100)).max(20),
   socials: z.array(Social).min(1).max(14),
   active: z.boolean().default(true),
+  avatarUrl: z.string().max(2000).refine(verifiedCreatorAvatar, "Use a provider profile image or an owned image path.").optional(),
+  avatarSourceProfile: z.string().max(500).refine((url) => SocialPlatform.options.some((platform) => verifiedSocialUrl(platform, url)), "Use a direct provider profile URL.").optional(),
+  avatarCheckedAt: z.string().datetime({ offset: true }).optional(),
 });
 export type CreatorProfile = z.infer<typeof CreatorInput>;
 export const Box = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), width: z.number().min(0.005).max(1), height: z.number().min(0.005).max(1) })

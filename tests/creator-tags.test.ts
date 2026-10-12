@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AnnotationInput, CreatorInput, activeCreatorTags, creatorTimelineSeconds, matchCreatorText, verifiedSocialUrl, videoRectangle, type CreatorAnnotation, type CreatorProfile } from "../lib/creator-tags/model";
+import { AnnotationInput, CreatorInput, activeCreatorTags, creatorTimelineSeconds, matchCreatorText, verifiedCreatorAvatar, verifiedSocialUrl, videoRectangle, type CreatorAnnotation, type CreatorProfile } from "../lib/creator-tags/model";
 import { defaultCreatorDirectory } from "../lib/creator-tags/directory";
 
 const directory = defaultCreatorDirectory();
@@ -26,6 +26,12 @@ test("ambiguous aliases and hidden creator records cannot produce text matches",
 });
 test("social links reject arbitrary hosts, credentials, insecure schemes and content permalinks", () => {
   for (const [platform, url] of [["x", "javascript:alert(1)"], ["twitch", "https://twitch.tv.evil.test/creator"], ["youtube", "https://youtube.com/watch?v=id"], ["x", "https://evil.test/a"], ["x", "https://me:secret@x.com/creator"], ["x", "https://x.com/home"], ["x", "http://x.com/creator"]]) assert.equal(verifiedSocialUrl(platform!, url!), false);
+});
+test("creator pictures accept owned paths and provider image hosts, never unsafe or arbitrary URLs", () => {
+  for (const image of ["/members/silky/avatar.jpg", "https://static-cdn.jtvnw.net/jtv_user_pictures/avatar.png", "https://files.kick.com/images/user/1/avatar.webp"])
+    assert.equal(verifiedCreatorAvatar(image), true);
+  for (const image of ["//evil.test/avatar.jpg", "/members/../secrets.svg", "http://files.kick.com/a.jpg", "https://files.kick.com.evil.test/a.jpg", "https://user:secret@files.kick.com/a.jpg", "https://127.0.0.1/a.jpg", "javascript:alert(1)"])
+    assert.equal(verifiedCreatorAvatar(image), false);
 });
 const tag: CreatorAnnotation = { id: "tag", assetKey: "youtube:yt-test", creatorId: "adin-ross", startSeconds: 10, endSeconds: 15, box: null, evidenceKind: "manual", evidence: "editor confirmed", status: "published", current: true };
 test("timed tags stop at their end and disappear across seeks and source changes", () => {

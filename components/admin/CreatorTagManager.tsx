@@ -6,7 +6,8 @@ const endpoint = "/api/admin/media-intelligence/creators";
 const field = "mt-1 min-h-11 w-full rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary";
 const button = "inline-flex min-h-11 items-center justify-center rounded-lg border border-secondary bg-primary px-4 text-sm font-semibold text-primary disabled:opacity-50";
 type Dashboard = { creators: CreatorProfile[]; annotations: CreatorAnnotation[]; assets: Array<{ assetKey: string; title: string; duration: number | null; isLive: boolean; publishedAt: string | null }> };
-const initial = { id: "", name: "", aliases: "", socials: "", active: true };
+type CreatorEditor = { id: string; name: string; aliases: string; socials: string; active: boolean; avatarUrl: string; avatarSourceProfile?: string; avatarCheckedAt?: string };
+const initial: CreatorEditor = { id: "", name: "", aliases: "", socials: "", active: true, avatarUrl: "" };
 const stamp = (time: number) => `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, "0")}`;
 
 export function CreatorTagManager() {
@@ -45,7 +46,7 @@ export function CreatorTagManager() {
     const socials = profile.socials.split(/\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
       const [platform, ...rest] = line.split(/\s+/); return { platform, url: rest.join(" ") };
     });
-    if (await mutate({ action: "creator", creator: { ...profile, aliases: profile.aliases.split(",").map((value) => value.trim()).filter(Boolean), socials } })) setProfile(initial);
+    if (await mutate({ action: "creator", creator: { ...profile, avatarUrl: profile.avatarUrl.trim() || undefined, aliases: profile.aliases.split(",").map((value) => value.trim()).filter(Boolean), socials } })) setProfile(initial);
   }
   async function saveAnnotation(event: FormEvent) {
     event.preventDefault();
@@ -68,6 +69,7 @@ export function CreatorTagManager() {
         <label className="block text-sm text-secondary">Directory ID<input className={field} required value={profile.id} onChange={(event) => setProfile({ ...profile, id: event.target.value })} placeholder="creator-name" pattern="[a-z0-9][a-z0-9-]{1,79}" /></label>
         <label className="block text-sm text-secondary">Display name<input className={field} required value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} maxLength={100} /></label>
         <label className="block text-sm text-secondary">Names and usernames, separated by commas<input className={field} value={profile.aliases} onChange={(event) => setProfile({ ...profile, aliases: event.target.value })} placeholder="creatorname, @creatorname" /></label>
+        <label className="block text-sm text-secondary">Profile picture URL (optional)<input className={field} value={profile.avatarUrl} maxLength={2000} onChange={(event) => setProfile({ ...profile, avatarUrl: event.target.value, avatarSourceProfile: undefined, avatarCheckedAt: undefined })} placeholder="Provider profile image URL or /members/…" /></label>
         <label className="block text-sm text-secondary">Verified social profiles<textarea className={`${field} min-h-32`} required value={profile.socials} onChange={(event) => setProfile({ ...profile, socials: event.target.value })} placeholder={"twitch https://www.twitch.tv/creatorname\nx https://x.com/creatorname"} /></label>
         <p className="text-xs text-tertiary">One platform and profile URL per line. Supported: {SocialPlatform.options.join(", ")}. Confirm account ownership before saving.</p>
         <label className="flex items-center gap-2 text-sm text-secondary"><input type="checkbox" checked={profile.active} onChange={(event) => setProfile({ ...profile, active: event.target.checked })} /> Available in creator search</label>
@@ -95,7 +97,7 @@ export function CreatorTagManager() {
         </form>
       </div>
     </div>
-    <div><h3 className="mb-3 font-semibold text-primary">Creator directory</h3><div className="flex flex-wrap gap-2">{data.creators.map((creator) => <button key={creator.id} type="button" className={button} onClick={() => setProfile({ id: creator.id, name: creator.name, aliases: creator.aliases.join(", "), socials: creator.socials.map((social) => `${social.platform} ${social.url}`).join("\n"), active: creator.active })}>{creator.name}{creator.active ? "" : " · Hidden"}</button>)}</div></div>
+    <div><h3 className="mb-3 font-semibold text-primary">Creator directory</h3><div className="flex flex-wrap gap-2">{data.creators.map((creator) => <button key={creator.id} type="button" className={button} onClick={() => setProfile({ id: creator.id, name: creator.name, aliases: creator.aliases.join(", "), socials: creator.socials.map((social) => `${social.platform} ${social.url}`).join("\n"), active: creator.active, avatarUrl: creator.avatarUrl ?? "", avatarSourceProfile: creator.avatarSourceProfile, avatarCheckedAt: creator.avatarCheckedAt })}>{creator.name}{creator.active ? "" : " · Hidden"}</button>)}</div></div>
     <section className="space-y-3"><h3 className="font-semibold text-primary">Review queue · {drafts.length} drafts</h3>
       {!drafts.length ? <p className="text-sm text-tertiary">No draft tags to review.</p> : null}
       {data.annotations.map((tag) => <article key={tag.id} className="space-y-3 rounded-xl border border-secondary bg-primary p-5">

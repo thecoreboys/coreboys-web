@@ -14,7 +14,14 @@ subscription. The server reads the latest administrative
 expiry values fail closed. The grant applies only to this enhancement and does
 not enable metered AI utilities or modify Stripe contracts.
 
-The player **Creators** control searches an editorial directory. The six CORE
+The player's **On screen** panel opens automatically on hover or keyboard focus;
+tap its header to keep it open. It sits at the top left and lists confirmed
+creators at the current playback time with profile pictures and direct social
+links. Its size and scrolling stay within the player, including multiview tiles.
+An empty moment is labeled explicitly, rather than filling the panel with names
+from a title or caption. **Find a creator** opens the optional directory search.
+
+The six CORE
 members and Adin Ross, PlaqueBoyMax and YourRAGE have initial verified profile
 links. Administrators can add other creators and update aliases or social links
 at `/admin/media-intelligence`.
@@ -28,6 +35,12 @@ and hidden creators exclude related tags from public reads. Public snapshots
 load automatically for eligible accounts, then refresh every 15 seconds while the
 page is visible. Names appear on hover, keyboard focus or touch. Playback time chooses
 which tags to show without issuing a request on each video frame.
+
+The protected creator-maintenance stage refreshes public Twitch and Kick profile
+images in bounded batches, at most once per account per day. It reads profile
+metadata only, does not run in a viewer request and preserves curated image
+overrides. Failed providers retain known pictures; failed image loads show
+initials. Profile updates do not cause the text scanner to rescan every video.
 
 Viewers can select a rectangle on the video, choose a known name or username,
 and suggest a five-second placement for review. This also works on YouTube and

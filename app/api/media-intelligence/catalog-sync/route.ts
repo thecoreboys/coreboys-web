@@ -5,7 +5,7 @@ import { publishMediaIndexGeneration } from "@/lib/media-intelligence/indexing";
 import { runScheduledMediaMaintenance } from "@/lib/media-intelligence/operations";
 import { runMediaIntelligenceRetention } from "@/lib/media-intelligence/retention";
 import { runOriginalSuggestions } from "@/lib/core-originals-suggestions";
-import { scanCreatorMentions } from "@/lib/creator-tags/store";
+import { scanCreatorMentions, refreshCreatorAvatars } from "@/lib/creator-tags/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +49,10 @@ export async function POST(request: Request) {
   const archivePageSize = bounded(body.archivePageSize, 50, 100);
   const retentionLimit = bounded(body.retentionLimit, 250, 2_000);
   try {
-    if (action === "creators") return NextResponse.json(await scanCreatorMentions(50));
+    if (action === "creators") {
+      const avatars = await refreshCreatorAvatars(50);
+      return NextResponse.json({ ...await scanCreatorMentions(50), avatars });
+    }
     if (action === "originals") return NextResponse.json(await runOriginalSuggestions());
     if (action === "sync") {
       const result = await runCurrentWatchCatalogSync({ trigger: "scheduled", maxJobs });
