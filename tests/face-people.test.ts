@@ -52,6 +52,8 @@ test("profile images use approved providers and research cannot supply enrollmen
 test("rendered portraits reject executable schemes, external lookalikes and unsafe local paths", () => {
   assert.equal(safeFacePortraitUrl("/members/ron/portrait.webp"), "/members/ron/portrait.webp");
   assert.equal(safeFacePortraitUrl("https://static-cdn.jtvnw.net/avatar.png"), "https://static-cdn.jtvnw.net/avatar.png");
+  assert.equal(safeFacePortraitUrl("https://static-cdn.jtvnw.net/avatar%20one.png?name=profile%20one&size=300"), "https://static-cdn.jtvnw.net/avatar%20one.png?name=profile%20one&size=300");
+  assert.equal(safeFacePortraitUrl("https://static-cdn.jtvnw.net/%ZZ.png"), null);
   for (const value of [null, {}, "javascript:alert(1)", " java\nscript:alert(1)", "data:image/svg+xml,test", "//evil.test/image.png", "/\\evil.test/image.png", "/members/../private.jpg", "https://static-cdn.jtvnw.net.evil.test/avatar.png", "https://user:password@static-cdn.jtvnw.net/avatar.png"]) {
     assert.equal(safeFacePortraitUrl(value), null);
   }

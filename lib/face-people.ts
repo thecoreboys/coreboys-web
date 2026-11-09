@@ -38,9 +38,14 @@ export function safeFacePortraitUrl(value: unknown): string | null {
     return "/" + value.slice(1).split("/").map(encodeURIComponent).join("/");
   }
   if (!value.startsWith("https://") || !verifiedCreatorAvatar(value)) return null;
-  const url = new URL(value);
-  // Construct an explicit HTTPS destination rather than returning stored text.
-  return "https://" + url.hostname + url.pathname + url.search;
+  try {
+    const url = new URL(value);
+    // Encode each component at output while retaining existing encoded paths
+    // and query values (encoding the entire URL would double-encode them).
+    const path = url.pathname.split("/").map((segment) => encodeURIComponent(decodeURIComponent(segment))).join("/");
+    const search = Array.from(url.searchParams, ([key, entry]) => `${encodeURIComponent(key)}=${encodeURIComponent(entry)}`).join("&");
+    return "https://" + encodeURIComponent(url.hostname) + path + (search ? "?" + search : "");
+  } catch { return null; }
 }
 
 export const FaceProfileResearchSchema = z.object({
