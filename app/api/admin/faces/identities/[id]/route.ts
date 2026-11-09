@@ -16,6 +16,7 @@ import {
 } from "@/lib/face-recognition-store";
 import { deleteFaceReferenceFile, FaceReferenceStorageError } from "@/lib/face-reference-storage";
 import { requestHasSameOrigin } from "@/lib/x/security";
+import { wakeFaceWorkerForPendingWork } from "@/lib/face-worker-wake";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ export async function PATCH(request: Request, context: Context) {
       actor: auth,
       requestId: faceRequestId(request),
     });
+    await wakeFaceWorkerForPendingWork();
     return facePrivateJson({ ok: true, ...result });
   } catch (error) {
     return faceStoreErrorResponse(error);
@@ -86,6 +88,7 @@ export async function DELETE(request: Request, context: Context) {
       }
     }
     const localTemplatePurgePending = await faceIdentityHasPendingLocalTemplatePurge(params.data.id);
+    await wakeFaceWorkerForPendingWork();
     return facePrivateJson({
       ok: true,
       id: params.data.id,

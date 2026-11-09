@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import time
 import uuid
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from .store import PurgeTombstoneStore
 from .vision import verified_model_fingerprint
 from .registry import refresh_database_people
 from .enrollment_jobs import process_next_enrollment
+from .wake_queue import WakeQueue
 
 
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
@@ -78,7 +80,7 @@ def _validate_job_configuration(
     fps = value.get("samplingFps")
     if fps is not None and (isinstance(fps, bool) or not isinstance(fps, (int, float)) or not 0 <= fps <= 5):
         raise DataError("job samplingFps must be between 0 and 5")
-    interval = None if fps in {None, 0, 0.0} else max(200, round(1000 / float(fps)))
+    interval = None if fps in {None, 0, 0.0} else max(200, math.floor(1000 / float(fps)+0.5))
     start_ms = value.get("startMs", 0)
     end_ms = value.get("endMs")
     if isinstance(start_ms, bool) or not isinstance(start_ms, int) or start_ms < 0:
@@ -87,6 +89,10 @@ def _validate_job_configuration(
         raise DataError("job endMs must be an integer greater than startMs")
     if require_bounds and ("startMs" not in value or end_ms is None):
         raise DataError("v1 jobs require explicit startMs and endMs archive bounds")
+    if require_bounds:
+        interval=interval or 2000
+        if end_ms-start_ms>7200000 or math.ceil((end_ms-start_ms)/interval)>1800:
+            raise DataError("job exceeds the 1800-frame/two-hour processing budget")
     return interval, start_ms, end_ms
 
 
@@ -108,8 +114,13 @@ def _claim_job(
                 )
                 row = cursor.fetchone()
                 if row is None:
+                    connection.commit()
                     raise NoJobAvailable("no eligible archive job was claimed")
-                _validate_job_configuration(row["configuration"], require_bounds=True)
+                try:_validate_job_configuration(row["configuration"], require_bounds=True)
+                except DataError:
+                    cursor.execute("SELECT finish_face_job(%s,%s,'failed','processing_budget_exceeded')",(row['job_id'],worker_id))
+                    connection.commit()
+                    raise
                 return ClaimedJob(
                     id=str(row["job_id"]), source_uuid=str(row["source_id"]), content_id=row["content_id"],
                     source_kind=row["source_kind"], kind=row["job_kind"],
@@ -443,6 +454,7 @@ def serve(
     purge_count = 0
     cycles = 0
     model_version: str | None = None
+    wake_queue=WakeQueue.from_environment()
     try:
         while True:
             config = refresh_database_people(config)
@@ -465,6 +477,14 @@ def serve(
                 completed_jobs += 1
             except NoJobAvailable:
                 idle_polls += 1
+                if wake_queue is not None:
+                    probe_started=time.time()
+                    psycopg,dict_row,_=_db_modules()
+                    with psycopg.connect(dsn,connect_timeout=5,row_factory=dict_row) as connection:
+                        with connection.cursor() as cursor:
+                            cursor.execute("SELECT face_worker_has_pending_work(%s) AS pending",(actor_id,))
+                            pending=cursor.fetchone()['pending']
+                    if not pending:wake_queue.acknowledge_idle(before=probe_started-2)
             cycles += 1
             if _maximum_cycles is not None and cycles >= _maximum_cycles:
                 return {

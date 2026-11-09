@@ -353,6 +353,7 @@ def run_biometric_analysis(
         run.input_uri,
         sample_interval_ms=sample_interval_ms or config.runtime.sample_interval_ms,
         maximum_frames=maximum_frames,
+        start_ms=start_ms,end_ms=end_ms,
     ):
         if control_check is not None:
             control_check()
@@ -425,6 +426,7 @@ def run_manual_analysis(
         run.input_uri,
         sample_interval_ms=sample_interval_ms or config.runtime.sample_interval_ms,
         maximum_frames=maximum_frames,
+        start_ms=start_ms,end_ms=end_ms,
     ):
         if control_check is not None:
             control_check()

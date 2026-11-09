@@ -8,6 +8,7 @@ import {
 } from "@/lib/face-recognition-http";
 import { updateFaceIdentity } from "@/lib/face-recognition-store";
 import { requestHasSameOrigin } from "@/lib/x/security";
+import { wakeFaceWorkerForPendingWork } from "@/lib/face-worker-wake";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export async function POST(request: Request, { params }: Context) {
       action: "revoke_consent",
       reason: body.data.reason,
     }, { actor: auth, requestId: faceRequestId(request) });
+    await wakeFaceWorkerForPendingWork();
     return facePrivateJson({ ok: true, ...result });
   } catch (error) {
     return faceStoreErrorResponse(error);

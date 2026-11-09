@@ -16,6 +16,7 @@ import {
   replaceFaceIdentityConsent,
 } from "@/lib/face-recognition-store";
 import { requestHasSameOrigin } from "@/lib/x/security";
+import { wakeFaceWorkerForPendingWork } from "@/lib/face-worker-wake";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,6 +117,7 @@ export async function PUT(request: Request, { params }: Context) {
           canonicalSlug: canonical.slug,
           consent: consent.data,
         }, mutation);
+    await wakeFaceWorkerForPendingWork();
     return facePrivateJson({ ok: true, ...result }, identity ? 200 : 201);
   } catch (error) {
     return faceStoreErrorResponse(error);

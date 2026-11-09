@@ -8,6 +8,7 @@ import {
 } from "@/lib/face-recognition-http";
 import { createFaceJob, listFaceJobs } from "@/lib/face-recognition-store";
 import { requestHasSameOrigin } from "@/lib/x/security";
+import { wakeFaceWorker } from "@/lib/face-worker-wake";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,8 @@ export async function POST(request: Request) {
   if (!parsed.success) return facePrivateJson({ error: "invalid job", detail: parsed.error.flatten() }, 400);
   try {
     const result = await createFaceJob(parsed.data, { actor: auth, requestId: faceRequestId(request) });
-    return facePrivateJson({ ok: true, ...result }, 201);
+    const wake=result.status==="queued"||result.status==="leased"||result.status==="running"?await wakeFaceWorker():{};
+    return facePrivateJson({ ok: true, ...result,...wake }, result.reused?200:201);
   } catch (error) {
     return faceStoreErrorResponse(error);
   }

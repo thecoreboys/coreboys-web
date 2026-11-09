@@ -5,6 +5,10 @@ import { CREW, MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { faceGuestPerson, FaceGuestProfileSchema, FaceProfileResearchSchema, type FaceCanonicalKind, type FaceCanonicalPerson, type FaceGuestProfile, type FaceGuestRecord, type FaceProfileReviewInput } from "@/lib/face-people";
 import type { z } from "zod";
 import { FacePhotoCandidateSchema } from "@/lib/face-photo-candidates";
+import { contentFingerprint } from "@/lib/media-intelligence/fingerprint";
+import { FACE_DEFAULT_SAMPLING_FPS, FACE_PROCESSING_VERSION, FACE_ENROLLMENT_MODEL_VERSION } from "@/lib/face-processing-costs";
+import { faceWorkerWakeConfigured } from "@/lib/face-worker-wake";
+import type { BrowserVideoReviewInput } from "@/lib/browser-video-review";
 import assetManifest from "@/lib/asset-manifest.json";
 import { query, withTransaction } from "@/lib/db";
 import type { StaffIdentity } from "@/lib/staff-policy";
@@ -1691,6 +1695,7 @@ export async function createFaceJob(
         id: string;
         source_kind: "live" | "archive";
         content_id: string;
+        ingest_locator_ref: string | null;
         state: "disabled" | "active" | "archived";
         recognition_enabled: boolean;
         automatic_matching_enabled: boolean;
@@ -1701,7 +1706,7 @@ export async function createFaceJob(
         allowed_count: number;
         ready_count: number;
       }>(
-        `SELECT sources.id::text, sources.source_kind, sources.content_id, sources.state,
+        `SELECT sources.id::text, sources.source_kind, sources.content_id, sources.ingest_locator_ref, sources.state,
                 sources.recognition_enabled, sources.automatic_matching_enabled,
                 sources.all_visible_people_consented, sources.kill_switch_active,
                 sources.live_active, sources.active_session_id,
@@ -1770,6 +1775,21 @@ export async function createFaceJob(
           );
         }
       }
+      let videoFingerprint: string | null=null;
+      if(input.browserReviewId){
+        const prepared=await db.query<{video_fingerprint:string;duration_ms:number}>("SELECT video_fingerprint,duration_ms FROM face_browser_reviews WHERE id=$1 AND source_id=$2",[input.browserReviewId,input.sourceId]);
+        if(!prepared.rows[0]||endMs>prepared.rows[0].duration_ms)throw new FaceStoreError("conflict","Choose the matching prepared video and a valid interval.");
+        videoFingerprint=prepared.rows[0].video_fingerprint;
+      }
+      const templates=input.kind==="archive_scan" ? (await db.query(`SELECT allowed.identity_id::text,allowed.consent_id::text,templates.template_fingerprint,templates.model_version
+        FROM face_source_identities allowed JOIN face_template_sets templates ON templates.identity_id=allowed.identity_id AND templates.consent_id=allowed.consent_id
+        WHERE allowed.source_id=$1 AND templates.state='active' AND templates.expires_at>now()
+        ORDER BY allowed.identity_id,allowed.consent_id,templates.template_fingerprint,templates.model_version`,[input.sourceId])).rows : [];
+      const configuration={startMs,endMs,samplingFps:input.configuration.samplingFps??FACE_DEFAULT_SAMPLING_FPS};
+      const processingKey=contentFingerprint({version:FACE_PROCESSING_VERSION,sourceId:input.sourceId,contentId:source.content_id,
+        locator:source.ingest_locator_ref,videoFingerprint,kind:input.kind,configuration,templates});
+      const existing=await db.query<{id:string;status:JobRow["status"]}>("SELECT id::text,status FROM face_jobs WHERE source_id=$1 AND idempotency_key=$2",[input.sourceId,processingKey]);
+      if(existing.rows[0])return{...existing.rows[0],reused:true};
       const created = await db.query<{ id: string }>(
         `INSERT INTO face_jobs
            (source_id, kind, idempotency_key, configuration, requested_by)
@@ -1778,8 +1798,8 @@ export async function createFaceJob(
         [
           input.sourceId,
           input.kind,
-          input.idempotencyKey,
-          JSON.stringify(input.configuration),
+          processingKey,
+          JSON.stringify(configuration),
           context.actor.id,
         ],
       );
@@ -1792,11 +1812,11 @@ export async function createFaceJob(
         sourceId: input.sourceId,
         after: { kind: input.kind },
       });
-      return { id, status: "queued" as const };
+      return { id, status: "queued" as const, reused:false };
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new FaceStoreError("conflict", "That idempotency key has already been used for this source.");
+      throw new FaceStoreError("conflict", "That work was already queued. Refresh to reuse its saved result.");
     }
     throw error;
   }
@@ -1813,8 +1833,9 @@ export async function updateFaceJob(
       source_id: string;
       status: JobRow["status"];
       attempts: number;
+      kind: FaceJobCreateInput["kind"];
     }>(
-      `SELECT id::text, source_id::text, status, attempts
+      `SELECT id::text, source_id::text, status, attempts, kind
          FROM face_jobs WHERE id=$1 FOR UPDATE`,
       [jobId],
     );
@@ -1835,6 +1856,9 @@ export async function updateFaceJob(
       if (!["failed", "cancelled"].includes(job.status) || Number(job.attempts) >= 20) {
         throw new FaceStoreError("invalid_state", "This job cannot be retried.");
       }
+      if(job.kind!=="manual_review")assertAutomaticMatchingLaunchGate(true);
+      const permission=await db.query<{authorized:boolean}>("SELECT face_worker_job_is_authorized($1) AS authorized",[jobId]);
+      if(!permission.rows[0]?.authorized)throw new FaceStoreError("consent_required","Restore the source and current recording permissions before retrying this job.");
       await db.query(
         `UPDATE face_jobs
             SET status='queued', finished_at=NULL, started_at=NULL, last_error=NULL,
@@ -2061,6 +2085,15 @@ export async function createManualFaceTrack(
       ? await consentForTrackIdentity(db, input.identityId, input.sourceId, "manual", input.startMs, input.endMs ?? null)
       : null;
     const box = input.bbox ?? null;
+    let markerKey: string | null=null;
+    if(input.browserReviewId){
+      const project=await db.query<{duration_ms:number}>("SELECT duration_ms FROM face_browser_reviews WHERE id=$1 AND source_id=$2 FOR SHARE",[input.browserReviewId,input.sourceId]);
+      if(!project.rows[0]||input.endMs==null||input.endMs>project.rows[0].duration_ms||input.jobId)throw new FaceStoreError("conflict","This mark must belong to the prepared source video and its duration.");
+      markerKey=contentFingerprint({identity:input.identityId??null,consent:consent?.id??null,start:input.startMs,end:input.endMs,box});
+      const saved=await db.query<{id:string;state:string}>(`SELECT tracks.id::text,tracks.state FROM face_browser_marks marks JOIN face_tracks tracks ON tracks.id=marks.track_id
+        WHERE marks.review_id=$1 AND marks.marker_key=$2`,[input.browserReviewId,markerKey]);
+      if(saved.rows[0])return{...saved.rows[0],reused:true};
+    }
     const created = await db.query<{ id: string }>(
       `INSERT INTO face_tracks
          (source_id, job_id, identity_id, consent_id, match_method,
@@ -2082,6 +2115,7 @@ export async function createManualFaceTrack(
     );
     const id = created.rows[0]?.id;
     if (!id) throw new FaceStoreError("conflict", "Track could not be created.");
+    if(input.browserReviewId&&markerKey)await db.query("INSERT INTO face_browser_marks(review_id,marker_key,track_id) VALUES ($1,$2,$3)",[input.browserReviewId,markerKey,id]);
     await audit(db, context, {
       action: "track.proposed_manual",
       targetType: "face_track",
@@ -2091,6 +2125,22 @@ export async function createManualFaceTrack(
       after: { startMs: input.startMs, endMs: input.endMs ?? null },
     });
     return { id, state: "proposed" as const };
+  });
+}
+
+export async function prepareBrowserVideoReview(input:z.infer<typeof BrowserVideoReviewInput>,context:FaceMutationContext){
+  return withTransaction(async(db)=>{
+    const source=await db.query<{state:string;source_kind:string}>("SELECT state,source_kind FROM face_sources WHERE id=$1 FOR UPDATE",[input.sourceId]);
+    if(!source.rows[0]||source.rows[0].source_kind!=="archive"||source.rows[0].state==="archived")throw new FaceStoreError("invalid_state","Choose an available archive source for this video.");
+    const inserted=await db.query<{id:string}>(`INSERT INTO face_browser_reviews(source_id,video_fingerprint,fingerprint_algorithm,byte_size,duration_ms,file_name,created_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(source_id,video_fingerprint,fingerprint_algorithm) DO NOTHING RETURNING id::text`,
+      [input.sourceId,input.fingerprint,input.algorithm,input.byteSize,input.durationMs,input.fileName,context.actor.id]);
+    const project=(await db.query<{id:string;video_fingerprint:string;byte_size:string;duration_ms:number}>("SELECT id::text,video_fingerprint,byte_size::text,duration_ms FROM face_browser_reviews WHERE source_id=$1 AND video_fingerprint=$2 AND fingerprint_algorithm=$3",[input.sourceId,input.fingerprint,input.algorithm])).rows[0]!;
+    if(Number(project.byte_size)!==input.byteSize||Math.abs(project.duration_ms-input.durationMs)>1000)throw new FaceStoreError("conflict","The saved video fingerprint has different file metadata. Prepare the correct file again.");
+    const markers=(await db.query<{id:string;identityId:string|null;startMs:number;endMs:number;status:string}>(`SELECT tracks.id::text,tracks.identity_id::text AS "identityId",tracks.start_ms::float8 AS "startMs",tracks.end_ms::float8 AS "endMs",tracks.state AS status
+      FROM face_browser_marks marks JOIN face_tracks tracks ON tracks.id=marks.track_id WHERE marks.review_id=$1 ORDER BY tracks.start_ms,tracks.id`,[project.id])).rows;
+    if(inserted.rowCount)await audit(db,context,{action:"browser_review.prepared",targetType:"face_browser_review",targetId:project.id,sourceId:input.sourceId,after:{videoFingerprint:input.fingerprint,videoUploaded:false,workerStarted:false}});
+    return{id:project.id,sourceId:input.sourceId,fingerprint:project.video_fingerprint,durationMs:project.duration_ms,reused:!inserted.rowCount,markers};
   });
 }
 
@@ -2399,23 +2449,39 @@ export async function queueFaceEnrollment(identityId: string, context: FaceMutat
     if (!identity.rows[0]) throw new FaceStoreError("not_found", "Save active permission for this person first.");
     await assertGuestProfileReviewed(db, identity.rows[0].canonical_kind, identity.rows[0].canonical_slug);
     const existing = await db.query(`SELECT id FROM face_enrollment_jobs WHERE identity_id=$1 AND state IN ('queued','running')`, [identityId]);
-    if (existing.rows[0]) return { id: existing.rows[0].id };
+    if (existing.rows[0]) return { id: existing.rows[0].id,status:"queued" as const,reused:true };
     const consent = await db.query(`SELECT id FROM face_consents WHERE identity_id=$1 AND revoked_at IS NULL AND expires_at>now()
       AND subject_confirmed_adult AND allow_template_creation`, [identityId]);
     if (!consent.rows[0]) throw new FaceStoreError("consent_required", "Current permission to create face templates is required.");
-    const worker = await db.query(`SELECT 1 FROM face_worker_heartbeats WHERE status='healthy' AND enrollment_capable AND last_heartbeat_at>now()-interval '90 seconds' LIMIT 1`);
-    if (!worker.rows[0]) throw new FaceStoreError("conflict", "The enrollment service is temporarily unavailable. Try again shortly.");
-    const references = await db.query<{id:string}>(`SELECT DISTINCT ON (content_sha256) id,content_sha256 FROM face_reference_assets
+    const references = await db.query<{id:string;content_sha256:string}>(`SELECT DISTINCT ON (content_sha256) id,content_sha256 FROM face_reference_assets
       WHERE identity_id=$1 AND consent_id=$2 AND state='approved' AND subject_approved AND revoked_at IS NULL
         AND reviewed_at IS NOT NULL AND reviewed_by<>created_by AND retention_expires_at>now()
         AND storage_key ~ '^[0-9a-f-]{36}\\.webp$' ORDER BY content_sha256,created_at DESC LIMIT 20`, [identityId,consent.rows[0].id]);
     if (references.rows.length<3) throw new FaceStoreError("consent_required", "Upload at least 3 different photos and have a second admin approve them before enrollment.");
+    const ready=await db.query<{id:string}>(`SELECT id::text FROM face_template_sets WHERE identity_id=$1 AND consent_id=$2 AND state='active' AND expires_at>now()
+      AND model_name='opencv_sface' AND model_version=$3 AND reference_hashes @> $4::text[] AND reference_hashes <@ $4::text[] LIMIT 1`,
+      [identityId,consent.rows[0].id,FACE_ENROLLMENT_MODEL_VERSION,references.rows.map(r=>r.content_sha256)]);
+    if(ready.rows[0])return{status:"ready" as const,reused:true,templateSetId:ready.rows[0].id};
+    if(!faceWorkerWakeConfigured()){
+      const worker = await db.query(`SELECT 1 FROM face_worker_heartbeats WHERE status='healthy' AND enrollment_capable AND last_heartbeat_at>now()-interval '90 seconds' LIMIT 1`);
+      if (!worker.rows[0]) throw new FaceStoreError("conflict", "The enrollment service is temporarily unavailable. Try again shortly.");
+    }
     const result = await db.query<{id:string}>(`INSERT INTO face_enrollment_jobs(identity_id,consent_id,reference_ids,requested_by)
       VALUES ($1,$2,$3::uuid[],$4) RETURNING id`, [identityId,consent.rows[0].id,references.rows.map(r=>r.id),context.actor.id]);
     const id = result.rows[0]!.id;
     await audit(db,context,{action:"face.enrollment.queued",targetType:"face_enrollment_job",targetId:id,identityId,after:{referenceCount:references.rows.length}});
-    return {id};
+    return {id,status:"queued" as const,reused:false};
   });
+}
+
+export async function faceWorkerHasPendingWork(){
+  // The web probe must also see authorized jobs while the worker heartbeat is
+  // asleep. The restricted worker probe separately checks its live capabilities.
+  const result=await query<{pending:boolean}>(`SELECT
+    EXISTS(SELECT 1 FROM face_enrollment_jobs WHERE state IN ('queued','running'))
+    OR EXISTS(SELECT 1 FROM face_jobs WHERE status IN ('queued','leased','running') AND attempts<20 AND face_worker_job_is_authorized(id))
+    OR EXISTS(SELECT 1 FROM face_template_sets WHERE worker_id=$1 AND state<>'purged' AND (state<>'active' OR expires_at<=now())) AS pending`,[process.env.FACE_WORK_QUEUE_WORKER_ID??"azure-enrollment-01"]);
+  return result.rows[0]?.pending===true;
 }
 
 export async function getFaceAdminOverview() {
@@ -2565,7 +2631,9 @@ export async function getFaceAdminOverview() {
     apiVersion: "2026-08-21",
     service: {
       status: serviceReady ? "ready" as const : analyzerEnabled ? "degraded" as const : "offline" as const,
-      message: serviceReady ? null : analyzerEnabled && heartbeatFresh && heartbeat?.enrollment_capable
+      message: serviceReady ? null : faceWorkerWakeConfigured()&&!heartbeatFresh
+        ? "Processing sleeps when idle to save cost. An approved queued request starts the worker; cold starts may take a minute. Video matching stays off until its checks are complete."
+        : analyzerEnabled && heartbeatFresh && heartbeat?.enrollment_capable
         ? "Enrollment service is online. Add a person, record permission, and have a second admin approve their photos. Video matching remains off until footage testing is complete."
         : readinessReasons.join(" "),
       analyzerVersion: heartbeat?.analyzer_version ?? process.env.FACE_ANALYZER_VERSION ?? null,

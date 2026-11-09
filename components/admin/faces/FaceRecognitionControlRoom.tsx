@@ -4,6 +4,8 @@ import Link from "next/link";
 import { FaceGuestProfileSchema, safeFacePortraitUrl } from "@/lib/face-people";
 import { SocialPlatform } from "@/lib/creator-tags/model";
 import { safeFacePhotoSource, type FacePhotoCandidate } from "@/lib/face-photo-candidates";
+import { BrowserVideoReviewPanel } from "./BrowserVideoReviewPanel";
+import { FACE_DEFAULT_SAMPLING_FPS,FACE_MAX_SCAN_FRAMES,faceScanFrameCount } from "@/lib/face-processing-costs";
 import {
   Activity,
   AlertCircle,
@@ -48,12 +50,13 @@ import {
   type FaceSource,
 } from "./types";
 
-type TabId = "people" | "enrollment" | "sources" | "review" | "published";
+type TabId = "people" | "video" | "enrollment" | "sources" | "review" | "published";
 type ApiState = "loading" | "ready" | "unavailable" | "error";
 type JsonMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof Users }> = [
   { id: "people", label: "People & consent", icon: UserCheck },
+  { id: "video", label: "Video review", icon: PlayCircle },
   { id: "enrollment", label: "Enrollment", icon: ScanFace },
   { id: "sources", label: "Sources & jobs", icon: Radio },
   { id: "review", label: "Review queue", icon: Eye },
@@ -172,9 +175,15 @@ export function FaceRecognitionControlRoom({
           && ("deletionPending" in json && json.deletionPending === true
             || "localTemplatePurgePending" in json && json.localTemplatePurgePending === true),
         );
+        const saved=json&&typeof json==="object"?json as Record<string,unknown>:{};
+        const reused=saved.reused===true;
+        const wakeDelayed=saved.onDemand===true&&saved.wakeQueued===false&&(!saved.job||typeof saved.job!=="object"||!("status" in saved.job)||saved.job.status!=="ready");
         setNotice(pendingDeletion
           ? "Deletion is queued: public presence is withdrawn, but protected file or local-template purge still awaits worker confirmation."
-          : successMessage);
+          : wakeDelayed?"Your request is saved, but worker startup is delayed. Retry the same action to wake it; this will reuse the saved request."
+            : reused&&(saved.status==="failed"||saved.status==="cancelled")?"The previous request is saved with its error or cancellation. Use Retry in Analyzer jobs to run it again."
+            : reused?"Existing work was reused. Completed results and your previous reviews remain saved."
+              : successMessage);
         await load(true);
         return true;
       } catch (mutationError) {
@@ -352,6 +361,8 @@ export function FaceRecognitionControlRoom({
           busy={busy}
           mutate={mutate}
         />
+      ) : tab === "video" ? (
+        <BrowserVideoReviewPanel apiBase={apiBase} sources={overview.sources} people={people} identities={overview.identities} disabled={!apiAvailable} onSaved={()=>void load(true)} />
       ) : tab === "enrollment" ? (
         <EnrollmentPanel
           panelId="face-panel-enrollment"
@@ -1187,7 +1198,7 @@ function SourcesPanel({
                     <td className="px-3 py-3 text-secondary">{job.sourceName}</td>
                     <td className="px-3 py-3"><StatusPill tone={job.status === "failed" ? "error" : job.status === "completed" ? "success" : "neutral"}>{humanize(job.status)}</StatusPill></td>
                     <td className="whitespace-nowrap px-3 py-3 text-xs text-tertiary">{formatDateTime(job.updatedAt)}</td>
-                    <td className="px-3 py-3 text-right">{job.status === "queued" || job.status === "running" ? <button type="button" className={secondaryButton} disabled={busy === `job-cancel:${job.id}`} onClick={() => void mutate(`job-cancel:${job.id}`, `/jobs/${encodeURIComponent(job.id)}/cancel`, "POST", { reason: "Cancelled by administrator" }, "Analyzer job cancelled.")}><XCircle className="size-4" /> Cancel</button> : null}</td>
+                    <td className="px-3 py-3 text-right">{job.status === "queued" || job.status === "running" ? <button type="button" className={secondaryButton} disabled={busy === `job-cancel:${job.id}`} onClick={() => void mutate(`job-cancel:${job.id}`, `/jobs/${encodeURIComponent(job.id)}/cancel`, "POST", { reason: "Cancelled by administrator" }, "Analyzer job cancelled.")}><XCircle className="size-4" /> Cancel</button> : job.status === "failed" || job.status === "cancelled" ? <button type="button" className={secondaryButton} disabled={busy!==null} onClick={()=>void mutate(`job-retry:${job.id}`,`/jobs/${encodeURIComponent(job.id)}`,"PATCH",{action:"retry"},"The existing job was explicitly queued for retry.")}><RefreshCw className="size-4" /> Retry</button> : null}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1202,10 +1213,9 @@ function SourcesPanel({
 function CreateJobForm({ sources, apiAvailable, busy, mutate }: { sources: FaceSource[]; apiAvailable: boolean; busy: string | null; mutate: Mutate }) {
   const firstArchiveSource = sources.find((item) => item.kind === "archive") ?? null;
   const [sourceId, setSourceId] = useState(firstArchiveSource?.id ?? "");
-  const [kind, setKind] = useState<"manual_review" | "archive_scan">("manual_review");
   const [startMs, setStartMs] = useState("0");
   const [endMs, setEndMs] = useState("60000");
-  const [samplingFps, setSamplingFps] = useState("1");
+  const [samplingFps, setSamplingFps] = useState(String(FACE_DEFAULT_SAMPLING_FPS));
   const source = sources.find((item) => item.id === sourceId) ?? firstArchiveSource;
   const start = Number(startMs);
   const end = Number(endMs);
@@ -1213,41 +1223,35 @@ function CreateJobForm({ sources, apiAvailable, busy, mutate }: { sources: FaceS
   const valid = Boolean(source) && Number.isSafeInteger(start) && start >= 0
     && Number.isSafeInteger(end) && end > start
     && source?.kind === "archive"
-    && (kind === "manual_review" || fps > 0 && fps <= 5);
+    && end-start<=2*60*60*1000
+    && fps > 0 && fps <= 5 && faceScanFrameCount(start,end,fps)<=FACE_MAX_SCAN_FRAMES;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!source || !valid) return;
     await mutate("job-create", "/jobs", "POST", {
       sourceId: source.id,
-      kind,
-      idempotencyKey: `admin-${Date.now()}-${globalThis.crypto.randomUUID()}`,
+      kind:"archive_scan",
       configuration: {
         startMs: start,
         endMs: end,
-        samplingFps: kind === "archive_scan" ? fps : undefined,
+        samplingFps:fps,
       },
-    }, kind === "manual_review" ? "Manual review job queued." : "Review-only archive scan queued behind deployment and worker safety gates.");
+    }, "Archive scan saved. The processing worker will start when needed.");
   }
 
   return (
     <form className="mb-4 space-y-3 rounded-xl border border-secondary bg-secondary p-3" onSubmit={submit}>
-      <p className="text-xs leading-relaxed text-tertiary">Manual jobs organize human work. Archive scans remain closed until the analyzer gate, exact consent scope, all-visible assertion, source allowlist, and worker-verified local templates all pass.</p>
+      <p className="text-xs leading-relaxed text-tertiary">Use Video review for local playback and saved human labels. Server scans reuse existing work for the same source, interval, settings and approved references. Changed permissions or models require fresh work.</p>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <Field label="Source">
           <select className={inputClass} value={source?.id ?? ""} onChange={(event) => setSourceId(event.target.value)}>
             {sources.map((item) => <option key={item.id} value={item.id} disabled={item.kind !== "archive"}>{item.name}{item.kind !== "archive" ? " (live — future)" : ""}</option>)}
           </select>
         </Field>
-        <Field label="Job kind">
-          <select className={inputClass} value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
-            <option value="manual_review">Manual review</option>
-            <option value="archive_scan" disabled={source?.kind !== "archive"}>Review-only archive scan</option>
-          </select>
-        </Field>
         <Field label="Start ms"><input className={inputClass} type="number" min="0" step="1" value={startMs} onChange={(event) => setStartMs(event.target.value)} /></Field>
         <Field label="End ms" hint="Required v1 bound"><input className={inputClass} type="number" min="1" step="1" value={endMs} onChange={(event) => setEndMs(event.target.value)} /></Field>
-        <Field label="Samples/sec" hint="Archive only, max 5"><input className={inputClass} type="number" min="0.1" max="5" step="0.1" value={samplingFps} onChange={(event) => setSamplingFps(event.target.value)} disabled={kind === "manual_review"} /></Field>
+        <Field label="Samples/sec" hint={`Start with 0.5; max ${FACE_MAX_SCAN_FRAMES.toLocaleString()} frames per job`}><input className={inputClass} type="number" min="0.1" max="5" step="0.1" value={samplingFps} onChange={(event) => setSamplingFps(event.target.value)} /></Field>
       </div>
       <button type="submit" className={secondaryButton} disabled={!apiAvailable || !valid || busy === "job-create"}><Clock3 className="size-4" /> Queue job</button>
     </form>
