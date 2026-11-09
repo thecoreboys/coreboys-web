@@ -29,7 +29,10 @@ The HMAC key and vectors remain local.
 ## Provisioning order
 
 Use PostgreSQL on the same machine or another explicitly loopback-bound local
-instance. Provision the login before applying migration 024 so its conditional
+instance for local operation. The Azure enrollment service has a narrow hosted
+exception requiring an exact hostname pin and verified TLS; see
+[site enrollment operations](../../docs/face-enrollment-operations.md).
+Provision the login before applying migration 024 so its conditional
 hardening block removes legacy ACLs and grants the current contract:
 
 ```sql

@@ -188,8 +188,8 @@ def assert_db_enrollment_authority(
     identity_id: str,
     reference_sha256: Iterable[str],
     *,
-    content_id: str,
-    purpose: str,
+    content_id: str | None,
+    purpose: str | None,
 ) -> dict[str, Any]:
     dsn = configured_database_url()
     if dsn is None:
@@ -228,8 +228,8 @@ def record_db_enrollment_metadata(
     model_fingerprint: Mapping[str, str],
     template_fingerprint: str,
     template_count: int,
-    content_id: str,
-    purpose: str,
+    content_id: str | None,
+    purpose: str | None,
     actor_id: str,
 ) -> str | None:
     dsn = configured_database_url()

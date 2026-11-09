@@ -39,9 +39,15 @@ try {
   }
   await client.query("CREATE TABLE admin_users (id uuid PRIMARY KEY, email text)");
   await client.query("CREATE ROLE core_face_worker NOLOGIN");
-  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql"]) {
+  await client.query("CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO anon,authenticated; ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO anon,authenticated");
+  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql"]) {
     await client.query(readFileSync(resolve(root, "scripts/migrations", file), "utf8"));
   }
+
+  await client.query("SET ROLE anon");
+  await assert.rejects(client.query("SELECT * FROM face_enrollment_jobs"),/permission denied/);
+  await assert.rejects(client.query("SELECT claim_face_enrollment('untrusted')"),/permission denied/);
+  await client.query("RESET ROLE");
 
   const db = {
     query: (...args) => pool.query(...args),
@@ -136,6 +142,45 @@ try {
   for (const contentId of contentIds) assert.equal((await store.getPublicFacePresence(contentId, 2000)).tags.length, 0);
   assert.equal(await store.getPublicFaceGuestProfile(guest.slug), null);
   assert.equal((await client.query("SELECT count(*)::int AS count FROM face_audit_log WHERE action LIKE 'guest_profile.%'")).rows[0].count, 2);
+  // Enrollment is a separate, template-only permission: no fake footage scope is needed.
+  const enrolledGuest = profiles.FaceGuestProfileSchema.parse({slug:"enrollment-fixture",displayName:"Enrollment fixture"});
+  await store.saveFaceGuestProfile(enrolledGuest,"create",context);
+  const enrollmentIdentity = await store.createFaceIdentity(contracts.FaceIdentityCreateSchema.parse({canonicalKind:"guest",canonicalSlug:enrolledGuest.slug,
+    consent:{...consent,permissions:{allowTemplateCreation:true,allowLiveMatching:false,allowArchiveMatching:false,allowPublicTag:false,allowProfileLinks:false},approvedContentIds:[],approvedArchiveScopes:[]}}),context);
+  process.env.FACE_ANALYZER_ENABLED="true";
+  await client.query("SELECT heartbeat_face_worker('fixture-worker','test',false,NULL,'healthy',NULL)");
+  await client.query("SELECT heartbeat_face_enrollment('fixture-worker',$1)",["a".repeat(64)]);
+  await assert.rejects(store.queueFaceEnrollment(enrollmentIdentity.id,context),/at least 3/);
+  const reviewer={id:randomUUID(),email:"reviewer@example.invalid"};
+  await client.query("INSERT INTO admin_users(id,email) VALUES ($1,$2)",[reviewer.id,reviewer.email]);
+  const referenceHashes=[];
+  for(let index=1;index<=3;index++) {
+    const digest=String(index).repeat(64); referenceHashes.push(digest);
+    const reference=await store.registerFaceReference({identityId:enrollmentIdentity.id,storageKey:`${randomUUID()}.webp`,contentSha256:digest,
+      contentType:"image/webp",fileName:`fixture-${index}.webp`,sourceKind:"subject_provided",byteSize:500,width:256,height:256},context);
+    await assert.rejects(store.reviewFaceReference(reference.id,{action:"approve"},context),/independent|different|second|own/);
+    await store.reviewFaceReference(reference.id,{action:"approve"},{actor:reviewer,requestId:"fixture-review"});
+  }
+  const queued=await store.queueFaceEnrollment(enrollmentIdentity.id,context);
+  assert.equal((await store.queueFaceEnrollment(enrollmentIdentity.id,context)).id,queued.id,"Enqueue is idempotent while pending");
+  await client.query("SET ROLE core_face_worker");
+  await assert.rejects(client.query("SELECT * FROM face_enrollment_jobs"),/permission denied/);
+  const claimed=(await client.query("SELECT claim_face_enrollment('fixture-worker') AS job")).rows[0].job;
+  assert.equal(claimed.id,queued.id);
+  assert.equal(claimed.references.length,3);
+  assert.equal((await client.query("SELECT claim_face_enrollment('fixture-worker-2') AS job")).rows[0].job,null,"Only one worker claims the request");
+  const template=(await client.query("SELECT sync_face_template_set('fixture-worker',$1,$2,$3,$4,3,$5::text[],now()+interval '1 hour') AS id",
+    [enrollmentIdentity.id,claimed.consent_id,"a".repeat(64),"b".repeat(64),referenceHashes])).rows[0].id;
+  assert.equal((await client.query("SELECT finish_face_enrollment($1,'wrong-worker',$2,NULL) AS ok",[queued.id,template])).rows[0].ok,false);
+  assert.equal((await client.query("SELECT finish_face_enrollment($1,'fixture-worker',$2,NULL) AS ok",[queued.id,template])).rows[0].ok,true);
+  await client.query("RESET ROLE");
+  assert.equal((await store.getFaceAdminOverview()).identities.find(person=>person.id===enrollmentIdentity.id).enrollmentStatus,"ready");
+  const pending=await store.queueFaceEnrollment(enrollmentIdentity.id,context);
+  await store.updateFaceIdentity(enrollmentIdentity.id,{action:"revoke_consent",reason:"Fixture permission removed"},context);
+  await client.query("SELECT claim_face_enrollment('fixture-worker')");
+  assert.equal((await client.query("SELECT state FROM face_enrollment_jobs WHERE id=$1",[pending.id])).rows[0].state,"failed");
+  assert.equal((await store.getFaceAdminOverview()).identities.find(person=>person.id===enrollmentIdentity.id).enrollmentStatus,"revoked");
+  console.log("PASS: site enrollment requires independent approved references, claims once, reports Ready only after registered templates, and rejects revoked permission.");
   console.log("PASS: guest persistence, duplicate protection, consent, review, YouTube/Twitch VOD/clip tag metadata, time boundaries, profile updates, revocation and audit; disposable database only.");
 } finally {
   if (priorPublicGate === undefined) delete process.env.FACE_PRESENCE_PUBLIC_ENABLED;

@@ -2214,6 +2214,7 @@ type WorkerHeartbeatRow = {
   worker_id: string;
   analyzer_version: string;
   automatic_capable: boolean;
+  enrollment_capable: boolean;
   model_version: string | null;
   status: "healthy" | "stopping" | "error";
   error_message: string | null;
@@ -2263,6 +2264,31 @@ function faceConsentUi(consent: ReturnType<typeof identityResponse>["currentCons
   };
 }
 
+export async function queueFaceEnrollment(identityId: string, context: FaceMutationContext) {
+  if (process.env.FACE_ANALYZER_ENABLED !== "true") throw new FaceStoreError("conflict", "Enrollment is not enabled yet.");
+  return withTransaction(async (db) => {
+    const identity = await db.query(`SELECT id FROM face_identities WHERE id=$1 AND state='active' FOR UPDATE`, [identityId]);
+    if (!identity.rows[0]) throw new FaceStoreError("not_found", "Save active permission for this person first.");
+    const existing = await db.query(`SELECT id FROM face_enrollment_jobs WHERE identity_id=$1 AND state IN ('queued','running')`, [identityId]);
+    if (existing.rows[0]) return { id: existing.rows[0].id };
+    const consent = await db.query(`SELECT id FROM face_consents WHERE identity_id=$1 AND revoked_at IS NULL AND expires_at>now()
+      AND subject_confirmed_adult AND allow_template_creation`, [identityId]);
+    if (!consent.rows[0]) throw new FaceStoreError("consent_required", "Current permission to create face templates is required.");
+    const worker = await db.query(`SELECT 1 FROM face_worker_heartbeats WHERE status='healthy' AND enrollment_capable AND last_heartbeat_at>now()-interval '90 seconds' LIMIT 1`);
+    if (!worker.rows[0]) throw new FaceStoreError("conflict", "The enrollment service is temporarily unavailable. Try again shortly.");
+    const references = await db.query<{id:string}>(`SELECT DISTINCT ON (content_sha256) id,content_sha256 FROM face_reference_assets
+      WHERE identity_id=$1 AND consent_id=$2 AND state='approved' AND subject_approved AND revoked_at IS NULL
+        AND reviewed_at IS NOT NULL AND reviewed_by<>created_by AND retention_expires_at>now()
+        AND storage_key ~ '^[0-9a-f-]{36}\\.webp$' ORDER BY content_sha256,created_at DESC LIMIT 20`, [identityId,consent.rows[0].id]);
+    if (references.rows.length<3) throw new FaceStoreError("consent_required", "Upload at least 3 different photos and have a second admin approve them before enrollment.");
+    const result = await db.query<{id:string}>(`INSERT INTO face_enrollment_jobs(identity_id,consent_id,reference_ids,requested_by)
+      VALUES ($1,$2,$3::uuid[],$4) RETURNING id`, [identityId,consent.rows[0].id,references.rows.map(r=>r.id),context.actor.id]);
+    const id = result.rows[0]!.id;
+    await audit(db,context,{action:"face.enrollment.queued",targetType:"face_enrollment_job",targetId:id,identityId,after:{referenceCount:references.rows.length}});
+    return {id};
+  });
+}
+
 export async function getFaceAdminOverview() {
   const [identities, references, sources, jobs, reviews, publishedRows, auditRows, heartbeatRows, guests] = await Promise.all([
     listFaceIdentities(),
@@ -2287,7 +2313,7 @@ export async function getFaceAdminOverview() {
     ),
     query<WorkerHeartbeatRow>(
       `SELECT heartbeats.worker_id, heartbeats.analyzer_version,
-              heartbeats.automatic_capable, heartbeats.model_version, heartbeats.status,
+              heartbeats.automatic_capable, heartbeats.enrollment_capable, heartbeats.model_version, heartbeats.status,
               heartbeats.error_message, heartbeats.last_heartbeat_at::text,
               (SELECT COALESCE(sum(templates.template_count),0)::int
                  FROM face_template_sets templates
@@ -2320,7 +2346,11 @@ export async function getFaceAdminOverview() {
     referencesByIdentity.set(reference.identityId, rows);
   }
 
+  const enrollmentJobs = await query<{identity_id:string;id:string;state:string;error_code:string|null;updated_at:string}>(
+    `SELECT DISTINCT ON (identity_id) identity_id,id,state,error_code,updated_at::text FROM face_enrollment_jobs ORDER BY identity_id,created_at DESC,id DESC`);
+  const enrollmentByIdentity = new Map(enrollmentJobs.rows.map(row=>[row.identity_id,row]));
   const uiIdentities = identities.map((identity) => {
+    const enrollmentJob = enrollmentByIdentity.get(identity.id);
     const consent = faceConsentUi(identity.currentConsent);
     const enrollmentStatus = identity.state === "revoked" || consent.status === "revoked"
       ? "revoked"
@@ -2339,6 +2369,7 @@ export async function getFaceAdminOverview() {
       enrollmentStatus,
       consent,
       references: referencesByIdentity.get(identity.id) ?? [],
+      enrollmentJob: enrollmentJob ? {id:enrollmentJob.id,status:enrollmentJob.state,errorCode:enrollmentJob.error_code,updatedAt:enrollmentJob.updated_at} : null,
       updatedAt: identity.updatedAt,
     };
   });
@@ -2404,7 +2435,9 @@ export async function getFaceAdminOverview() {
     apiVersion: "2026-08-21",
     service: {
       status: serviceReady ? "ready" as const : analyzerEnabled ? "degraded" as const : "offline" as const,
-      message: serviceReady ? null : readinessReasons.join(" "),
+      message: serviceReady ? null : analyzerEnabled && heartbeatFresh && heartbeat?.enrollment_capable
+        ? "Enrollment service is online. Add a person, record permission, and have a second admin approve their photos. Video matching remains off until footage testing is complete."
+        : readinessReasons.join(" "),
       analyzerVersion: heartbeat?.analyzer_version ?? process.env.FACE_ANALYZER_VERSION ?? null,
       lastHeartbeatAt: heartbeat?.last_heartbeat_at ?? null,
     },

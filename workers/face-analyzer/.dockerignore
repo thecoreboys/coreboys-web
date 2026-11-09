@@ -1,0 +1,11 @@
+**
+!Dockerfile
+!supabase-root-2021.crt
+!requirements.txt
+!requirements-db.txt
+!requirements-azure.txt
+!download_models.py
+!cloud_entry.py
+!config.example.json
+!face_analyzer/
+!face_analyzer/*.py

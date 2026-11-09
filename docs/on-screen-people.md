@@ -31,10 +31,12 @@ test footage were configured in that deployment.
    for a new recognition profile. CORE members and crew retain their profiles.
    Imported social links include Kick and other supported directory platforms.
    Imports copy profile metadata only; they never create consent or templates.
-2. Record the person's actual consent and approved video/time intervals.
+2. Record the person's actual template-creation permission. Permission for
+   particular recordings and time intervals is added separately before matching.
 3. Under **Enrollment**, upload approved reference photos and have a separate
-   reviewer approve them. The operator enrolls their exact bytes in the local
-   worker. Saving/approving uploads alone does not mark an identity ready.
+   reviewer approve them. Select **Enroll approved photos** to queue the worker.
+   Saving/approving uploads alone does not mark an identity ready; successful
+   template creation is confirmed by the worker and database.
 4. Add the exact Watch content ID under **Sources & jobs**, connect its original
    recording in worker configuration, and add eligible identities to its list.
 5. Run a bounded archive scan. Review proposed matches, then publish explicitly.
@@ -66,7 +68,7 @@ gate as the deployed creator panel and returns private, uncached responses.
 
 ## Deployment prerequisites
 
-Apply primary migration `056_face_guest_profiles.sql` using the normal web
+Apply migrations `056_face_guest_profiles.sql` and `057_face_site_enrollment.sql` using the normal web
 migration runner. The existing media creator migrations remain required for
 directory imports. No existing roster or face consent is backfilled.
 
@@ -74,9 +76,11 @@ Provision persistent protected reference storage shared by web replicas before
 setting `FACE_REFERENCE_UPLOADS_ENABLED=true` and `FACE_REFERENCE_STORAGE_DIR`.
 The Azure web image does not include the Python analyzer. Run the separate
 worker with verified YuNet/SFace models, persistent local template storage,
-approved references and authorized media. The worker currently requires its
-database endpoint to be loopback-bound; a protected local proxy/tunnel to the
-same authoritative database is required for hosted operation.
+approved references and authorized media. Database connections default to
+loopback-only. The Azure deployment explicitly pins its hosted database name
+and requires certificate and hostname verification. See
+[site enrollment operations](face-enrollment-operations.md) for the separate
+worker, private persistent shares, deployment and initial cost estimate.
 
 The Azure workflow now passes repository variables for recognition, matching,
 uploads, public presence and the public UI build switch. Defaults remain false.

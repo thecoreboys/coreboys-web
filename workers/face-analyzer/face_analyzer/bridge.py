@@ -228,6 +228,17 @@ def validate_local_database_url(database_url: str) -> str:
     query_keys = {key.lower() for key, _ in parse_qsl(parsed.query, keep_blank_values=True)}
     if endpoint_override_keys.intersection(query_keys):
         raise PolicyError("FACE_ANALYZER_DATABASE_URL query parameters cannot override the loopback endpoint")
+    # A hosted deployment must explicitly pin both the endpoint and verified TLS.
+    tls_host = os.environ.get("FACE_ANALYZER_DATABASE_TLS_HOST", "").strip().lower()
+    if tls_host and host == tls_host:
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        if (len(query) != len(parse_qsl(parsed.query, keep_blank_values=True))
+            or query.get("sslmode") != "verify-full"
+            or query.get("sslrootcert") != "/etc/ssl/certs/ca-certificates.crt"
+            or set(query) - {"sslmode", "sslrootcert"}
+            or parsed.port not in {None, 5432}):
+            raise PolicyError("hosted database requires certificate-verified TLS with the system CA bundle")
+        return database_url
     if host != "localhost":
         try:
             if not ipaddress.ip_address(host).is_loopback:

@@ -140,6 +140,17 @@ export function FaceRecognitionControlRoom({
     void load();
   }, [load]);
 
+  const enrollmentPending = overview.identities.some((identity) =>
+    identity.enrollmentJob?.status === "queued" || identity.enrollmentJob?.status === "running",
+  );
+  useEffect(() => {
+    if (!enrollmentPending || busy !== null) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load(true);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [enrollmentPending, busy, load]);
+
   const mutate = useCallback<Mutate>(
     async (busyKey, path, method, body, successMessage) => {
       if (apiState !== "ready") return false;
@@ -934,6 +945,14 @@ function EnrollmentPanel({
       </Panel>
 
       <Panel icon={<FileImage className="size-5" />} title={`${canonical?.displayName ?? identity?.displayName ?? "Reference"} · inventory`} description="Accepted references may produce templates only after quality review. Rejected and deleted items are never matchable." actions={identity ? <StatusPill tone={eligible ? "success" : "warning"}>{identity.templateCount} templates</StatusPill> : undefined}>
+        {identity ? <div className="mb-4 space-y-3 rounded-xl border border-secondary p-4">
+          <p className="text-sm font-semibold text-primary">{identity.enrollmentJob?.status === "running" ? "Creating face templates…" : identity.enrollmentJob?.status === "queued" ? "Enrollment queued" : identity.enrollmentJob?.status === "failed" ? "Enrollment needs attention" : identity.enrollmentStatus === "ready" ? "Ready for approved recordings" : "Enroll this person"}</p>
+          <p className="text-xs text-tertiary">{identity.enrollmentJob?.status === "failed" ? "Check permission and photo approvals, then retry with clear, different photos containing only this person. Expired approvals need new reference photos." : "A second admin must approve at least 3 different photos. Enrollment uses up to 20 approved photos and does not publish any names."}</p>
+          <button type="button" className={primaryButton} disabled={!apiAvailable || !eligible || busy !== null || identity.references.filter(reference=>reference.status === "accepted").length < 3 || ["queued","running"].includes(identity.enrollmentJob?.status ?? "")}
+            onClick={()=>void mutate(`enroll:${identity.id}`,`/identities/${identity.id}/enroll`,"POST",{},"Enrollment queued. This screen will show when the person is ready.")}>
+            {identity.enrollmentJob?.status === "failed" ? "Retry enrollment" : identity.templateCount > 0 ? "Update enrollment from approved photos" : "Enroll approved photos"}
+          </button>
+        </div> : null}
         {!apiAvailable ? (
           <Empty title="Inventory unavailable" detail="Reference counts and status come only from the admin API." />
         ) : !identity ? (

@@ -20,6 +20,7 @@ from .runtime_gate import gate_status, require_biometric_enabled
 from .store import PurgeTombstoneStore
 from .vision import verified_model_fingerprint
 from .registry import refresh_database_people
+from .enrollment_jobs import process_next_enrollment
 
 
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
@@ -452,6 +453,8 @@ def serve(
             cleanup_local_retention(config)
             model_version = _automatic_runtime_model(config, actor_id)
             heartbeat_worker(dsn, actor_id, model_version, status="healthy")
+            if process_next_enrollment(config, actor_id):
+                continue
             try:
                 run_job(
                     config,

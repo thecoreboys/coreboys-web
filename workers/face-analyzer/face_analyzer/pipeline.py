@@ -55,6 +55,18 @@ def enroll_identity(
     enrollment_run = authorize_run(config, session_id, expected_mode="biometric")
     if identity_id not in enrollment_run.session.identity_allowlist:
         raise PolicyError("identity is outside the enrollment session allowlist")
+    return enroll_reference_set(config, identity_id, image_paths, replace=replace, worker_id=actor_id,
+                                content_id=enrollment_run.source.content_id, purpose=enrollment_run.session.purpose)
+
+
+@serialized_enrollment_operation
+def enroll_reference_set(
+    config: AnalyzerConfig, identity_id: str, image_paths: Iterable[str | Path], *,
+    replace: bool, worker_id: str, content_id: str | None = None, purpose: str | None = None,
+) -> dict[str, Any]:
+    """Enroll approved photos independently of a future recording/matching session."""
+    require_biometric_enabled(matching=False)
+    actor_id = require_worker_id(worker_id)
     paths = list(image_paths)
     if not 3 <= len(paths) <= 20:
         raise DataError("enrollment requires 3 to 20 approved reference images")
@@ -72,8 +84,8 @@ def enroll_identity(
         config,
         identity_id,
         image_digests,
-        content_id=enrollment_run.source.content_id,
-        purpose=enrollment_run.session.purpose,
+        content_id=content_id,
+        purpose=purpose,
     )
     if not db_authority["db_authoritative"] and not config_only_allowed():
         raise PolicyError(
@@ -121,8 +133,8 @@ def enroll_identity(
             model_fingerprint=engine.model_fingerprint,
             template_fingerprint=local_metadata["template_fingerprint"],
             template_count=local_metadata["template_count"],
-            content_id=enrollment_run.source.content_id,
-            purpose=enrollment_run.session.purpose,
+            content_id=content_id,
+            purpose=purpose,
             actor_id=actor_id,
         )
         if template_set_id is not None:

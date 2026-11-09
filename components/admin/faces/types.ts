@@ -50,6 +50,7 @@ export type FaceIdentity = {
   displayName: string;
   templateCount: number;
   enrollmentStatus: "not_enrolled" | "pending" | "ready" | "suspended" | "revoked";
+  enrollmentJob?: { id: string; status: "queued" | "running" | "completed" | "failed"; errorCode: string | null; updatedAt: string } | null;
   consent: FaceConsent;
   references: FaceReference[];
   updatedAt: string;
@@ -227,6 +228,7 @@ const IdentitySchema = z.object({
   displayName: z.string(),
   templateCount: z.number().int().nonnegative(),
   enrollmentStatus: z.enum(["not_enrolled", "pending", "ready", "suspended", "revoked"]),
+  enrollmentJob: z.object({id:z.string().uuid(),status:z.enum(["queued","running","completed","failed"]),errorCode:z.string().nullable(),updatedAt:z.string()}).nullable().optional(),
   consent: ConsentSchema,
   references: z.array(ReferenceSchema),
   updatedAt: z.string(),
