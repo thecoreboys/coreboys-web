@@ -15,6 +15,12 @@ export type BrowserVideoReview = {
   markers: Array<{id: string; identityId: string | null; startMs: number; endMs: number; status: string}>;
 };
 
+/** Only browser-created UUID blob URLs on this page's origin may feed a player. */
+export function safeLocalVideoObjectUrl(value:string,expectedOrigin:string):string {
+  if(!/^blob:https?:\/\/[A-Za-z0-9.:[\]-]+\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value))return "";
+  try{const url=new URL(value);return url.protocol==="blob:"&&url.origin===expectedOrigin?url.href:"";}catch{return "";}
+}
+
 /** Runs in a worker with bounded memory. No video or frame pixels are uploaded. */
 export function fingerprintLocalVideo(file: File, progress: (percent:number)=>void, signal: AbortSignal): Promise<string> {
   return new Promise((resolve,reject)=>{

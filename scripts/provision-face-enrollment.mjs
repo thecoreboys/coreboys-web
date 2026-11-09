@@ -31,9 +31,11 @@ async function arm(path,method="GET",body,version="2024-03-01") {
 }
 const webPath=`${group}/providers/Microsoft.App/containerApps/coreboys-web`;
 const workerPath=`${group}/providers/Microsoft.App/containerApps/coreboys-face-worker`;
+// Older API versions silently omit scaler identity and cooldown settings.
+const containerAppApi="2025-07-01";
 const web=await arm(webPath);
 let previousWorker;
-try{previousWorker=await arm(workerPath);}catch(error){if(!error.message.includes(": 404 "))throw error;}
+try{previousWorker=await arm(workerPath,"GET",undefined,containerAppApi);}catch(error){if(!error.message.includes(": 404 "))throw error;}
 const onDemand=process.argv.includes("--on-demand")||previousWorker?.properties?.template?.scale?.rules?.some(rule=>rule.name==="face-work");
 const webSecrets=await arm(`${webPath}/listSecrets`,"POST");
 const databaseUrl=webSecrets.value.find(secret=>secret.name==="database-url")?.value;
@@ -128,7 +130,7 @@ const worker=await arm(workerPath,"PUT",{location:web.location,identity:{type:"U
     volumeMounts:[{volumeName:"references",mountPath:"/references"},{volumeName:"worker-data",mountPath:"/data"}]}],
     volumes:[{name:"references",storageType:"AzureFile",storageName:"face-references-readonly",mountOptions:"uid=1001,gid=1001,dir_mode=0700,file_mode=0600"},
       {name:"worker-data",storageType:"AzureFile",storageName:"face-worker-data",mountOptions:"uid=1001,gid=1001,dir_mode=0700,file_mode=0600"}],
-    scale:onDemand?{minReplicas:0,maxReplicas:1,pollingInterval:30,cooldownPeriod:60,rules:[{name:"face-work",custom:{type:"azure-queue",identity:identityPath,metadata:{accountName:"coreboysfacesc245e8",queueName,queueLength:"1"}}}]}:{minReplicas:1,maxReplicas:1}}}});
+    scale:onDemand?{minReplicas:0,maxReplicas:1,pollingInterval:30,cooldownPeriod:60,rules:[{name:"face-work",custom:{type:"azure-queue",identity:identityPath,metadata:{accountName:"coreboysfacesc245e8",queueName,queueLength:"1"}}}]}:{minReplicas:1,maxReplicas:1}}}},containerAppApi);
 console.log(`Worker deployment submitted: ${worker.name}.`);
 // Attach only the reference share to the web app; preserve its other configuration.
 const template=web.properties.template;
