@@ -80,9 +80,11 @@ function fixture() {
       const ids = params[0] as string[];
       const priorities = params[1] as number[];
       ids.forEach((statusId, i) => {
+        const priority = priorities[i];
+        assert.notEqual(priority, undefined);
         const prior = rows.get(statusId);
-        if (prior) prior.priority = Math.min(prior.priority, priorities[i]);
-        else rows.set(statusId, { statusId, priority: priorities[i], attempt: null, due: now, outcome: "unknown" });
+        if (prior) prior.priority = Math.min(prior.priority, priority!);
+        else rows.set(statusId, { statusId, priority: priority!, attempt: null, due: now, outcome: "unknown" });
       });
       return { rows: [] };
     }
@@ -151,8 +153,8 @@ test("rotation persists IDs outside the latest snapshot and eventually includes 
   f.advanceDay();
   const next = await f.api.reserveXContentVerification([]);
   assert.equal(next.length, 10);
-  assert.equal(next[0].statusId, "10011");
-  assert.equal(next[1].statusId, "20000");
+  assert.equal(next[0]?.statusId, "10011");
+  assert.equal(next[1]?.statusId, "20000");
   assert.equal(next.some((item) => first.some((prior) => prior.statusId === item.statusId)), false);
 });
 
@@ -176,5 +178,5 @@ test("failed removal persistence remains retriable instead of retiring the candi
   assert.equal(result.removed, 0);
   assert.deepEqual(f.checked, ["20000:unknown"]);
   f.advanceDay();
-  assert.equal((await f.api.reserveXContentVerification([]))[0].statusId, "20000");
+  assert.equal((await f.api.reserveXContentVerification([]))[0]?.statusId, "20000");
 });
