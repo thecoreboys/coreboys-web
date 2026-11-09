@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect,useRef,useState } from "react";
-import { fingerprintLocalVideo,type BrowserVideoReview } from "@/lib/browser-video-review";
+import { fingerprintLocalVideo,safeLocalVideoObjectUrl,type BrowserVideoReview } from "@/lib/browser-video-review";
 import { VIDEO_FINGERPRINT_ALGORITHM } from "@/lib/face-processing-costs";
 import type { FaceCanonicalPerson,FaceIdentity,FaceSource } from "./types";
 
@@ -23,7 +23,7 @@ export function BrowserVideoReviewPanel({apiBase,sources,identities,people,disab
   const valid=Number.isSafeInteger(start)&&Number.isSafeInteger(end)&&start>=0&&end>start&&end<=duration;
   useEffect(()=>{
     if(!file)return;
-    const objectUrl=URL.createObjectURL(file);setUrl(objectUrl);
+    const objectUrl=URL.createObjectURL(file);setUrl(safeLocalVideoObjectUrl(objectUrl,window.location.origin));
     return()=>URL.revokeObjectURL(objectUrl);
   },[file]);
   useEffect(()=>()=>{generation.current++;controller.current?.abort();},[]);

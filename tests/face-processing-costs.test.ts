@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import test from "node:test";
 import { FaceJobCreateSchema } from "../lib/face-recognition-contracts";
-import { BrowserVideoReviewInput } from "../lib/browser-video-review";
+import { BrowserVideoReviewInput,safeLocalVideoObjectUrl } from "../lib/browser-video-review";
 import { FACE_ENROLLMENT_MODEL_VERSION, VIDEO_FINGERPRINT_ALGORITHM, faceScanFrameCount } from "../lib/face-processing-costs";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 
@@ -49,6 +49,13 @@ test("video review accepts metadata only and enrollment reuse follows the pinned
   assert.equal(BrowserVideoReviewInput.safeParse({...input,algorithm:"sha256"}).success,false);
   assert.ok(readFileSync("workers/face-analyzer/cloud_entry.py","utf8").includes(FACE_ENROLLMENT_MODEL_VERSION));
   assert.ok(readFileSync("workers/face-analyzer/download_models.py","utf8").includes(FACE_ENROLLMENT_MODEL_VERSION));
+});
+
+test("local player accepts only browser UUID blob URLs from its own origin",()=>{
+  const id="12345678-1234-4234-9234-123456789abc",origin="https://thecoreboys.com";
+  assert.equal(safeLocalVideoObjectUrl(`blob:${origin}/${id}`,origin),`blob:${origin}/${id}`);
+  assert.equal(safeLocalVideoObjectUrl(`blob:http://127.0.0.1:3000/${id}`,"http://127.0.0.1:3000"),`blob:http://127.0.0.1:3000/${id}`);
+  for(const url of [`blob:https://evil.example/${id}`,`https://thecoreboys.com/${id}`,"javascript:alert(1)","data:text/html,<script>alert(1)</script>",`blob:${origin}/<script>`, `blob:${origin}/${id}\" onerror=\"alert(1)`])assert.equal(safeLocalVideoObjectUrl(url,origin),"");
 });
 
 test("browser review checks admin/origin before saving and bounds streamed metadata without Content-Length", async () => {
