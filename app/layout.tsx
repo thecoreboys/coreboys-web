@@ -149,6 +149,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <PlayerProvider>
             <WatchContextMenuProvider>
             <LenisProvider>
+              <div className="site-shell">
               <SiteHeader>
                 <UnreleasedBanner />
                 <Suspense fallback={null}>
@@ -164,6 +165,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 {children}
               </main>
               <GlobalSiteFooter />
+              </div>
                <GlobalWatchEnhancements />
               <Suspense fallback={null}>
                 <AuthModal />

@@ -69,7 +69,8 @@ function mountDirector() {
   }).outputText, {
     module: loaded, exports: loaded.exports,
     window: browser,
-    document: Object.assign(new EventTarget(), { body: {} }),
+    document: Object.assign(new EventTarget(), { body: {}, getElementById: () => null }),
+    MutationObserver: class { observe() {} disconnect() {} },
     Audio: AudioStub, CustomEvent, Date, performance,
     requestAnimationFrame: () => 1, cancelAnimationFrame() {},
     require(name: string) {

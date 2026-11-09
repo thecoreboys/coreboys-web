@@ -143,3 +143,26 @@ checks against the final merged code after concurrent changes have finished.
 Framework references: [Next lazy loading](https://nextjs.org/docs/app/guides/lazy-loading),
 [Next after](https://nextjs.org/docs/app/api-reference/functions/after),
 [SWR request deduplication](https://swr.vercel.app/docs/advanced/performance).
+
+### November 9: homepage startup and live polling
+
+A production browser reload observed `/api/watch/live` taking 11.61 seconds
+and an unopened palette requesting the 60-result search seed in 9.63 seconds.
+The document completed in 3.92 seconds (headers at 1.74 seconds). These are
+individual request observations, not Core Web Vitals or population percentiles.
+Footer links also prefetched five routes during startup, including a 5.59-second
+cookie-policy request.
+
+Home and live polling now share a separate recent-content snapshot. Its source
+reads are bounded to 64 CORE feed entries, 256 member feed entries and 480 archived
+YouTube records, followed by the existing balanced home projection. Explicit
+archive and search routes retain their full coverage. Fresh/stale windows remain
+20/180 seconds, and durable deletion checks still run after cache retrieval.
+Search seed requests run on navigation intent rather than an idle timer; policy
+footer links no longer prefetch. These changes remove competing archive work
+instead of lengthening freshness windows.
+
+Twitch hero embeds have no shadow or rounded clipping, and floating DJ controls
+move clear when space permits. A plain, unstyled Twitch control page also failed
+the provider's style-visibility autoplay check in the test browser; that isolated
+restriction must not be reported as successful video playback.

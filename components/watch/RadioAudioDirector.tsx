@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Poin
 import { createPortal } from "react-dom";
 import Image from "@/components/ui/SiteImage";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { clearPlayerSurface } from "@/lib/watch/player-clearance";
 import { audioFadeProgress } from "@/lib/radio/fade";
 import {
   RADIO_CUE_LIFECYCLE_EVENT,
@@ -327,15 +328,25 @@ export function RadioAudioDirector({
       const remembered = current ? null : readWidgetPlacement();
       // Open visibly on desktop, retaining saved coordinates within the screen.
       // Edge hiding remains available when the listener drags it away.
-      const next = current?.hiddenEdge
+      let next = current?.hiddenEdge
         ? hiddenWidgetPlacement(current.hiddenEdge, current.edgeOffset ?? (current.hiddenEdge === "left" || current.hiddenEdge === "right" ? rect.top + height / 2 : rect.left + width / 2), width, height)
         : clampVisiblePlacement(current ?? remembered ?? {
           x: window.innerWidth - width - 16,
-          y: window.innerHeight - height - 76,
+          y: window.innerHeight - height - 16,
           hiddenEdge: null,
           edgeOffset: null,
         }, width, height);
-      updatePlacement(next, Boolean(current ?? remembered));
+      const preview = document.querySelector<HTMLElement>(".watch-billboard-live-player.is-preview.is-twitch");
+      if (!next.hiddenEdge && preview?.offsetWidth) {
+        const player = preview.getBoundingClientRect();
+        if (player.bottom > 0 && player.top < window.innerHeight) {
+          next = { ...next, ...clearPlayerSurface(next, width, height, player,
+            { width: window.innerWidth, height: window.innerHeight,
+              top: Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--site-header-h")) || 106 }) };
+        }
+      }
+      // Automatic clearance is temporary; only deliberate dragging stores a position.
+      if (!current || current.x !== next.x || current.y !== next.y) updatePlacement(next);
     };
 
     const onResize = () => {
@@ -345,8 +356,19 @@ export function RadioAudioDirector({
 
     placeWidget();
     window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onResize, { passive: true });
+    const observer = new MutationObserver((records) => {
+      if (records.some((record) => record.target instanceof Element &&
+        (record.target.closest(".watch-billboard-carousel") ||
+          [...record.addedNodes].some((node) => node instanceof Element &&
+            (node.matches(".core-home-feature") || node.querySelector(".core-home-feature")))))) onResize();
+    });
+    const main = document.getElementById("main");
+    if (main) observer.observe(main, { childList: true, subtree: true });
     return () => {
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onResize);
+      observer.disconnect();
       window.cancelAnimationFrame(resizeFrame);
     };
   }, [portalTarget, updatePlacement]);

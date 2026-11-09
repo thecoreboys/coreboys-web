@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getWatchCatalog } from "@/lib/watch/catalog";
+import { getHomeWatchCatalog } from "@/lib/watch/catalog";
 import { youtubeIdFromHref } from "@/lib/watch/playable";
 import type { UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
 
@@ -15,7 +15,7 @@ const SNAPSHOT_TTL_MS = 20_000;
 function getSnapshot(): Promise<UnifiedLiveSnapshot> {
   const now = Date.now();
   if (snapshotCache && snapshotCache.expiresAt > now) return snapshotCache.value;
-  const value = getWatchCatalog().then((catalog) => ({
+  const value = getHomeWatchCatalog().then((catalog) => ({
     live: catalog.live.map((item) => ({
       id: item.id,
       platform: item.platform,

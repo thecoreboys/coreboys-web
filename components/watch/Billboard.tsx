@@ -739,6 +739,7 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
       ref={slotRef}
       className={`watch-billboard-live-player is-preview ${isTwitch ? "is-twitch" : nativeVideoUrl ? "is-native" : "is-youtube"} ${twitchMounted ? "is-mounted" : ""} ${frameReady ? "is-ready" : ""} ${twitchPlaying ? "is-playing" : ""}`}
       data-preview-state={previewState}
+      data-cursor-native={isTwitch ? "true" : undefined}
     >
       <WatchThumb
         youtubeId={playable.youtubeId}
@@ -810,12 +811,10 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
           onClick={onOpen}
           aria-label={`Open ${item.title} in the media player`}
         >
-          <span className="watch-billboard-live-core-badge"><i aria-hidden /> Preview</span>
           <span className="watch-billboard-live-core-open"><span aria-hidden>▶</span> Open player</span>
           <span className="watch-billboard-live-core-muted">{muted ? "Muted preview" : "Sound on"}</span>
         </button>
       ) : null}
-      {isTwitch ? <span className="watch-billboard-provider-label">Preview</span> : null}
     </div>
   );
 }
@@ -828,7 +827,6 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
   const subscription = useSubscription();
   const dvrLoading = authLoading || subscription.loading;
   const dvrAllowed = subscription.hasFeature("dvr.extended_retention");
-  const dvrLocked = Boolean(user && !dvrLoading && !dvrAllowed);
   const dvrSaved = dvrAllowed && saved;
   const playable = useMemo(() => itemToPlayable(item), [item]);
   const youtubeId = playable?.youtubeId ?? (item.platform === "youtube" ? youtubeIdFromHref(item.href) : null);
@@ -980,8 +978,8 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
             aria-label={dvrLoading
               ? "Loading saved library"
               : user
-                ? dvrLocked ? `Save with membership to save ${item.title}` : dvrSaved ? `Remove ${item.title} from your library` : `Add ${item.title} to your library`
-                : `Add ${item.title} to your library`}
+                ? dvrSaved ? `Remove ${item.title} from DVR` : `Save ${item.title} to DVR`
+                : `Save ${item.title} to DVR`}
             aria-busy={dvrLoading}
             disabled={dvrLoading}
             onClick={() => {
@@ -998,7 +996,7 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
             className="watch-billboard-list"
           >
             <span aria-hidden>{dvrSaved ? "✓" : "+"}</span>
-            {dvrLoading ? "Loading…" : dvrLocked ? "Save with membership" : user && dvrSaved ? "Saved" : "Save"}
+            {dvrLoading ? "Loading…" : user && dvrSaved ? "Saved to DVR" : "Save to DVR"}
           </button>
 
         </div>

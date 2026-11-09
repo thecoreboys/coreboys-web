@@ -49,10 +49,12 @@ test("keeps the quick filter rail small while retaining every format in Filters"
   assert.match(palette, /<span>Creator<\/span>/);
 });
 
-test("warms and reuses the seed catalog before search is opened", () => {
+test("warms and reuses search only after navigation intent, without idle startup work", () => {
   assert.match(palette, /SEARCH_SEED_SESSION_KEY/);
   assert.match(palette, /window\.sessionStorage/);
-  assert.match(palette, /requestIdleCallback/);
+  assert.doesNotMatch(palette, /requestIdleCallback/);
+  assert.match(palette, /const openPalette[\s\S]{0,500}void warmSearchSeed\(\)/);
+  assert.match(palette, /addEventListener\("core-watch-search-warm", warm\)/);
   assert.match(palette, /\/api\/watch\/search\?q=&limit=60&liveFirst=true&mode=basic/);
   assert.match(palette, /SEARCH_LIVE_CACHE_MS\s*=\s*60_000/);
   assert.match(palette, /SEARCH_DISCOVERY_CACHE_MS\s*=\s*5 \* 60_000/);

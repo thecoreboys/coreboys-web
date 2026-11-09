@@ -2954,7 +2954,7 @@
 
   .watch-billboard-live-player.is-preview {
     position: absolute;
-    top: clamp(4.5rem, 12vh, 7.5rem);
+    top: clamp(2rem, 6vh, 4rem);
     right: clamp(1.25rem, 3vw, 2.5rem);
     z-index: 3;
     display: block;
@@ -2980,9 +2980,15 @@
     border-radius: inherit;
   }
 
-  .watch-billboard-live-player.is-preview.is-twitch { overflow: visible; }
-  .watch-billboard-live-player.is-preview.is-twitch .watch-billboard-live-mount { overflow: hidden; }
-  .watch-billboard-provider-label { position: absolute; top: -1.5rem; left: 0; color: var(--ink-dim); font-size: .7rem; }
+  /* Rounded clipping and shadows cause Twitch's visibility check to reject
+     autoplay, even when the iframe looks unobscured. Leave its surface plain. */
+  .watch-billboard-live-player.is-preview.is-twitch {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .watch-billboard-live-player.is-preview.is-twitch .watch-billboard-live-mount { overflow: visible; }
   .watch-billboard-provider-status {
     position: absolute;
     top: 100%;

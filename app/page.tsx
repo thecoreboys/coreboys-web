@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { getWatchCatalog } from "@/lib/watch/catalog";
+import { getHomeWatchCatalog } from "@/lib/watch/catalog";
 import { getPatreonShelfData } from "@/lib/watch/patreon";
 import { getCoreOriginalSnapshot } from "@/lib/core-originals";
 import { WatchHomeEntry } from "@/components/watch/WatchHomeEntry";
@@ -41,7 +41,7 @@ async function PatreonSection() {
 
 export default async function HomePage() {
   const [catalog, initialXFeed] = await Promise.all([
-    getWatchCatalog(),
+    getHomeWatchCatalog(),
     // Seed the same rich DTO used by polling. Older catalog imports may omit
     // URL entities, which otherwise produces a plain-link first render.
     getPublicXFeedSnapshot().then(buildLiveXFeedResponse).catch(() => null),

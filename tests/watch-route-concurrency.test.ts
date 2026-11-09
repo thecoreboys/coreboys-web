@@ -43,6 +43,35 @@ function video(id: string, memberSlug: string): WatchItem {
   };
 }
 
+test("live polling shares the bounded home snapshot, coalesces reads, and preserves provider identities", async () => {
+  let reads = 0;
+  const pendingCatalog = deferred<WatchCatalog>();
+  const handlers = route<{ GET: () => Promise<Response> }>("./app/api/watch/live/route", {
+    "./lib/watch/catalog": {
+      getWatchCatalog: () => { throw new Error("live polling must not load the archive"); },
+      getHomeWatchCatalog: () => { reads++; return pendingCatalog.promise; },
+    },
+  });
+  const first = handlers.GET();
+  const second = handlers.GET();
+  assert.equal(reads, 1);
+  pendingCatalog.resolve({
+    live: [
+      { ...video("youtube_live", "ron"), kind: "live", live: { viewers: 42 } },
+      { ...video("live-adapt", "adapt"), platform: "twitch", sourceUrl: "https://twitch.tv/adapt", live: { login: "Adapt", viewers: 500 } },
+    ], fetchedAt: "2026-11-09T12:00:00.000Z",
+  } as WatchCatalog);
+  const responses = await Promise.all([first, second]);
+  const payload = await responses[0]!.json();
+  assert.equal(responses[0]!.headers.get("Cache-Control"), "private, no-store");
+  assert.equal(payload.live[0].youtubeId, "youtube_live");
+  assert.equal(payload.live[0].viewerCount, 42);
+  assert.equal(payload.live[1].login, "adapt");
+  assert.equal(payload.live[1].platform, "twitch");
+  await handlers.GET();
+  assert.equal(reads, 1);
+});
+
 test("queue starts private viewer reads during a cold catalog and keeps recommendations isolated", async () => {
   const pendingCatalog = deferred<WatchCatalog>();
   const events: string[] = [];

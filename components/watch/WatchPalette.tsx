@@ -671,23 +671,6 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
   }, [close, openPalette, warmSearchSeed]);
 
   useEffect(() => {
-    if (catalog) return;
-    const browserWindow = window as unknown as {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-    const requestIdle = browserWindow.requestIdleCallback;
-    const cancelIdle = browserWindow.cancelIdleCallback;
-    const handle = requestIdle
-      ? requestIdle(() => { void warmSearchSeed(); }, { timeout: 1_200 })
-      : window.setTimeout(() => { void warmSearchSeed(); }, 320);
-    return () => {
-      if (cancelIdle && requestIdle) cancelIdle(handle);
-      else window.clearTimeout(handle);
-    };
-  }, [catalog, warmSearchSeed]);
-
-  useEffect(() => {
     if (!open) return;
     previousFocus.current = document.activeElement as HTMLElement | null;
     const priorOverflow = document.body.style.overflow;

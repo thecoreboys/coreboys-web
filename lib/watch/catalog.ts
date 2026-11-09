@@ -18,6 +18,7 @@ import { formatDurationSeconds } from "@/lib/youtube-duration";
 import type { WatchCatalog, WatchItem } from "./types";
 import { isLiveWatchItem } from "./is-live-item";
 import { compactWatchCatalog, expandWatchCatalog, isCompactWatchCatalog } from "./catalog-cache";
+import { projectHomeCatalog } from "./home-catalog";
 import {
   groupWatchItemsByPlatform,
   normalizeWatchItems,
@@ -302,12 +303,29 @@ export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => {
   return filterUnavailableCatalog(catalog);
 });
 
+/** Home and live polling must not walk the complete six-month archive. Keep a
+ * separate, bounded snapshot; explicit library/search routes retain full coverage.
+ * Provider freshness and the post-cache deletion check match the full catalog. */
+export const getHomeWatchCatalog = cache(async (): Promise<WatchCatalog> => {
+  const catalog = expandWatchCatalog(await cachedPublicData(
+    "watch-home-catalog:v1",
+    async () => compactWatchCatalog(projectHomeCatalog(await buildWatchCatalog("home"))),
+    {
+      freshSeconds: 20,
+      staleSeconds: 180,
+      validate: isCompactWatchCatalog,
+      shouldCache: (value) => value.all.length > 0,
+    },
+  ));
+  return filterUnavailableCatalog(catalog);
+});
+
 async function filterUnavailableCatalog(catalog: WatchCatalog): Promise<WatchCatalog> {
   const items = [...new Set(catalogVisibilityItems(catalog))];
   return sanitizeWatchCatalog(catalog, await getUnavailableContentKeys(items));
 }
 
-async function buildWatchCatalog(): Promise<WatchCatalog> {
+async function buildWatchCatalog(scope: "home" | "archive" = "archive"): Promise<WatchCatalog> {
   const logins = MEMBERS.map((m) => m.twitchLogin);
   const programmingPromise = getWatchProgrammingSnapshot().catch(() => EMPTY_WATCH_PROGRAMMING);
   const [
@@ -324,8 +342,8 @@ async function buildWatchCatalog(): Promise<WatchCatalog> {
     // Persisted Social Fetch rows are DB-only on public renders. Keep the
     // six-month TikTok/Instagram archive available to creator rails up to one
     // shared, explicit ceiling instead of silently truncating it downstream.
-    getCoreFeed(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT).catch(() => []),
-    getHouseFeed(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT).catch(() => []),
+    getCoreFeed(scope === "home" ? 64 : PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT).catch(() => []),
+    getHouseFeed(scope === "home" ? 256 : PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT).catch(() => []),
     getPublicClips().catch(() => []),
     cachedPublicData("twitch-directory:v1", () => fetchUsersByLogin(logins), {
       freshSeconds: 3600,
@@ -340,7 +358,7 @@ async function buildWatchCatalog(): Promise<WatchCatalog> {
     programmingPromise.then(getProgrammingFeedEntries).catch(() => []),
     // The background archive walks every page of each linked YouTube uploads
     // playlist. A missing archive database is an allowed staged state.
-    loadArchivedYouTubeWatchItems().catch(() => []),
+    loadArchivedYouTubeWatchItems(scope === "home" ? 480 : undefined).catch(() => []),
     programmingPromise,
   ]);
   const activeTwitchLogins = new Set(

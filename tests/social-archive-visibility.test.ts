@@ -45,12 +45,13 @@ test("six-month social archives use bounded catalog reads and cursor-paged X his
   );
   assert.match(
     catalog,
-    /getCoreFeed\(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT\)/,
+    /getCoreFeed\(scope === "home" \? 64 : PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT\)/,
   );
   assert.match(
     catalog,
-    /getHouseFeed\(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT\)/,
+    /getHouseFeed\(scope === "home" \? 256 : PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT\)/,
   );
+  assert.match(catalog, /scope: "home" \| "archive" = "archive"/);
   assert.match(xArchive, /getPersistedPublicXArchive/);
   assert.match(xArchive, /X_SOCIAL_ARCHIVE_PAGE_SIZE/);
   assert.match(xArchive, /archive\.nextCursor/);

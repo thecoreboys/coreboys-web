@@ -243,7 +243,8 @@ test("YouTube archive history is source-specific and returned to the public cata
   assert.match(archive, /social\.label/);
   assert.match(archive, /loadArchivedYouTubeWatchItems/);
   assert.match(archive, /platform = 'youtube'/);
-  assert.match(catalog, /loadArchivedYouTubeWatchItems\(\)/);
+  assert.match(catalog, /loadArchivedYouTubeWatchItems\(scope === "home" \? 480 : undefined\)/);
+  assert.match(catalog, /scope: "home" \| "archive" = "archive"/);
   assert.match(catalog, /archivedHouseItems/);
   assert.match(catalog, /archivedMemberItems/);
   assert.match(rails, /FULL_HISTORY_SOURCE_LIMIT = 20_000/);
