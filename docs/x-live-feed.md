@@ -25,6 +25,12 @@ only changes the receiver, scheduled recovery, and snapshot storage.
   eligibility; it is not required for the Activity approach above.
 
 The polling job remains a recovery path when stream delivery is interrupted.
+With the production webhook activated, the repository variable
+`X_FEED_REFRESH_MINUTES=60` reduces paid recovery polling to hourly. The
+five-minute scheduler can still wake the endpoint, but the shared database
+gate returns `not_due` without contacting X. The variable takes precedence
+over the legacy secret in the Azure workflow. Viewer and subscriber counts
+do not affect provider requests.
 It has a separate cursor, so a streamed post cannot cause another account's
 unseen post to be skipped. When a recent-search window contains more than 100
 posts, the next scheduled run resumes its saved pagination token with the
@@ -96,6 +102,13 @@ limit before activation. The scheduled reader remains an independent fallback.
    avatar or verification status. A supplied author expansion must agree with
    its binding, and tags are never accepted as proof of identity. Replies and
    reposts are excluded by the receiver.
+   Also configure exactly one `post.delete` subscription per same account,
+   targeting the same webhook. There is one application webhook and one
+   subscription per account/event type, never one per website visitor.
+   Signed delete events require the provisioned numeric author ID and matching
+   subscription filter. The receiver persists a removal record and purges the
+   X snapshot before acknowledging. Late create events and historical imports
+   cannot republish the deleted object.
 6. Verify CRC success and one signed delivery. Expect a `200` acknowledgement
    only after the post and notification records persist. A `503` requests a
    provider retry; duplicate statuses and media attachments retain one
@@ -127,3 +140,60 @@ The snapshot suite covers concurrent writes and polling cursor recovery.
 
 No external webhook, paid fetch, scheduler change, or deployment is performed
 by these local tests.
+
+## Shared cost controls and removed content
+
+Paid Social Fetch requests use a durable cache and atomic lease keyed by the
+canonical provider URL and a credential hash. All server replicas, scheduled
+jobs, and backfill jobs reuse the same result. Only the lease owner reserves
+credits and contacts the provider; followers record no additional spend.
+Failures have a short shared backoff, and an unavailable database prevents a
+paid request. Public pages and saved-item checks read stored data only.
+
+The `content_tombstones` registry is authoritative after shared-cache reads.
+Confirmed removals hide posts across feeds, catalog/search, bookmarks, DVR,
+queues, and playback; they suppress queued notifications and prevent indexing
+or stale-import resurrection. Removing a quoted X post removes its copied
+quote details while preserving the still-public parent. Durable cleanup also
+removes media/search copies and retries independently of webhook acknowledgment.
+
+X delete events are immediate when delivered by X. YouTube exact-ID metadata
+responses and authenticated Atom deletion markers provide additional removal
+signals. Instagram/TikTok use a global rotating verification lane: at most
+two object lookups every two hours, inside the existing Social Fetch cap,
+without media-download extras. It consumes at most 744 credits in a 31-day
+month before cache savings, if eligible objects remain due. Found objects
+return to the queue after seven days, inconclusive checks after six hours.
+This deliberately bounded archive sweep is not instant; a large backlog can
+take longer. A confirmed removal is hidden immediately on subsequent server
+reads; an open saved list/player rechecks the local registry periodically.
+
+Twitch replays and clips use a separate service-wide two-hour verification
+lease, with at most 50 IDs and two first-party API batches per run. Available
+items are checked again after 24 hours; inconclusive results after six hours.
+Only valid exact-ID results establish absence, including Twitch's documented
+structured videos response when every requested ID is missing. Generic HTTP
+errors do not establish removal. Removing a replay disables its DVR reference
+without hiding a still-live channel.
+
+Stored X posts and hydrated quotes (including external authors) share one
+durable rotating allowance of ten verification IDs per 24 hours. The protected
+refresh combines them with existing quote hydration in one lookup of at most
+20 IDs, within the existing X read budget; visitors never trigger these calls.
+Only an explicit `resource-not-found` result naming the requested tweet creates
+a tombstone. Missing expansions, omitted IDs, authorization failures and rate
+limits remain inconclusive. The bounded rotation also checks archive posts
+predating delete subscriptions; a large backlog takes multiple days and is not
+instant. Failed or budget-denied daily attempts cannot spend the allowance again.
+
+Only documented object-level `not_found` results in a successful response are
+accepted from Social Fetch. Missing profile-list entries, pagination gaps,
+timeouts, auth failures, throttling, quota failures, and malformed responses
+never establish deletion. Existing provider spending limits and auto-recharge
+settings are retained.
+
+Provider references: [X delete payloads](https://docs.x.com/x-api/activity/event-payloads),
+[X exact resource errors](https://docs.x.com/x-api/fundamentals/response-codes-and-errors),
+[Social Fetch object lookup outcomes](https://www.socialfetch.dev/docs/capability-matrix),
+[YouTube exact-ID lookup](https://developers.google.com/youtube/data/reference/rest/v3/videos/list),
+[Twitch exact-ID lookup](https://dev.twitch.tv/docs/api/reference/#get-videos).

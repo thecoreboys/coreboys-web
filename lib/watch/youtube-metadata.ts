@@ -1,6 +1,8 @@
 import "server-only";
 import { formatDurationSeconds, isoDurationSeconds } from "@/lib/youtube-duration";
 import type { WatchChapter } from "./types";
+import { unavailableYouTubeObjects } from "@/lib/provider-availability";
+import { recordContentRemoval } from "@/lib/content-availability";
 
 export type WatchYoutubeMetadata = {
   duration?: string;
@@ -84,7 +86,7 @@ export async function fetchWatchYoutubeMetadata(
     for (let index = 0; index < ids.length; index += 50) {
       const batch = ids.slice(index, index + 50);
       const params = new URLSearchParams({
-        part: "contentDetails,snippet,liveStreamingDetails",
+        part: "contentDetails,snippet,liveStreamingDetails,status",
         id: batch.join(","),
         key,
       });
@@ -99,6 +101,7 @@ export async function fetchWatchYoutubeMetadata(
       const json = (await response.json()) as {
         items?: Array<{
           id?: string;
+          status?: { privacyStatus?: string; uploadStatus?: string };
           contentDetails?: { duration?: string };
           snippet?: {
             title?: string;
@@ -114,8 +117,13 @@ export async function fetchWatchYoutubeMetadata(
         }>;
       };
 
+      for (const removed of unavailableYouTubeObjects(batch, json)) {
+        await recordContentRemoval({ provider: "youtube", providerId: removed.id,
+          reason: removed.reason, evidence: "provider_lookup" });
+      }
       for (const item of json.items ?? []) {
         if (!item.id) continue;
+        if (item.status?.privacyStatus === "private" || item.status?.uploadStatus === "deleted") continue;
         const durationSeconds = item.contentDetails?.duration
           ? isoDurationSeconds(item.contentDetails.duration) ?? undefined
           : undefined;

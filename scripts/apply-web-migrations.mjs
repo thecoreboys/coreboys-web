@@ -63,6 +63,11 @@ const migrations = [
   "055_x_live_feed_sources.sql",
   "056_face_guest_profiles.sql",
   "057_face_site_enrollment.sql",
+  "056_content_tombstones.sql",
+  "057_social_fetch_request_cache.sql",
+  "058_content_verification.sql",
+  "059_twitch_content_verification.sql",
+  "060_x_content_verification.sql",
 ];
 
 function loadEnvLocal() {

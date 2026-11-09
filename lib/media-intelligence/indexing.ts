@@ -1,4 +1,7 @@
 import "server-only";
+import { getUnavailableContentKeys } from "@/lib/content-availability";
+import { sanitizeAvailableContent } from "@/lib/content-identity";
+import { query } from "@/lib/db";
 import { contentFingerprint } from "./fingerprint";
 import { getAzureMediaAdapters, readAzureMediaConfig } from "./azure";
 import { getEmbeddingProvider } from "./embedding";
@@ -7,7 +10,12 @@ import { mediaIntelligenceQuery, withMediaIntelligenceTransaction } from "./sche
 
 async function loadIndexDocuments() {
   const embedding = getEmbeddingProvider();
-  return getMediaIntelligenceStore().searchDocuments(embedding.name, embedding.model, {});
+  const documents = await getMediaIntelligenceStore().searchDocuments(embedding.name, embedding.model, {});
+  const blocked = await getUnavailableContentKeys(documents.map((document) => document.asset.item));
+  return documents.flatMap((document) => {
+    const item = sanitizeAvailableContent([document.asset.item], blocked)[0];
+    return item ? [{ ...document, asset: { ...document.asset, item } }] : [];
+  });
 }
 
 export async function publishMediaIndexGeneration(): Promise<{
@@ -48,6 +56,22 @@ export async function publishMediaIndexGeneration(): Promise<{
   }
   try {
     const result = await adapter.publishGeneration({ generationId, indexName, documents });
+    // Provider removals can arrive while the remote upload runs. Recheck after
+    // publication so an earlier cleanup cannot be undone by that in-flight batch.
+    const blocked = await getUnavailableContentKeys(documents.map((document) => document.asset.item));
+    const removed = [...new Set(documents.filter((document) => sanitizeAvailableContent([document.asset.item], blocked)[0] !== document.asset.item)
+      .map((document) => document.asset.key))];
+    if (removed.length) {
+      try { await adapter.deleteDocuments(removed); }
+      catch (error) {
+        // An earlier cleanup might have finished before this upload recreated
+        // the remote document. Re-arm its durable retry without stealing a lease.
+        await query(`UPDATE content_removal_cleanup SET status='pending',available_at=now(),
+          completed_at=NULL,lease_expires_at=NULL
+          WHERE content_keys && $1::text[] AND status='completed'`, [[...blocked]]);
+        throw error;
+      }
+    }
     await withMediaIntelligenceTransaction(async (client) => {
       await client.query(
         `UPDATE media_intelligence_index_generations SET status = 'retired', retired_at = now()

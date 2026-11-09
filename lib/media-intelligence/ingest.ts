@@ -1,4 +1,5 @@
 import "server-only";
+import { filterAvailableContent } from "@/lib/content-availability";
 import type { WatchCatalog, WatchItem } from "@/lib/watch/types";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import {
@@ -36,7 +37,10 @@ const emptySummary = (): IndexSummary => ({
   metadataOnly: 0,
 });
 
-export async function indexWatchItem(item: WatchItem): Promise<"analyzed" | "unchanged" | "busy"> {
+export async function indexWatchItem(item: WatchItem): Promise<"analyzed" | "unchanged" | "busy" | "skipped"> {
+  const availableItem = (await filterAvailableContent([item]))[0];
+  if (!availableItem) return "skipped";
+  item = availableItem;
   const store = getMediaIntelligenceStore();
   const eligibility = analysisEligibilityFor(item);
   const registered = eligibility.deepMediaAllowed ? getRegisteredMediaAnalyzer() : null;
@@ -53,6 +57,10 @@ export async function indexWatchItem(item: WatchItem): Promise<"analyzed" | "unc
       prepared.revision,
       prepared.claim,
     );
+    if (!(await filterAvailableContent([item])).length) {
+      await store.failAnalysis(prepared.claim, new Error("content_removed"));
+      return "skipped";
+    }
     await store.completeAnalysis(completed);
     return "analyzed";
   } catch (error) {
@@ -96,7 +104,9 @@ export async function indexWatchCatalog(catalog: WatchCatalog): Promise<IndexSum
 export async function queueWatchItems(items: readonly WatchItem[]): Promise<IndexSummary> {
   const store = getMediaIntelligenceStore();
   const summary = { ...emptySummary(), discovered: items.length };
-  const uniqueItems = [...new Map(items.map((item) => [`${item.platform}:${item.id}`, item])).values()];
+  const unique = [...new Map(items.map((item) => [`${item.platform}:${item.id}`, item])).values()];
+  const uniqueItems = await filterAvailableContent(unique);
+  summary.skipped += unique.length - uniqueItems.length;
   const recordFailure = (item: WatchItem, error: unknown) => {
     summary.failed += 1;
     const failure = error as { code?: string; name?: string; constraint?: string; column?: string } | null;

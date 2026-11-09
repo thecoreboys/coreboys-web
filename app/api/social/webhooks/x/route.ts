@@ -1,9 +1,10 @@
 import { after, NextResponse } from "next/server";
 import { configuredXFeedAccounts } from "@/lib/x-feed-upstream";
-import { appendXFeedSnapshotItems } from "@/lib/x-feed-snapshot";
+import { appendXFeedSnapshotItems, purgeRemovedXFeedSnapshotItems } from "@/lib/x-feed-snapshot";
+import { filterAvailableContent, recordContentRemoval } from "@/lib/content-availability";
 import { recordSocialEvent, socialEventFromFeedItem, upsertSocialSource } from "@/lib/social-events";
 import { drainSocialNotificationDeliveries } from "@/lib/social-delivery";
-import { parseXActivityAccountBindings, parseXStreamWebhook, readXWebhookBody, verifyXWebhookSignature, xWebhookCrcResponse } from "@/lib/x-webhook";
+import { parseXActivityAccountBindings, parseXDeleteWebhook, parseXStreamWebhook, readXWebhookBody, verifyXWebhookSignature, xWebhookCrcResponse } from "@/lib/x-webhook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,14 +39,28 @@ export async function POST(request: Request) {
     return reply({ error: "invalid_x_activity_configuration" }, 503);
   }
   let items;
+  let deleted;
   try {
-    items = parseXStreamWebhook(JSON.parse(Buffer.from(raw).toString("utf8")), accounts, bindings);
+    const payload = JSON.parse(Buffer.from(raw).toString("utf8"));
+    deleted = parseXDeleteWebhook(payload, bindings);
+    items = deleted ? [] : parseXStreamWebhook(payload, accounts, bindings);
   } catch {
     return reply({ error: "invalid_x_stream_payload" }, 400);
   }
-  if (!items.length) return reply({ received: true, accepted: 0 });
-
   try {
+    if (deleted) {
+      await recordContentRemoval({ provider: "x", providerId: deleted.statusId,
+        sourceUrl: deleted.sourceUrl, reason: "deleted", evidence: "provider_webhook" });
+      // Fresh registry checks hide the post immediately. Snapshot cleanup must
+      // not delay X's acknowledgement behind an in-progress shared refresh.
+      after(async () => {
+        try { await purgeRemovedXFeedSnapshotItems(); }
+        catch { /* The durable removal outbox retries cleanup. */ }
+      });
+      return reply({ received: true, accepted: 0, removed: 1 });
+    }
+    items = await filterAvailableContent(items);
+    if (!items.length) return reply({ received: true, accepted: 0 });
     // Acknowledge only after durable writes. If a write/fanout fails, X retries;
     // canonical event IDs and delivery uniqueness prevent duplicate alerts.
     // This never performs an outbound X request or waits for the polling gate.

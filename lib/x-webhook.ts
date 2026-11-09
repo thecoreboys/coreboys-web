@@ -7,6 +7,28 @@ export const X_WEBHOOK_MAX_BODY_BYTES = 1_000_000;
 
 export type XActivityAccountBindings = ReadonlyMap<string, XFeedAccount>;
 
+export type XDeletedPost = { statusId: string; authorId: string; account: XFeedAccount; sourceUrl: string };
+
+/** Only a signed, provisioned account can remove an X object. Tags are not authority. */
+export function parseXDeleteWebhook(payload: unknown, bindings: XActivityAccountBindings): XDeletedPost | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const data = (payload as Record<string, unknown>).data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const event = data as Record<string, unknown>;
+  if (event.event_type !== "post.delete") return null;
+  const post = event.payload as Record<string, unknown> | undefined;
+  const filter = event.filter as Record<string, unknown> | undefined;
+  if (!post || Array.isArray(post) || !filter || Array.isArray(filter)
+    || typeof post.id !== "string" || !/^[1-9]\d{4,24}$/.test(post.id)
+    || typeof post.author_id !== "string" || filter.user_id !== post.author_id) {
+    throw new Error("invalid_x_delete_payload");
+  }
+  const account = bindings.get(post.author_id);
+  if (!account) throw new Error("unbound_x_delete_author");
+  return { statusId: post.id, authorId: post.author_id, account,
+    sourceUrl: `https://x.com/${normalizeXHandle(account.handle)}/status/${post.id}` };
+}
+
 /** Provisioned numeric X IDs are public configuration, never inferred from tags. */
 export function parseXActivityAccountBindings(raw: string | undefined, accounts: readonly XFeedAccount[]): XActivityAccountBindings {
   if (raw === undefined || raw === "") return new Map();

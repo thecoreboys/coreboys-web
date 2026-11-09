@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import test from "node:test";
+import test, { beforeEach } from "node:test";
+import { setSocialFetchRequestStoreForTests } from "../lib/social-fetch-request-cache";
+import { createTestSocialFetchRequestStore } from "./helpers/social-fetch-request-store";
 
 import {
   fetchSocialFetchInstagramPosts,
@@ -11,6 +13,8 @@ import {
   SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS,
   SOCIAL_FETCH_REELS_REVALIDATE_SECONDS,
 } from "../lib/social-fetch-media";
+
+beforeEach(() => setSocialFetchRequestStoreForTests(createTestSocialFetchRequestStore().store));
 
 let reservationSequence = 0;
 setSocialFetchBudgetAdapterForTests({
@@ -113,10 +117,7 @@ test("TikTok public media is cached, coalesced, and normalized to provider URLs"
       "https://api.socialfetch.dev/v1/tiktok/profiles/officialcoreboys/videos",
     );
     assert.equal(new Headers(requests[0]?.init?.headers).get("x-api-key"), "test-social-fetch-key");
-    assert.equal(
-      requests[0]?.init?.next?.revalidate,
-      SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS,
-    );
+    assert.equal(requests[0]?.init?.cache, "no-store");
     assert.deepEqual(second, first);
     assert.deepEqual(first, {
       status: "ok",
@@ -191,8 +192,8 @@ test("Instagram photos and Reels retain media shape but only expose official emb
     assert.equal(requests.length, 2);
     const postRequest = requests.find((request) => request.url.endsWith("/posts"));
     const reelRequest = requests.find((request) => request.url.endsWith("/reels"));
-    assert.equal(postRequest?.init?.next?.revalidate, SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS);
-    assert.equal(reelRequest?.init?.next?.revalidate, SOCIAL_FETCH_REELS_REVALIDATE_SECONDS);
+    assert.equal(postRequest?.init?.cache, "no-store");
+    assert.equal(reelRequest?.init?.cache, "no-store");
     assert.deepEqual(posts.items[0], {
       id: "18001234567890123",
       shortcode: "CorePhoto1",

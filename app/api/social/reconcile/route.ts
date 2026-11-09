@@ -36,6 +36,9 @@ import {
   type IngestProvider,
 } from "@/lib/watch/social-credentials";
 import { processSocialFetchBackfill } from "@/lib/social-fetch-backfill";
+import { drainContentRemovalCleanup } from "@/lib/content-availability";
+import { reconcileContentAvailability } from "@/lib/content-reconciliation";
+import { reconcileTwitchContentAvailability } from "@/lib/twitch-content-reconciliation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -314,6 +317,9 @@ export async function POST(request: Request) {
     })));
   }
 
+  const availability = await reconcileContentAvailability().catch(() => ({ status: "unavailable" as const }));
+  const twitchAvailability = await reconcileTwitchContentAvailability().catch(() => ({ status: "unavailable" as const }));
+  const removalCleanup = await drainContentRemovalCleanup(20).catch(() => ({ status: "pending" as const }));
   const deliveries = await drainSocialNotificationDeliveries(100);
   return NextResponse.json({
     ok: true,
@@ -335,6 +341,9 @@ export async function POST(request: Request) {
     },
     backfill,
     deliveries,
+    availability,
+    twitchAvailability,
+    removalCleanup,
     reconciledAt: new Date().toISOString(),
   });
 }

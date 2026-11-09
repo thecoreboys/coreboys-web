@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { WatchItem } from "@/lib/watch/types";
+import { ContentAvailabilityGuard } from "@/components/watch/ContentAvailabilityGuard";
 import { clampMultiviewItems, effectiveMultiviewFillLimit } from "@/lib/watch/multiview-access";
 import { useSubscription } from "@/hooks/useSubscription";
 import { catalogPlayables, itemToPlayable, type Playable } from "@/lib/watch/playable";
@@ -2306,7 +2307,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     showChatTimestamps, snapDensityState, workspaceSnapshot, applyWorkspaceLayout, applyWorkspaceDraft,
   ]);
 
-  return <PlayerCtx.Provider value={value}>{children}</PlayerCtx.Provider>;
+  return <PlayerCtx.Provider value={value}><ContentAvailabilityGuard />{children}</PlayerCtx.Provider>;
 }
 
 export function usePlayer() {

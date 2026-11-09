@@ -98,6 +98,7 @@ async function claim(limit: number, channels: DeliveryChannel[]): Promise<Delive
        UPDATE social_notification_deliveries d
           SET status='suppressed',
               last_error=CASE
+                WHEN e.removed_at IS NOT NULL THEN 'provider_removed'
                 WHEN e.published_at < now()-($4::integer * interval '1 second') THEN 'stale_delivery'
                 ELSE 'max_attempts_exceeded'
               END,
@@ -108,7 +109,7 @@ async function claim(limit: number, channels: DeliveryChannel[]): Promise<Delive
           AND d.status IN ('pending','failed','processing')
           AND d.available_at <= now()
           AND (
-            d.attempts >= $3
+            e.removed_at IS NOT NULL OR d.attempts >= $3
             OR e.published_at < now()-($4::integer * interval '1 second')
           )
      ), ready AS (
@@ -116,6 +117,7 @@ async function claim(limit: number, channels: DeliveryChannel[]): Promise<Delive
          FROM social_notification_deliveries d
          JOIN social_content_events e ON e.id=d.event_id
         WHERE d.channel=ANY($2::text[]) AND d.available_at <= now()
+          AND e.removed_at IS NULL
           AND d.status IN ('pending','failed','processing') AND d.attempts < $3
           AND e.published_at >= now()-($4::integer * interval '1 second')
         ORDER BY d.created_at ASC FOR UPDATE OF d SKIP LOCKED LIMIT $1
@@ -263,6 +265,18 @@ async function sendEmail(row: Delivery): Promise<void> {
   });
 }
 
+/** A deletion may commit after a worker claimed this delivery. Read current content at send time. */
+async function refreshDeliveryContent(row: Delivery): Promise<boolean> {
+  const result = await query<Pick<Delivery, "title" | "body" | "href" | "artwork_url">>(
+    `SELECT e.title,e.body,e.href,e.artwork_url
+       FROM social_notification_deliveries d JOIN social_content_events e ON e.id=d.event_id
+      WHERE d.id=$1 AND d.status='processing' AND e.removed_at IS NULL`, [row.id]);
+  const current = result.rows[0];
+  if (!current) return false;
+  Object.assign(row, current);
+  return true;
+}
+
 export async function drainSocialNotificationDeliveries(limit = 50) {
   const readiness = getSocialNotificationDeliveryReadiness();
   if (!readiness.enabled) {
@@ -284,6 +298,11 @@ export async function drainSocialNotificationDeliveries(limit = 50) {
         continue;
       }
       row.email = consent.email;
+      if (!await refreshDeliveryContent(row)) {
+        await suppressed(row.id, "provider_removed");
+        skipped += 1;
+        continue;
+      }
       if (row.channel === "push") {
         const delivered = await sendPush(row);
         if (!delivered) {

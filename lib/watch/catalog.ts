@@ -1,5 +1,7 @@
 import "server-only";
 import { cache } from "react";
+import { filterAvailableContent } from "@/lib/content-availability";
+import { catalogVisibilityItems, filterWatchCatalog } from "./content-visibility";
 import { cachedPublicData } from "@/lib/server-cache";
 import { MEMBERS } from "@/lib/members";
 import { GROUP } from "@/lib/group";
@@ -268,7 +270,8 @@ async function getTwitchBroadcasts(
   return normalizeWatchItems(lists.flat());
 }
 
-export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => expandWatchCatalog(await cachedPublicData(
+export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => {
+  const catalog = expandWatchCatalog(await cachedPublicData(
   "watch-catalog:v3",
   async () => compactWatchCatalog(await buildWatchCatalog()),
   {
@@ -280,7 +283,18 @@ export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => expandWa
     validate: isCompactWatchCatalog,
     shouldCache: (catalog) => catalog.all.length > 0,
   },
-)));
+  ));
+  // The shared catalog may predate a provider deletion. Check the durable
+  // registry after cache retrieval so stale Redis/Next entries cannot revive it.
+  return filterUnavailableCatalog(catalog);
+});
+
+async function filterUnavailableCatalog(catalog: WatchCatalog): Promise<WatchCatalog> {
+  const available = await filterAvailableContent(catalogVisibilityItems(catalog));
+  const key = (item: WatchItem) => `${item.platform}:${item.id}`;
+  const byKey = new Map(available.map((item) => [key(item), item]));
+  return filterWatchCatalog(catalog, (item) => byKey.has(key(item)), (item) => byKey.get(key(item))!);
+}
 
 async function buildWatchCatalog(): Promise<WatchCatalog> {
   const logins = MEMBERS.map((m) => m.twitchLogin);
@@ -592,8 +606,9 @@ async function buildWatchCatalog(): Promise<WatchCatalog> {
   // Feed content is dynamic and may not exist in content_items. Persist the
   // server-normalized allowlist for Passport watch credit; catalog rendering
   // remains available during a staged Passport rollout.
-  try{await registerPassportWatchCatalog(catalog);}catch{/* migration/DB outage: fail closed for rewards */}
-  return catalog;
+  const visibleCatalog = await filterUnavailableCatalog(catalog);
+  try{await registerPassportWatchCatalog(visibleCatalog);}catch{/* migration/DB outage: fail closed for rewards */}
+  return visibleCatalog;
 }
 
 /** Latest long-form upload from the CORE main YouTube channel. */

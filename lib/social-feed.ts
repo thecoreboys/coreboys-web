@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { filterAvailableContent } from "@/lib/content-availability";
 
 /** Official-API social feed aggregation. Every credential is server-only. */
 
@@ -1263,11 +1264,11 @@ export async function getHouseFeed(limit = 24): Promise<FeedItem[]> {
       Math.min(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT, Math.max(768, limit)),
     ).catch(() => []),
   ]);
-  return balancedFeedItems([
+  return balancedFeedItems(await filterAvailableContent([
     ...items,
     ...persistedItems,
     ...xItems.filter((item) => item.authorSlug !== null),
-  ], Math.max(0, limit));
+  ]), Math.max(0, limit));
 }
 
 /** Scheduled ingestion entrypoint. This is the only HOUSE path allowed to spend Social Fetch credits. */
@@ -1346,11 +1347,11 @@ export async function getCoreFeed(limit = 24): Promise<FeedItem[]> {
       Math.min(PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT, Math.max(256, limit)),
     ).catch(() => []),
   ]);
-  return balancedFeedItems([
+  return balancedFeedItems(await filterAvailableContent([
     ...items,
     ...persistedItems,
     ...xItems.filter((item) => item.authorSlug === null),
-  ], Math.max(0, limit));
+  ]), Math.max(0, limit));
 }
 
 /** Scheduled ingestion entrypoint. This is the only CORE path allowed to spend Social Fetch credits. */

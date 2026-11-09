@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import test from "node:test";
+import test, { beforeEach } from "node:test";
+import { setSocialFetchRequestStoreForTests } from "../lib/social-fetch-request-cache";
+import { createTestSocialFetchRequestStore } from "./helpers/social-fetch-request-store";
+
+beforeEach(() => setSocialFetchRequestStoreForTests(createTestSocialFetchRequestStore().store));
 import {
   fetchSocialFetchTikTokVideos,
   setSocialFetchBudgetAdapterForTests,
