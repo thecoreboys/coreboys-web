@@ -16,7 +16,8 @@ recordings is added separately before analysis. Failed enrollment can be retried
 
 Azure runs one 0.5-vCPU/1-GiB worker with no public ingress. Its private reference
 share is read-only; its separate template share is never mounted in the web app.
-Both use persistent Azure Files storage. The process runs as user 1001 and holds
+Both use persistent Azure Files storage. Web and worker images pin user/group
+1001 to match the private volume mount permissions. The worker holds
 the existing cross-process singleton/file locks. Rolling revisions must acquire
 the same lock before processing. The database role cannot read arbitrary application
 data or directly update jobs/templates. Hosted connections pin the configured host
