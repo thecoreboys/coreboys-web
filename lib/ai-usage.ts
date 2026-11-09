@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { query, withTransaction } from "@/lib/db";
 import { estimatedAiCostMicroUsd, fitsAiMonthlyBudget } from "@/lib/ai-budget-policy";
 
-export type AiProvider = "anthropic" | "elevenlabs";
+export type AiProvider = "anthropic" | "elevenlabs" | "azure";
 export type AiUsageDecision =
   | { ok: true; reservationId: string }
   | { ok: false; reason: "disabled" | "daily_limit" | "subject_limit" | "monthly_budget" | "unavailable" };

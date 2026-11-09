@@ -2,6 +2,7 @@ import "server-only";
 import { getPool as getPrimaryDatabasePool } from "@/lib/db";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 import { TRANSCRIPT_SCHEMA_SQL } from "./transcript-schema";
+import { CREATOR_TAG_SCHEMA_SQL } from "@/lib/creator-tags/schema";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -380,6 +381,7 @@ export async function ensureMediaIntelligenceSchema(): Promise<MediaIntelligence
     await pool.query(CORE_SCHEMA_SQL);
     await pool.query(EVOLUTION_SQL);
     await pool.query(TRANSCRIPT_SCHEMA_SQL);
+    await pool.query(CREATOR_TAG_SCHEMA_SQL);
     await pool.query(OPTIONAL_ACCELERATORS_SQL);
     const result = await pool.query<{ vector: boolean; trigram: boolean }>(`
       SELECT

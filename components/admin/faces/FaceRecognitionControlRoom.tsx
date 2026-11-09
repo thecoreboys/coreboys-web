@@ -1,6 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { FaceGuestProfileSchema, safeFacePortraitUrl } from "@/lib/face-people";
+import { SocialPlatform } from "@/lib/creator-tags/model";
+import { safeFacePhotoSource, type FacePhotoCandidate } from "@/lib/face-photo-candidates";
+import { BrowserVideoReviewPanel } from "./BrowserVideoReviewPanel";
+import { FACE_DEFAULT_SAMPLING_FPS,FACE_MAX_SCAN_FRAMES,faceScanFrameCount } from "@/lib/face-processing-costs";
 import {
   Activity,
   AlertCircle,
@@ -45,12 +50,13 @@ import {
   type FaceSource,
 } from "./types";
 
-type TabId = "people" | "enrollment" | "sources" | "review" | "published";
+type TabId = "people" | "video" | "enrollment" | "sources" | "review" | "published";
 type ApiState = "loading" | "ready" | "unavailable" | "error";
 type JsonMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof Users }> = [
   { id: "people", label: "People & consent", icon: UserCheck },
+  { id: "video", label: "Video review", icon: PlayCircle },
   { id: "enrollment", label: "Enrollment", icon: ScanFace },
   { id: "sources", label: "Sources & jobs", icon: Radio },
   { id: "review", label: "Review queue", icon: Eye },
@@ -81,7 +87,7 @@ type Mutate = (
 ) => Promise<boolean>;
 
 export function FaceRecognitionControlRoom({
-  people,
+  people: initialPeople,
   apiBase = "/api/admin/faces",
 }: {
   people: FaceCanonicalPerson[];
@@ -93,6 +99,7 @@ export function FaceRecognitionControlRoom({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const people = overview.people.length ? overview.people : initialPeople;
 
   const load = useCallback(
     async (quiet = false) => {
@@ -138,6 +145,17 @@ export function FaceRecognitionControlRoom({
     void load();
   }, [load]);
 
+  const enrollmentPending = overview.identities.some((identity) =>
+    identity.enrollmentJob?.status === "queued" || identity.enrollmentJob?.status === "running",
+  );
+  useEffect(() => {
+    if (!enrollmentPending || busy !== null) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load(true);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [enrollmentPending, busy, load]);
+
   const mutate = useCallback<Mutate>(
     async (busyKey, path, method, body, successMessage) => {
       if (apiState !== "ready") return false;
@@ -157,9 +175,15 @@ export function FaceRecognitionControlRoom({
           && ("deletionPending" in json && json.deletionPending === true
             || "localTemplatePurgePending" in json && json.localTemplatePurgePending === true),
         );
+        const saved=json&&typeof json==="object"?json as Record<string,unknown>:{};
+        const reused=saved.reused===true;
+        const wakeDelayed=saved.onDemand===true&&saved.wakeQueued===false&&(!saved.job||typeof saved.job!=="object"||!("status" in saved.job)||saved.job.status!=="ready");
         setNotice(pendingDeletion
           ? "Deletion is queued: public presence is withdrawn, but protected file or local-template purge still awaits worker confirmation."
-          : successMessage);
+          : wakeDelayed?"Your request is saved, but worker startup is delayed. Retry the same action to wake it; this will reuse the saved request."
+            : reused&&(saved.status==="failed"||saved.status==="cancelled")?"The previous request is saved with its error or cancellation. Use Retry in Analyzer jobs to run it again."
+            : reused?"Existing work was reused. Completed results and your previous reviews remain saved."
+              : successMessage);
         await load(true);
         return true;
       } catch (mutationError) {
@@ -214,6 +238,11 @@ export function FaceRecognitionControlRoom({
 
   return (
     <div className="space-y-5">
+      <div className="rounded-xl border border-secondary bg-primary p-4 text-sm text-tertiary">
+        <p className="font-semibold text-primary">One people directory across your recordings</p>
+        <p className="mt-1">Add friends and streamers here, record their consent, then use Enrollment → Sources & jobs → Review queue. AI scans require approved reference photos and an active analyzer connected to the original recording.</p>
+        <p className="mt-2">Current coverage: authorized videos and recorded streams. Live-stream AI matching is not available yet. Embedded Twitch clips and Instagram players do not expose a reliable playback clock; use an authorized video copy for synchronized tags.</p>
+      </div>
       <section className="overflow-hidden rounded-2xl border border-secondary bg-primary shadow-sm">
         <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div className="flex min-w-0 items-start gap-3">
@@ -323,13 +352,17 @@ export function FaceRecognitionControlRoom({
         <LoadingState />
       ) : tab === "people" ? (
         <PeopleConsentPanel
+          apiBase={apiBase}
           panelId="face-panel-people"
           people={people}
           identities={overview.identities}
+          photoCandidates={overview.photoCandidates ?? []}
           apiAvailable={apiAvailable}
           busy={busy}
           mutate={mutate}
         />
+      ) : tab === "video" ? (
+        <BrowserVideoReviewPanel apiBase={apiBase} sources={overview.sources} people={people} identities={overview.identities} disabled={!apiAvailable} onSaved={()=>void load(true)} />
       ) : tab === "enrollment" ? (
         <EnrollmentPanel
           panelId="face-panel-enrollment"
@@ -377,21 +410,28 @@ export function FaceRecognitionControlRoom({
 }
 
 function PeopleConsentPanel({
+  apiBase,
   panelId,
   people,
   identities,
+  photoCandidates,
   apiAvailable,
   busy,
   mutate,
 }: {
+  apiBase: string;
   panelId: string;
   people: FaceCanonicalPerson[];
   identities: FaceIdentity[];
+  photoCandidates: FacePhotoCandidate[];
   apiAvailable: boolean;
   busy: string | null;
   mutate: Mutate;
 }) {
   const [selectedKey, setSelectedKey] = useState(people[0]?.key ?? "");
+  const [search, setSearch] = useState("");
+  const [addingGuest, setAddingGuest] = useState(false);
+  const [pendingOnly, setPendingOnly] = useState(false);
   const records = useMemo(
     () => new Map(identities.map((identity) => [identity.canonicalKey, identity])),
     [identities],
@@ -407,11 +447,22 @@ function PeopleConsentPanel({
     <div id={panelId} role="tabpanel" aria-labelledby="face-tab-people" className="grid items-start gap-4 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.2fr)]">
       <Panel
         icon={<Users className="size-5" />}
-        title="Canonical people"
+        title="Creators, crew & friends"
         description="These profiles provide names and approved social destinations only. Their portraits are never submitted to the analyzer."
       >
+        <div className="mb-4 space-y-3">
+          <SavedCreatorImport apiBase={apiBase} apiAvailable={apiAvailable} busy={busy} mutate={mutate} onSaved={(key) => { setSelectedKey(key); setSearch(""); }} />
+          <button type="button" className={secondaryButton} disabled={!apiAvailable || busy !== null} onClick={() => setAddingGuest((value) => !value)}>
+            <Users className="size-4" /> {addingGuest ? "Close new profile" : "Add friend or streamer"}
+          </button>
+          {addingGuest ? <GuestProfileEditor apiAvailable={apiAvailable} busy={busy} mutate={mutate} onSaved={(key) => { setSelectedKey(key); setAddingGuest(false); setSearch(""); }} /> : null}
+          <Field label="Find a person"><input type="search" className={inputClass} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, profile ID, or handle" /></Field>
+          <label className="flex items-center gap-2 text-sm text-secondary"><input type="checkbox" checked={pendingOnly} onChange={(event) => setPendingOnly(event.target.checked)} />
+            Awaiting profile review ({people.filter((item) => item.profileReview && item.profileReview.status !== "approved").length})
+          </label>
+        </div>
         <ul className="max-h-[720px] space-y-2 overflow-y-auto pr-1">
-          {people.map((item) => {
+          {people.filter((item) => (!pendingOnly || item.profileReview && item.profileReview.status !== "approved") && `${item.displayName} ${item.slug} ${item.socials.map((social) => social.handle ?? social.url).join(" ")}`.toLowerCase().includes(search.trim().toLowerCase())).map((item) => {
             const record = records.get(item.key);
             const selected = item.key === person.key;
             return (
@@ -431,6 +482,8 @@ function PeopleConsentPanel({
                   </span>
                   {!apiAvailable ? (
                     <StatusPill tone="neutral">Unknown</StatusPill>
+                  ) : item.profileReview && item.profileReview.status !== "approved" ? (
+                    <StatusPill tone="warning">Review profile</StatusPill>
                   ) : (
                     <ConsentStatus identity={record} />
                   )}
@@ -441,6 +494,14 @@ function PeopleConsentPanel({
         </ul>
       </Panel>
 
+      <div className="space-y-4">
+      <PhotoCandidates key={person.key} person={person} identity={identity} candidates={photoCandidates.filter((candidate)=>candidate.canonicalKey===person.key)} apiAvailable={apiAvailable} busy={busy} mutate={mutate} />
+      {person.profileReview && (person.profileReview.research || person.profileReview.status !== "approved") ? <ProfileResearchReview key={`${person.key}:${person.profileReview.version}`} person={person} apiAvailable={apiAvailable} busy={busy} mutate={mutate} /> : null}
+      {person.kind === "guest" ? (
+        <Panel icon={<Users className="size-5" />} title="Guest profile" description="Update the name and channels used by this person's reviewed on-screen tags.">
+          <GuestProfileEditor key={`${person.key}:${person.displayName}:${JSON.stringify(person.socials)}`} person={person} apiAvailable={apiAvailable} busy={busy} mutate={mutate} />
+        </Panel>
+      ) : null}
       <ConsentEditor
         key={`${person.key}:${identity?.updatedAt ?? "new"}`}
         person={person}
@@ -449,7 +510,175 @@ function PeopleConsentPanel({
         busy={busy}
         mutate={mutate}
       />
+      </div>
     </div>
+  );
+}
+
+function PhotoCandidates({person,identity,candidates,apiAvailable,busy,mutate}: {
+  person: FaceCanonicalPerson; identity: FaceIdentity | null; candidates: FacePhotoCandidate[];
+  apiAvailable: boolean; busy: string | null; mutate: Mutate;
+}) {
+  if (!candidates.length) return null;
+  const eligible = Boolean(identity && identity.consent.status === "active" && identity.consent.adultConfirmed
+    && identity.consent.templateCreation && (!person.profileReview || person.profileReview.status === "approved"));
+  return <Panel icon={<FileImage className="size-5" />} title={`Reference photo candidates · ${candidates.filter((candidate)=>candidate.status!=="dismissed").length}`}
+    description="Review these researched photos and their sources. Confirm the person, a clear single face, and permission for each exact photo before submitting it for independent photo review.">
+    {!eligible ? <p className="mb-4 text-sm text-tertiary">Approve the profile and record active adult enrollment permission to submit these photos.</p> : null}
+    <div className="grid gap-4 sm:grid-cols-2">
+      {candidates.map((candidate)=><PhotoCandidateCard key={candidate.id} candidate={candidate} identityId={identity?.id ?? null} eligible={eligible} disabled={!apiAvailable || busy!==null} mutate={mutate} />)}
+    </div>
+  </Panel>;
+}
+
+function PhotoCandidateCard({candidate,identityId,eligible,disabled,mutate}: {
+  candidate: FacePhotoCandidate; identityId: string | null; eligible: boolean; disabled: boolean; mutate: Mutate;
+}) {
+  const [confirmed,setConfirmed] = useState(false);
+  const [note,setNote] = useState("");
+  const source = safeFacePhotoSource(candidate.sourceUrl);
+  const preview = `/api/admin/faces/photo-candidates/${encodeURIComponent(candidate.id)}/image`;
+  return <article className="space-y-3 rounded-xl border border-secondary p-3">
+    {candidate.status==="pending" ? <a href={preview} target="_blank" rel="noopener noreferrer" aria-label="Open full photo candidate">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={preview} alt="Researched reference photo awaiting identity and permission review" className="h-48 w-full rounded-lg bg-black object-contain" loading="lazy" />
+    </a> : null}
+    <StatusPill tone={candidate.status==="submitted"?"success":candidate.status==="dismissed"?"neutral":"warning"}>{candidate.status==="submitted"?"Submitted for independent review":candidate.status==="dismissed"?"Dismissed":"Awaiting photo approval"}</StatusPill>
+    {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="block text-sm font-semibold text-brand-secondary">{candidate.sourceLabel} <ExternalLink className="inline size-3" /></a> : null}
+    <p className="text-xs text-tertiary">{candidate.width} × {candidate.height} · researched {formatDate(candidate.checkedAt)}</p>
+    <p className="text-xs text-tertiary">{candidate.researchNote}</p>
+    {candidate.status==="pending" ? <>
+      <CheckRow checked={confirmed} onChange={setConfirmed} disabled={disabled || !eligible} label="I verified this person and photo" detail="The subject approved this exact image for enrollment, and we have the rights to use it." />
+      <Field label="Photo approval evidence"><input className={inputClass} maxLength={500} value={note} disabled={disabled || !eligible} onChange={(event)=>setNote(event.target.value)} placeholder="Approval or release reference for this photo" /></Field>
+      <button type="button" className={primaryButton} disabled={disabled || !eligible || !identityId || !confirmed || note.trim().length<3}
+        onClick={()=>void mutate(`candidate-submit:${candidate.id}`,`/photo-candidates/${candidate.id}`,"POST",{action:"submit",identityId,subjectApproved:true,rightsConfirmed:true,note:note.trim()},"Photo submitted. A different admin must approve it in Enrollment before it can be used.")}>Submit for photo review</button>
+      <button type="button" className={secondaryButton} disabled={disabled} onClick={()=>{
+        const reason=window.prompt("Why is this photo unsuitable?");
+        if(reason && reason.trim().length>=3) void mutate(`candidate-dismiss:${candidate.id}`,`/photo-candidates/${candidate.id}`,"POST",{action:"dismiss",reason:reason.trim()},"Photo candidate dismissed.");
+      }}>Dismiss photo</button>
+    </> : null}
+  </article>;
+}
+
+function ProfileResearchReview({ person, apiAvailable, busy, mutate }: {
+  person: FaceCanonicalPerson; apiAvailable: boolean; busy: string | null; mutate: Mutate;
+}) {
+  const [note, setNote] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const review = person.profileReview!;
+  const portraitUrl = safeFacePortraitUrl(person.portraitUrl);
+  return <Panel icon={<FileCheck2 className="size-5" />} title="Review researched profile" description="Check the creator's name, channels and profile picture before continuing to permission and photo enrollment.">
+    <div className="space-y-4">
+      <StatusPill tone={review.status === "approved" ? "success" : "warning"}>{review.status === "approved" ? "Profile approved" : review.status === "needs_changes" ? "Needs changes" : "Awaiting admin review"}</StatusPill>
+      <div className="flex items-center gap-4">
+        {portraitUrl ? <a href={portraitUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${person.displayName}'s profile picture`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={portraitUrl} alt={`${person.displayName} profile picture candidate`} referrerPolicy="no-referrer" className="size-32 shrink-0 rounded-xl object-cover" />
+        </a> : <PersonAvatar person={person} />}
+        <span className="text-sm text-secondary">Profile picture only. This image is never used to create face templates.</span>
+      </div>
+      <div className="flex flex-wrap gap-3">{person.socials.map((link) => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-brand-secondary underline">{link.platform}<span className="sr-only"> — {person.displayName}</span></a>)}</div>
+      {person.portraitSourceProfile ? <a className="block text-sm text-brand-secondary underline" href={person.portraitSourceProfile} target="_blank" rel="noopener noreferrer">Profile picture source</a> : null}
+      <p className="whitespace-pre-line text-sm text-secondary">{review.research?.note}</p>
+      <details className="text-sm text-tertiary"><summary className="cursor-pointer">Research sources · {review.research ? new Date(review.research.checkedAt).toLocaleDateString() : ""}</summary><ul className="mt-2 space-y-2">{review.research?.sources.map((source) => <li key={source.url}><a className="underline" href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></li>)}</ul></details>
+      {review.note ? <p className="text-sm text-tertiary">Last review: {review.note}</p> : null}
+      <p className="text-sm text-tertiary">Next: record this person&apos;s permission, upload at least 3 photos they supplied or approved, then have a second admin review the photos. Profile approval alone does not enroll or publish them.</p>
+      <Field label="Review note"><textarea className={textareaClass} value={note} maxLength={1000} disabled={!apiAvailable || busy !== null} onChange={(event) => setNote(event.target.value)} placeholder="What you checked, or what needs correcting" /></Field>
+      <label className="flex items-start gap-2 text-sm text-secondary"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /> I checked that these accounts and the profile picture belong to this creator.</label>
+      <div className="flex flex-wrap gap-2">
+        <button className={primaryButton} disabled={!apiAvailable || busy !== null || !confirmed || note.trim().length < 3} onClick={() => void mutate(`profile-review:${person.slug}`, `/people/${encodeURIComponent(person.slug)}/review`, "POST", { decision: "approved", version: review.version, note }, "Profile approved. Record permission and upload approved enrollment photos next.")}>Approve profile</button>
+        <button className={secondaryButton} disabled={!apiAvailable || busy !== null || note.trim().length < 3} onClick={() => void mutate(`profile-review:${person.slug}`, `/people/${encodeURIComponent(person.slug)}/review`, "POST", { decision: "needs_changes", version: review.version, note }, "Profile marked for correction.")}>Needs changes</button>
+      </div>
+    </div>
+  </Panel>;
+}
+
+function SavedCreatorImport({ apiBase, apiAvailable, busy, mutate, onSaved }: {
+  apiBase: string; apiAvailable: boolean; busy: string | null; mutate: Mutate; onSaved: (key: string) => void;
+}) {
+  const [creators, setCreators] = useState<Array<{ id: string; name: string }>>([]);
+  const [selected, setSelected] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
+  useEffect(() => {
+    if (!apiAvailable) return;
+    const controller = new AbortController();
+    void fetch(`${apiBase}/people/directory`, { cache: "no-store", signal: controller.signal }).then(async (response) => {
+      if (!response.ok) throw new Error("Directory unavailable");
+      const data = await response.json();
+      setCreators(Array.isArray(data.creators) ? data.creators.filter((item: { id?: unknown; name?: unknown }) => typeof item.id === "string" && typeof item.name === "string") : []);
+    }).catch(() => { if (!controller.signal.aborted) setUnavailable(true); });
+    return () => controller.abort();
+  }, [apiAvailable, apiBase]);
+  return (
+    <div className="space-y-2 rounded-xl border border-secondary p-3">
+      <Field label="Use a saved creator">
+        <select className={inputClass} value={selected} onChange={(event) => setSelected(event.target.value)} disabled={!apiAvailable || busy !== null}>
+          <option value="">Select a friend or streamer</option>
+          {creators.map((creator) => <option key={creator.id} value={creator.id}>{creator.name}</option>)}
+        </select>
+      </Field>
+      <p className="text-xs text-tertiary">{unavailable ? "The saved creator directory could not load. You can still add a profile below." : "Import or refresh their name and social links from the creator directory. Consent and enrollment remain separate."}</p>
+      <button type="button" className={secondaryButton} disabled={!apiAvailable || !selected || busy !== null} onClick={async () => {
+        if (await mutate(`import-creator:${selected}`, "/people/directory", "POST", { creatorId: selected }, "Creator profile imported. Record their consent before enrollment.")) onSaved(`guest:${selected}`);
+      }}>Use this creator</button>
+      <Link href="/admin/media-intelligence" className="ml-3 text-xs font-semibold text-brand-secondary">Manage creator directory</Link>
+    </div>
+  );
+}
+
+function GuestProfileEditor({ person, apiAvailable, busy, mutate, onSaved }: {
+  person?: FaceCanonicalPerson;
+  apiAvailable: boolean;
+  busy: string | null;
+  mutate: Mutate;
+  onSaved?: (key: string) => void;
+}) {
+  const [displayName, setDisplayName] = useState(person?.displayName ?? "");
+  const [slug, setSlug] = useState(person?.slug ?? "");
+  const [slugEdited, setSlugEdited] = useState(Boolean(person));
+  const [twitchLogin, setTwitchLogin] = useState(person?.socials.find((social) => social.platform === "twitch")?.handle ?? "");
+  const [youtubeUrl, setYoutubeUrl] = useState(person?.socials.find((social) => social.platform === "youtube")?.url ?? "");
+  const [extraSocials, setExtraSocials] = useState<Record<string, string>>(() => Object.fromEntries(person?.socials.filter((link) => link.platform !== "twitch" && link.platform !== "youtube").map((link) => [link.platform, link.url]) ?? []));
+  const [avatarUrl, setAvatarUrl] = useState(person?.portraitUrl ?? "");
+  const [avatarSourceProfile, setAvatarSourceProfile] = useState(person?.portraitSourceProfile ?? "");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const disabled = !apiAvailable || busy !== null;
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const parsed = FaceGuestProfileSchema.safeParse({ slug, displayName, twitchLogin: twitchLogin.trim().replace(/^@/, "") || null, youtubeUrl: youtubeUrl.trim() || null,
+      socialLinks: Object.entries(extraSocials).filter(([, url]) => url.trim()).map(([platform, url]) => ({ platform, url: url.trim() })),
+      avatarUrl: avatarUrl.trim() || undefined, avatarSourceProfile: avatarSourceProfile.trim() || undefined,
+      avatarCheckedAt: avatarUrl.trim() ? (avatarUrl === person?.portraitUrl ? person.portraitCheckedAt : new Date().toISOString()) : undefined });
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues.map((issue) => `${issue.path.join(" ")}: ${issue.message}`).join(" "));
+      return;
+    }
+    setValidationError(null);
+    const saved = await mutate(`guest-profile:${person?.slug ?? "new"}`, person ? `/people/${encodeURIComponent(person.slug)}` : "/people", person ? "PUT" : "POST", parsed.data,
+      person ? "Guest profile updated." : "Guest profile saved. Record their consent, then add reference photos in Enrollment.");
+    if (saved) onSaved?.(`guest:${parsed.data.slug}`);
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-xl border border-secondary bg-secondary p-4">
+      {!person ? <p className="text-sm text-tertiary">Add friends and other streamers without changing the six CORE creators. Saving a profile does not enroll or publish anyone.</p> : null}
+      <Field label="Display name"><input className={inputClass} value={displayName} maxLength={120} required disabled={disabled} onChange={(event) => {
+        setDisplayName(event.target.value);
+        if (!slugEdited) setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80));
+      }} /></Field>
+      <Field label="Profile ID" hint={person ? "Permanent" : "Unique, lowercase letters, numbers and hyphens"}><input className={inputClass} value={slug} maxLength={80} required disabled={disabled || Boolean(person)} onChange={(event) => { setSlugEdited(true); setSlug(event.target.value); }} /></Field>
+      <Field label="Twitch username" hint="Optional"><input className={inputClass} value={twitchLogin} maxLength={26} disabled={disabled} placeholder="streamer_name" onChange={(event) => setTwitchLogin(event.target.value)} /></Field>
+      <Field label="YouTube channel" hint="Optional"><input type="url" className={inputClass} value={youtubeUrl} maxLength={300} disabled={disabled} placeholder="https://www.youtube.com/@streamer" onChange={(event) => setYoutubeUrl(event.target.value)} /></Field>
+      <details className="text-sm text-secondary"><summary className="cursor-pointer">More socials and profile picture</summary><div className="mt-3 space-y-3">
+        {SocialPlatform.options.filter((platform) => platform !== "twitch" && platform !== "youtube").map((platform) => <Field key={platform} label={`${platform} profile`} hint="Optional"><input type="url" className={inputClass} value={extraSocials[platform] ?? ""} maxLength={500} disabled={disabled} onChange={(event) => setExtraSocials((values) => ({ ...values, [platform]: event.target.value }))} /></Field>)}
+        <Field label="Profile picture URL" hint="Provider profile image; not an enrollment photo"><input type="url" className={inputClass} value={avatarUrl} maxLength={2000} disabled={disabled} onChange={(event) => setAvatarUrl(event.target.value)} /></Field>
+        <Field label="Picture source profile"><input type="url" className={inputClass} value={avatarSourceProfile} maxLength={500} disabled={disabled} onChange={(event) => setAvatarSourceProfile(event.target.value)} /></Field>
+      </div></details>
+      {person?.profileReview?.research ? <p className="text-xs text-tertiary">Saving changes sends this researched profile back for admin review.</p> : null}
+      {validationError ? <p role="alert" className="text-sm text-error-primary">{validationError}</p> : null}
+      <button type="submit" className={primaryButton} disabled={disabled}>{person ? "Save profile" : "Add person"}</button>
+    </form>
   );
 }
 
@@ -527,7 +756,8 @@ function ConsentEditor({
     && approvedContentIds.length <= 100
     && approvedContentIds.every((value) => value.length <= 300 && value !== "*" && !value.includes("://"))
   );
-  const canSave = apiAvailable && adultConfirmed && purposesSelected && purposesCoherent
+  const profileApproved = !person.profileReview || person.profileReview.status === "approved";
+  const canSave = apiAvailable && profileApproved && adultConfirmed && purposesSelected && purposesCoherent
     && Boolean(confirmationMethod) && evidenceReference.trim().length >= 3
     && subjectAttested && (!replacesActiveConsent || replacementConfirmed)
     && confirmationTimeValid && expiryValid && contentScopeValid;
@@ -588,6 +818,7 @@ function ConsentEditor({
         <Empty title="Consent API unavailable" detail="This form is read-only until the server can return and persist an actual consent record." />
       ) : (
         <form className="space-y-5" onSubmit={submit}>
+          {!profileApproved ? <Message tone="warning" role="status">Approve the researched profile above before recording permission for enrollment.</Message> : null}
           <fieldset className="space-y-3">
             <legend className="text-sm font-semibold text-primary">Eligibility and direct confirmation</legend>
             <CheckRow
@@ -796,7 +1027,7 @@ function EnrollmentPanel({
               <Message tone="warning" role="status">Reference submission is locked. This person needs active adult confirmation and explicit template-creation consent.</Message>
             ) : null}
 
-            <Field label="Reference image" hint="JPEG, PNG, or WebP supplied or approved by the subject. No screenshots scraped from social media.">
+            <Field label="Reference image" hint="JPEG, PNG, or WebP supplied or approved by the subject for this exact enrollment use.">
               <input
                 className={`${inputClass} py-2 file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary`}
                 type="file"
@@ -830,6 +1061,14 @@ function EnrollmentPanel({
       </Panel>
 
       <Panel icon={<FileImage className="size-5" />} title={`${canonical?.displayName ?? identity?.displayName ?? "Reference"} · inventory`} description="Accepted references may produce templates only after quality review. Rejected and deleted items are never matchable." actions={identity ? <StatusPill tone={eligible ? "success" : "warning"}>{identity.templateCount} templates</StatusPill> : undefined}>
+        {identity ? <div className="mb-4 space-y-3 rounded-xl border border-secondary p-4">
+          <p className="text-sm font-semibold text-primary">{identity.enrollmentJob?.status === "running" ? "Creating face templates…" : identity.enrollmentJob?.status === "queued" ? "Enrollment queued" : identity.enrollmentJob?.status === "failed" ? "Enrollment needs attention" : identity.enrollmentStatus === "ready" ? "Ready for approved recordings" : "Enroll this person"}</p>
+          <p className="text-xs text-tertiary">{identity.enrollmentJob?.status === "failed" ? "Check permission and photo approvals, then retry with clear, different photos containing only this person. Expired approvals need new reference photos." : "A second admin must approve at least 3 different photos. Enrollment uses up to 20 approved photos and does not publish any names."}</p>
+          <button type="button" className={primaryButton} disabled={!apiAvailable || !eligible || busy !== null || identity.references.filter(reference=>reference.status === "accepted").length < 3 || ["queued","running"].includes(identity.enrollmentJob?.status ?? "")}
+            onClick={()=>void mutate(`enroll:${identity.id}`,`/identities/${identity.id}/enroll`,"POST",{},"Enrollment queued. This screen will show when the person is ready.")}>
+            {identity.enrollmentJob?.status === "failed" ? "Retry enrollment" : identity.templateCount > 0 ? "Update enrollment from approved photos" : "Enroll approved photos"}
+          </button>
+        </div> : null}
         {!apiAvailable ? (
           <Empty title="Inventory unavailable" detail="Reference counts and status come only from the admin API." />
         ) : !identity ? (
@@ -936,7 +1175,7 @@ function SourcesPanel({
         {!apiAvailable ? (
           <div className="xl:col-span-2"><Empty title="Sources unavailable" detail="No source is assumed safe or active when the API cannot be reached." /></div>
         ) : sources.length === 0 ? (
-          <div className="xl:col-span-2"><Empty title="No configured sources" detail="Add authorized OBS/live ingest or archive sources through the server configuration. Embedded Twitch and YouTube pixels are not scanned here." /></div>
+          <div className="xl:col-span-2"><Empty title="No configured sources" detail="Add an authorized recording with its exact Watch content ID. The analyzer needs the original video file; embedding a Twitch or YouTube player does not supply footage to scan." /></div>
         ) : sources.map((source) => (
           <SourceCard key={`${source.id}:${source.status}:${source.allowedIdentityIds.join(",")}`} source={source} identities={identities} people={people} busy={busy} mutate={mutate} />
         ))}
@@ -947,7 +1186,7 @@ function SourcesPanel({
         {!apiAvailable ? (
           <Empty title="Jobs unavailable" detail="Connect the API to see queued, running, and completed work." />
         ) : jobs.length === 0 ? (
-          <Empty title="No analyzer jobs" detail="No live session, archive scan, or reference-processing job has been reported." />
+          <Empty title="No analyzer jobs" detail="No recording scan or manual review job has been reported." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-secondary text-left text-sm">
@@ -959,7 +1198,7 @@ function SourcesPanel({
                     <td className="px-3 py-3 text-secondary">{job.sourceName}</td>
                     <td className="px-3 py-3"><StatusPill tone={job.status === "failed" ? "error" : job.status === "completed" ? "success" : "neutral"}>{humanize(job.status)}</StatusPill></td>
                     <td className="whitespace-nowrap px-3 py-3 text-xs text-tertiary">{formatDateTime(job.updatedAt)}</td>
-                    <td className="px-3 py-3 text-right">{job.status === "queued" || job.status === "running" ? <button type="button" className={secondaryButton} disabled={busy === `job-cancel:${job.id}`} onClick={() => void mutate(`job-cancel:${job.id}`, `/jobs/${encodeURIComponent(job.id)}/cancel`, "POST", { reason: "Cancelled by administrator" }, "Analyzer job cancelled.")}><XCircle className="size-4" /> Cancel</button> : null}</td>
+                    <td className="px-3 py-3 text-right">{job.status === "queued" || job.status === "running" ? <button type="button" className={secondaryButton} disabled={busy === `job-cancel:${job.id}`} onClick={() => void mutate(`job-cancel:${job.id}`, `/jobs/${encodeURIComponent(job.id)}/cancel`, "POST", { reason: "Cancelled by administrator" }, "Analyzer job cancelled.")}><XCircle className="size-4" /> Cancel</button> : job.status === "failed" || job.status === "cancelled" ? <button type="button" className={secondaryButton} disabled={busy!==null} onClick={()=>void mutate(`job-retry:${job.id}`,`/jobs/${encodeURIComponent(job.id)}`,"PATCH",{action:"retry"},"The existing job was explicitly queued for retry.")}><RefreshCw className="size-4" /> Retry</button> : null}</td>
                   </tr>
                 ))}
               </tbody>
@@ -974,10 +1213,9 @@ function SourcesPanel({
 function CreateJobForm({ sources, apiAvailable, busy, mutate }: { sources: FaceSource[]; apiAvailable: boolean; busy: string | null; mutate: Mutate }) {
   const firstArchiveSource = sources.find((item) => item.kind === "archive") ?? null;
   const [sourceId, setSourceId] = useState(firstArchiveSource?.id ?? "");
-  const [kind, setKind] = useState<"manual_review" | "archive_scan">("manual_review");
   const [startMs, setStartMs] = useState("0");
   const [endMs, setEndMs] = useState("60000");
-  const [samplingFps, setSamplingFps] = useState("1");
+  const [samplingFps, setSamplingFps] = useState(String(FACE_DEFAULT_SAMPLING_FPS));
   const source = sources.find((item) => item.id === sourceId) ?? firstArchiveSource;
   const start = Number(startMs);
   const end = Number(endMs);
@@ -985,41 +1223,35 @@ function CreateJobForm({ sources, apiAvailable, busy, mutate }: { sources: FaceS
   const valid = Boolean(source) && Number.isSafeInteger(start) && start >= 0
     && Number.isSafeInteger(end) && end > start
     && source?.kind === "archive"
-    && (kind === "manual_review" || fps > 0 && fps <= 5);
+    && end-start<=2*60*60*1000
+    && fps > 0 && fps <= 5 && faceScanFrameCount(start,end,fps)<=FACE_MAX_SCAN_FRAMES;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!source || !valid) return;
     await mutate("job-create", "/jobs", "POST", {
       sourceId: source.id,
-      kind,
-      idempotencyKey: `admin-${Date.now()}-${globalThis.crypto.randomUUID()}`,
+      kind:"archive_scan",
       configuration: {
         startMs: start,
         endMs: end,
-        samplingFps: kind === "archive_scan" ? fps : undefined,
+        samplingFps:fps,
       },
-    }, kind === "manual_review" ? "Manual review job queued." : "Review-only archive scan queued behind deployment and worker safety gates.");
+    }, "Archive scan saved. The processing worker will start when needed.");
   }
 
   return (
     <form className="mb-4 space-y-3 rounded-xl border border-secondary bg-secondary p-3" onSubmit={submit}>
-      <p className="text-xs leading-relaxed text-tertiary">Manual jobs organize human work. Archive scans remain closed until the analyzer gate, exact consent scope, all-visible assertion, source allowlist, and worker-verified local templates all pass.</p>
+      <p className="text-xs leading-relaxed text-tertiary">Use Video review for local playback and saved human labels. Server scans reuse existing work for the same source, interval, settings and approved references. Changed permissions or models require fresh work.</p>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <Field label="Source">
           <select className={inputClass} value={source?.id ?? ""} onChange={(event) => setSourceId(event.target.value)}>
             {sources.map((item) => <option key={item.id} value={item.id} disabled={item.kind !== "archive"}>{item.name}{item.kind !== "archive" ? " (live — future)" : ""}</option>)}
           </select>
         </Field>
-        <Field label="Job kind">
-          <select className={inputClass} value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
-            <option value="manual_review">Manual review</option>
-            <option value="archive_scan" disabled={source?.kind !== "archive"}>Review-only archive scan</option>
-          </select>
-        </Field>
         <Field label="Start ms"><input className={inputClass} type="number" min="0" step="1" value={startMs} onChange={(event) => setStartMs(event.target.value)} /></Field>
         <Field label="End ms" hint="Required v1 bound"><input className={inputClass} type="number" min="1" step="1" value={endMs} onChange={(event) => setEndMs(event.target.value)} /></Field>
-        <Field label="Samples/sec" hint="Archive only, max 5"><input className={inputClass} type="number" min="0.1" max="5" step="0.1" value={samplingFps} onChange={(event) => setSamplingFps(event.target.value)} disabled={kind === "manual_review"} /></Field>
+        <Field label="Samples/sec" hint={`Start with 0.5; max ${FACE_MAX_SCAN_FRAMES.toLocaleString()} frames per job`}><input className={inputClass} type="number" min="0.1" max="5" step="0.1" value={samplingFps} onChange={(event) => setSamplingFps(event.target.value)} /></Field>
       </div>
       <button type="submit" className={secondaryButton} disabled={!apiAvailable || !valid || busy === "job-create"}><Clock3 className="size-4" /> Queue job</button>
     </form>
@@ -1099,7 +1331,7 @@ function CreateSourceForm({
               value={contentId}
               onChange={(event) => setContentId(event.target.value)}
               maxLength={300}
-              placeholder="live-marlon or vod-123456"
+              placeholder="yt-videoId or vod-123456"
               required
               disabled={!apiAvailable || isBusy}
             />
@@ -1130,7 +1362,7 @@ function CreateSourceForm({
           <Field label="Source type">
             <select className={inputClass} value={sourceKind} onChange={(event) => setSourceKind(event.target.value as "live" | "archive")} disabled={!apiAvailable || isBusy}>
               <option value="archive">Authorized archive</option>
-              <option value="live">Controlled live ingest (future/manual only)</option>
+              <option value="live" disabled>Live ingest (not supported yet)</option>
             </select>
           </Field>
         </div>
@@ -1577,11 +1809,13 @@ function ConfirmationBox({ title, detail, children }: { title: string; detail: s
 }
 
 function PersonAvatar({ person }: { person: FaceCanonicalPerson }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const portraitUrl = safeFacePortraitUrl(person.portraitUrl);
   return (
     <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary text-sm font-bold text-quaternary ring-1 ring-inset ring-secondary">
-      {person.portraitUrl ? (
+      {portraitUrl && failedUrl !== portraitUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={person.portraitUrl} alt="" className="h-full w-full object-cover" />
+        <img src={portraitUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(portraitUrl)} className="h-full w-full object-cover" />
       ) : person.displayName.split(" ").map((part) => part[0]).filter(Boolean).slice(0, 2).join("")}
     </span>
   );

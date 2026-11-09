@@ -59,14 +59,21 @@ const migrations = [
   "049_notification_center.sql",
   "052_account_watch_measurement.sql",
   "053_passport_watch_registry_state.sql",
+  "054_azure_creator_text.sql",
   "055_x_live_feed_sources.sql",
   "056_content_tombstones.sql",
+  "056_face_guest_profiles.sql",
   "057_social_fetch_request_cache.sql",
+  "057_face_site_enrollment.sql",
   "058_content_verification.sql",
   "059_twitch_content_verification.sql",
   "060_x_content_verification.sql",
+  "061_face_private_access.sql",
   "062_content_private_access.sql",
+  "062_face_profile_review.sql",
   "063_clipping_campaigns.sql",
+  "063_face_photo_candidates.sql",
+  "064_face_processing_costs.sql",
 ];
 
 function loadEnvLocal() {

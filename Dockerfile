@@ -41,7 +41,7 @@ RUN pnpm build
 FROM node:20-alpine AS runtime
 
 RUN apk add --no-cache curl tini && \
-    addgroup -S app && adduser -S app -G app
+    addgroup -S -g 1001 app && adduser -S -u 1001 app -G app
 
 WORKDIR /app
 ENV NODE_ENV=production

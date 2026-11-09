@@ -17,6 +17,10 @@ embeddings. "Enrollment" means calculating 3–20 embeddings from approved
 reference images; it is not training or fine-tuning. V1 never claims or imports
 a live biometric job.
 
+The Azure service also accepts template-only enrollment requests from
+`/admin/faces`. See [site enrollment operations](../../docs/face-enrollment-operations.md)
+for deployment, private storage, hosted TLS, costs and the photo approval flow.
+
 ## Safety boundaries
 
 The process refuses to run when any of these checks fails:
@@ -38,9 +42,10 @@ The process refuses to run when any of these checks fails:
 - a decoded frame lacks media PTS or timestamps move backwards;
 - `review_only` is not `true`.
 
-The local migration-024 DB is authoritative for biometric enrollment,
-matching, and evaluation. Enrollment requires the exact archive `content_id`
-in active adult consent plus every input byte hash in a current protected
+The migration-024/057 DB is authoritative for biometric enrollment,
+matching, and evaluation. Site enrollment requires active adult template
+permission; CLI session enrollment additionally checks its exact archive `content_id`.
+Both require every input byte hash in a current protected
 reference approved by an independent second reviewer. Successful enrollment
 activates a metadata-only `face_template_sets` row (model hash, HMAC
 fingerprint, count, reference hashes, worker owner, expiry); vectors and the
@@ -95,7 +100,8 @@ commands fail closed until this is done. `models/`, `.local-data/`,
 ### Dependency lock guidance
 
 `requirements.txt`, `requirements.in`, and `pyproject.toml` pin the same direct
-versions. Before deploying on a particular OS/CPU, generate and commit or
+versions. The Azure image installs the committed Python 3.12/Linux x86_64
+`requirements-azure.txt` lock with `--require-hashes`. For other OS/CPU targets, generate and commit or
 archive a hash-checked lock for that environment:
 
 ```powershell
@@ -118,8 +124,16 @@ templates and the worker rejects a model-fingerprint mismatch.
 
 1. Copy the example; never add API tokens, stream keys, cookies, or passwords.
 2. Create local `authorized-media/` and `authorized-enrollment/` directories.
-3. Add one identity record per person with the canonical `member`/`crew` kind
-   and slug. Do not copy profile routes or social URLs into worker config.
+3. Use `identity_registry: "database"` (the example's default) to load admin
+   identities and source assignments before jobs and on every service poll.
+   New members, crew and `guest` streamers need no roster-file edit. New local
+   template IDs are the DB identity UUIDs shown in the admin identity API;
+   existing configured IDs are retained when their canonical kind/slug matches.
+   Keep protected media paths, session expiry and all-visible consent assertions
+   configured locally. Database mode never falls back to config-only matching.
+   `identity_registry: "config"` retains the original explicit roster mode for
+   existing installations and synthetic tests. Never copy profile/social URLs
+   into worker config.
 4. Record explicit, time-bounded consent for template creation and the exact
    archive content/PTS interval. `public_tag` is visible to operators but does
    not authorize or block private worker proposals.
@@ -327,7 +341,8 @@ and biometric allowlist, then submits only `proposed` or `unknown` rows. The RPC
 writes its own immutable worker audit. It never approves or publishes and does
 not send pixels, crops, embeddings, template data, display names, or handles.
 
-Install the extra and use a dedicated loopback-only, least-privileged DB role:
+Install the extra and use a dedicated least-privileged DB role (loopback by
+default; the Azure deployment uses the explicit verified-TLS host pin):
 
 ```powershell
 .venv\Scripts\python -m pip install -r requirements-db.txt

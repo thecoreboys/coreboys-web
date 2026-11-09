@@ -9,11 +9,11 @@ import ts from "typescript";
 function load<T>(path: string, dependencies: Record<string, unknown>, production = true): T {
   const filename = resolve(path);
   const requireNative = createRequire(filename);
-  const module = { exports: {} };
-  const context = vm.createContext({ module, exports: module.exports, Date, Headers, Request, URL, console: { error() {} }, process: { env: { NODE_ENV: production ? "production" : "development" } }, require: (name: string) => name in dependencies ? dependencies[name] : requireNative(name) });
+  const compiledModule = { exports: {} };
+  const context = vm.createContext({ module: compiledModule, exports: compiledModule.exports, Date, Headers, Request, URL, console: { error() {} }, process: { env: { NODE_ENV: production ? "production" : "development" } }, require: (name: string) => name in dependencies ? dependencies[name] : requireNative(name) });
   context.global = context;
   vm.runInContext(ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context, { filename });
-  return module.exports as T;
+  return compiledModule.exports as T;
 }
 
 type Limit = { ok: boolean; retryAfterSeconds: number };

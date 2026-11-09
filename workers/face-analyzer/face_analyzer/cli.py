@@ -17,6 +17,7 @@ from .locking import exclusive_local_lock
 from .retention import cleanup_local_retention
 from .pipeline import enroll_identity, evaluate, run_biometric_analysis, run_manual_analysis
 from .status import worker_status
+from .registry import refresh_database_people
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -151,6 +152,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     instance_lock_entered = False
     try:
         config = load_config(arguments.config)
+        if arguments.command in {"enroll", "analyze", "evaluate", "status", "import-proposals"}:
+            config = refresh_database_people(config)
         if arguments.command != "status":
             instance_lock = exclusive_local_lock(
                 config.runtime.data_dir / ".face-analyzer.instance.lock",

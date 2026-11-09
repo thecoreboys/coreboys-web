@@ -10,9 +10,13 @@ import {
   prepareExpiredFaceDataPurge,
   purgeExpiredFaceAudit,
   reviewFaceReference,
+  listReviewedFacePhotoCandidateFiles,
+  markFacePhotoCandidateFileDeleted,
+  faceWorkerHasPendingWork,
 } from "@/lib/face-recognition-store";
 import { deleteFaceReferenceFile, FaceReferenceStorageError } from "@/lib/face-reference-storage";
 import { requestHasSameOrigin } from "@/lib/x/security";
+import { wakeFaceWorker } from "@/lib/face-worker-wake";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,14 +68,26 @@ export async function POST(request: Request) {
         }
       }
     }
+    let candidateFilesDeleted=0;
+    for(const candidate of await listReviewedFacePhotoCandidateFiles()) {
+      try {
+        await deleteFaceReferenceFile(candidate.storage_key);
+        await markFacePhotoCandidateFileDeleted(candidate.id);
+        candidateFilesDeleted++;
+      } catch { deletionPending++; }
+    }
     const auditRowsPurged = await purgeExpiredFaceAudit();
+    const input=await request.json().catch(()=>null);
+    const workerWake=await faceWorkerHasPendingWork()||input?.wakeWorker===true ? await wakeFaceWorker() : {onDemand:false,wakeQueued:false};
     return facePrivateJson({
       ok: true,
+      workerWake,
       counts: {
         ...prepared.counts,
         referenceFilesDeleted: deleted,
         referenceFilesPending: deletionPending,
         auditRowsPurged,
+        candidateFilesDeleted,
       },
     }, deletionPending ? 202 : 200);
   } catch (error) {

@@ -4,6 +4,7 @@ import { runMediaArchiveBackfillBatch } from "./archive";
 import { runCurrentWatchCatalogSync } from "./ingest";
 import { publishMediaIndexGeneration } from "./indexing";
 import { runMediaIntelligenceRetention } from "./retention";
+import { scanCreatorMentions, refreshCreatorAvatars } from "@/lib/creator-tags/store";
 
 type MaintenanceStep<T> =
   | { ok: true; result: T }
@@ -39,8 +40,12 @@ export async function runScheduledMediaMaintenance(options: {
     maxJobs: options.maxJobs ?? 100,
   }));
   const cleanup = await runStep(() => runMediaIntelligenceRetention(options.retentionLimit ?? 250));
+  const creators = await runStep(async () => {
+    const avatars = await refreshCreatorAvatars(50);
+    return { ...await scanCreatorMentions(50), avatars };
+  });
   const index = await runStep(() => publishMediaIndexGeneration());
-  const steps = { sync, archive, cleanup, index };
+  const steps = { sync, archive, cleanup, creators, index };
   return {
     ok: Object.values(steps).every((step) => step.ok),
     steps,

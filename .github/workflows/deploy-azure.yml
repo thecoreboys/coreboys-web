@@ -88,6 +88,7 @@ jobs:
 
       - name: Build and push immutable image to Azure Container Registry
         env:
+          NEXT_PUBLIC_FACE_PRESENCE_UI_ENABLED: ${{ vars.NEXT_PUBLIC_FACE_PRESENCE_UI_ENABLED || 'false' }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
         run: |
@@ -101,6 +102,7 @@ jobs:
             --tag "$login_server/$IMAGE_NAME:latest" \
             --build-arg NEXT_PUBLIC_API_URL=https://thecoreboys.com \
             --build-arg NEXT_PUBLIC_SITE_URL=https://thecoreboys.com \
+            --build-arg NEXT_PUBLIC_FACE_PRESENCE_UI_ENABLED="$NEXT_PUBLIC_FACE_PRESENCE_UI_ENABLED" \
             --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" \
             --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" \
             --push \
@@ -137,6 +139,11 @@ jobs:
 
       - name: Configure production secrets and environment
         env:
+          FACE_ANALYZER_ENABLED: ${{ vars.FACE_ANALYZER_ENABLED || 'false' }}
+          FACE_AUTOMATIC_MATCHING_ENABLED: ${{ vars.FACE_AUTOMATIC_MATCHING_ENABLED || 'false' }}
+          FACE_PRESENCE_PUBLIC_ENABLED: ${{ vars.FACE_PRESENCE_PUBLIC_ENABLED || 'false' }}
+          FACE_REFERENCE_UPLOADS_ENABLED: ${{ vars.FACE_REFERENCE_UPLOADS_ENABLED || 'false' }}
+          FACE_REFERENCE_STORAGE_DIR: ${{ vars.FACE_REFERENCE_STORAGE_DIR }}
           ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
           ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
           ADMIN_TOTP_ENCRYPTION_KEY: ${{ secrets.ADMIN_TOTP_ENCRYPTION_KEY }}
@@ -228,6 +235,11 @@ jobs:
           declare -a secret_args=()
           declare -a env_args=(
             "NODE_ENV=production"
+            "FACE_ANALYZER_ENABLED=${FACE_ANALYZER_ENABLED}"
+            "FACE_AUTOMATIC_MATCHING_ENABLED=${FACE_AUTOMATIC_MATCHING_ENABLED}"
+            "FACE_PRESENCE_PUBLIC_ENABLED=${FACE_PRESENCE_PUBLIC_ENABLED}"
+            "FACE_REFERENCE_UPLOADS_ENABLED=${FACE_REFERENCE_UPLOADS_ENABLED}"
+            "FACE_REFERENCE_STORAGE_DIR=${FACE_REFERENCE_STORAGE_DIR}"
             "NEXT_PUBLIC_API_URL=https://thecoreboys.com"
             "NEXT_PUBLIC_SITE_URL=https://thecoreboys.com"
             "STRIPE_MEMBERSHIP_ENABLED=${STRIPE_MEMBERSHIP_ENABLED}"
@@ -358,6 +370,7 @@ jobs:
             --min-replicas 1 \
             --max-replicas 3 \
             --set-env-vars "${env_args[@]}" \
+            --remove-env-vars AZURE_CREATOR_TEXT_DEPLOYMENT \
             --output none
 
       - name: Verify the live Azure revision

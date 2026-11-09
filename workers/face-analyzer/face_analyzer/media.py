@@ -19,6 +19,8 @@ def iter_sampled_frames(
     *,
     sample_interval_ms: int,
     maximum_frames: int | None = None,
+    start_ms: int = 0,
+    end_ms: int | None = None,
 ) -> Iterator[DecodedFrame]:
     """Decode frames using container PTS; never invent wall-clock timestamps."""
     try:
@@ -28,6 +30,7 @@ def iter_sampled_frames(
 
     if maximum_frames is not None and maximum_frames <= 0:
         raise MediaError("maximum_frames must be positive")
+    if start_ms<0 or end_ms is not None and end_ms<=start_ms:raise MediaError("invalid bounded decode interval")
     try:
         container = av.open(input_uri)
     except Exception as exc:
@@ -41,6 +44,10 @@ def iter_sampled_frames(
         if not streams:
             raise MediaError("input contains no video stream")
         stream = streams[0]
+        if start_ms:
+            if not stream.time_base:raise MediaError("archive cannot seek without a time base")
+            try:container.seek(int(start_ms/1000/float(stream.time_base)),stream=stream,backward=True,any_frame=False)
+            except Exception as exc:raise MediaError("archive does not support bounded seeking") from exc
         for frame in container.decode(stream):
             if frame.pts is None or frame.time_base is None:
                 raise MediaError("decoded frame has no media PTS/time_base; refusing clock fallback")
@@ -51,6 +58,8 @@ def iter_sampled_frames(
             if previous_pts is not None and pts_ms < previous_pts:
                 raise MediaError("video PTS moved backwards; refusing ambiguous event timing")
             previous_pts = pts_ms
+            if end_ms is not None and pts_ms>=end_ms:break
+            if pts_ms<start_ms:continue
             if last_emitted_pts is not None and pts_ms - last_emitted_pts < sample_interval_ms:
                 continue
             try:

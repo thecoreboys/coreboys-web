@@ -7,6 +7,7 @@ import {
   METER_IDS,
   SUBSCRIPTION_STATUSES,
   type AddOnId,
+  type FeatureId,
   type LifetimeSku,
   type MeterId,
   type PlanId,
@@ -48,12 +49,19 @@ export type StoredMeterUsage = {
   used: number;
 };
 
+export type StoredFeatureGrant = {
+  featureId: FeatureId;
+  status: "active" | "revoked";
+  expiresAt: string | null;
+};
+
 export type SubscriptionStorageSnapshot = {
   state: "ready" | "migration_required";
   subscription: StoredSubscription | null;
   addOns: StoredAddOn[];
   lifetime: StoredLifetimeEntitlement | null;
   usage: StoredMeterUsage[];
+  featureGrants?: StoredFeatureGrant[];
 };
 
 type SubscriptionRow = {
@@ -114,7 +122,7 @@ export async function getSubscriptionStorageSnapshot(
   userId: string,
 ): Promise<SubscriptionStorageSnapshot> {
   try {
-    const [subscriptionResult, addOnResult, lifetimeResult, usageResult] = await Promise.all([
+    const [subscriptionResult, addOnResult, lifetimeResult, usageResult, grantResult] = await Promise.all([
       query<SubscriptionRow>(
         `SELECT plan_id, status, source, billing_interval, current_period_start,
                 current_period_end, trial_ends_at, cancel_at_period_end,
@@ -140,6 +148,19 @@ export async function getSubscriptionStorageSnapshot(
         `SELECT meter_id, period_key, used
            FROM fan_entitlement_usage
           WHERE user_id = $1`,
+        [userId],
+      ),
+      // Complimentary access is an explicit, account-scoped administrative
+      // event. Stripe projections never overwrite this append-only ledger.
+      // Only the cost-free creator-tag enhancement supports this grant path.
+      query<{ feature_id: string; event_type: string; expires_at: string | null }>(
+        `SELECT DISTINCT ON (payload->>'featureId') payload->>'featureId' AS feature_id,
+                event_type, payload->>'expiresAt' AS expires_at
+           FROM fan_subscription_events
+          WHERE user_id=$1 AND actor_type='admin'
+            AND event_type IN ('feature_entitlement_granted','feature_entitlement_revoked')
+            AND payload->>'featureId'='player.creator_tags'
+          ORDER BY payload->>'featureId', id DESC`,
         [userId],
       ),
     ]);
@@ -201,7 +222,13 @@ export async function getSubscriptionStorageSnapshot(
       }];
     });
 
-    return { state: "ready", subscription, addOns, lifetime, usage };
+    const featureGrants = grantResult.rows.flatMap<StoredFeatureGrant>((row) => {
+      if (row.feature_id !== "player.creator_tags") return [];
+      const expiresAt = iso(row.expires_at);
+      if (row.expires_at !== null && expiresAt === null) return [];
+      return [{ featureId: "player.creator_tags", status: row.event_type === "feature_entitlement_granted" ? "active" : "revoked", expiresAt }];
+    });
+    return { state: "ready", subscription, addOns, lifetime, usage, featureGrants };
   } catch (error) {
     // The account remains safely Free before the additive migration is run.
     if (isUndefinedTable(error)) return emptySnapshot("migration_required");

@@ -9,11 +9,15 @@ import * as schedule from "../lib/campaigns/schedule";
 import * as validation from "../lib/campaigns/validation";
 import * as types from "../lib/campaigns/types";
 import type { Campaign, CampaignInput } from "../lib/campaigns/types";
+import type * as adminCampaignRoute from "../app/api/admin/campaigns/route";
+import type * as publicCampaignRoute from "../app/api/campaigns/route";
 
 const start = "2026-11-09T00:00:00.000Z";
 const end = "2026-11-16T00:00:00.000Z";
 const now = Date.parse("2026-11-10T12:00:00Z");
-const { id: seedId, ...seed } = CAMPAIGN_SEEDS[0];
+const firstSeed = CAMPAIGN_SEEDS[0];
+assert.ok(firstSeed);
+const { id: seedId, ...seed } = firstSeed;
 const input = (overrides: Partial<CampaignInput> = {}): CampaignInput => ({ ...seed, displayStartsAt: start, displayEndsAt: end, status: "published", ...overrides });
 const campaign = (overrides: Partial<Campaign> = {}): Campaign => ({ ...input(), id: seedId, revision: 1, updatedAt: start, ...overrides });
 
@@ -28,8 +32,8 @@ test("five supplied campaigns use the owner's 30-day website windows without inv
     assert.equal(Date.parse(seed.displayEndsAt!) - Date.parse(seed.displayStartsAt!), 30 * 86_400_000);
     assert.equal(schedule.campaignIsInWindow(seed, now), true);
   }
-  assert.equal(CAMPAIGN_SEEDS[1].rateCents, 135);
-  assert.equal(CAMPAIGN_SEEDS[2].budgetCents, 2_500_000);
+  assert.equal(CAMPAIGN_SEEDS[1]!.rateCents, 135);
+  assert.equal(CAMPAIGN_SEEDS[2]!.budgetCents, 2_500_000);
 });
 
 test("display starts inclusively and ends exclusively, even on an already-open page", () => {
@@ -57,12 +61,13 @@ test("only published, current ads for the requested placement enter public cards
   const ads = [campaign(), campaign({ id: "draft", status: "draft" }), campaign({ id: "archive", status: "archived" }), campaign({ id: "clips-only", placements: ["clips"] }), campaign({ id: "expired", displayEndsAt: "2026-11-10T00:00:00Z" }), campaign({ id: "future", displayStartsAt: "2026-11-11T00:00:00Z" })];
   const cards = schedule.selectCampaigns(ads, "home", now);
   assert.deepEqual(cards.map((ad) => ad.id), [seedId]);
+  assert.ok(cards[0]);
   assert.equal("status" in cards[0], false);
   assert.equal("revision" in cards[0], false);
   assert.equal("updatedAt" in cards[0], false);
   assert.equal(schedule.selectCampaigns(ads, "clips", now).length, 2);
-  assert.equal(schedule.campaignState(ads[4], now), "expired");
-  assert.equal(schedule.campaignState(ads[5], now), "scheduled");
+  assert.equal(schedule.campaignState(ads[4]!, now), "expired");
+  assert.equal(schedule.campaignState(ads[5]!, now), "scheduled");
 });
 
 test("publish validation requires dates, placements and the correct reward model", () => {
@@ -81,8 +86,8 @@ test("campaign links reject lookalike domains, unsafe protocols, credentials and
   assert.ok(validation.campaignImageSchema.safeParse(seed.imageUrl).success);
 });
 
-function loadRoute(file: string, deps: Record<string, unknown>) {
-  const mod = { exports: {} as Record<string, (request?: Request) => Promise<Response>> };
+function loadRoute<T>(file: string, deps: Record<string, unknown>): T {
+  const mod = { exports: {} as T };
   const code = ts.transpileModule(readFileSync(resolve(file), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInNewContext(code, { module: mod, exports: mod.exports, URL, Date, Number, JSON, require: (name: string) => {
     if (name === "next/server") return { NextResponse: { json: (body: unknown, init?: ResponseInit) => Response.json(body, init) } };
@@ -94,7 +99,7 @@ function loadRoute(file: string, deps: Record<string, unknown>) {
 
 function adminRoute(options: { authenticated?: boolean; sameOrigin?: boolean; conflict?: boolean; duplicate?: boolean } = {}) {
   const calls: string[] = [];
-  const route = loadRoute("app/api/admin/campaigns/route.ts", {
+  const route = loadRoute<typeof adminCampaignRoute>("app/api/admin/campaigns/route.ts", {
     "@/lib/admin-api": { requireAdmin: async () => { calls.push("auth"); return options.authenticated === false ? { ok: false, response: Response.json({ error: "unauthorized" }, { status: 401 }) } : { ok: true, id: "staff-id" }; } },
     "@/lib/x/security": { requestHasSameOrigin: () => { calls.push("origin"); return options.sameOrigin !== false; } },
     "@/lib/campaigns/validation": validation,
@@ -144,7 +149,7 @@ test("invalid publication cannot save; edits require revision; conflicts and dup
 test("public feed is uncached, placement validated, and removes anything that expired during the read", async () => {
   let calls = 0;
   const expired = campaign({ displayStartsAt: "2020-01-01T00:00:00Z", displayEndsAt: "2020-01-02T00:00:00Z" });
-  const route = loadRoute("app/api/campaigns/route.ts", { "@/lib/campaigns/store": { getPublicCampaigns: async () => { calls++; return [expired]; } }, "@/lib/campaigns/schedule": schedule, "@/lib/campaigns/types": types });
+  const route = loadRoute<typeof publicCampaignRoute>("app/api/campaigns/route.ts", { "@/lib/campaigns/store": { getPublicCampaigns: async () => { calls++; return [expired]; } }, "@/lib/campaigns/schedule": schedule, "@/lib/campaigns/types": types });
   assert.equal((await route.GET(new Request("https://core.test/api/campaigns?placement=other"))).status, 400);
   assert.equal(calls, 0);
   const response = await route.GET(new Request("https://core.test/api/campaigns?placement=home"));

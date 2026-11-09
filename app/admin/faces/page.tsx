@@ -42,8 +42,8 @@ export default function AdminFacesPage() {
       <div className="relative min-h-screen bg-secondary pt-20 md:pt-24">
         <AdminPageHeader
           eyebrow="Admin · On-screen people"
-          title="Consent-first face tagging."
-          supporting="Enroll only adults who have directly opted in, review every proposed match, and stop recognition for any source or session instantly. Canonical profile photos below are identity context only—they are never training data."
+          title="On-screen people."
+          supporting="Manage CORE creators, crew, friends and guest streamers. Add a person, record their permission, enroll their approved photos, then review matches in authorized recordings. Canonical profile photos below are identity context only—they are never training data."
         />
         <section className="border-t border-secondary">
           <div className="mx-auto max-w-container px-4 py-6 sm:px-6 md:px-8 md:py-10">

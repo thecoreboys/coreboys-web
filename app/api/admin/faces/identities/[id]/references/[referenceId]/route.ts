@@ -14,6 +14,7 @@ import {
 } from "@/lib/face-recognition-store";
 import { deleteFaceReferenceFile, FaceReferenceStorageError } from "@/lib/face-reference-storage";
 import { requestHasSameOrigin } from "@/lib/x/security";
+import { wakeFaceWorkerForPendingWork } from "@/lib/face-worker-wake";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export async function PATCH(request: Request, { params }: Context) {
       requestId: faceRequestId(request),
     };
     const result = await reviewFaceReference(referenceId, body.data, mutation);
+    if (body.data.action === "reject") await wakeFaceWorkerForPendingWork();
     if (body.data.action === "reject") {
       try {
         if (reference.storageKey) await deleteFaceReferenceFile(reference.storageKey);
@@ -79,6 +81,7 @@ export async function DELETE(request: Request, { params }: Context) {
       action: "request_delete",
       reason: "Reference deletion confirmed by administrator.",
     }, mutation);
+    await wakeFaceWorkerForPendingWork();
     try {
       if (reference.storageKey) await deleteFaceReferenceFile(reference.storageKey);
     } catch (error) {

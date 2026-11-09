@@ -29,6 +29,9 @@ test("every plan keeps playback, accessibility, privacy, and account rights free
   assert.equal(planIncludesFeature("plus", "multiview.saved_layouts"), true);
   assert.equal(planIncludesFeature("plus", "search.semantic"), true);
   assert.equal(planIncludesFeature("plus", "search.moments"), true);
+  assert.equal(minimumPlanForFeature("player.creator_tags"), "plus");
+  assert.equal(planIncludesFeature("free", "player.creator_tags"), false);
+  assert.equal(planIncludesFeature("plus", "player.creator_tags"), true);
   assert.equal(planIncludesFeature("business", "workspace.roles"), true);
 });
 
@@ -172,6 +175,39 @@ test("development override requires every local safety condition", () => {
   assert.equal(resolveLocalPlanOverride({ env: { ...base, DATABASE_URL: "postgresql://db.example.com/coreboys" }, requestHostname: "localhost", userId: "user-1" }).active, false);
   assert.equal(resolveLocalPlanOverride({ env: { ...base, SUBSCRIPTION_DEV_OVERRIDE_USER_ID: "*" }, requestHostname: "localhost", userId: "user-1" }).active, false);
   assert.equal(resolveLocalPlanOverride({ env: base, requestHostname: "localhost", userId: "user-2" }).active, false);
+});
+
+test("complimentary creator access preserves canceled billing and grants no other premium features", () => {
+  const snapshot: SubscriptionStorageSnapshot = {
+    ...emptySnapshot(),
+    subscription: { planId: "plus", status: "canceled", source: "future_billing", billingInterval: "month",
+      currentPeriodStart: null, currentPeriodEnd: "2026-10-02T22:53:05Z", trialEndsAt: null, cancelAtPeriodEnd: false,
+      externalContractRef: "sub_previous" },
+    featureGrants: [{ featureId: "player.creator_tags", status: "active", expiresAt: null }],
+  };
+  const before = JSON.stringify(snapshot);
+  const state = resolveSubscriptionSnapshot({ snapshot, now: new Date("2026-10-12T00:00:00Z") });
+  assert.equal(state.account.effectivePlanId, "free");
+  assert.equal(state.account.status, "canceled");
+  assert.equal(entitlementDecision(state, "player.creator_tags").allowed, true);
+  assert.equal(entitlementDecision(state, "dvr.extended_retention").allowed, false);
+  assert.equal(entitlementDecision(state, "search.semantic").allowed, false);
+  assert.equal(state.meters.semantic_queries_monthly.limit, 0);
+  assert.equal(JSON.stringify(snapshot), before);
+});
+
+test("revoked, expired, invalid and unrelated complimentary grants fail closed", () => {
+  const now = new Date("2026-10-12T00:00:00Z");
+  for (const grant of [
+    { featureId: "player.creator_tags" as const, status: "revoked" as const, expiresAt: null },
+    { featureId: "player.creator_tags" as const, status: "active" as const, expiresAt: now.toISOString() },
+    { featureId: "player.creator_tags" as const, status: "active" as const, expiresAt: "invalid" },
+    { featureId: "search.semantic" as const, status: "active" as const, expiresAt: null },
+  ]) {
+    const state = resolveSubscriptionSnapshot({ snapshot: { ...emptySnapshot(), featureGrants: [grant] }, now });
+    assert.equal(entitlementDecision(state, "player.creator_tags").allowed, false);
+    assert.equal(entitlementDecision(state, "search.semantic").allowed, false);
+  }
 });
 
 test("migration and account route preserve a server-side billing boundary", () => {

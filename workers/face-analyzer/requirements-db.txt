@@ -2,3 +2,4 @@
 # requirements-db.lock as documented in README.md before deployment.
 -r requirements.txt
 psycopg[binary]==3.2.10
+typing_extensions==4.16.0

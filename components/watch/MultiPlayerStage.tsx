@@ -68,6 +68,9 @@ import {
 import type { MultiviewLiveRoom } from "@/lib/watch/multiview-access";
 import { PlayerNetworkWatermark } from "@/components/watch/PlayerNetworkWatermark";
 import { OnScreenIdentityOverlay } from "@/components/watch/OnScreenIdentityOverlay";
+import { CreatorTags } from "@/components/watch/CreatorTags";
+import { creatorTimelineSeconds } from "@/lib/creator-tags/model";
+import { facePresencePlaybackMs, type FacePlaybackSample } from "@/lib/face-presence-playback";
 import { PlayerAmbientBloom } from "@/components/watch/PlayerAmbientBloom";
 import { WatchSelect } from "@/components/watch/WatchSelect";
 import { TwitchTileMedia } from "@/components/watch/TwitchTileMedia";
@@ -1923,6 +1926,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const positionRef = useRef(0);
+  const presenceClockRef = useRef<FacePlaybackSample | null>(null);
   const durationRef = useRef(tile.item.durationSeconds ?? 0);
   const playingRef = useRef(false);
   const measurementStartedAtRef = useRef<number | null>(null);
@@ -1937,8 +1941,10 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     : tile.item.vodId ? `https://www.twitch.tv/videos/${encodeURIComponent(tile.item.vodId)}`
       : tile.item.clipId ? `https://clips.twitch.tv/${encodeURIComponent(tile.item.clipId)}` : "https://www.twitch.tv/";
   const readPresenceTimeMs = useCallback(
-    () => Math.max(0, positionRef.current * 1_000),
-    [],
+    () => videoRef.current && videoRef.current.readyState >= 2
+      ? videoRef.current.currentTime * 1000
+      : facePresencePlaybackMs(presenceClockRef.current, tile.item.key),
+    [tile.item.key],
   );
 
   const checkpointTile = useCallback(() => {
@@ -2113,6 +2119,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           if (typeof detail.currentTime === "number" && Number.isFinite(detail.currentTime)) {
             timedEmbedRef.current = true;
             positionRef.current = Math.max(0, detail.currentTime);
+            presenceClockRef.current = { contentId: tile.item.key, seconds: detail.currentTime, observedAt: Date.now() };
           }
           if (typeof detail.duration === "number" && Number.isFinite(detail.duration) && detail.duration >= 0) {
             durationRef.current = detail.duration;
@@ -2134,7 +2141,10 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         timedEmbedRef.current = true;
         if (value.type === "onCurrentTime" && value.value && typeof value.value === "object") {
           const detail = value.value as Record<string, unknown>;
-          if (typeof detail.currentTime === "number") positionRef.current = detail.currentTime;
+          if (typeof detail.currentTime === "number") {
+            positionRef.current = detail.currentTime;
+            presenceClockRef.current = { contentId: tile.item.key, seconds: detail.currentTime, observedAt: Date.now() };
+          }
           if (typeof detail.duration === "number") durationRef.current = detail.duration;
           setTileProgress({ position: positionRef.current, duration: durationRef.current });
         }
@@ -2490,6 +2500,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
               checkpointTile();
             }}
             onProgress={(position, duration) => {
+              presenceClockRef.current = { contentId: tile.item.key, seconds: position, observedAt: Date.now() };
               if (Number.isFinite(position)) positionRef.current = position;
               if (Number.isFinite(duration) && duration > 0) durationRef.current = duration;
               setTileProgress({ position: positionRef.current, duration: durationRef.current });
@@ -2533,6 +2544,22 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           getMediaTimeMs={readPresenceTimeMs}
           mediaElementRef={videoRef}
           mediaFit={tile.fit}
+        />
+      ) : null}
+
+      {focused && !standby && !photo && !tooSmallForTwitch && (tile.item.platform === "youtube" || tile.item.platform === "twitch" || tile.item.platform === "house") ? (
+        <CreatorTags key={`creators:${tile.item.key}:${tile.item.publishedAt ?? ""}`} assetKey={`${tile.item.platform}:${tile.item.key}`} title={tile.item.title}
+          liveStartedAt={tile.item.kind === "live" ? tile.item.publishedAt : undefined}
+          sourceRatio={contentShape(tile.item) === "portrait" ? 9 / 16 : contentShape(tile.item) === "square" ? 1 : 16 / 9}
+          getTime={() => creatorTimelineSeconds({ platform: tile.item.platform, kind: tile.item.kind, seconds: positionRef.current })} mediaRef={videoRef} fit={tile.fit} compact />
+      ) : null}
+      {!standby && tile.item.kind !== "live" && tile.item.format !== "photo" && !(native && tile.item.platform === "house") ? (
+        <OnScreenIdentityOverlay
+          contentId={tile.item.key}
+          mode="vod"
+          variant="compact"
+          getMediaTimeMs={readPresenceTimeMs}
+          className="pointer-events-auto absolute inset-x-0 bottom-12 z-20"
         />
       ) : null}
 

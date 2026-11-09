@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { FaceCanonicalKindSchema } from "./face-people";
+import { FACE_DEFAULT_SAMPLING_FPS, FACE_MAX_SCAN_FRAMES, FACE_MAX_SCAN_INTERVAL_MS, faceScanFrameCount } from "./face-processing-costs";
 import {
   faceConsentPermissionsAreCoherent,
   faceSourceConfigurationIsSafe,
@@ -80,7 +82,7 @@ export const FaceConsentGrantSchema = z.object({
 });
 
 export const FaceIdentityCreateSchema = z.object({
-  canonicalKind: z.enum(["member", "crew"]),
+  canonicalKind: FaceCanonicalKindSchema,
   canonicalSlug: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
   consent: FaceConsentGrantSchema,
 }).strict();
@@ -154,7 +156,8 @@ export const FaceSourceActionSchema = z.union([
 export const FaceJobCreateSchema = z.object({
   sourceId: Uuid,
   kind: z.enum(["live_scan", "archive_scan", "manual_review"]),
-  idempotencyKey: z.string().trim().min(8).max(200),
+  idempotencyKey: z.string().trim().min(8).max(200).optional(),
+  browserReviewId: Uuid.optional(),
   configuration: z.object({
     samplingFps: z.number().positive().max(5).optional(),
     startMs: z.number().int().nonnegative().optional(),
@@ -171,7 +174,13 @@ export const FaceJobCreateSchema = z.object({
 ).refine(
   (input) => input.configuration.startMs != null && input.configuration.endMs != null,
   "Every v1 job requires a bounded startMs and endMs.",
-);
+).superRefine((input,context)=>{
+  const {startMs,endMs}=input.configuration;
+  if(startMs==null||endMs==null)return;
+  if(endMs-startMs>FACE_MAX_SCAN_INTERVAL_MS || faceScanFrameCount(startMs,endMs,input.configuration.samplingFps??FACE_DEFAULT_SAMPLING_FPS)>FACE_MAX_SCAN_FRAMES){
+    context.addIssue({code:z.ZodIssueCode.custom,message:"Split this interval into smaller jobs; the limit is 1,800 sampled frames and two hours per job."});
+  }
+});
 
 export const FaceJobActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cancel"), reason: ShortReason }).strict(),
@@ -190,6 +199,7 @@ const FaceBoundingBoxSchema = z.object({
 
 export const FaceTrackCreateSchema = z.object({
   sourceId: Uuid,
+  browserReviewId: Uuid.optional(),
   jobId: Uuid.nullable().optional(),
   identityId: Uuid.nullable().optional(),
   startMs: z.number().int().nonnegative(),
