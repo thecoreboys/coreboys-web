@@ -13,7 +13,7 @@ import { mediaIntelligenceQuery, withMediaIntelligenceTransaction } from "./sche
 import { runMediaWorkerBatch, type MediaWorkerSummary } from "./worker";
 
 const PROVIDER_TIMEOUT_MS = 20_000;
-const WATCH_ARCHIVE_ITEM_LIMIT = 20_000;
+export { loadArchivedYouTubeWatchItems } from "./watch-archive-reader";
 
 export type MediaArchivePage = {
   items: WatchItem[];
@@ -368,37 +368,6 @@ async function youtubeArchiveSources(): Promise<MediaArchiveSource[]> {
     });
   }
   return [...sources.values()];
-}
-
-/**
- * The archive worker persists the exact normalized WatchItem it discovered.
- * Reading it back makes every fully-paginated YouTube uploads playlist part
- * of the public catalog without replaying the whole provider history during a
- * visitor request. Absence of the optional archive database is a normal
- * staged-rollout state and simply returns no historical supplement.
- */
-export async function loadArchivedYouTubeWatchItems(
-  limit = WATCH_ARCHIVE_ITEM_LIMIT,
-): Promise<WatchItem[]> {
-  const bounded = Math.max(1, Math.min(WATCH_ARCHIVE_ITEM_LIMIT, Math.trunc(limit)));
-  try {
-    const result = await mediaIntelligenceQuery<{ item: WatchItem }>(
-      `SELECT item
-         FROM media_intelligence_assets
-        WHERE active
-          AND platform = 'youtube'
-          AND item IS NOT NULL
-        ORDER BY published_at DESC NULLS LAST, updated_at DESC
-        LIMIT $1`,
-      [bounded],
-    );
-    return result.rows.flatMap(({ item }) => {
-      if (!item || item.platform !== "youtube" || !item.id || !item.title || !item.href) return [];
-      return [item];
-    });
-  } catch {
-    return [];
-  }
 }
 
 async function availableArchiveSources(): Promise<MediaArchiveSource[]> {

@@ -29,7 +29,7 @@ import { reconcileActiveTwitchArchives } from "./active-twitch-archives";
 import { fetchWatchYoutubeMetadata } from "./youtube-metadata";
 import { markCrossPlatformBroadcastAliases } from "./broadcast-aliases";
 import { registerPassportWatchCatalog } from "@/lib/passport/watch-registry";
-import { loadArchivedYouTubeWatchItems } from "@/lib/media-intelligence/archive";
+import { loadArchivedYouTubeWatchItems } from "@/lib/media-intelligence/watch-archive-reader";
 import {
   EMPTY_WATCH_PROGRAMMING,
   getProgrammingFeedEntries,

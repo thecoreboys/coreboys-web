@@ -166,3 +166,11 @@ Twitch hero embeds have no shadow or rounded clipping, and floating DJ controls
 move clear when space permits. A plain, unstyled Twitch control page also failed
 the provider's style-visibility autoplay check in the test browser; that isolated
 restriction must not be reported as successful video playback.
+
+The deployed follow-up measured a warm document response at 878 ms and live
+status at 64 ms, with no unopened-search or footer-policy prefetch requests.
+Its first request after the new revision started was still 13.01 seconds; the
+warm result must not be presented as a cold-start guarantee. A fresh-process
+trace also found that the public archive read imported the ingestion/analysis
+runtime through `archive.ts`. The read now lives in `watch-archive-reader.ts`;
+the same fresh-process check confirmed the background worker was not loaded.

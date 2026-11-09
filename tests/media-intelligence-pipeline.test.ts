@@ -235,6 +235,7 @@ test("scheduled operations are resumable, rights-aware, and maintain every lifec
 
 test("YouTube archive history is source-specific and returned to the public catalog", () => {
   const archive = readFileSync(resolve(process.cwd(), "lib/media-intelligence/archive.ts"), "utf8");
+  const reader = readFileSync(resolve(process.cwd(), "lib/media-intelligence/watch-archive-reader.ts"), "utf8");
   const catalog = readFileSync(resolve(process.cwd(), "lib/watch/catalog.ts"), "utf8");
   const rails = readFileSync(resolve(process.cwd(), "lib/watch/creator-platform-rails.ts"), "utf8");
   const railUi = readFileSync(resolve(process.cwd(), "components/watch/CreatorPlatformRails.tsx"), "utf8");
@@ -242,7 +243,9 @@ test("YouTube archive history is source-specific and returned to the public cata
   assert.match(archive, /function youtubeArchiveTargets/);
   assert.match(archive, /social\.label/);
   assert.match(archive, /loadArchivedYouTubeWatchItems/);
-  assert.match(archive, /platform = 'youtube'/);
+  assert.match(reader, /platform = 'youtube'/);
+  assert.match(catalog, /from "@\/lib\/media-intelligence\/watch-archive-reader"/);
+  assert.doesNotMatch(reader, /from ["'][^"']*\/(?:worker|ingest|analyzer)["']/);
   assert.match(catalog, /loadArchivedYouTubeWatchItems\(scope === "home" \? 480 : undefined\)/);
   assert.match(catalog, /scope: "home" \| "archive" = "archive"/);
   assert.match(catalog, /archivedHouseItems/);
