@@ -336,13 +336,17 @@ export function RadioAudioDirector({
           hiddenEdge: null,
           edgeOffset: null,
         }, width, height);
+      const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().bottom ?? 106;
+      const footer = document.querySelector(".site-footer")?.getBoundingClientRect();
+      const availableBottom = footer && footer.top > headerHeight + height + 32
+        ? Math.min(window.innerHeight, footer.top) : window.innerHeight;
+      if (!next.hiddenEdge) next.y = Math.min(next.y, availableBottom - height - 16);
       const preview = document.querySelector<HTMLElement>(".watch-billboard-live-player.is-preview.is-twitch");
       if (!next.hiddenEdge && preview?.offsetWidth) {
         const player = preview.getBoundingClientRect();
         if (player.bottom > 0 && player.top < window.innerHeight) {
           next = { ...next, ...clearPlayerSurface(next, width, height, player,
-            { width: window.innerWidth, height: window.innerHeight,
-              top: Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--site-header-h")) || 106 }) };
+            { width: window.innerWidth, height: availableBottom, top: headerHeight }) };
         }
       }
       // Automatic clearance is temporary; only deliberate dragging stores a position.
