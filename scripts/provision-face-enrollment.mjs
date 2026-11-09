@@ -26,7 +26,8 @@ async function arm(path,method="GET",body,version="2024-03-01") {
     // Never print request bodies, database URLs, or returned secret values.
     throw new Error(`Azure ${method} ${path}: ${response.status} ${error.error?.code ?? "request failed"}`);
   }
-  return response.status===204?null:response.json();
+  const payload=await response.text();
+  return payload.trim()?JSON.parse(payload):null;
 }
 const webPath=`${group}/providers/Microsoft.App/containerApps/coreboys-web`;
 const workerPath=`${group}/providers/Microsoft.App/containerApps/coreboys-face-worker`;
@@ -41,6 +42,11 @@ const db=new pg.Client({host:database.hostname,port:Number(database.port||5432),
 await db.connect();
 if (check && !apply) {
   await db.query("SELECT 1");
+  if ((await db.query("SELECT to_regclass('public.face_enrollment_jobs') IS NOT NULL AS installed")).rows[0].installed) {
+    const workers=await db.query("SELECT worker_id,status,enrollment_capable,last_heartbeat_at>now()-interval '90 seconds' AS fresh FROM face_worker_heartbeats");
+    const counts=await db.query("SELECT (SELECT count(*)::int FROM face_identities) AS people,(SELECT count(*)::int FROM face_reference_assets WHERE state='approved') AS approved_photos,(SELECT count(*)::int FROM face_template_sets WHERE state='active') AS active_template_sets,(SELECT count(*)::int FROM admin_users WHERE role='admin' AND deleted_at IS NULL AND totp_enabled) AS mfa_ready_admins");
+    console.log(JSON.stringify({workers:workers.rows,counts:counts.rows[0]}));
+  }
   await db.end();
   console.log("Production database connection verified with certificate and hostname validation. No changes made.");
   process.exit(0);
