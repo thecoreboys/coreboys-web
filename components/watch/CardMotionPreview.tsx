@@ -68,7 +68,7 @@ export function CardMotionPreview({ item, active, startSeconds = 0 }: { item: Wa
   }, [src, markPlaying, requestPlayback]);
   if (!allowed || (!native && !twitch && !src)) return null;
   return <span className={`watch-card-motion${ready || twitch ? " is-visible" : ""}`} aria-hidden="true" data-preview-state={ready ? "playing" : "loading"}>
-    {native ? <video ref={video} src={native} autoPlay muted loop playsInline preload="auto" onPlaying={() => markPlaying(true)} onError={() => setFailed(true)} onCanPlay={(event) => { event.currentTarget.muted = true; void event.currentTarget.play().catch(() => {}); }} />
+    {native ? <video ref={video} src={native} autoPlay muted loop playsInline preload="auto" onLoadedMetadata={(event) => { const media = event.currentTarget; if (startSeconds > 0) media.currentTime = Math.min(startSeconds, Number.isFinite(media.duration) ? Math.max(0, media.duration - .25) : startSeconds); }} onPlaying={() => markPlaying(true)} onError={() => setFailed(true)} onCanPlay={(event) => { event.currentTarget.muted = true; void event.currentTarget.play().catch(() => {}); }} />
       : twitch ? <TwitchHoverMedia channel={playable?.kind === "live" ? playable.twitchLogin : null} video={playable?.vodId ?? null} active={allowed} title={item.title} startSeconds={startSeconds} onPlayingChange={markPlaying} onProgress={() => {}} onSelect={() => {}} />
       : <iframe ref={frame} src={src!} title={`${item.memberLabel} muted preview`} tabIndex={-1} allow="autoplay; encrypted-media; picture-in-picture" onLoad={requestPlayback} onError={() => setFailed(true)} />}
   </span>;

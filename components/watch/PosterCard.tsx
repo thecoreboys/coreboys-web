@@ -12,7 +12,7 @@ import { MY_LIST_EVENT, readMyList, redirectToMyListSignIn, toggleMyList } from 
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useWatchProgress, youtubeIdFromHref } from "@/hooks/useWatchProgress";
-import type { WatchMark } from "@/hooks/useWatchProgress";
+import { cardPlaybackProgress } from "@/lib/watch/card-progress";
 import { DRAG_SCROLL_START_EVENT, type DragScrollStartDetail } from "@/hooks/useDragScroll";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
@@ -192,34 +192,7 @@ export function PosterCard({
   const dvrLocked = Boolean(user && !dvrLoading && !dvrAllowed);
   const dvrSaved = dvrAllowed && saved;
   const youtubeId = item.platform === "youtube" ? youtubeIdFromHref(item.href) : null;
-  const refs = [item.id, youtubeId].filter(Boolean) as string[];
-  const marks = refs.map((ref) => map[ref]);
-  const progress = Math.min(1, Math.max(0, ...marks.map((mark) => mark?.progress ?? 0)));
-  const done = marks.some((mark) => Boolean(mark?.completed));
-  const playbackMark = marks
-    .filter((mark): mark is WatchMark => Boolean(mark))
-    .sort((left, right) => {
-      const leftUpdated = Date.parse(left.positionUpdatedAt ?? "");
-      const rightUpdated = Date.parse(right.positionUpdatedAt ?? "");
-      if (Number.isFinite(leftUpdated) || Number.isFinite(rightUpdated)) {
-        return (Number.isFinite(rightUpdated) ? rightUpdated : -Infinity) -
-          (Number.isFinite(leftUpdated) ? leftUpdated : -Infinity);
-      }
-      return right.positionSeconds - left.positionSeconds;
-    })[0];
-  const durationSeconds = Math.max(
-    0,
-    item.durationSeconds ?? 0,
-    ...marks.map((mark) => mark?.durationSeconds ?? 0),
-  );
-  const positionSeconds = done
-    ? 0
-    : Math.min(
-        durationSeconds || Infinity,
-        playbackMark && playbackMark.positionSeconds > 0
-          ? playbackMark.positionSeconds
-          : durationSeconds * progress,
-      );
+  const { progress, done, durationSeconds, positionSeconds } = cardPlaybackProgress(item, map);
   const shape = contentShape(item);
   const isPhoto = item.format === "photo";
   const isInstagramPhoto = isPhoto && item.platform === "instagram";

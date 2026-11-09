@@ -53,7 +53,7 @@ test("pointer and keyboard intent open one expanded autoplay preview", () => {
   assert.match(poster, /preloadOnly=\{!previewVisible && !previewClosing\}/);
   assert.match(home, /inlinePreview: false/);
   assert.match(preview, /autoplay:\s*true/);
-  assert.match(preview, /if \(!mediaActive \|\| !iframeSrc \|\| playbackStartedRef\.current\) return/);
+  assert.match(preview, /if \(!mediaActive \|\| !iframeSrc \|\| \(playbackStartedRef\.current && resumeAppliedRef\.current\)\) return/);
 });
 
 test("closed, handed-off, and hidden previews stop their media immediately", () => {

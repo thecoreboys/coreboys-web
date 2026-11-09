@@ -67,7 +67,7 @@ export function projectHomeCatalog(catalog: WatchCatalog): WatchCatalog {
 export function homeItemReferences(item: WatchItem): string[] {
   const refs = new Set([item.id, key(item)]);
   if (item.platform === "youtube") {
-    for (const href of [item.href, item.sourceUrl]) {
+    for (const href of [item.href, item.sourceUrl, item.embedUrl, item.mediaUrl]) {
       if (!href) continue;
       try {
         const url = new URL(href, "https://core.local");
@@ -75,7 +75,10 @@ export function homeItemReferences(item: WatchItem): string[] {
           : /\/(?:shorts|embed)\/([\w-]+)/.exec(url.pathname)?.[1]
             ?? url.searchParams.get("v")
             ?? ((url.searchParams.get("kind") === "youtube" || url.searchParams.get("src") === "youtube") ? url.searchParams.get("id") : null);
-        if (id && /^[\w-]{6,}$/.test(id)) refs.add(id);
+        if (id && /^[\w-]{6,}$/.test(id)) {
+          refs.add(id);
+          refs.add(`yt-${id}`);
+        }
       } catch { /* An item can still resolve by its catalog identity. */ }
     }
   }

@@ -51,7 +51,7 @@ test("active hover previews honor motion preferences and hand playback off to th
   assert.match(hover, /resolveHoverPreviewMedia\(item\)/);
   assert.match(hover, /mediaActive = active && !preloadOnly && !handedOff && pageVisible/);
   assert.match(hover, /active=\{mediaActive\}/);
-  assert.match(hover, /if \(!mediaActive \|\| !iframeSrc \|\| playbackStartedRef\.current\) return/);
+  assert.match(hover, /if \(!mediaActive \|\| !iframeSrc \|\| \(playbackStartedRef\.current && resumeAppliedRef\.current\)\) return/);
   assert.match(hover, /if \(!mediaActive\) \{\s*video\.pause\(\);/);
   assert.match(hover, /video\.muted = true/);
 });

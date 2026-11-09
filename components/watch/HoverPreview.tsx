@@ -169,6 +169,7 @@ function MediaHoverPreview({
   const scrubbingRef = useRef(false);
   const pendingSeekRef = useRef<{ targetSeconds: number; expiresAt: number } | null>(null);
   const playbackStartedRef = useRef(false);
+  const resumeAppliedRef = useRef(false);
   const keyboardFocusTransferredRef = useRef(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -304,13 +305,16 @@ function MediaHoverPreview({
   const motionReady = Boolean(motionSource && readyMotionSource === motionSource);
 
   const requestProviderPlayback = useCallback(() => {
-    if (!mediaActive || !iframeSrc || playbackStartedRef.current) return;
+    if (!mediaActive || !iframeSrc || (playbackStartedRef.current && resumeAppliedRef.current)) return;
     const target = frameRef.current?.contentWindow;
     if (!target) return;
     const origin = new URL(iframeSrc).origin;
     if (previewPlayable?.youtubeId) {
       listenToYouTube(target, `core-hover-${item.id}`);
       target.postMessage(JSON.stringify({ event: "command", func: "mute", args: [] }), origin);
+      if (initialSeekSeconds > 0 && !resumeAppliedRef.current) {
+        target.postMessage(JSON.stringify({ event: "command", func: "seekTo", args: [initialSeekSeconds, true] }), origin);
+      }
       target.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), origin);
       return;
     }
@@ -325,9 +329,10 @@ function MediaHoverPreview({
 
   useEffect(() => {
     playbackStartedRef.current = false;
+    resumeAppliedRef.current = initialSeekSeconds <= 0;
     setReadyMotionSource(null);
     setFailedMotionSource(null);
-  }, [motionSource]);
+  }, [motionSource, initialSeekSeconds]);
 
   useEffect(() => {
     // A Twitch ad or slow stream startup can outlast the generic embed timeout.
@@ -399,12 +404,13 @@ function MediaHoverPreview({
         setKnownDuration((current) => Math.max(current, nextDuration));
       }
       if (sample.positionSeconds != null) {
+        if (sample.positionSeconds >= initialSeekSeconds - 2) resumeAppliedRef.current = true;
         syncPlaybackSeconds(sample.positionSeconds, nextDuration ?? knownDuration);
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [iframeSrc, knownDuration, syncPlaybackSeconds]);
+  }, [iframeSrc, initialSeekSeconds, knownDuration, syncPlaybackSeconds]);
 
   const live = item.kind === "live" || item.format === "live";
   const supportsSyncedSeek = Boolean(
