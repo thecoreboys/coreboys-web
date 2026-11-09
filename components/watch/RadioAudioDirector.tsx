@@ -345,7 +345,10 @@ export function RadioAudioDirector({
       if (!next.hiddenEdge && preview?.offsetWidth) {
         const player = preview.getBoundingClientRect();
         if (player.bottom > 0 && player.top < window.innerHeight) {
-          next = { ...next, ...clearPlayerSurface(next, width, height, player,
+          const status = preview.querySelector(".watch-billboard-provider-status")?.getBoundingClientRect();
+          const protectedPlayer = { left: player.left, top: player.top, right: player.right,
+            bottom: Math.max(player.bottom, status?.bottom ?? player.bottom) };
+          next = { ...next, ...clearPlayerSurface(next, width, height, protectedPlayer,
             { width: window.innerWidth, height: availableBottom, top: headerHeight }) };
         }
       }
