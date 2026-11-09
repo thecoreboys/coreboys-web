@@ -59,21 +59,29 @@ settings are changed automatically by this feature.
 limits documented by X. Confirm the account's current pricing and spending
 limit before activation. The scheduled reader remains an independent fallback.
 
-1. Deploy the callback at
-   `https://thecoreboys.com/api/social/webhooks/x`.
-2. Configure `X_CLIENT_SECRET` with the app's OAuth 2.0 client secret. Existing
+1. Resolve each configured handle from `configuredXFeedAccounts()` to its X
+   numeric user ID. This includes CORE, all six creators, and every crew member
+   with an X account. IDs may be read from existing subscriptions created in
+   the developer console with no webhook attached. Do not guess IDs or
+   subscribe an account that is absent from the roster.
+2. Set the GitHub repository variable `X_ACTIVITY_ACCOUNT_BINDINGS` to a JSON
+   object mapping each verified numeric ID to its canonical owner, for example
+   `{"123456789":"core","987654321":"crew:drew-wall"}`. The owner is `core`,
+   a creator slug such as `adapt`, or a namespaced crew slug. Each owner may
+   appear once and must exist in the configured roster. These IDs are public
+   configuration, not credentials. The Azure workflow forwards this variable
+   to the application on every deployment, defaulting to `{}` when absent.
+3. Configure `X_CLIENT_SECRET` with the app's OAuth 2.0 client secret. Existing
    OAuth 1.0-only integrations can use `X_API_SECRET` (consumer secret). These
    settings are already supported by the Azure deployment. The bearer token
    is **not** the signing secret.
-3. Register the callback using `POST /2/webhooks`. The callback responds to
+4. Deploy the callback at
+   `https://thecoreboys.com/api/social/webhooks/x` and register it using
+   `POST /2/webhooks`. The callback responds to
    X's `crc_token` challenge and verifies the raw-body HMAC signature on every
    delivery. It prefers `X-Twitter-Webhooks-Signature-OAuth2`; if that header is
    present but invalid, it does not fall back to a weaker path. Legacy apps
    use `X-Twitter-Webhooks-Signature`.
-4. Resolve each configured handle from `configuredXFeedAccounts()` to its X
-   user ID. This includes CORE, all six creators, and every crew member with
-   an X account. Do not guess IDs or subscribe an account that is absent from
-   the roster.
 5. In the developer console's Event subscriptions screen, select Post →
    Post Create, supply the user ID, and choose the registered webhook.
    The equivalent API request is `POST /2/activity/subscriptions` with
@@ -82,8 +90,12 @@ limit before activation. The scheduled reader remains an independent fallback.
    than adding duplicates. The receiver accepts the documented
    [Activity envelope](https://docs.x.com/x-api/activity/event-payloads):
    `data.event_type`, `data.payload`, `data.includes`, and `data.filter`.
-   Hydrated author expansions are required so only registered roster accounts
-   are accepted. Replies and reposts are excluded by the receiver.
+   X may omit `includes.users`. In that case the post's `author_id` must match
+   the subscription's `filter.user_id` and an explicitly configured ID binding.
+   The receiver uses the roster's canonical handle/name without inventing an
+   avatar or verification status. A supplied author expansion must agree with
+   its binding, and tags are never accepted as proof of identity. Replies and
+   reposts are excluded by the receiver.
 6. Verify CRC success and one signed delivery. Expect a `200` acknowledgement
    only after the post and notification records persist. A `503` requests a
    provider retry; duplicate statuses and media attachments retain one
@@ -107,9 +119,10 @@ refreshed. Empty, delayed, and temporarily unavailable states must remain
 visible in the home page feed instead of displaying a permanently green
 "live" badge.
 
-Run `pnpm exec tsx --test tests/x-crew-roster.test.ts tests/x-webhook.test.ts tests/x-live-snapshot.test.ts tests/x-feed-pagination.test.ts`
+Run `pnpm exec tsx --test tests/x-crew-roster.test.ts tests/x-webhook.test.ts tests/x-webhook-route.test.ts tests/x-live-snapshot.test.ts tests/x-feed-pagination.test.ts`
 for roster attribution, duplicate-media event identity, signature tampering,
-CRC, body-size limits, malformed deliveries, and non-roster/reply filtering.
+CRC, body-size limits, malformed deliveries, missing-author bindings, identity
+conflicts, and non-roster/reply filtering.
 The snapshot suite covers concurrent writes and polling cursor recovery.
 
 No external webhook, paid fetch, scheduler change, or deployment is performed

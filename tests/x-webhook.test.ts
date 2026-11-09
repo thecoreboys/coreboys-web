@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { parseXStreamWebhook, readXWebhookBody, verifyXWebhookSignature, xWebhookCrcResponse, X_WEBHOOK_MAX_BODY_BYTES } from "../lib/x-webhook";
+import { parseXActivityAccountBindings, parseXStreamWebhook, readXWebhookBody, verifyXWebhookSignature, xWebhookCrcResponse, X_WEBHOOK_MAX_BODY_BYTES } from "../lib/x-webhook";
 
 const accounts = [{ handle: "drewwall_", authorSlug: "crew:drew-wall", authorLabel: "Drew Wall" }];
 const payload = {
@@ -84,4 +84,53 @@ test("Activity reply and repost deliveries do not enter the original-post feed",
       payload: { ...payload.data, ...reference }, includes: payload.includes,
     } }, accounts), []);
   }
+});
+
+test("Activity account bindings are bounded numeric IDs mapped only to configured roster owners", () => {
+  const roster = [...accounts, { handle: "TheCore", authorSlug: null, authorLabel: "CORE" }];
+  const bindings = parseXActivityAccountBindings('{"12345":"crew:drew-wall","67890":"core"}', roster);
+  assert.equal(bindings.get("12345")?.handle, "drewwall_");
+  assert.equal(bindings.get("67890")?.authorSlug, null);
+  assert.equal(parseXActivityAccountBindings(undefined, roster).size, 0);
+  assert.equal(parseXActivityAccountBindings("{}", roster).size, 0);
+  for (const invalid of ["not json", "[]", "null", '{"not-a-user-id":"crew:drew-wall"}',
+    '{"12345":"crew:unknown"}', '{"12345":true}', '{"0":"core"}', '{"012345":"core"}', '{"12345":"crew:drew-wall","67890":"crew:drew-wall"}',
+    JSON.stringify({ ["1".repeat(26)]: "crew:drew-wall" }), " ".repeat(20_001), " ".repeat(20_001) + "{}",
+    JSON.stringify(Object.fromEntries(Array.from({ length: 257 }, (_, i) => [String(i + 1), "core"]))),
+  ]) assert.throws(() => parseXActivityAccountBindings(invalid, roster), /invalid_x_activity_bindings/);
+});
+
+test("Activity without author expansions uses the provisioned ID binding and claims no avatar or verification", () => {
+  const roster = [{ ...accounts[0]!, authorLabel: "Drew Wall · Lacy crew" }];
+  const bindings = parseXActivityAccountBindings('{"12345":"crew:drew-wall"}', roster);
+  const data = { event_type: "post.create", filter: { user_id: "12345" }, payload: { ...payload.data, author_id: "12345" } };
+  const [item] = parseXStreamWebhook({ data }, roster, bindings);
+  assert.equal(item?.authorSlug, "crew:drew-wall");
+  assert.equal(item?.x?.authorName, "Drew Wall");
+  assert.equal(item?.x?.authorHandle, "@drewwall_");
+  assert.equal(item?.sourceUrl, "https://x.com/drewwall_/status/123456789");
+  assert.equal(item?.x?.authorAvatarUrl, undefined);
+  assert.equal(item?.x?.verified, undefined);
+  assert.equal(item?.x?.verifiedType, undefined);
+  const unrelatedExpansion = { users: [{ id: "99999", username: "someoneelse" }] };
+  assert.equal(parseXStreamWebhook({ data: { ...data, includes: unrelatedExpansion } }, roster, bindings).length, 1);
+  assert.throws(() => parseXStreamWebhook({ data }, roster));
+  assert.throws(() => parseXStreamWebhook({ data: { ...data, tag: "crew:drew-wall" } }, roster));
+  assert.throws(() => parseXStreamWebhook({ data: { ...data, filter: undefined } }, roster, bindings), /x_activity_author_mismatch/);
+  assert.throws(() => parseXStreamWebhook({ data: { ...data, filter: { user_id: "99999" } } }, roster, bindings), /x_activity_author_mismatch/);
+});
+
+test("Activity author expansions must agree with the provisioned identity even when another author is on the roster", () => {
+  const roster = [...accounts, { handle: "othercrew", authorSlug: "crew:other", authorLabel: "Other Crew" }];
+  const bindings = parseXActivityAccountBindings('{"12345":"crew:drew-wall"}', roster);
+  const data = { event_type: "post.create", filter: { user_id: "12345" }, payload: { ...payload.data, author_id: "12345" } };
+  assert.throws(() => parseXStreamWebhook({ data: { ...data,
+    includes: { users: [{ id: "12345", username: "othercrew" }] },
+  } }, roster, bindings), /x_activity_binding_mismatch/);
+  const author = { id: "12345", username: "DrewWall_", name: "Drew", verified: true };
+  const [item] = parseXStreamWebhook({ data: { ...data, includes: { users: [author] } } }, roster, bindings);
+  assert.equal(item?.authorSlug, "crew:drew-wall");
+  assert.equal(item?.x?.authorName, "Drew");
+  assert.equal(item?.x?.verified, true);
+  assert.throws(() => parseXStreamWebhook({ data: { ...data, includes: { users: [author, author] } } }, roster, bindings), /x_activity_author_mismatch/);
 });

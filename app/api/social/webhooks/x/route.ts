@@ -3,7 +3,7 @@ import { configuredXFeedAccounts } from "@/lib/x-feed-upstream";
 import { appendXFeedSnapshotItems } from "@/lib/x-feed-snapshot";
 import { recordSocialEvent, socialEventFromFeedItem, upsertSocialSource } from "@/lib/social-events";
 import { drainSocialNotificationDeliveries } from "@/lib/social-delivery";
-import { parseXStreamWebhook, readXWebhookBody, verifyXWebhookSignature, xWebhookCrcResponse } from "@/lib/x-webhook";
+import { parseXActivityAccountBindings, parseXStreamWebhook, readXWebhookBody, verifyXWebhookSignature, xWebhookCrcResponse } from "@/lib/x-webhook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,9 +30,16 @@ export async function POST(request: Request) {
   if (!raw) return reply({ error: "payload_too_large" }, 413);
   if (!verifyXWebhookSignature(raw, request.headers, configured)) return reply({ error: "invalid_signature" }, 403);
 
+  const accounts = configuredXFeedAccounts();
+  let bindings;
+  try {
+    bindings = parseXActivityAccountBindings(process.env.X_ACTIVITY_ACCOUNT_BINDINGS, accounts);
+  } catch {
+    return reply({ error: "invalid_x_activity_configuration" }, 503);
+  }
   let items;
   try {
-    items = parseXStreamWebhook(JSON.parse(Buffer.from(raw).toString("utf8")), configuredXFeedAccounts());
+    items = parseXStreamWebhook(JSON.parse(Buffer.from(raw).toString("utf8")), accounts, bindings);
   } catch {
     return reply({ error: "invalid_x_stream_payload" }, 400);
   }
