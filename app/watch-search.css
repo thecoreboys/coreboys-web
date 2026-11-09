@@ -1,0 +1,164 @@
+/* Global search layout: loaded with the app shell so lazy loading cannot remove its geometry. */
+.watch-search-backdrop.watch-search-backdrop { padding: 24px; background: #000b; backdrop-filter: blur(12px); }
+.watch-search-dialog.watch-search-dialog {
+  --search-line: color-mix(in srgb, var(--ink) 12%, transparent);
+  --search-muted: color-mix(in srgb, var(--ink) 62%, var(--bg));
+  --search-surface: color-mix(in srgb, var(--bg) 93%, var(--ink));
+  width: min(860px, calc(100vw - 48px));
+  height: min(760px, calc(100dvh - 48px));
+  min-height: 0;
+  max-height: calc(100dvh - 48px);
+  border: 1px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  border-radius: 24px;
+  background: var(--search-surface);
+  color: var(--ink);
+  box-shadow: 0 40px 120px #0008, 0 4px 20px #0005, inset 0 1px 0 color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.watch-search-dialog.watch-search-dialog.has-query { height: auto; min-height: 0; }
+.watch-search-dialog .watch-search-head { padding: 24px 24px 18px; border-color: var(--search-line); background: none; }
+.watch-search-dialog .watch-search-title-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; margin-bottom: 22px; }
+.watch-search-dialog .watch-search-brand { width: 40px; height: 40px; border: 1px solid var(--search-line); border-radius: 11px; background: color-mix(in srgb, var(--ink) 4%, transparent); color: var(--search-muted); box-shadow: none; }
+.watch-search-dialog .watch-search-brand svg { width: 18px; height: 18px; }
+.watch-search-dialog .watch-search-title-row h1 { font-size: 23px; font-weight: 600; letter-spacing: -.045em; }
+.watch-search-header-actions { display: flex; flex-shrink: 0; align-items: center; gap: 12px; white-space: nowrap; }
+.watch-search-full-link { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid transparent; border-radius: 9px; color: var(--search-muted); font-size: 12px; font-weight: 500; text-decoration: none; transition: color 160ms, border-color 160ms, background 160ms; }
+.watch-search-full-link:hover { border-color: var(--search-line); background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+.watch-search-dialog .watch-search-close { width: 42px; height: 42px; border: 1px solid var(--search-line); background: transparent; color: var(--search-muted); }
+.watch-search-dialog .watch-search-close:hover { border-color: color-mix(in srgb, var(--ink) 30%, transparent); background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); transform: none; }
+.watch-search-dialog .watch-search-field { min-height: 62px; gap: 12px; border: 1px solid var(--search-line); border-radius: 13px; padding-inline: 17px 10px; background: var(--bg); box-shadow: inset 0 1px 2px #0001; }
+.watch-search-dialog .watch-search-field:focus-within { border-color: color-mix(in srgb, var(--ink) 44%, transparent); background: var(--bg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 5%, transparent); }
+.watch-search-dialog .watch-search-field > svg { width: 20px; height: 20px; color: var(--search-muted); stroke-width: 1.7; }
+.watch-search-dialog .watch-search-field input { min-height: 60px; color: var(--ink); font-size: 16px; font-weight: 400; letter-spacing: -.015em; }
+.watch-search-dialog .watch-search-field input::placeholder { color: var(--search-muted); }
+.watch-search-prompt-field { position: relative; flex: 1; min-width: 0; }
+.watch-search-dialog .watch-search-title-row { align-items: center; }
+.watch-search-dialog .watch-search-title-row h1 { min-width: 0; line-height: 1.2; }
+.watch-search-dialog .watch-search-field { display: flex; }
+.watch-search-dialog .watch-search-field > svg { flex-shrink: 0; }
+.watch-search-dialog .watch-search-head { flex-shrink: 0; }
+.watch-search-dialog .watch-search-body { flex: 1; overflow: hidden; }
+.watch-search-dialog .watch-search-result-copy { min-width: 0; }
+.watch-search-dialog .watch-search-result-thumb { flex-shrink: 0; }
+.watch-search-prompt { position: absolute; inset-block: 0; inset-inline-start: 0; display: flex; align-items: center; width: max-content; max-width: 100%; overflow: hidden; white-space: nowrap; pointer-events: none; color: var(--search-muted); font-size: 16px; font-weight: 400; letter-spacing: -.015em; }
+.watch-search-dialog .watch-search-field kbd { min-width: 24px; height: 26px; border-color: var(--search-line); border-radius: 6px; background: color-mix(in srgb, var(--ink) 4%, transparent); color: var(--search-muted); font-size: 12px; }
+.watch-search-dialog .watch-search-field button { min-width: 40px; min-height: 40px; border-radius: 8px; color: var(--search-muted); }
+.watch-search-dialog .watch-search-filterbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 16px; }
+.watch-search-dialog .watch-search-filters { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.watch-search-dialog .watch-search-filters button, .watch-search-dialog .watch-search-more-filters > summary { min-height: 39px; flex-shrink: 0; gap: 6px; border: 1px solid var(--search-line); border-radius: 9px; padding: 8px 12px; background: transparent; color: var(--search-muted); font-size: 12px; font-weight: 500; cursor: pointer; transition: background 150ms, color 150ms, border-color 150ms; }
+.watch-search-dialog .watch-search-filters button:hover, .watch-search-dialog .watch-search-more-filters > summary:hover { border-color: color-mix(in srgb, var(--ink) 28%, transparent); background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+.watch-search-dialog .watch-search-filters button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--bg); box-shadow: none; }
+.watch-search-dialog .watch-search-filters button svg, .watch-search-dialog .watch-search-more-filters > summary svg { width: 13px; height: 13px; }
+.watch-search-dialog .watch-search-filter-popover { width: min(340px, calc(100vw - 48px)); max-height: 55dvh; overflow-y: auto; border-color: var(--search-line); border-radius: 15px; padding: 18px; background: var(--search-surface); color: var(--ink); box-shadow: 0 16px 40px #0006; }
+.watch-search-dialog .watch-search-filter-popover legend, .watch-search-dialog .watch-search-filter-popover label > span { margin-bottom: 9px; color: var(--search-muted); font-size: 11px; font-weight: 500; letter-spacing: .02em; text-transform: none; }
+.watch-search-dialog .watch-search-filter-popover button, .watch-search-dialog .watch-search-filter-popover select { min-height: 40px; border-color: var(--search-line); border-radius: 8px; background: var(--bg); color: var(--search-muted); font-size: 12px; }
+.watch-search-dialog .watch-search-filter-popover button[aria-pressed="true"] { border-color: color-mix(in srgb, var(--ink) 35%, transparent); background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }
+.watch-search-dialog .watch-search-body { display: block; min-height: 0; }
+.watch-search-dialog .watch-search-results-shell { height: 100%; border: 0; }
+.watch-search-dialog .watch-search-results-head { min-height: 44px; padding-inline: 25px; border-color: var(--search-line); color: var(--search-muted); font-size: 11px; }
+.watch-search-dialog .watch-search-results-head p { color: var(--search-muted); font-size: 12px; font-weight: 500; }
+.watch-search-dialog .watch-search-results-head > span { gap: 4px; color: var(--search-muted); }
+.watch-search-dialog .watch-search-results-head kbd { min-width: 20px; min-height: 20px; border-color: var(--search-line); background: transparent; color: var(--search-muted); font-size: 10px; }
+.watch-search-dialog .watch-search-results { padding: 18px 18px 22px; scrollbar-color: var(--search-line) transparent; }
+.watch-search-dialog.watch-search-dialog.has-query .watch-search-results { max-height: min(440px, calc(100dvh - 310px)); }
+.watch-search-dialog .watch-search-discovery section + section { margin-top: 19px; border-color: var(--search-line); padding-top: 18px; }
+.watch-search-dialog .watch-search-discovery section > h2, .watch-search-dialog .watch-search-discovery-title h2 { gap: 7px; margin: 0 7px 11px; color: var(--search-muted); font-size: 12px; font-weight: 500; letter-spacing: .01em; }
+.watch-search-dialog .watch-search-discovery section > h2 svg, .watch-search-dialog .watch-search-discovery-title h2 svg { width: 14px; height: 14px; color: var(--search-muted); }
+/* These short, interactive lists must stay painted while selection scrolls. */
+.watch-search-dialog .watch-search-results li { border: 1px solid transparent; border-radius: 13px; background: transparent; box-shadow: none; content-visibility: visible; contain-intrinsic-size: none; }
+.watch-search-dialog .watch-search-results li + li { margin-top: 6px; }
+.watch-search-dialog .watch-search-result-main, .watch-search-dialog .watch-search-member-row { position: relative; display: grid; width: 100%; min-height: 94px; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 15px; align-items: center; border: 1px solid transparent; border-radius: 12px; padding: 12px; background: transparent; color: var(--ink); box-shadow: none; text-align: left; cursor: pointer; transition: background 160ms, border-color 160ms, box-shadow 160ms; }
+.watch-search-dialog .watch-search-result-thumb { width: 112px; height: 68px; overflow: hidden; border-radius: 8px; background: var(--bg); }
+.watch-search-dialog .watch-search-result-thumb.is-portrait { width: 43px; height: 68px; margin-inline: auto; }
+.watch-search-dialog .watch-search-result-thumb.is-square { width: 68px; height: 68px; margin-inline: auto; }
+.watch-search-dialog .watch-search-result-thumb img { transition: transform 220ms ease; }
+.watch-search-dialog .watch-search-result-thumb > svg { inset: 50% auto auto 50%; width: 36px; height: 36px; transform: translate(-50%, -50%); border: 1px solid #ffffff50; border-radius: 50%; padding: 10px; background: #fffffff2; color: #141418; opacity: 0; box-shadow: 0 3px 12px #0004; transition: opacity 160ms; }
+.watch-search-dialog .watch-search-result-thumb em { top: 6px; left: 6px; border-radius: 4px; padding: 3px 5px; font-size: 8px; font-weight: 600; letter-spacing: .06em; }
+.watch-search-dialog .watch-search-result-copy small { display: flex; margin-bottom: 5px; color: var(--search-muted); font-size: 10px; font-weight: 500; letter-spacing: .04em; text-transform: none; }
+.watch-search-dialog .watch-search-result-copy strong { display: -webkit-box; overflow: hidden; color: var(--ink); font-size: 15px; font-weight: 500; letter-spacing: -.02em; line-height: 1.45; white-space: normal; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.watch-search-dialog .watch-search-result-copy > span { display: block; overflow: hidden; margin-top: 5px; color: var(--search-muted); font-size: 12px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.watch-search-dialog .watch-search-result-copy mark { margin-top: 5px; color: var(--search-muted); font-size: 11px; }
+.watch-search-dialog .watch-search-row-cta { position: static; display: inline-flex; min-width: 80px; align-items: center; justify-content: flex-end; gap: 8px; border: 0; padding: 0; background: transparent; color: var(--search-muted); font-size: 12px; font-weight: 500; line-height: 1.4; opacity: 1; transform: none; }
+.watch-search-dialog .watch-search-row-cta > svg { width: 16px; height: 16px; flex-shrink: 0; transition: transform 160ms; }
+.watch-search-dialog .watch-search-member-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
+.watch-search-dialog .watch-search-member-photo { width: 48px; height: 48px; border: 1px solid var(--search-line); border-radius: 12px; }
+.watch-search-dialog .watch-search-featured-card { min-height: 132px; grid-template-columns: 168px minmax(0, 1fr) auto; gap: 17px; border-color: var(--search-line); padding: 13px; background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.watch-search-dialog .watch-search-featured-card .watch-search-result-thumb { width: 168px; height: 104px; border-radius: 9px; }
+.watch-search-dialog .watch-search-featured-card .watch-search-result-thumb.is-portrait { width: 66px; margin-inline: auto; }
+.watch-search-dialog .watch-search-featured-card .watch-search-result-thumb.is-square { width: 104px; margin-inline: auto; }
+.watch-search-dialog .watch-search-featured-card .watch-search-result-copy strong { font-size: 17px; line-height: 1.4; }
+.watch-search-dialog .watch-search-featured-card .watch-search-row-cta { color: var(--ink); }
+.watch-search-dialog .watch-search-results li[data-active] > button, .watch-search-dialog .watch-search-results li > button:hover { border-color: color-mix(in srgb, var(--ink) 28%, transparent); background: color-mix(in srgb, var(--ink) 7%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent); transform: none; }
+.watch-search-dialog .watch-search-results li[data-active] .watch-search-result-thumb > svg, .watch-search-dialog .watch-search-results button:hover .watch-search-result-thumb > svg { opacity: 1; }
+.watch-search-dialog .watch-search-results li[data-active] .watch-search-row-cta, .watch-search-dialog .watch-search-results button:hover .watch-search-row-cta { color: var(--ink); }
+.watch-search-dialog .watch-search-results button:hover .watch-search-row-cta > svg { transform: translateX(3px); }
+.watch-search-dialog .watch-search-results li > button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.watch-search-dialog .watch-search-results li > button:active { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.watch-search-dialog .watch-search-recent-chips button { min-height: 38px; border-color: var(--search-line); border-radius: 8px; padding: 8px 11px; background: transparent; color: var(--search-muted); font-size: 12px; }
+.watch-search-dialog .watch-search-no-results strong { color: var(--ink); font-size: 17px; font-weight: 500; }
+.watch-search-dialog .watch-search-no-results p { color: var(--search-muted); font-size: 13px; }
+.watch-search-dialog .watch-search-no-results button { min-height: 42px; font-size: 13px; }
+.watch-search-dialog .watch-search-membership-hint { color: var(--search-muted); font-size: 12px; }
+.watch-search-dialog .watch-search-membership-hint a { min-height: 40px; color: var(--ink); font-size: 12px; }
+.watch-search-full-link:focus-visible, .watch-search-dialog .watch-search-close:focus-visible, .watch-search-dialog .watch-search-filters button:focus-visible, .watch-search-dialog .watch-search-more-filters > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+@media (max-width: 639px) {
+  .watch-search-backdrop.watch-search-backdrop { padding: 12px; align-items: center; }
+  .watch-search-dialog.watch-search-dialog { width: calc(100vw - 24px); height: min(760px, calc(100dvh - 24px)); max-height: calc(100dvh - 24px); border-radius: 20px; }
+  .watch-search-dialog .watch-search-head { padding: 18px 16px 15px; }
+  .watch-search-dialog .watch-search-title-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 16px; }
+  .watch-search-dialog .watch-search-brand { display: none; }
+  .watch-search-dialog .watch-search-title-row h1 { font-size: 20px; }
+  .watch-search-header-actions { gap: 5px; }
+  .watch-search-full-link { min-height: 44px; padding-inline: 7px; font-size: 11px; }
+  .watch-search-dialog .watch-search-close { width: 40px; height: 40px; }
+  .watch-search-dialog .watch-search-field { min-height: 56px; gap: 10px; padding-inline: 13px 7px; }
+  .watch-search-dialog .watch-search-field input { min-height: 54px; font-size: 16px; }
+  .watch-search-dialog .watch-search-field kbd { display: none; }
+  .watch-search-dialog .watch-search-filterbar { gap: 8px; margin-top: 13px; }
+  .watch-search-dialog .watch-search-filters button { min-height: 40px; padding: 8px 10px; font-size: 12px; }
+  .watch-search-dialog .watch-search-more-filters > summary { width: 40px; min-height: 40px; padding: 0; justify-content: center; font-size: 0; }
+  .watch-search-dialog .watch-search-more-filters > summary svg { width: 16px; height: 16px; }
+  .watch-search-dialog .watch-search-more-filters > summary svg:last-child { display: none; }
+  .watch-search-dialog .watch-search-results-head { min-height: 40px; padding-inline: 18px; }
+  .watch-search-dialog .watch-search-results-head > span { display: none; }
+  .watch-search-dialog .watch-search-results { padding: 14px 10px 18px; }
+  .watch-search-dialog.watch-search-dialog.has-query .watch-search-results { max-height: calc(100dvh - 300px); }
+  .watch-search-dialog .watch-search-result-main { grid-template-columns: 76px minmax(0, 1fr) 16px; gap: 10px; padding: 10px; }
+  .watch-search-dialog .watch-search-result-thumb { width: 76px; height: 54px; }
+  .watch-search-dialog .watch-search-result-thumb.is-portrait { width: 34px; height: 54px; }
+  .watch-search-dialog .watch-search-result-thumb.is-square { width: 54px; height: 54px; }
+  .watch-search-dialog .watch-search-result-copy strong { font-size: 14px; }
+  .watch-search-dialog .watch-search-result-copy small { font-size: 9px; }
+  .watch-search-dialog .watch-search-result-copy > span { font-size: 11px; }
+  .watch-search-dialog .watch-search-row-cta { min-width: 0; font-size: 0; }
+  .watch-search-dialog .watch-search-member-row { grid-template-columns: 42px minmax(0, 1fr) 16px; gap: 10px; padding: 10px; }
+  .watch-search-dialog .watch-search-member-photo { width: 42px; height: 42px; }
+  .watch-search-dialog .watch-search-featured-card { grid-template-columns: 100px minmax(0, 1fr); gap: 8px 12px; padding: 12px; }
+  .watch-search-dialog .watch-search-featured-card .watch-search-result-thumb { grid-row: 1 / span 2; width: 100px; height: 90px; }
+  .watch-search-dialog .watch-search-featured-card .watch-search-result-thumb.is-portrait { width: 57px; }
+  .watch-search-dialog .watch-search-featured-card .watch-search-result-thumb.is-square { width: 90px; }
+  .watch-search-dialog .watch-search-featured-card .watch-search-result-copy strong { font-size: 15px; }
+  .watch-search-dialog .watch-search-featured-card .watch-search-row-cta { grid-column: 2; justify-self: start; font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-search-dialog *, .watch-search-dialog *::before, .watch-search-dialog *::after { transition: none !important; }
+  .watch-search-dialog .watch-search-results button:hover .watch-search-row-cta > svg { transform: none; }
+}
+
+@media (max-width: 359px) {
+  .watch-search-dialog .watch-search-head { padding-inline: 12px; }
+  .watch-search-dialog .watch-search-title-row h1 { font-size: 18px; }
+  .watch-search-header-actions { gap: 2px; }
+  .watch-search-full-link { padding-inline: 4px; }
+  .watch-search-dialog .watch-search-featured-card { grid-template-columns: 76px minmax(0, 1fr); gap: 8px; padding: 8px; }
+  .watch-search-dialog .watch-search-featured-card .watch-search-result-thumb { width: 76px; height: 76px; }
+}
+
+/* Leave a usable scroll region with a landscape phone or an open keyboard. */
+@media (max-height: 540px) {
+  .watch-search-dialog .watch-search-head { padding-block: 10px; }
+  .watch-search-dialog .watch-search-title-row { margin-bottom: 8px; }
+  .watch-search-dialog .watch-search-filterbar { margin-top: 8px; }
+  .watch-search-dialog.watch-search-dialog.has-query .watch-search-results { max-height: none; }
+}

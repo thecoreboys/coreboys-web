@@ -1,8 +1,13 @@
 import "server-only";
 import { formatDurationSeconds, isoDurationSeconds } from "@/lib/youtube-duration";
 import type { WatchChapter } from "./types";
+import { isYouTubeVideoAvailable, missingYouTubeVideoIds } from "./youtube-availability";
+import { unavailableYouTubeObjects } from "@/lib/provider-availability";
+import { recordContentRemoval } from "@/lib/content-availability";
 
 export type WatchYoutubeMetadata = {
+  /** False when YouTube confirms the ID is private, missing, or not embeddable. */
+  available: boolean;
   duration?: string;
   durationSeconds?: number;
   isShort: boolean;
@@ -74,17 +79,19 @@ export function parseYoutubeChapters(
 export async function fetchWatchYoutubeMetadata(
   videoIds: readonly string[],
   titleById: Readonly<Record<string, string>> = {},
+  publishedAtById: Readonly<Record<string, string>> = {},
 ): Promise<Record<string, WatchYoutubeMetadata>> {
   const key = process.env.YOUTUBE_API_KEY;
   if (!key) return {};
   const ids = [...new Set(videoIds.filter(Boolean))];
   const output: Record<string, WatchYoutubeMetadata> = {};
+  const missingBefore = Date.now() - 24 * 60 * 60 * 1_000;
 
   try {
     for (let index = 0; index < ids.length; index += 50) {
       const batch = ids.slice(index, index + 50);
       const params = new URLSearchParams({
-        part: "contentDetails,snippet,liveStreamingDetails",
+        part: "contentDetails,snippet,liveStreamingDetails,status",
         id: batch.join(","),
         key,
       });
@@ -97,8 +104,11 @@ export async function fetchWatchYoutubeMetadata(
       });
       if (!response.ok) continue;
       const json = (await response.json()) as {
+        error?: unknown;
+        errors?: unknown;
         items?: Array<{
           id?: string;
+          status?: { privacyStatus?: "public" | "unlisted" | "private"; uploadStatus?: string; embeddable?: boolean };
           contentDetails?: { duration?: string };
           snippet?: {
             title?: string;
@@ -113,9 +123,30 @@ export async function fetchWatchYoutubeMetadata(
           };
         }>;
       };
+      // An error/malformed envelope is not an empty successful lookup. Leave
+      // the existing catalog unchanged rather than temporarily hiding every ID.
+      if (!json || typeof json !== "object" || Array.isArray(json)
+        || json.error || json.errors || !Array.isArray(json.items)
+        || json.items.some((item) => !item || typeof item !== "object" || Array.isArray(item)
+          || typeof item.id !== "string" || !batch.includes(item.id))) continue;
+      if (new Set(json.items.map((item) => item.id)).size !== json.items.length) continue;
 
+      for (const removed of unavailableYouTubeObjects(batch, json)) {
+        if (removed.reason === "not_found") {
+          // RSS/programming can lead videos.list while a new upload propagates.
+          // Missing/invalid dates cannot prove age; keep those misses reversible.
+          const publishedAt = Date.parse(publishedAtById[removed.id] ?? "");
+          if (!Number.isFinite(publishedAt) || publishedAt > missingBefore) continue;
+        }
+        await recordContentRemoval({ provider: "youtube", providerId: removed.id,
+          reason: removed.reason, evidence: "provider_lookup" });
+      }
+      const returnedIds = new Set<string>();
       for (const item of json.items ?? []) {
         if (!item.id) continue;
+        if (item.status?.privacyStatus === "private" || item.status?.uploadStatus === "deleted") continue;
+        returnedIds.add(item.id);
+        const available = isYouTubeVideoAvailable(item.status);
         const durationSeconds = item.contentDetails?.duration
           ? isoDurationSeconds(item.contentDetails.duration) ?? undefined
           : undefined;
@@ -129,6 +160,7 @@ export async function fetchWatchYoutubeMetadata(
           ? Number(item.liveStreamingDetails.concurrentViewers)
           : undefined;
         output[item.id] = {
+          available,
           duration: durationSeconds ? formatDurationSeconds(durationSeconds) : undefined,
           durationSeconds,
           isShort:
@@ -147,6 +179,13 @@ export async function fetchWatchYoutubeMetadata(
           chapters: parseYoutubeChapters(item.snippet?.description ?? "", durationSeconds),
           relatedFullVideoId: linkedYoutubeVideo(item.snippet?.description ?? "", item.id),
         };
+      }
+
+      // A successful videos.list response omits IDs viewers cannot access,
+      // including videos switched to private or removed since the feed was
+      // ingested. Preserve the distinction from a failed lookup above.
+      for (const id of missingYouTubeVideoIds(batch, returnedIds)) {
+        output[id] = { available: false, isShort: false, liveBroadcastContent: "none" };
       }
     }
   } catch {

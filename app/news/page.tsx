@@ -7,7 +7,7 @@ import { getPublishedArticles } from "@/lib/articles";
 
 export const metadata: Metadata = {
   title: "News",
-  description: "Notes from the house.",
+  description: "CORE news, creator announcements, and event recaps.",
   alternates: { canonical: "/news" },
 };
 
@@ -19,16 +19,16 @@ export default async function BlogIndexPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Notes"
-        title="Notes from the house."
-        supporting="Recaps, announcements, and what happened this week."
+        eyebrow="CORE updates"
+        title="News"
+        supporting="Creator announcements and event recaps, with publication dates."
       />
 
       {posts.length === 0 ? (
         <section className="border-t border-[color:var(--rule)]">
           <div className="mx-auto max-w-container px-6 py-20 md:px-16">
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-dim)]">
-              Nothing filed.
+              No published articles yet.
             </p>
           </div>
         </section>

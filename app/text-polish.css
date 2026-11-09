@@ -1,0 +1,57 @@
+/* A narrow light pass over selected text. The words keep their normal metrics. */
+.luxury-glisten {
+  --glisten-flash: #fff6ee;
+  color: inherit;
+}
+
+:where(html[data-theme="light"]) .luxury-glisten:not(.luxury-glisten--champagne) {
+  --glisten-flash: #30242d;
+}
+
+.luxury-glisten--champagne {
+  --glisten-base: #efb7bd;
+  --glisten-flash: #fff8ec;
+  --glisten-delay: 1.2s;
+}
+
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .luxury-glisten {
+    background-image: linear-gradient(108deg,
+      var(--glisten-base, currentColor) 0% 43%,
+      color-mix(in srgb, var(--glisten-base, currentColor) 65%, var(--glisten-flash)) 48%,
+      var(--glisten-flash) 50%,
+      color-mix(in srgb, var(--glisten-base, currentColor) 65%, var(--glisten-flash)) 52%,
+      var(--glisten-base, currentColor) 57% 100%);
+    background-size: 240% 100%;
+    background-position: 100% 0;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: core-text-glisten 8s cubic-bezier(.4, 0, .25, 1) var(--glisten-delay, 0s) infinite;
+  }
+}
+
+@keyframes core-text-glisten {
+  0%, 8% { background-position: 100% 0; }
+  36%, 100% { background-position: 0% 0; }
+}
+
+html[data-watch-motion="calm"] .luxury-glisten,
+html[data-watch-reduced-motion="on"] .luxury-glisten,
+html[data-watch-contrast="high"] .luxury-glisten {
+  animation: none;
+  background-position: 100% 0;
+}
+
+@media (prefers-reduced-motion: reduce), (prefers-contrast: more) {
+  .luxury-glisten { animation: none; background-position: 100% 0; }
+}
+
+@media (forced-colors: active), print {
+  .luxury-glisten {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}

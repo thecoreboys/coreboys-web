@@ -55,29 +55,34 @@ test("bell uses the private stored-data endpoint and replaces the legacy floatin
   const bell = source("components/notifications/NotificationBell.tsx");
   const nav = source("components/chrome/TopNav.tsx");
   const bridge = source("components/watch/WatchAlertsBridge.tsx");
+  const global = source("components/watch/GlobalWatchEnhancements.tsx");
   assert.match(bell, /\/api\/account\/notification-center\?limit=5/);
   assert.match(bell, /window\.setInterval\(refresh, 30_000\)/);
   assert.doesNotMatch(bell, /api\/social|useLiveStatus|Social Fetch/i);
   assert.match(nav, /NotificationBell variant="desktop"/);
   assert.match(nav, /NotificationBell variant="mobile"/);
   assert.doesNotMatch(bridge, /SocialAlertsTray/);
+  assert.doesNotMatch(global, /SocialAlertsTray/);
 });
 
-test("social creator alerts stay durable, support multiview, and expose per-content settings", () => {
-  const tray = source("components/watch/SocialAlertsTray.tsx");
+test("Passport presence runs only for the current signed-in account", () => {
   const global = source("components/watch/GlobalWatchEnhancements.tsx");
+  assert.match(global, /const \{ user \} = useAuth\(\)/);
+  assert.match(global, /\{user \? <PassportPresenceBridge key=\{user\.id\} \/> : null\}/);
+});
+
+test("optional social alert surfaces retain durable reads and per-content settings without multiview actions", () => {
+  const tray = source("components/watch/SocialAlertsTray.tsx");
   const settings = source("components/account/SocialNotificationSettings.tsx");
   const api = source("app/api/account/alerts/route.ts");
   const preferences = source("app/api/account/social-notifications/route.ts");
 
-  assert.match(global, /<SocialAlertsTray\s*\/>/);
   assert.match(tray, /\/api\/account\/alerts\?limit=20/);
   assert.match(tray, /alert\.read/);
   assert.match(tray, /method: "PATCH"/);
   assert.match(api, /listSocialAlerts\(userId/);
   assert.match(api, /markSocialAlertRead\(userId/);
-  assert.match(tray, /player\.addTile\(playable, \{ focus: true, muted: true \}\)/);
-  assert.match(tray, /router\.push\("\/multiview"\)/);
+  assert.doesNotMatch(tray, /Add tile|addToMultiview|player\.addTile|\/multiview/);
   assert.match(tray, /overflow-wrap:anywhere/);
   assert.doesNotMatch(tray, /alert\.title[^\n]*line-clamp/);
   assert.match(settings, /key: "video", label: "Videos"/);

@@ -37,7 +37,8 @@ test("Shorts preserves a closed companion panel while the viewer moves between c
 
 test("Theater has a top-left back arrow labeled Home", () => {
   assert.match(player, /\{theater && !shortsPage \? \([\s\S]*watch-player-theater-home[\s\S]*<Link[\s\S]*href="\/"[\s\S]*aria-label="Back to Home"[\s\S]*<ArrowLeft[\s\S]*<span>Home<\/span>/);
-  assert.match(player, /onClick=\{\(\) => minimize\(\)\}/);
+  assert.match(player, /onClick=\{minimizeForNavigation\}/);
+  assert.match(player, /const minimizeForNavigation = useCallback\(\(\) => \{\s*cancelTheaterHandoff\(window\.location\);\s*minimize\(\);/);
   assert.match(css, /\.watch-player-theater-home\s*\{[^}]*position:\s*absolute;[^}]*top:[^;]+;[^}]*left:[^;]+;/s);
 });
 

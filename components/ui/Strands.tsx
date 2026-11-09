@@ -19,7 +19,6 @@ uniform vec2 uResolution;
 uniform vec3 uColors[${MAX_COLORS}];
 uniform int uColorCount;
 uniform int uStrandCount;
-uniform float uSpeed;
 uniform float uAmplitude;
 uniform float uWaviness;
 uniform float uThickness;
@@ -30,6 +29,7 @@ uniform float uIntensity;
 uniform float uOpacity;
 uniform float uScale;
 uniform float uSaturation;
+uniform float uAudioLevel;
 out vec4 fragColor;
 const float PI = 3.14159265;
 vec3 samplePalette(float t) {
@@ -44,24 +44,30 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
   uv /= max(uScale, 0.0001);
   float energy = 0.06 + uIntensity * 0.94;
+  float audioEnergy = clamp(uAudioLevel, 0.0, 1.0);
   float envelope = pow(max(cos(uv.x * PI * 1.3), 0.0), uTaper);
   vec3 color = vec3(0.0);
+  float pixel = 1.0 / (uResolution.y * max(uScale, 0.0001));
   for (int i = 0; i < ${MAX_STRANDS}; i++) {
     if (i >= uStrandCount) break;
     float strand = float(i);
     float phase = strand * 1.7 * uSpread;
     float frequency = (2.0 + strand * 0.35) * uWaviness;
-    float speed = 1.4 + strand * 1.2;
-    float time = uTime * uSpeed;
+    float speed = 1.0 + strand * 0.18;
+    float time = uTime;
     float wave = sin(uv.x * frequency + time * speed + phase) * 0.60
       + sin(uv.x * frequency * 1.1 - time * speed * 0.7 + phase * 1.7) * 0.40;
-    float y = wave * (0.1 + 0.02 * energy) * envelope * uAmplitude;
-    float width = (0.001 + 0.05 * energy) * (0.35 + envelope) * uThickness;
-    float glow = width / (abs(uv.y - y) + width * 0.45);
-    color += samplePalette(strand / float(uStrandCount) + uv.x * 0.3 + uTime * 0.04) * glow * glow * envelope;
+    float y = wave * (0.1 + 0.02 * energy) * envelope * uAmplitude * (0.72 + audioEnergy * 1.8);
+    // A fine illuminated trace, with a small falloff like phosphor on glass.
+    // Keep the core a consistent physical width as the voice gets louder.
+    float width = pixel * max(0.55, uThickness);
+    float distance = abs(uv.y - y);
+    float trace = 1.0 - smoothstep(width, width + pixel, distance);
+    float halo = exp(-distance / (width * 3.0)) * 0.16 * uGlow;
+    color += samplePalette(strand / float(uStrandCount)) * (trace + halo) * envelope;
   }
   color *= 0.45 + 0.7 * energy;
-  color = 1.0 - exp(-color * uGlow);
+  color = 1.0 - exp(-color);
   float grayscale = dot(color, vec3(0.2126, 0.7152, 0.0722));
   color = max(mix(vec3(grayscale), color, uSaturation), 0.0);
   float alpha = clamp(max(max(color.r, color.g), color.b), 0.0, 1.0) * uOpacity;
@@ -83,6 +89,7 @@ type StrandsProps = {
   saturation?: number;
   opacity?: number;
   scale?: number;
+  audioLevel?: number;
   className?: string;
 };
 
@@ -109,17 +116,30 @@ export function Strands({
   saturation = 1.5,
   opacity = 1,
   scale = 1.5,
+  audioLevel = 0,
   className = "",
 }: StrandsProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const propsRef = useRef({ colors, count, speed, amplitude, waviness, thickness, glow, taper, spread, intensity, saturation, opacity, scale });
-  propsRef.current = { colors, count, speed, amplitude, waviness, thickness, glow, taper, spread, intensity, saturation, opacity, scale };
+  const propsRef = useRef({ colors, count, speed, amplitude, waviness, thickness, glow, taper, spread, intensity, saturation, opacity, scale, audioLevel });
+  propsRef.current = { colors, count, speed, amplitude, waviness, thickness, glow, taper, spread, intensity, saturation, opacity, scale, audioLevel };
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const renderer = new Renderer({ alpha: true, premultipliedAlpha: true, antialias: true });
+    // Initialize once from the same ref the animation reads on every frame.
+    // Changing audio or appearance should update uniforms, not recreate WebGL.
+    const initial = propsRef.current;
+    let renderer: Renderer;
+    try {
+      renderer = new Renderer({ alpha: true, premultipliedAlpha: true, antialias: true, dpr: Math.min(window.devicePixelRatio || 1, 2) });
+    } catch {
+      return; // The CSS trace remains visible when WebGL is unavailable.
+    }
     const gl = renderer.gl;
+    if (!renderer.isWebgl2) {
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      return;
+    }
     gl.clearColor(0, 0, 0, 0);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -128,12 +148,15 @@ export function Strands({
     const program = new Program(gl, {
       vertex,
       fragment,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
       uniforms: {
-        uTime: { value: 0 }, uResolution: { value: [1, 1] }, uColors: { value: palette(colors) },
-        uColorCount: { value: Math.min(colors.length, MAX_COLORS) }, uStrandCount: { value: Math.min(count, MAX_STRANDS) },
-        uSpeed: { value: speed }, uAmplitude: { value: amplitude }, uWaviness: { value: waviness }, uThickness: { value: thickness },
-        uGlow: { value: glow }, uTaper: { value: taper }, uSpread: { value: spread }, uIntensity: { value: intensity },
-        uOpacity: { value: opacity }, uScale: { value: scale }, uSaturation: { value: saturation },
+        uTime: { value: 0 }, uResolution: { value: [1, 1] }, uColors: { value: palette(initial.colors) },
+        uColorCount: { value: Math.max(1, Math.min(initial.colors.length, MAX_COLORS)) }, uStrandCount: { value: Math.min(initial.count, MAX_STRANDS) },
+        uAmplitude: { value: initial.amplitude }, uWaviness: { value: initial.waviness }, uThickness: { value: initial.thickness },
+        uGlow: { value: initial.glow }, uTaper: { value: initial.taper }, uSpread: { value: initial.spread }, uIntensity: { value: initial.intensity },
+        uOpacity: { value: initial.opacity }, uScale: { value: initial.scale }, uSaturation: { value: initial.saturation }, uAudioLevel: { value: initial.audioLevel },
       },
     });
     const mesh = new Mesh(gl, { geometry, program });
@@ -142,19 +165,37 @@ export function Strands({
       const width = Math.max(1, host.offsetWidth);
       const height = Math.max(1, host.offsetHeight);
       renderer.setSize(width, height);
-      program.uniforms.uResolution.value = [width, height];
+      program.uniforms.uResolution.value = [gl.drawingBufferWidth, gl.drawingBufferHeight];
     };
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
     let frame = 0;
+    let visible = true;
+    let previousTime = 0;
+    let elapsed = 0;
+    let smoothedAudio = 0;
+    let paletteKey = initial.colors.join(",");
+    let contextLost = false;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const canAnimate = () => visible && !document.hidden && !motion.matches && !contextLost;
     const render = (time: number) => {
+      frame = 0;
+      if (!canAnimate()) return;
       const current = propsRef.current;
-      program.uniforms.uTime.value = time * 0.001;
-      program.uniforms.uColors.value = palette(current.colors);
-      program.uniforms.uColorCount.value = Math.min(current.colors.length, MAX_COLORS);
+      const delta = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 1 / 60;
+      previousTime = time;
+      // Integrate speed so voice-level changes cannot jump the trace's phase.
+      elapsed += delta * current.speed;
+      smoothedAudio += (current.audioLevel - smoothedAudio) * (1 - Math.exp(-delta * 12));
+      program.uniforms.uTime.value = elapsed;
+      const nextPaletteKey = current.colors.join(",");
+      if (nextPaletteKey !== paletteKey) {
+        program.uniforms.uColors.value = palette(current.colors);
+        paletteKey = nextPaletteKey;
+      }
+      program.uniforms.uColorCount.value = Math.max(1, Math.min(current.colors.length, MAX_COLORS));
       program.uniforms.uStrandCount.value = Math.min(Math.max(Math.round(current.count), 1), MAX_STRANDS);
-      program.uniforms.uSpeed.value = current.speed;
       program.uniforms.uAmplitude.value = current.amplitude;
       program.uniforms.uWaviness.value = current.waviness;
       program.uniforms.uThickness.value = current.thickness;
@@ -165,13 +206,39 @@ export function Strands({
       program.uniforms.uOpacity.value = current.opacity;
       program.uniforms.uScale.value = current.scale;
       program.uniforms.uSaturation.value = current.saturation;
+      program.uniforms.uAudioLevel.value = smoothedAudio;
       renderer.render({ scene: mesh });
       frame = requestAnimationFrame(render);
     };
-    frame = requestAnimationFrame(render);
+    const syncAnimation = () => {
+      cancelAnimationFrame(frame);
+      previousTime = 0;
+      frame = canAnimate() ? requestAnimationFrame(render) : 0;
+    };
+    const visibility = new IntersectionObserver(([entry]) => {
+      visible = Boolean(entry?.isIntersecting);
+      syncAnimation();
+    });
+    visibility.observe(host);
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      contextLost = true;
+      syncAnimation();
+      gl.canvas.style.opacity = "0";
+    };
+    gl.canvas.addEventListener("webglcontextlost", onContextLost);
+    document.addEventListener("visibilitychange", syncAnimation);
+    motion.addEventListener("change", syncAnimation);
+    syncAnimation();
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      visibility.disconnect();
+      document.removeEventListener("visibilitychange", syncAnimation);
+      motion.removeEventListener("change", syncAnimation);
+      gl.canvas.removeEventListener("webglcontextlost", onContextLost);
+      geometry.remove();
+      program.remove();
       if (gl.canvas.parentNode === host) host.removeChild(gl.canvas);
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };

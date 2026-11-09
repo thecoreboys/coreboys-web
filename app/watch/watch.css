@@ -2606,6 +2606,51 @@
   pointer-events: none;
 }
 
+/* Twitch gates autoplay on a visible player at least 400 by 300 pixels. */
+.watch-preview.watch-preview-portal.is-twitch {
+  animation: none;
+  contain: none;
+  filter: none;
+  overflow: visible;
+  transform: none;
+  will-change: auto;
+}
+
+.watch-preview.is-twitch .watch-preview-media {
+  width: 100%;
+  height: 300px;
+  aspect-ratio: auto;
+  overflow: visible;
+}
+
+.watch-preview-twitch,
+.watch-preview-twitch iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: auto !important;
+}
+
+.watch-preview-twitch {
+  z-index: 2;
+}
+
+/* Keep every CORE control below the iframe: even a corner badge makes
+   Twitch's visibility observer reject muted autoplay as obscured. */
+.watch-preview.has-twitch-player .watch-preview-save {
+  top: calc(300px + 0.65rem);
+}
+
+.watch-preview.has-twitch-player .watch-preview-meta {
+  padding-right: 4rem;
+}
+
+.watch-preview.is-twitch.has-motion .watch-preview-media::after {
+  display: none;
+}
+
 .watch-preview.is-still .watch-preview-still {
   animation: none;
   transform: none;
@@ -3463,7 +3508,72 @@ html[data-theme="light"] .watch-content-rails .watch-library-disclosure h2 {
 
 html[data-theme="light"] .watch-billboard-kicker {
   color: color-mix(in srgb, var(--ink) 78%, transparent);
-  text-shadow: 0 1px 8px rgba(255, 255, 255, .65);
+  text-shadow: none;
+}
+
+/* The Watch hero keeps its cinematic image treatment in light mode, but its
+   copy and controls need light-theme surfaces instead of dark glass. */
+html[data-theme="light"] .watch-billboard {
+  background: #f1f1ef;
+  color: var(--ink);
+}
+
+html[data-theme="light"] .watch-billboard-veil {
+  background:
+    linear-gradient(90deg, rgba(248, 248, 247, .98) 0%, rgba(248, 248, 247, .9) 34%, rgba(248, 248, 247, .58) 62%, rgba(248, 248, 247, .08) 100%),
+    linear-gradient(180deg, rgba(248, 248, 247, .08) 0%, rgba(248, 248, 247, .28) 54%, rgba(248, 248, 247, .96) 100%);
+}
+
+html[data-theme="light"] .watch-billboard .watch-title {
+  color: var(--ink);
+  text-shadow: none;
+}
+
+html[data-theme="light"] .watch-billboard-copy {
+  text-shadow: none;
+}
+
+html[data-theme="light"] .watch-billboard-progress {
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  box-shadow: none;
+}
+
+html[data-theme="light"] .watch-billboard-progress-time {
+  color: var(--ink-dim);
+}
+
+html[data-theme="light"] .watch-billboard-play {
+  background: var(--core);
+  color: #fff;
+  box-shadow: 0 5px 16px rgba(219, 3, 104, .2);
+}
+
+html[data-theme="light"] .watch-billboard-play:hover {
+  background: color-mix(in srgb, var(--core) 88%, #000);
+}
+
+html[data-theme="light"] .watch-billboard-details,
+html[data-theme="light"] .watch-billboard-list {
+  border: 1px solid var(--rule-strong);
+  background: rgba(255, 255, 255, .82);
+  color: var(--ink);
+  outline: none;
+  box-shadow: 0 4px 14px rgba(20, 20, 24, .08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+html[data-theme="light"] .watch-billboard-details:hover,
+html[data-theme="light"] .watch-billboard-list:hover {
+  border-color: color-mix(in srgb, var(--core) 34%, var(--rule-strong));
+  background: #fff;
+}
+
+html[data-theme="light"] .watch-billboard-play:focus-visible,
+html[data-theme="light"] .watch-billboard-details:focus-visible,
+html[data-theme="light"] .watch-billboard-list:focus-visible {
+  outline: 2px solid var(--core);
+  outline-offset: 3px;
 }
 
 html[data-theme="light"] .watch-content-rails .watch-library-disclosure {
@@ -3576,7 +3686,7 @@ html[data-theme="light"] .watch-status-strip .watch-status-inner > p {
 
 .watch-browse-bar {
   position: sticky;
-  top: calc(3.5rem + var(--live-ribbon-h, 0px));
+  top: var(--site-header-h, 8rem);
   z-index: 36;
   width: 100%;
   border-block: 1px solid rgba(255, 255, 255, 0.075);
@@ -3786,7 +3896,7 @@ html[data-theme="light"] .watch-status-strip .watch-status-inner > p {
 
 @media (min-width: 768px) {
   .watch-browse-bar {
-    top: calc(4rem + var(--live-ribbon-h, 0px));
+    top: var(--site-header-h, 8rem);
   }
 
   .watch-browse-bar-inner,
@@ -4680,7 +4790,7 @@ html[data-watch-density="theater"] .watch-poster.format-short { width: min(11rem
 
 .watch-station-ident {
   position: fixed;
-  top: calc(4.8rem + env(safe-area-inset-top));
+  top: calc(var(--site-header-h, 8rem) + .75rem);
   left: 50%;
   z-index: 100;
   max-width: min(92vw, 32rem);
@@ -5025,6 +5135,28 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   opacity: 1;
   transform: scale(1);
 }
+
+.watch-preview-provider-state {
+  position: absolute;
+  z-index: 5;
+  inset-inline: .75rem;
+  bottom: .75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .65rem .8rem;
+  border: 1px solid #ffffff30;
+  border-radius: .6rem;
+  background: #111114f2;
+  color: #e6e6eb;
+  font-size: .75rem;
+  line-height: 1.5;
+}
+.watch-preview-provider-state a { color: #fff; font-weight: 600; text-underline-offset: 3px; }
+.watch-preview-provider-state a:hover { text-decoration: underline; }
+.watch-preview-provider-state a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
 @media (max-width: 900px) {
   .watch-catchup-shell {
@@ -5898,6 +6030,7 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
 }
 
 .watch-search-filter-popover fieldset { margin: 0; border: 0; padding: 0; }
+.watch-search-filter-popover fieldset + fieldset { margin-top: 0.8rem; }
 .watch-search-filter-popover legend,
 .watch-search-filter-popover label > span {
   display: block;
@@ -5908,6 +6041,35 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+.watch-search-content-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.38rem;
+}
+
+.watch-search-content-options button {
+  display: flex;
+  min-width: 0;
+  min-height: 3.35rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.28rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.56rem;
+  padding: 0.45rem 0.55rem;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.68);
+  font: inherit;
+  font-size: 0.64rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.watch-search-content-options button > svg { width: 1rem; height: 1rem; }
+.watch-search-content-options button:hover { border-color: rgba(255, 255, 255, 0.22); color: #fff; }
+.watch-search-content-options button[aria-pressed="true"] { border-color: rgba(255, 62, 72, 0.7); background: rgba(229, 9, 20, 0.14); color: #fff; }
 
 .watch-search-platform-options {
   display: grid;
@@ -7158,7 +7320,9 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   border-radius: 0.8rem;
   background: rgba(10, 10, 13, 0.94);
   color: #fff;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+  /* An outward shadow reaches back over Twitch's iframe and fails its
+     visibility check, preventing SDK Play. Keep the finish inside the rail. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .watch-twitch-control-rail > button {
@@ -7476,8 +7640,23 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   transition: color 120ms ease, background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
+.watch-player-custom-controls > .watch-player-multiview-control {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.82);
+  text-decoration: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.11);
+  transition: color 120ms ease, background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
 .watch-player-custom-controls > button:hover,
-.watch-player-custom-controls > button.is-active {
+.watch-player-custom-controls > button.is-active,
+.watch-player-custom-controls > .watch-player-multiview-control:hover {
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 6px 16px rgba(0, 0, 0, 0.28);
@@ -7492,15 +7671,21 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   transform: scale(0.96);
 }
 
+.watch-player-custom-controls > .watch-player-multiview-control:active { transform: scale(0.96); }
+
 .watch-player-custom-controls > button:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
 }
 
+.watch-player-custom-controls > .watch-player-multiview-control:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 .watch-player-custom-controls > button svg {
   width: 1.05rem;
   height: 1.05rem;
 }
+
+.watch-player-custom-controls > .watch-player-multiview-control svg { width: 1.05rem; height: 1.05rem; }
 
 .watch-player-custom-controls .watch-twitch-quality button {
   cursor: pointer;
@@ -7911,6 +8096,8 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
     width: 2.15rem;
     height: 2.15rem;
   }
+
+  .watch-player-custom-controls > .watch-player-multiview-control { width: 2.15rem; height: 2.15rem; }
 
   [data-player-layout="compact"][data-player-shape="portrait"] .watch-player-custom-controls > button,
   [data-player-layout="compact"] .watch-player-window-controls > a,
@@ -8443,6 +8630,8 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   animation: watch-context-menu-in 150ms cubic-bezier(.2, .85, .25, 1) both;
 }
 
+body:has(.watch-search-backdrop) .watch-context-menu { z-index: 145; }
+
 .watch-context-menu__head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 1.8rem;
@@ -8611,6 +8800,11 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   transition: transform 180ms ease,border-color 180ms ease,box-shadow 180ms ease;
 }
 .watch-together__trigger:hover,.watch-together__trigger:focus-visible,.watch-together[data-open="true"] .watch-together__trigger { transform: translateY(-2px); border-color: rgba(255,116,181,.42); box-shadow: inset 0 1px rgba(255,255,255,.14),0 1rem 2.4rem rgba(0,0,0,.5),0 0 2rem rgba(229,0,111,.22); }
+/* The floating control's outer glow can overlap a nearby Twitch frame even
+   when the button itself is outside it. Preserve the button and inner glow. */
+body:has(.watch-player-media[data-twitch-native-player]) .watch-together__trigger {
+  box-shadow: inset 0 1px rgba(255,255,255,.14), inset 0 0 1rem rgba(229,0,111,.12);
+}
 .watch-together__trigger > span:nth-child(2) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .watch-together__trigger strong { overflow: hidden; color: rgba(255,255,255,.94); font-size: .72rem; font-weight: 750; letter-spacing: -.015em; text-overflow: ellipsis; white-space: nowrap; }
 .watch-together__trigger small { margin-top: .12rem; color: rgba(255,255,255,.43); font-size: .58rem; font-weight: 600; }

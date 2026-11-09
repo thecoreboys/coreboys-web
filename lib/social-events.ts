@@ -2,6 +2,8 @@ import "server-only";
 
 import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/db";
+import { getUnavailableContentKeys, lockContentReferences } from "@/lib/content-availability";
+import { isContentUnavailable, type ContentIdentityInput } from "@/lib/content-identity";
 import type { FeedItem, SocialPlatform } from "@/components/feed/types";
 import type { AlertOrientation, SocialAlert, SocialContentType } from "@/lib/social-alert";
 import {
@@ -202,7 +204,7 @@ export function socialEventFromFeedItem(item: FeedItem): SocialEventInput | null
 }
 
 /** Insert one normalized content event. `created` is false for provider retries. */
-export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: string; created: boolean }> {
+export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: string | null; created: boolean; suppressed?: boolean }> {
   const href = validUrl(input.href);
   const published = Date.parse(input.publishedAt);
   if (!href || !Number.isFinite(published) || !input.canonicalId.trim()) throw new Error("invalid_social_event");
@@ -219,12 +221,29 @@ export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: 
       : "stale_backfill";
 
   return withTransaction(async (client) => {
+    const reference: ContentIdentityInput = { provider: input.provider, canonicalId, sourceUrl: href };
+    const payload = { ...(input.platformPayload ?? {}) };
+    const preview = payload.notificationPreview && typeof payload.notificationPreview === "object"
+      ? payload.notificationPreview as Record<string, unknown> : undefined;
+    const quote = preview?.quote && typeof preview.quote === "object" ? preview.quote as Record<string, unknown> : undefined;
+    const quoteReference: ContentIdentityInput | undefined = typeof quote?.statusUrl === "string"
+      ? { provider: "x", sourceUrl: quote.statusUrl } : undefined;
+    const references = [reference, ...(quoteReference ? [quoteReference] : [])];
+    await lockContentReferences(client, references);
+    const removed = await getUnavailableContentKeys(references, client);
+    if (isContentUnavailable(reference, removed)) return { id: null, created: false, suppressed: true };
+    if (preview && quoteReference && isContentUnavailable(quoteReference, removed)) {
+      const safePreview = { ...preview };
+      delete safePreview.quote;
+      payload.notificationPreview = safePreview;
+    }
     type StoredEvent = {
       id: string;
       member_slug: string | null;
       content_type: SocialContentType;
       published_at: string;
       notification_eligible: boolean;
+      removed_at?: string | null;
       created?: boolean;
     };
     const inserted = await client.query<StoredEvent>(
@@ -234,7 +253,7 @@ export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: 
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13)
        ON CONFLICT (canonical_id) DO UPDATE
          SET artwork_url = COALESCE(EXCLUDED.artwork_url, social_content_events.artwork_url)
-         WHERE EXCLUDED.artwork_url IS NOT NULL
+         WHERE social_content_events.removed_at IS NULL AND EXCLUDED.artwork_url IS NOT NULL
            AND social_content_events.artwork_url IS DISTINCT FROM EXCLUDED.artwork_url
        RETURNING id::text,member_slug,content_type,published_at::text,notification_eligible,
                  (xmax = 0) AS created`,
@@ -248,7 +267,7 @@ export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: 
         href,
         input.artworkUrl ? validUrl(input.artworkUrl) : null,
         input.orientation ?? null,
-        JSON.stringify(input.platformPayload ?? {}),
+        JSON.stringify(payload),
         new Date(published).toISOString(),
         notificationEligible,
         suppressionReason,
@@ -256,13 +275,14 @@ export async function recordSocialEvent(input: SocialEventInput): Promise<{ id: 
     );
     const created = inserted.rows[0]?.created === true;
     const event = inserted.rows[0] ?? (await client.query<StoredEvent>(
-      `SELECT id::text,member_slug,content_type,published_at::text,notification_eligible
+      `SELECT id::text,member_slug,content_type,published_at::text,notification_eligible,removed_at::text
          FROM social_content_events WHERE canonical_id=$1 LIMIT 1`,
       [canonicalId],
     )).rows[0];
     if (!event) throw new Error("social_event_conflict_missing");
 
     const eligibleNow = input.notify !== false
+      && !event.removed_at
       && event.notification_eligible
       && (input.notify === true || isFreshSocialEvent(
         event.published_at,
@@ -362,7 +382,7 @@ export async function listSocialAlerts(userId: string, limit = 40, before?: stri
             e.published_at::text,d.id::text AS delivery_id,d.read_at::text
        FROM social_notification_deliveries d
        JOIN social_content_events e ON e.id=d.event_id
-      WHERE d.user_id=$1 AND d.channel='in_app' AND d.status IN ('sent','read')
+      WHERE d.user_id=$1 AND d.channel='in_app' AND d.status IN ('sent','read') AND e.removed_at IS NULL
         AND ($2::timestamptz IS NULL OR d.created_at < $2::timestamptz)
       ORDER BY d.created_at DESC
       LIMIT $3`,

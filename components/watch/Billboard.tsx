@@ -1,6 +1,11 @@
 "use client";
 
+import { compactTitle } from "@/lib/watch/presentation";
+
 import Link from "next/link";
+import { Volume2, VolumeX } from "lucide-react";
+import { setTwitchHeroSound } from "@/lib/watch/hero-audio";
+import { PREVIEW_AUDIO_CLAIM_EVENT } from "@/lib/watch/preview-audio";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { WatchItem } from "@/lib/watch/types";
 import { MY_LIST_EVENT, readMyList, redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
@@ -11,12 +16,12 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
+import type { Playable } from "@/lib/watch/playable";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import {
   bestWatchProgressMark,
   CONTINUE_WATCHING_MIN_SECONDS,
 } from "@/lib/watch/continue-watching";
-import type { Playable } from "@/lib/watch/playable";
 import { WatchThumb } from "./WatchThumb";
 
 type BillboardTwitchInstance = {
@@ -24,6 +29,8 @@ type BillboardTwitchInstance = {
   destroy?: () => void;
   play?: () => void;
   setMuted?: (muted: boolean) => void;
+  setVolume?: (volume: number) => void;
+  getMuted?: () => boolean;
   /** Some Twitch builds never emit PLAYING while an ad/interstitial settles. */
   isPaused?: () => boolean;
   getCurrentTime?: () => number;
@@ -122,13 +129,14 @@ function directVideoPreviewUrl(value?: string | null): string | null {
   return value;
 }
 
-export function BillboardCarousel({ items }: { items: WatchItem[] }) {
+export function BillboardCarousel({ items, headingLevel = "h1" }: { items: WatchItem[]; headingLevel?: "h1" | "h2" }) {
   const slides = useMemo(() => uniqueBillboards(items), [items]);
   const [index, setIndex] = useState(0);
   const [focusPaused, setFocusPaused] = useState(false);
   const [hoverPaused, setHoverPaused] = useState(false);
+  const [soundPaused, setSoundPaused] = useState(false);
   const reducedMotion = useReducedMotion();
-  const interactionPaused = focusPaused || hoverPaused;
+  const interactionPaused = focusPaused || hoverPaused || soundPaused;
 
   useEffect(() => {
     setIndex((current) => (slides.length ? current % slides.length : 0));
@@ -160,11 +168,11 @@ export function BillboardCarousel({ items }: { items: WatchItem[] }) {
       }}
     >
       <div key={item.id} className="watch-billboard-slide">
-        <Billboard item={item} />
+        <Billboard item={item} headingLevel={headingLevel} onSoundChange={setSoundPaused} />
       </div>
 
       {slides.length > 1 ? (
-        <div className="watch-billboard-controls" aria-label="Featured videos and live channels">
+        <div className="watch-billboard-navigation"><div className="watch-billboard-controls" aria-label="Featured videos and live channels">
           <Tooltip
             title="Previous feature"
             description="Show the previous featured video or live channel."
@@ -212,13 +220,14 @@ export function BillboardCarousel({ items }: { items: WatchItem[] }) {
               <span aria-hidden>›</span>
             </button>
           </Tooltip>
-        </div>
+        </div></div>
       ) : null}
     </div>
   );
 }
 
-function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; playable: Playable; onOpen: () => void }) {
+function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: WatchItem; playable: Playable; onOpen: () => void; onSoundChange?: (audible: boolean) => void }) {
+  const reducedMotion = useReducedMotion();
   const slotRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const nativeVideoRef = useRef<HTMLVideoElement>(null);
@@ -239,6 +248,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
   // The sound control below is a real viewer gesture, so it can safely opt
   // into audio after pixels are already playing.
   const mutedRef = useRef(true);
+  const soundGestureAt = useRef(0);
   const [muted, setMuted] = useState(true);
   const [slotFitsProvider, setSlotFitsProvider] = useState(false);
   const [providerExposed, setProviderExposed] = useState(false);
@@ -246,7 +256,10 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
   const {
     current,
     dataSaver,
+    previewAutoplay,
     ready: playerReady,
+    claimPreviewAudio,
+    releasePreviewAudio,
   } = usePlayer();
 
   useEffect(() => {
@@ -333,6 +346,8 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
     // Do not open a second provider iframe in the billboard behind it.
     !current &&
     !dataSaver &&
+    previewAutoplay &&
+    !reducedMotion &&
     slotFitsProvider &&
     providerExposed &&
     pageVisible;
@@ -350,6 +365,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
     const target = frameRef.current?.contentWindow;
     if (!target || !playable.youtubeId) return;
     target.postMessage(JSON.stringify({ event: "listening", id: `core-billboard-${item.id}` }), "*");
+    if (!nextMuted) target.postMessage(JSON.stringify({ event: "command", func: "setVolume", args: [100] }), "*");
     target.postMessage(JSON.stringify({
       event: "command",
       func: nextMuted ? "mute" : "unMute",
@@ -362,16 +378,14 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
 
   const toggleHeroMute = useCallback(() => {
     const nextMuted = !mutedRef.current;
+    soundGestureAt.current = Date.now();
     setHeroMuted(nextMuted);
     try {
       if (isTwitch) {
-        twitchPlayerRef.current?.setMuted?.(nextMuted);
-        // A click on the CORE control is a valid user gesture. Ask Twitch to
-        // continue in case its provider player is paused behind an ad or
-        // audience gate while the viewer turns sound on.
-        twitchPlayerRef.current?.play?.();
+        setTwitchHeroSound(twitchPlayerRef.current, nextMuted);
       } else if (nativeVideoRef.current) {
         nativeVideoRef.current.muted = nextMuted;
+        if (!nextMuted) nativeVideoRef.current.volume = 1;
         void nativeVideoRef.current.play().then(() => setNativePlaying(true)).catch(() => setNativePlaying(false));
       } else {
         requestFramePlayback(nextMuted, true);
@@ -382,13 +396,59 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
     }
   }, [isTwitch, requestFramePlayback, setHeroMuted]);
 
+  useEffect(() => {
+    const ownerId = `hero-${twitchMountId}`;
+    onSoundChange?.(!muted);
+    if (!muted) {
+      window.dispatchEvent(new CustomEvent(PREVIEW_AUDIO_CLAIM_EVENT, { detail: { ownerId } }));
+      claimPreviewAudio(ownerId);
+    }
+    return () => { onSoundChange?.(false); releasePreviewAudio(ownerId); };
+  }, [muted, onSoundChange, claimPreviewAudio, releasePreviewAudio, twitchMountId]);
+
+  useEffect(() => {
+    const onClaim = (event: Event) => {
+      const ownerId = (event as CustomEvent<{ ownerId: string }>).detail?.ownerId;
+      if (!ownerId || ownerId === `hero-${twitchMountId}` || mutedRef.current) return;
+      setHeroMuted(true);
+      twitchPlayerRef.current?.setMuted?.(true);
+      if (nativeVideoRef.current) nativeVideoRef.current.muted = true;
+      requestFramePlayback(true);
+    };
+    window.addEventListener(PREVIEW_AUDIO_CLAIM_EVENT, onClaim);
+    return () => window.removeEventListener(PREVIEW_AUDIO_CLAIM_EVENT, onClaim);
+  }, [requestFramePlayback, setHeroMuted, twitchMountId]);
+
+  useEffect(() => {
+    if (!isTwitch || !twitchMounted) return;
+    let previousPosition = -1;
+    const timer = window.setInterval(() => {
+      try {
+        const player = twitchPlayerRef.current;
+        const position = player?.getCurrentTime?.() ?? 0;
+        const advancing = previousPosition >= 0 && position > previousPosition + .25 && player?.isPaused?.() === false;
+        previousPosition = position;
+        // Native Play can recover playback even if Twitch withholds PLAYING.
+        if (advancing) {
+          setTwitchPlaying(true);
+          setTwitchRecovering(false);
+        }
+        // Before playback/interaction, SDK getters can contain default values.
+        if ((!advancing && !soundGestureAt.current) || Date.now() - soundGestureAt.current < 1_500) return;
+        const actual = player?.getMuted?.();
+        if (typeof actual === "boolean" && actual !== mutedRef.current) setHeroMuted(actual);
+      } catch { /* Twitch can reject state reads during an interstitial. */ }
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [isTwitch, twitchMounted, setHeroMuted]);
+
   // Start fetching the Twitch SDK as soon as the hero is hydrated instead of
   // waiting for the viewport measurement and player preferences to settle.
   // The actual media player still mounts only when the preview is eligible.
   useEffect(() => {
-    if (!isTwitch || dataSaver) return;
+    if (!isTwitch || dataSaver || reducedMotion || !previewAutoplay) return;
     void loadBillboardTwitch().catch(() => undefined);
-  }, [dataSaver, isTwitch]);
+  }, [dataSaver, isTwitch, previewAutoplay, reducedMotion]);
 
   const frameSrc = useMemo(() => {
     if (!wantsAutoplay || !host || isTwitch || nativeVideoUrl) return null;
@@ -665,7 +725,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
     : nativeVideoUrl
       ? nativePlaying
       : Boolean(frameSrc && loadedSrc === frameSrc);
-  const soundControlReady = !isTwitch && (nativeVideoUrl
+  const soundControlReady = isTwitch ? twitchMounted : (nativeVideoUrl
       ? wantsAutoplay
       : Boolean(frameSrc && loadedSrc === frameSrc));
   const previewState = frameReady
@@ -693,7 +753,7 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
           id={twitchMountId}
           className="watch-billboard-live-mount"
         />
-      ) : nativeVideoUrl ? (
+      ) : nativeVideoUrl && wantsAutoplay ? (
         <video
           ref={nativeVideoRef}
           src={nativeVideoUrl}
@@ -724,6 +784,12 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
           onError={() => setLoadedSrc(null)}
         />
       ) : null}
+      <div className="watch-billboard-provider-status">
+      {isTwitch && (twitchRecovering || twitchLoadError) && !twitchPlaying ? <div role="status">
+        <span>{twitchLoadError ? "Twitch couldn't load." : "Press Play in the Twitch player to start."}</span>
+        <button type="button" onClick={() => setRetryToken((value) => value + 1)}>Try again</button>
+        <a href={twitchChannel ? `https://www.twitch.tv/${encodeURIComponent(twitchChannel)}` : `https://www.twitch.tv/videos/${encodeURIComponent(twitchVideo ?? "")}`} target="_blank" rel="noopener noreferrer">Open on Twitch</a>
+      </div> : null}
       {soundControlReady ? (
         <button
           type="button"
@@ -732,9 +798,11 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
           aria-label={muted ? `Turn sound on for ${item.title}` : `Mute ${item.title}`}
           onClick={toggleHeroMute}
         >
-          {muted ? "Sound off" : "Sound on"}
+          {muted ? <VolumeX size={16} aria-hidden /> : <Volume2 size={16} aria-hidden />}
+          {muted ? "Turn sound on" : "Mute stream"}
         </button>
       ) : null}
+      </div>
       {!isTwitch ? (
         <button
           type="button"
@@ -747,18 +815,12 @@ function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; play
           <span className="watch-billboard-live-core-muted">{muted ? "Muted preview" : "Sound on"}</span>
         </button>
       ) : null}
-      {isTwitch ? <><span className="watch-billboard-provider-label">Preview</span><div className="watch-billboard-provider-status">
-        {(twitchRecovering || twitchLoadError) && !twitchPlaying ? <div role="status">
-          <span>Twitch is taking longer to load.</span>
-          <button type="button" onClick={() => setRetryToken((value) => value + 1)}>Try again</button>
-          <a href={twitchChannel ? `https://www.twitch.tv/${encodeURIComponent(twitchChannel)}` : `https://www.twitch.tv/videos/${encodeURIComponent(twitchVideo ?? "")}`} target="_blank" rel="noopener noreferrer">Open on Twitch</a>
-        </div> : null}
-      </div></> : null}
+      {isTwitch ? <span className="watch-billboard-provider-label">Preview</span> : null}
     </div>
   );
 }
 
-export function Billboard({ item }: { item: WatchItem }) {
+export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }: { item: WatchItem; headingLevel?: "h1" | "h2"; onSoundChange?: (audible: boolean) => void }) {
   const [saved, setSaved] = useState(false);
   const { map } = useWatchProgress();
   const player = usePlayer();
@@ -854,7 +916,7 @@ export function Billboard({ item }: { item: WatchItem }) {
       </div>
       <div className="watch-billboard-veil" aria-hidden />
 
-      {heroPlayable ? <BillboardHeroPlayer item={item} playable={heroPlayable} onOpen={playInPlayer} /> : null}
+      {heroPlayable ? <BillboardHeroPlayer item={item} playable={heroPlayable} onOpen={playInPlayer} onSoundChange={onSoundChange} /> : null}
 
       {playable && !heroPlayable ? (
         <button
@@ -870,12 +932,13 @@ export function Billboard({ item }: { item: WatchItem }) {
           {live ? <span className="watch-billboard-live">Live</span> : null}
           <span>{watchAttributionLabel(item)}</span>
         </p>
-        <h1
+        <Heading
           id="watch-billboard-title"
+          title={item.title}
           className={`watch-title ${titleSizeClass} mt-3 max-w-[52rem] break-words text-[color:var(--ink)]`}
         >
-          {item.title}
-        </h1>
+          {compactTitle(item.title, 84)}
+        </Heading>
 
         {progress > 0 && !live ? (
           <div className="watch-billboard-progress-row">
@@ -915,10 +978,10 @@ export function Billboard({ item }: { item: WatchItem }) {
             type="button"
             aria-pressed={Boolean(user && dvrSaved)}
             aria-label={dvrLoading
-              ? "Loading DVR"
+              ? "Loading saved library"
               : user
-                ? dvrLocked ? `Unlock DVR to save ${item.title}` : dvrSaved ? `Remove ${item.title} from DVR` : `Add ${item.title} to DVR`
-                : `Add ${item.title} to DVR`}
+                ? dvrLocked ? `Save with membership to save ${item.title}` : dvrSaved ? `Remove ${item.title} from your library` : `Add ${item.title} to your library`
+                : `Add ${item.title} to your library`}
             aria-busy={dvrLoading}
             disabled={dvrLoading}
             onClick={() => {
@@ -935,7 +998,7 @@ export function Billboard({ item }: { item: WatchItem }) {
             className="watch-billboard-list"
           >
             <span aria-hidden>{dvrSaved ? "✓" : "+"}</span>
-            {dvrLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : user && dvrSaved ? "In DVR" : "Add to DVR"}
+            {dvrLoading ? "Loading…" : dvrLocked ? "Save with membership" : user && dvrSaved ? "Saved" : "Save"}
           </button>
 
         </div>

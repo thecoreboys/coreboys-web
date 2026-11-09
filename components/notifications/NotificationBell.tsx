@@ -1,5 +1,6 @@
 "use client";
 
+import { NotificationArtwork } from "./NotificationArtwork";
 import Link from "next/link";
 import useSWR from "swr";
 import { useEffect, useRef, useState } from "react";
@@ -46,38 +47,29 @@ function categoryLabel(notification: InboxNotification): string {
   return "Account";
 }
 
-function NotificationArtwork({ image }: { image: string | null }) {
-  const [failed, setFailed] = useState(false);
-  if (!image || failed) {
-    return (
-      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-brand-primary text-brand-secondary">
-        <Bell className="size-4" aria-hidden />
-      </span>
-    );
-  }
-  return <img src={image} alt="" onError={() => setFailed(true)} className="size-10 shrink-0 rounded-lg object-cover" />;
-}
-
 function NotificationPreview({ item, onRead, onDelete, onActivate }: { item: InboxNotification; onRead: (id: string) => void; onDelete: (id: string) => void; onActivate: (item: InboxNotification) => void }) {
   // An author's X avatar belongs beside their name in the preview. It is not
   // the notification's artwork and should never become a large hero image.
   const image = item.imageUrl;
   return (
-    <div className={cn("group flex gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[color:var(--surface)]", !item.readAt && "bg-[color:var(--bg-elev)]")}>
-      <NotificationArtwork image={image} />
+    <div className={cn(
+      "group grid grid-cols-[2.5rem_minmax(0,1fr)_1.75rem] items-start gap-2.5 rounded-xl border border-secondary px-3 py-3 text-left transition-colors hover:bg-[color:var(--surface)]",
+      !item.readAt && "border-l-2 border-l-[color:var(--core)] bg-[color:var(--bg-elev)] pl-[calc(0.75rem-1px)]",
+    )}>
+      <NotificationArtwork href={item.href} imageUrl={image || item.xPost?.media[0]?.thumbnailUrl} avatarUrl={item.avatarUrl || item.xPost?.authorAvatarUrl} />
       <button type="button" onClick={() => onActivate(item)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]">
-        <span className="flex items-center justify-between gap-3">
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-quaternary">{categoryLabel(item)}</span>
-          <span className="shrink-0 text-[10px] text-quaternary">{relativeTime(item.createdAt)}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-quaternary">{categoryLabel(item)}</span>
+          <span className="ml-auto shrink-0 text-[10px] text-quaternary">{relativeTime(item.createdAt)}</span>
+          {!item.readAt ? <span className="size-1.5 shrink-0 rounded-full bg-brand-solid" aria-label="Unread" /> : null}
         </span>
-        <strong className="mt-0.5 line-clamp-2 block text-sm leading-5 text-primary">{item.title}</strong>
-        {item.body ? <span className="mt-0.5 line-clamp-1 block text-xs leading-5 text-tertiary">{item.body}</span> : null}
+        <strong className="mt-1 line-clamp-2 block text-[13px] font-semibold leading-[1.35rem] text-primary">{item.title}</strong>
+        {item.body ? <span className="mt-1 line-clamp-2 block text-xs leading-[1.1rem] text-tertiary">{item.body}</span> : null}
       </button>
-      <span className="flex shrink-0 items-start gap-0.5">
-        {!item.readAt ? <button type="button" onClick={() => onRead(item.id)} className="grid size-7 place-items-center rounded-md text-white/45 transition hover:bg-white/10 hover:text-white" aria-label="Mark notification as read"><Check className="size-3.5" aria-hidden /></button> : null}
-        <button type="button" onClick={() => onDelete(item.id)} className="grid size-7 place-items-center rounded-md text-white/45 transition hover:bg-red-500/15 hover:text-red-300" aria-label="Delete notification"><Trash2 className="size-3.5" aria-hidden /></button>
+      <span className="flex shrink-0 flex-col items-center gap-1">
+        {!item.readAt ? <button type="button" onClick={() => onRead(item.id)} className="grid size-7 place-items-center rounded-lg text-tertiary transition hover:bg-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]" aria-label="Mark notification as read"><Check className="size-3.5" aria-hidden /></button> : null}
+        <button type="button" onClick={() => onDelete(item.id)} className="grid size-7 place-items-center rounded-lg text-tertiary transition hover:bg-error-primary hover:text-error-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]" aria-label="Delete notification"><Trash2 className="size-3.5" aria-hidden /></button>
       </span>
-      {!item.readAt ? <span className="mt-2 size-2 shrink-0 rounded-full bg-brand-solid" aria-label="Unread" /> : null}
     </div>
   );
 }

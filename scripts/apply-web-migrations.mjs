@@ -59,6 +59,14 @@ const migrations = [
   "049_notification_center.sql",
   "052_account_watch_measurement.sql",
   "053_passport_watch_registry_state.sql",
+  "055_x_live_feed_sources.sql",
+  "056_content_tombstones.sql",
+  "057_social_fetch_request_cache.sql",
+  "058_content_verification.sql",
+  "059_twitch_content_verification.sql",
+  "060_x_content_verification.sql",
+  "062_content_private_access.sql",
+  "063_clipping_campaigns.sql",
 ];
 
 function loadEnvLocal() {

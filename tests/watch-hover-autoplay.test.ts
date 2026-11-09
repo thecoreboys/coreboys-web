@@ -78,15 +78,14 @@ test("Shorts, Reels, and TikToks retain portrait shape regardless of catalog for
   assert.equal(contentShape({ format: "long", platform: "tiktok" }), "portrait");
 });
 
-test("hover frames request provider playback and reveal TikTok after its embed loads", () => {
+test("hover frames request provider playback and reveal TikTok only when it reports playing", () => {
   assert.match(preview, /playVideo/);
   assert.match(preview, /x-tiktok-player[\s\S]{0,160}type:\s*"play"/);
   assert.match(preview, /x-tiktok-player[\s\S]{0,160}type:\s*"mute"/);
 
   const frameTag = /<iframe[\s\S]*?\/>/.exec(preview)?.[0] ?? "";
-  assert.match(frameTag, /playable\?\.platform === "tiktok"/);
-  assert.match(frameTag, /playable\.platform === "tiktok" \? 360/);
-  assert.match(frameTag, /setReadyMotionSource\(iframeSrc\)/);
+  assert.match(frameTag, /requestProviderPlayback\(\)/);
+  assert.match(preview, /setReadyMotionSource\(sample\.playing \? iframeSrc : null\)/);
   assert.doesNotMatch(
     frameTag,
     /playbackStartedRef\.current\s*=\s*true/,

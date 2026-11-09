@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { devicePerformanceProfile } from "@/lib/device-performance";
 
 type CursorMode = "default" | "action" | "play" | "pause" | "scrub" | "drag" | "hand" | "close" | "grid" | "queue" | "rewind" | "text" | "disabled";
 type CursorCommunity = "core" | "flock" | "stable" | "thugs" | "m3" | "nms" | "slg";
@@ -10,7 +11,7 @@ const INTERACTIVE_SELECTOR = "a, button, summary, [role='button'], [role='switch
 // progress indicators on cards must remain playback affordances, not fake
 // sliders that imply a drag will work.
 const SCRUB_SELECTOR = "input[type='range'], [role='slider'], [data-cursor='scrub']";
-const MEDIA_SELECTOR = ".watch-poster:not(.is-photo), .watch-preview-media, .watch-billboard, .watch-player-media";
+const MEDIA_SELECTOR = ".watch-poster:not(.is-photo):not(.is-platform-x), .watch-preview-media, .watch-billboard, .watch-player-media";
 const NETWORK_SELECTOR = ".watch-home-promo-card, [href^='/channels/'], [href^='/watch/network/']";
 const PRIMARY_SELECTOR = ".btn-primary, .watch-billboard-play, [data-cursor='primary']";
 
@@ -77,7 +78,7 @@ function readAccent(source: HTMLElement | null): string {
  * The overlay never participates in hit testing, so native browser behavior
  * remains intact.
  */
-export function Cursor() {
+export function Cursor({ initialPosition }: { initialPosition?: { x: number; y: number } } = {}) {
   const pointerRef = useRef<HTMLDivElement>(null);
   const auraRef = useRef<HTMLDivElement>(null);
   const trailRef = useRef<HTMLDivElement>(null);
@@ -85,18 +86,20 @@ export function Cursor() {
   const hintRef = useRef<HTMLDivElement>(null);
   const rippleRef = useRef<HTMLDivElement>(null);
   const stationFlashRef = useRef<HTMLDivElement>(null);
-  const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (!finePointer.matches || reducedMotion.matches) return;
 
-    setEnabled(true);
     document.body.dataset.cursor = "agentic";
+    const root = document.documentElement;
+    let conserve = root.dataset.performanceProfile === "conserve" || devicePerformanceProfile(navigator) === "conserve";
+    let richEffects = !conserve && root.dataset.cursorFx !== "quiet";
+    document.body.dataset.cursorPerformance = conserve ? "conserve" : "standard";
 
-    let x = window.innerWidth / 2;
-    let y = window.innerHeight / 2;
+    let x = initialPosition?.x ?? window.innerWidth / 2;
+    let y = initialPosition?.y ?? window.innerHeight / 2;
     let pointerX = x;
     let pointerY = y;
     let auraX = x;
@@ -111,6 +114,8 @@ export function Cursor() {
     let community: CursorCommunity = "core";
     let liveTarget = false;
     let magneticTarget: HTMLElement | null = null;
+    let magneticRect: DOMRect | null = null;
+    let magneticForce = 0;
     let reactiveTarget: HTMLElement | null = null;
     let spotlightTarget: HTMLElement | null = null;
     let spotlightRect: DOMRect | null = null;
@@ -127,6 +132,13 @@ export function Cursor() {
     let hintText = "";
     let hintSource: Element | null = null;
     let frame = 0;
+    let resumeInspection = false;
+    let pendingTarget: EventTarget | null = null;
+    let geometryDirty = false;
+    let hintWidth = 132;
+    let hintHeight = 28;
+    let hintSizeDirty = true;
+    let paintedState = "";
     let scheduleFrame = () => {};
 
     const setIdle = (idle: boolean) => {
@@ -155,7 +167,7 @@ export function Cursor() {
         reactiveTarget.style.removeProperty("--cursor-reactive-accent");
       }
       reactiveTarget = next;
-      if (!next) return;
+      if (!next || conserve) return;
       next.dataset.cursorReactive = "true";
       next.style.setProperty("--cursor-reactive-accent", accent);
     };
@@ -180,6 +192,7 @@ export function Cursor() {
       hintExitTimer = window.setTimeout(() => {
         if (!hintRef.current) return;
         hintRef.current.textContent = "";
+        hintSizeDirty = true;
         delete hintRef.current.dataset.state;
       }, 230);
     };
@@ -207,8 +220,15 @@ export function Cursor() {
         if (hintExitTimer !== null) window.clearTimeout(hintExitTimer);
         hintExitTimer = null;
         hint.textContent = "";
+        hintSizeDirty = true;
         hint.dataset.state = "enter";
         hint.dataset.active = "true";
+        if (conserve) {
+          hint.textContent = hintText;
+          delete hint.dataset.typing;
+          scheduleFrame();
+          return;
+        }
         hint.dataset.typing = "true";
         let index = 0;
         const value = hintText;
@@ -222,6 +242,7 @@ export function Cursor() {
           }
           index += 1;
           hintRef.current.textContent = value.slice(0, index);
+          hintSizeDirty = true;
           scheduleFrame();
         }, interval);
       }, 620);
@@ -314,6 +335,7 @@ export function Cursor() {
     };
 
     const setSpotlight = (element: HTMLElement | null, clientX: number, clientY: number) => {
+      if (conserve) element = null;
       if (spotlightTarget && spotlightTarget !== element) {
         delete spotlightTarget.dataset.cursorSpotlight;
         spotlightTarget.style.removeProperty("--cursor-x");
@@ -334,7 +356,7 @@ export function Cursor() {
       const element = target instanceof Element ? target : null;
       // Pointer events stop at a cross-origin frame. Hide before the handoff
       // so the last CORE pointer position cannot remain stuck at its edge.
-      if (element?.closest("iframe, [data-cursor-native]")) {
+      if (!element || element.closest("iframe, [data-cursor-native]")) {
         visible = false;
         magneticTarget = null;
         setReactiveTarget(null);
@@ -394,13 +416,16 @@ export function Cursor() {
       else if (action) nextMode = "action";
       setMode(nextMode, source);
       scheduleHint(hintFor(nextMode, action, liveTarget), source);
-      magneticTarget = action && action.matches(PRIMARY_SELECTOR) ? action : action;
+      magneticTarget = conserve ? null : action;
+      magneticRect = magneticTarget?.getBoundingClientRect() ?? null;
+      magneticForce = magneticTarget?.matches(PRIMARY_SELECTOR) ? .16 : .055;
       setReactiveTarget(action);
       const spotlight = element?.closest(".watch-poster, .watch-home-promo-card") as HTMLElement | null;
       setSpotlight(spotlight, clientX, clientY);
     };
 
     const triggerRipple = (event: PointerEvent) => {
+      if (conserve) return;
       const ripple = rippleRef.current;
       if (!ripple) return;
       ripple.style.setProperty("--cursor-accent", accent);
@@ -412,6 +437,7 @@ export function Cursor() {
     };
 
     const triggerStationFlash = (target: EventTarget | null) => {
+      if (!richEffects) return;
       const network = target instanceof Element ? target.closest(NETWORK_SELECTOR) : null;
       if (!network || !stationFlashRef.current) return;
       const flash = stationFlashRef.current;
@@ -423,6 +449,13 @@ export function Cursor() {
     };
 
     const onMove = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") {
+        delete document.body.dataset.cursor;
+        onWindowLeave();
+        return;
+      }
+      if (!document.body.dataset.cursor) document.body.dataset.cursor = "agentic";
+      if (resumeInspection) pendingTarget = event.target;
       const deltaX = event.clientX - x;
       if (Math.abs(deltaX) > 1) dragDirection = deltaX > 0 ? 1 : -1;
       x = event.clientX;
@@ -430,14 +463,11 @@ export function Cursor() {
       // Target inspection performs DOM queries, computed-style reads, and
       // geometry work. Pointer enter/leave already detects target changes, so
       // keep the high-frequency move path to coordinates and transforms only.
-      if (spotlightTarget && spotlightRect?.width && spotlightRect.height) {
-        spotlightTarget.style.setProperty("--cursor-x", `${((x - spotlightRect.left) / spotlightRect.width) * 100}%`);
-        spotlightTarget.style.setProperty("--cursor-y", `${((y - spotlightRect.top) / spotlightRect.height) * 100}%`);
-      }
       scheduleIdle();
       scheduleFrame();
     };
     const onDown = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
       pressed = true;
       clearHint();
       const action = (event.target as Element | null)?.closest(INTERACTIVE_SELECTOR) as HTMLElement | null;
@@ -468,6 +498,8 @@ export function Cursor() {
     };
     const onWindowLeave = () => {
       visible = false;
+      resumeInspection = true;
+      document.body.dataset.cursorVisible = "false";
       magneticTarget = null;
       setSpotlight(null, x, y);
       setReactiveTarget(null);
@@ -475,44 +507,93 @@ export function Cursor() {
       scheduleFrame();
     };
     const onPointerOver = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
+      if (!document.body.dataset.cursor) document.body.dataset.cursor = "agentic";
+      resumeInspection = false;
       inspectTarget(event.target, event.clientX, event.clientY);
       scheduleFrame();
     };
     const onPointerOut = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
       if (!event.relatedTarget) onWindowLeave();
       else inspectTarget(event.relatedTarget, event.clientX, event.clientY);
       scheduleFrame();
     };
     const onScroll = () => {
       clearHint();
-      if (spotlightTarget) setSpotlight(spotlightTarget, x, y);
+      geometryDirty = true;
       document.documentElement.dataset.cursorScrolling = "true";
       if (scrollTimer !== null) window.clearTimeout(scrollTimer);
       scrollTimer = window.setTimeout(() => delete document.documentElement.dataset.cursorScrolling, 150);
       scheduleFrame();
     };
 
+    const syncEffects = () => {
+      conserve = root.dataset.performanceProfile === "conserve" || devicePerformanceProfile(navigator) === "conserve";
+      richEffects = !conserve && root.dataset.cursorFx !== "quiet";
+      document.body.dataset.cursorPerformance = conserve ? "conserve" : "standard";
+      inspectTarget(document.elementFromPoint(x, y), x, y);
+      scheduleFrame();
+    };
+    const effectsObserver = new MutationObserver(syncEffects);
+    effectsObserver.observe(root, { attributes: true, attributeFilter: ["data-performance-profile", "data-cursor-fx", "data-cursor-theme", "data-cursor-community", "data-cursor-size"] });
+    const onResize = () => {
+      geometryDirty = true;
+      hintSizeDirty = true;
+      scheduleFrame();
+    };
+    const onVisibility = () => {
+      if (!document.hidden) return;
+      onWindowLeave();
+      window.cancelAnimationFrame(frame);
+      frame = 0;
+      for (const element of [pointerRef.current, auraRef.current, trailRef.current, particlesRef.current]) {
+        if (element) element.style.opacity = "0";
+      }
+      paintedState = "";
+      if (idleTimer !== null) window.clearTimeout(idleTimer);
+    };
+
     const tick = () => {
       frame = 0;
+      if (document.hidden) return;
+      if (resumeInspection && pendingTarget) {
+        resumeInspection = false;
+        inspectTarget(pendingTarget, x, y);
+        pendingTarget = null;
+      }
+      if (geometryDirty) {
+        magneticRect = magneticTarget?.getBoundingClientRect() ?? null;
+        spotlightRect = spotlightTarget?.getBoundingClientRect() ?? null;
+        geometryDirty = false;
+      }
+      const shown = visible ? "true" : "false";
+      if (document.body.dataset.cursorVisible !== shown) document.body.dataset.cursorVisible = shown;
+      // Measure only when hint text changes, before writing any transforms.
+      const hint = hintRef.current;
+      if (hint && hintSizeDirty) {
+        hintWidth = hint.offsetWidth || 132;
+        hintHeight = hint.offsetHeight || 28;
+        hintSizeDirty = false;
+      }
       let targetX = x;
       let targetY = y;
-      if (magneticTarget) {
-        const rect = magneticTarget.getBoundingClientRect();
-        const force = magneticTarget.matches(PRIMARY_SELECTOR) ? 0.16 : 0.055;
+      if (magneticTarget?.isConnected && magneticRect) {
+        const rect = magneticRect;
+        const force = magneticForce;
         targetX += Math.max(-54, Math.min(54, rect.left + rect.width / 2 - x)) * force;
         targetY += Math.max(-36, Math.min(36, rect.top + rect.height / 2 - y)) * force;
       }
-      pointerX += (targetX - pointerX) * 0.34;
-      pointerY += (targetY - pointerY) * 0.34;
+      pointerX = conserve ? targetX : pointerX + (targetX - pointerX) * 0.34;
+      pointerY = conserve ? targetY : pointerY + (targetY - pointerY) * 0.34;
       auraX += (targetX - auraX) * 0.16;
       auraY += (targetY - auraY) * 0.16;
       trailX += (targetX - trailX) * 0.075;
       trailY += (targetY - trailY) * 0.075;
       const pointer = pointerRef.current;
-      const aura = auraRef.current;
-      const trail = trailRef.current;
-      const particles = particlesRef.current;
-      const hint = hintRef.current;
+      const aura = conserve ? null : auraRef.current;
+      const trail = richEffects ? trailRef.current : null;
+      const particles = richEffects ? particlesRef.current : null;
       const sizeFactor = document.documentElement.dataset.cursorSize === "large" ? 1.28 : 1;
       const scale = (mode === "action" ? 1.12 : mode === "scrub" ? 0.92 : mode === "drag" ? 0.96 : mode === "play" || mode === "pause" ? 1.06 : 1) * (pressed ? 0.88 : 1) * sizeFactor;
       // Range inputs always move left-to-right. Keep the pointer and its ↔
@@ -520,50 +601,61 @@ export function Cursor() {
       // into an up/down-looking control.
       const rotation = mode === "action" ? -4 : mode === "drag" ? -18 * dragDirection : 0;
 
-      for (const element of [pointer, aura, trail]) {
-        if (!element) continue;
-        element.dataset.mode = mode;
-        element.dataset.live = liveTarget ? "true" : "false";
-        element.dataset.community = community;
-        element.style.opacity = visible ? "1" : "0";
-        element.style.setProperty("--cursor-accent", accent);
+      const nextPaintedState = `${mode}:${community}:${accent}:${visible}:${liveTarget}:${conserve}:${richEffects}`;
+      const stateChanged = paintedState !== nextPaintedState;
+      if (stateChanged) {
+        paintedState = nextPaintedState;
+        for (const element of [pointer, aura, trail]) {
+          if (!element) continue;
+          element.dataset.mode = mode;
+          element.dataset.live = liveTarget ? "true" : "false";
+          element.dataset.community = community;
+          element.style.opacity = visible ? "1" : "0";
+          element.style.setProperty("--cursor-accent", accent);
+        }
       }
       if (pointer) pointer.style.transform = `translate3d(${pointerX - 3}px, ${pointerY - 2}px, 0) rotate(${rotation}deg) scale(${scale})`;
       if (aura) aura.style.transform = `translate3d(${auraX - 18}px, ${auraY - 18}px, 0) scale(${(mode === "action" ? 1.25 : mode === "scrub" ? 0.8 : 1) * sizeFactor})`;
       if (trail) trail.style.transform = `translate3d(${trailX - 12}px, ${trailY - 12}px, 0) rotate(${rotation}deg)`;
       if (particles) {
-        particles.dataset.mode = mode;
-        particles.dataset.community = community;
-        particles.dataset.live = liveTarget ? "true" : "false";
-        particles.style.opacity = visible && ["flock", "thugs", "nms", "slg"].includes(community) ? "1" : "0";
-        particles.style.setProperty("--cursor-accent", accent);
+        if (stateChanged) {
+          particles.dataset.mode = mode;
+          particles.dataset.community = community;
+          particles.dataset.live = liveTarget ? "true" : "false";
+          particles.style.opacity = visible && ["flock", "thugs", "nms", "slg"].includes(community) ? "1" : "0";
+          particles.style.setProperty("--cursor-accent", accent);
+        }
         particles.style.transform = `translate3d(${trailX - 21}px, ${trailY - 21}px, 0) rotate(${rotation}deg)`;
       }
       if (hint) {
-        hint.dataset.community = community;
-        hint.style.setProperty("--cursor-accent", accent);
+        if (stateChanged) {
+          hint.dataset.community = community;
+          hint.style.setProperty("--cursor-accent", accent);
+        }
         const safeInset = 12;
-        const hintWidth = hint.offsetWidth || 132;
-        const hintHeight = hint.offsetHeight || 28;
         const hintX = Math.max(safeInset, Math.min(pointerX + 22, window.innerWidth - hintWidth - safeInset));
         const hintY = pointerY + 20 + hintHeight > window.innerHeight - safeInset
           ? Math.max(safeInset, pointerY - hintHeight - 18)
           : pointerY + 20;
         hint.style.transform = `translate3d(${hintX}px, ${hintY}px, 0)`;
       }
+      if (spotlightTarget && spotlightRect?.width && spotlightRect.height) {
+        spotlightTarget.style.setProperty("--cursor-x", `${((x - spotlightRect.left) / spotlightRect.width) * 100}%`);
+        spotlightTarget.style.setProperty("--cursor-y", `${((y - spotlightRect.top) / spotlightRect.height) * 100}%`);
+      }
       const unsettled = visible && Math.max(
         Math.abs(pointerX - targetX),
         Math.abs(pointerY - targetY),
-        Math.abs(auraX - targetX),
-        Math.abs(auraY - targetY),
-        Math.abs(trailX - targetX),
-        Math.abs(trailY - targetY),
+        aura ? Math.abs(auraX - targetX) : 0,
+        aura ? Math.abs(auraY - targetY) : 0,
+        trail ? Math.abs(trailX - targetX) : 0,
+        trail ? Math.abs(trailY - targetY) : 0,
       ) > 0.5;
       if (unsettled) scheduleFrame();
     };
 
     scheduleFrame = () => {
-      if (frame === 0) frame = window.requestAnimationFrame(tick);
+      if (frame === 0 && !document.hidden) frame = window.requestAnimationFrame(tick);
     };
 
     window.addEventListener("pointermove", onMove, { passive: true });
@@ -573,8 +665,11 @@ export function Cursor() {
     window.addEventListener("pointerup", onUp, { passive: true });
     window.addEventListener("pointercancel", onUp, { passive: true });
     window.addEventListener("blur", onWindowLeave);
+    window.addEventListener("resize", onResize, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     document.addEventListener("mouseleave", onWindowLeave);
+    if (initialPosition) inspectTarget(document.elementFromPoint(x, y), x, y);
     scheduleIdle();
     scheduleFrame();
 
@@ -586,6 +681,9 @@ export function Cursor() {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("blur", onWindowLeave);
+      window.removeEventListener("resize", onResize);
+      document.removeEventListener("visibilitychange", onVisibility);
+      effectsObserver.disconnect();
       window.removeEventListener("scroll", onScroll, true);
       document.removeEventListener("mouseleave", onWindowLeave);
       if (idleTimer !== null) window.clearTimeout(idleTimer);
@@ -598,15 +696,15 @@ export function Cursor() {
       setReactiveTarget(null);
       window.cancelAnimationFrame(frame);
       delete document.body.dataset.cursor;
+      delete document.body.dataset.cursorPerformance;
+      delete document.body.dataset.cursorVisible;
       delete document.body.dataset.cursorMode;
       delete document.body.dataset.cursorIdle;
       delete document.body.dataset.cursorCommunity;
       delete document.documentElement.dataset.cursorScrolling;
       delete document.documentElement.dataset.cursorRapid;
     };
-  }, []);
-
-  if (!enabled) return null;
+  }, [initialPosition]);
 
   return (
     <>

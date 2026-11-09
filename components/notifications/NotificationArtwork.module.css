@@ -1,0 +1,9 @@
+.frame { position: relative; display: block; flex-shrink: 0; width: 40px; height: 40px; overflow: hidden; border-radius: 9px; background: color-mix(in srgb, var(--ink, #fff) 6%, var(--bg-elev, #161619)); }
+.frame[data-variant="feed"] { width: 56px; height: 56px; border-radius: 12px; }
+.frame[data-variant="tray"] { width: 96px; height: 72px; background: #09090c; color: #b6b6c0; }
+.frame[data-variant="tray"][data-orientation="portrait"] { width: 48px; }
+.frame[data-variant="tray"][data-orientation="square"] { width: 72px; }
+.frame .image { position: relative; display: block; width: 100%; height: 100%; object-fit: contain; }
+.fallback { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: var(--ink-dim, #a1a1aa); }
+.avatar { display: grid; place-items: center; width: 32px; height: 32px; overflow: hidden; border-radius: 50%; }
+.avatar .image { object-fit: cover; }

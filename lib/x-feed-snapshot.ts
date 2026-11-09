@@ -6,10 +6,14 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import type { PoolClient } from "pg";
 import type { FeedItem } from "@/components/feed/types";
 import { query, withTransaction } from "@/lib/db";
+import { filterAvailableContent } from "@/lib/content-availability";
 import {
   X_FEED_LOCAL_QA_MAX_AGE_HOURS,
   X_FEED_PUBLIC_MAX_AGE_HOURS,
+  publicXFeedStatus,
+  xFeedSourceAccountsChanged,
   xFeedSnapshotWithinAge,
+  type PublicXFeedStatus,
 } from "@/lib/x-feed-freshness";
 
 const SNAPSHOT_KEY = "core-roster";
@@ -27,7 +31,27 @@ type SnapshotRow = {
   attempted_at: Date | string | null;
   last_error?: string | null;
   history_backfilled_at?: Date | string | null;
+  source_accounts?: unknown;
+  stream_received_at?: Date | string | null;
+  search_cursor?: string | null;
+  search_continuation?: unknown;
 };
+
+export type XFeedSearchContinuation = {
+  nextToken: string;
+  sinceId?: string;
+  highWatermark?: string;
+};
+
+function searchContinuation(value: unknown): XFeedSearchContinuation | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const state = value as Partial<XFeedSearchContinuation>;
+  if (typeof state.nextToken !== "string" || !state.nextToken.trim() || state.nextToken.length > 4096) return undefined;
+  if (state.sinceId !== undefined && (typeof state.sinceId !== "string" || !/^\d{5,25}$/.test(state.sinceId))) return undefined;
+  if (state.highWatermark !== undefined && (typeof state.highWatermark !== "string" || !/^\d{5,25}$/.test(state.highWatermark))) return undefined;
+  return { nextToken: state.nextToken, ...(state.sinceId ? { sinceId: state.sinceId } : {}),
+    ...(state.highWatermark ? { highWatermark: state.highWatermark } : {}) };
+}
 
 type LocalSnapshotRow = {
   payload: unknown;
@@ -90,9 +114,10 @@ function localSnapshotReadable(): boolean {
 }
 
 function refreshMinutes(): number {
-  const parsed = Number(process.env.X_FEED_REFRESH_MINUTES);
-  if (!Number.isFinite(parsed)) return DEFAULT_REFRESH_MINUTES;
-  return Math.max(5, Math.min(24 * 60, Math.trunc(parsed)));
+  const raw = process.env.X_FEED_REFRESH_MINUTES?.trim();
+  const parsed = Number(raw);
+  if (!raw || !Number.isFinite(parsed) || parsed <= 0) return DEFAULT_REFRESH_MINUTES;
+  return Math.max(1, Math.min(24 * 60, Math.trunc(parsed)));
 }
 
 function withinHistoryWindow(publishedAt: string): boolean {
@@ -197,7 +222,11 @@ async function ensureSchema(): Promise<void> {
       CONSTRAINT x_feed_snapshots_payload_array
         CHECK (jsonb_typeof(payload) = 'array')
     );
-    ALTER TABLE x_feed_snapshots ADD COLUMN IF NOT EXISTS history_backfilled_at TIMESTAMPTZ
+    ALTER TABLE x_feed_snapshots ADD COLUMN IF NOT EXISTS history_backfilled_at TIMESTAMPTZ;
+    ALTER TABLE x_feed_snapshots ADD COLUMN IF NOT EXISTS source_accounts JSONB;
+    ALTER TABLE x_feed_snapshots ADD COLUMN IF NOT EXISTS stream_received_at TIMESTAMPTZ;
+    ALTER TABLE x_feed_snapshots ADD COLUMN IF NOT EXISTS search_cursor TEXT;
+    ALTER TABLE x_feed_snapshots ADD COLUMN IF NOT EXISTS search_continuation JSONB
   `).then(() => undefined).catch((error) => {
     schemaReady = null;
     throw error;
@@ -249,7 +278,116 @@ const cachedXFeedSnapshot = unstable_cache(
 );
 
 export async function getXFeedSnapshot(): Promise<FeedItem[]> {
-  return cachedXFeedSnapshot();
+  return filterAvailableContent(await cachedXFeedSnapshot());
+}
+
+export type PublicXFeedSnapshot = {
+  items: FeedItem[];
+  refreshedAt: string | null;
+  status: PublicXFeedStatus;
+  refreshIntervalSeconds: number;
+  streamReceivedAt?: string | null;
+};
+
+/** Read only: unlike the admin diagnostic, this never creates schema. */
+async function readPublicXFeedSnapshot(): Promise<PublicXFeedSnapshot> {
+  const refreshIntervalSeconds = refreshMinutes() * 60;
+  let row: SnapshotRow | undefined;
+  let available = true;
+  let maxAgeHours = X_FEED_PUBLIC_MAX_AGE_HOURS;
+  try {
+    const result = await query<SnapshotRow>(
+      // Optional streaming columns may not exist yet during a rolling rollout.
+      // JSON projection returns null for missing fields while preserving the
+      // last successful roster snapshot; public reads never migrate schema.
+      `SELECT payload, refreshed_at, attempted_at, last_error,
+              to_jsonb(snapshot)->>'stream_received_at' AS stream_received_at,
+              to_jsonb(snapshot)->'search_continuation' AS search_continuation
+         FROM x_feed_snapshots AS snapshot WHERE cache_key = $1 LIMIT 1`,
+      [SNAPSHOT_KEY],
+    );
+    row = result.rows[0];
+  } catch {
+    available = false;
+  }
+  if (!row) {
+    const local = await readLocalSnapshot();
+    if (local) {
+      row = { payload: local.payload, refreshed_at: local.refreshedAt,
+        attempted_at: local.attemptedAt, last_error: local.lastError };
+      available = true;
+      maxAgeHours = X_FEED_LOCAL_QA_MAX_AGE_HOURS;
+    }
+  }
+  const refreshedAt = iso(row?.refreshed_at);
+  const streamReceivedAt = iso(row?.stream_received_at);
+  const normalized = normalizeItems(row?.payload);
+  const rosterReadable = xFeedSnapshotWithinAge(refreshedAt, maxAgeHours);
+  const streamReadable = xFeedSnapshotWithinAge(streamReceivedAt, X_FEED_PUBLIC_MAX_AGE_HOURS);
+  // A streaming event does not renew older posts from a stalled roster job.
+  const items = rosterReadable ? normalized : streamReadable
+    ? normalized.filter((item) => xFeedSnapshotWithinAge(item.publishedAt, X_FEED_PUBLIC_MAX_AGE_HOURS))
+    : [];
+  return {
+    items,
+    refreshedAt,
+    streamReceivedAt,
+    status: searchContinuation(row?.search_continuation) || (!refreshedAt && items.length > 0) ? "stale" : publicXFeedStatus({ available, refreshedAt,
+      itemCount: normalized.length, refreshIntervalSeconds, failed: Boolean(row?.last_error) }),
+    refreshIntervalSeconds,
+  };
+}
+
+// A short shared read supports visible-tab polling without one DB read per fan.
+// The protected writer invalidates this same tag on a successful refresh.
+const cachedPublicXFeedSnapshot = unstable_cache(
+  readPublicXFeedSnapshot,
+  ["coreboys", "public-x-feed-snapshot", "v1"],
+  { revalidate: 10, tags: [SNAPSHOT_CACHE_TAG] },
+);
+
+export async function getPublicXFeedSnapshot(): Promise<PublicXFeedSnapshot> {
+  const snapshot = await cachedPublicXFeedSnapshot();
+  return { ...snapshot, items: await filterAvailableContent(snapshot.items) };
+}
+
+/** A removal never advances the polling cursor or pretends the roster was refreshed. */
+export async function purgeRemovedXFeedSnapshotItems(): Promise<void> {
+  await withTransaction(async (client) => {
+    const lock = await client.query<{ locked: boolean }>(
+      `SELECT pg_try_advisory_xact_lock(hashtext($1)) AS locked`, [LOCK_KEY],
+    );
+    if (!lock.rows[0]?.locked) throw new Error("x_feed_snapshot_busy");
+    const current = await currentSnapshot(client);
+    if (!current) return;
+    const items = await filterAvailableContent(normalizeItems(current.payload), client);
+    await client.query(`UPDATE x_feed_snapshots SET payload=$2::jsonb WHERE cache_key=$1`,
+      [SNAPSHOT_KEY, JSON.stringify(items)]);
+  });
+  revalidateTag(SNAPSHOT_CACHE_TAG);
+}
+
+/** Stream delivery merges posts without postponing or claiming a roster refresh. */
+export async function appendXFeedSnapshotItems(input: readonly FeedItem[]): Promise<void> {
+  const incoming = normalizeItems(input);
+  if (!incoming.length) return;
+  await ensureSchema();
+  await withTransaction(async (client) => {
+    const lock = await client.query<{ locked: boolean }>(
+      `SELECT pg_try_advisory_xact_lock(hashtext($1)) AS locked`, [LOCK_KEY],
+    );
+    if (!lock.rows[0]?.locked) throw new Error("x_feed_snapshot_busy");
+    const current = await currentSnapshot(client);
+    const items = await filterAvailableContent(mergeItems(incoming, normalizeItems(current?.payload)), client);
+    await client.query(
+      `INSERT INTO x_feed_snapshots (cache_key,payload,attempted_at,stream_received_at)
+       VALUES ($1,$2::jsonb,to_timestamp(0),NOW())
+       ON CONFLICT (cache_key) DO UPDATE SET
+         payload=EXCLUDED.payload,stream_received_at=EXCLUDED.stream_received_at`,
+      [SNAPSHOT_KEY, JSON.stringify(items)],
+    );
+  });
+  revalidateTag(SNAPSHOT_CACHE_TAG);
 }
 
 function iso(value: Date | string | null | undefined): string | null {
@@ -260,7 +398,7 @@ function iso(value: Date | string | null | undefined): string | null {
 
 async function currentSnapshot(client: PoolClient): Promise<SnapshotRow | null> {
   const result = await client.query<SnapshotRow>(
-    `SELECT payload, refreshed_at, attempted_at, last_error, history_backfilled_at
+    `SELECT payload, refreshed_at, attempted_at, last_error, history_backfilled_at, source_accounts, search_cursor, search_continuation
      FROM x_feed_snapshots
      WHERE cache_key = $1
      FOR UPDATE`,
@@ -367,8 +505,18 @@ export async function refreshXFeedSnapshot(
     historyBackfilled: boolean;
     /** Existing durable rows are supplied only to the protected refresh job. */
     items: FeedItem[];
+    sourceAccountsChanged: boolean;
+    /** Streamed posts must never advance the periodic search high-water mark. */
+    searchCursor?: string;
+    searchContinuation?: XFeedSearchContinuation;
   }) => Promise<FeedItem[]>,
-  options?: { historyBackfilled?: () => boolean },
+  options?: {
+    historyBackfilled?: () => boolean;
+    sourceAccountKeys?: readonly string[];
+    searchCursor?: () => string | undefined;
+    /** Null completes the window; omitting this callback preserves pending pages. */
+    searchContinuation?: () => XFeedSearchContinuation | null;
+  },
 ): Promise<XFeedRefreshResult> {
   await ensureSchema();
   const result = await withTransaction<XFeedRefreshResult>(async (client) => {
@@ -396,25 +544,37 @@ export async function refreshXFeedSnapshot(
     }
 
     try {
-      const items = mergeItems(
+      const items = await filterAvailableContent(mergeItems(
         normalizeItems(await fetchOnce({
           historyBackfilled: Boolean(existing?.history_backfilled_at),
           items: existingItems,
+          sourceAccountsChanged: xFeedSourceAccountsChanged(existing?.source_accounts, options?.sourceAccountKeys),
+          searchCursor: existing?.search_cursor ?? undefined,
+          searchContinuation: searchContinuation(existing?.search_continuation),
         })),
         existingItems,
-      );
+      ), client);
       const refreshedAt = new Date().toISOString();
+      const continuation = options?.searchContinuation?.();
       await client.query(
         `INSERT INTO x_feed_snapshots
-           (cache_key, payload, refreshed_at, attempted_at, last_error, history_backfilled_at)
-         VALUES ($1, $2::jsonb, $3, $3, NULL, $4)
+           (cache_key, payload, refreshed_at, attempted_at, last_error, history_backfilled_at, source_accounts, search_cursor, search_continuation)
+         VALUES ($1, $2::jsonb, $3, $3, NULL, $4, $5::jsonb, $6, $7::jsonb)
          ON CONFLICT (cache_key) DO UPDATE SET
            payload = EXCLUDED.payload,
            refreshed_at = EXCLUDED.refreshed_at,
            attempted_at = EXCLUDED.attempted_at,
            last_error = NULL,
-           history_backfilled_at = COALESCE(EXCLUDED.history_backfilled_at, x_feed_snapshots.history_backfilled_at)`,
-        [SNAPSHOT_KEY, JSON.stringify(items), refreshedAt, options?.historyBackfilled?.() ? refreshedAt : null],
+           history_backfilled_at = COALESCE(EXCLUDED.history_backfilled_at, x_feed_snapshots.history_backfilled_at),
+           source_accounts = COALESCE(EXCLUDED.source_accounts, x_feed_snapshots.source_accounts),
+           search_cursor = COALESCE(EXCLUDED.search_cursor, x_feed_snapshots.search_cursor),
+           search_continuation = CASE WHEN $8::boolean THEN EXCLUDED.search_continuation
+             ELSE x_feed_snapshots.search_continuation END`,
+        [SNAPSHOT_KEY, JSON.stringify(items), refreshedAt, options?.historyBackfilled?.() ? refreshedAt : null,
+          options?.sourceAccountKeys ? JSON.stringify(options.sourceAccountKeys) : null,
+          options?.searchCursor?.() ?? null,
+          continuation ? JSON.stringify(continuation) : null,
+          Boolean(options?.searchContinuation)],
       );
       return { ok: true, status: "refreshed", count: items.length, refreshedAt };
     } catch (error) {

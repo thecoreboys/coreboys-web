@@ -1,0 +1,52 @@
+.panel { min-width: 0; margin-bottom: 1.75rem; padding: clamp(1rem, 2vw, 1.5rem); border: 1px solid var(--ui-line); border-radius: 1.25rem; background: color-mix(in srgb, var(--bg-elev) 90%, var(--bg)); }
+.primaryRow { display: grid; grid-template-columns: minmax(14rem, 1fr) 11rem 11rem; gap: 1rem; align-items: end; }
+.search { display: flex; min-width: 0; flex-direction: column; gap: .5rem; }
+.search :global(label), .field > span, .select > label { display: block; margin: 0; color: var(--ink-dim); font-size: .8125rem; font-weight: 500; line-height: 1.25rem; }
+.search :global([data-input-wrapper]) { min-width: 0; gap: .5rem; }
+.search :global([data-input]) { min-height: 46px; }
+.search :global(input) { min-height: 46px; height: 46px; font-size: .9375rem; }
+.search :global([role="group"]) { min-height: 46px; border-radius: .8rem; background: var(--bg-elev); }
+.field { display: flex; min-width: 0; flex-direction: column; gap: .5rem; }
+.field input { width: 100%; min-width: 0; height: 46px; border: 1px solid var(--ui-line); border-radius: .8rem; background: var(--bg-elev); color: var(--ink); padding: .6rem .85rem; font: inherit; font-size: .9375rem; }
+.field input:focus-visible { outline: 2px solid var(--core); outline-offset: 2px; }
+.secondaryRow { display: grid; grid-template-columns: 14rem 12rem minmax(0, 1fr); align-items: end; gap: 1rem; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--ui-line); }
+.resultCount { display: flex; min-height: 46px; align-items: center; justify-content: flex-end; margin: 0; color: var(--ink-dim); font-size: .8125rem; line-height: 1.5; text-align: right; }
+.resultCount strong { color: var(--ink); font-weight: 500; }
+.select { display: flex; min-width: 0; width: 100%; gap: .5rem; }
+.select > button { width: 100%; height: 46px; min-height: 46px; border: 1px solid var(--ui-line); border-radius: .8rem; background: var(--bg-elev); box-shadow: none; color: var(--ink); transition: border-color .15s, background .15s; }
+.select > button:hover:enabled { border-color: var(--rule-strong); background: color-mix(in srgb, var(--ink) 3%, var(--bg-elev)); }
+.select > button[data-focus-visible], .select > button[aria-expanded="true"] { outline: 2px solid color-mix(in srgb, var(--core) 75%, var(--ink)); outline-offset: 2px; }
+.select > button :global(p) { font-family: inherit; font-size: .9375rem; font-weight: 400; color: var(--ink); }
+.select > button :global(svg) { color: var(--ink-dim); }
+.select > button :global([data-react-aria-pressable]) { min-width: 0; }
+.menu { z-index: 150; width: max(var(--trigger-width), 12rem); max-width: calc(100vw - 24px); overflow-x: hidden; overscroll-behavior: contain; padding: .35rem; border: 1px solid var(--ui-line); border-radius: 1rem; background: var(--bg-elev); color: var(--ink); box-shadow: 0 14px 44px rgb(0 0 0 / .14), 0 2px 6px rgb(0 0 0 / .06); }
+.option { padding: 1px 0; }
+.option > div { min-height: 44px; border-radius: .65rem; padding: .65rem .75rem; }
+.option :global([slot="label"]) { font-size: .875rem; font-weight: 400; color: var(--ink); }
+.option[data-focused] > div, .option[data-hovered] > div { background: color-mix(in srgb, var(--ink) 5%, var(--bg-elev)); }
+.option[data-selected] > div { background: color-mix(in srgb, var(--core) 9%, var(--bg-elev)); }
+.option[data-selected] :global([slot="label"]) { font-weight: 500; }
+.option :global(svg) { color: var(--core); }
+.archiveGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) repeat(2, minmax(9rem, .8fr)); align-items: end; gap: 1rem; margin-top: 1rem; }
+.timelineRow { display: grid; grid-template-columns: 15rem 12rem minmax(0, 1fr); align-items: end; gap: 1rem; }
+@media (max-width: 1000px) {
+  .primaryRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .primaryRow > .search { grid-column: 1 / -1; }
+  .secondaryRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .resultCount { grid-column: 1 / -1; min-height: auto; padding-top: .25rem; }
+  .archiveGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .archiveGrid > :nth-child(3) { grid-column: 1 / -1; }
+  .timelineRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .panel { padding: 1rem; border-radius: 1rem; }
+  .primaryRow, .secondaryRow, .archiveGrid, .timelineRow { gap: 1rem .75rem; }
+  .secondaryRow { margin-top: 1rem; padding-top: 1rem; }
+  .search :global(input), .field input, .select > button :global(p) { font-size: 1rem; }
+  .select > label, .field > span, .search > label { font-size: .8125rem; }
+  .resultCount { font-size: .8125rem; }
+  .select > button > span { min-width: 0; }
+  .menu { max-width: calc(100vw - 24px); }
+}
+@media (prefers-reduced-motion: reduce) { .select > button { transition: none; } }
+@media (forced-colors: active) { .panel, .select > button, .menu { border: 1px solid CanvasText; } .select > button[data-focus-visible], .select > button[aria-expanded="true"] { outline: 2px solid Highlight; } .option[data-selected] > div { outline: 1px solid Highlight; } }

@@ -2,6 +2,9 @@
 .github
 .next
 .next-*
+.tmp
+output
+*.tsbuildinfo
 node_modules
 coverage
 dist

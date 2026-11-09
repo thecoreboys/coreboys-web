@@ -57,7 +57,7 @@ export default async function AdminPhotosPage() {
 
   return (
     <AuthGate>
-      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+      <div className="relative min-h-[var(--page-min-height)] bg-secondary">
         <AdminPageHeader
           eyebrow="Admin · Photos"
           title="Photo storage."
@@ -199,7 +199,7 @@ export default async function AdminPhotosPage() {
             </div>
           </div>
         </section>
-      </main>
+      </div>
     </AuthGate>
   );
 }

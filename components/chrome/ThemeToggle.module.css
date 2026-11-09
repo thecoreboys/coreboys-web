@@ -1,0 +1,29 @@
+.button {
+  display:inline-flex;
+  width:44px;
+  height:44px;
+  min-width:44px;
+  min-height:44px;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:center;
+  appearance:none;
+  border:1px solid transparent;
+  border-radius:50%;
+  background:transparent;
+  color:var(--ink-dim);
+  cursor:pointer;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  transition:background-color 150ms ease,color 150ms ease,border-color 150ms ease;
+}
+.button:hover {
+  border-color:var(--ui-line,var(--rule));
+  background:var(--ui-hover,var(--surface));
+  color:var(--ink);
+}
+.button:active { background:color-mix(in srgb,var(--ink) 12%,transparent); color:var(--ink); }
+.button:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+.button > svg { flex:0 0 auto; pointer-events:none; }
+@media (prefers-reduced-motion:reduce) { .button { transition:none; } }
+@media (forced-colors:active) { .button { border-color:ButtonText; } .button:hover { background:Highlight; color:HighlightText; } }

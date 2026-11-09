@@ -50,6 +50,7 @@ export function PassportPresenceBridge() {
   const player = usePlayerOptional();
   const { map } = useWatchProgress();
   const passport = usePassport(Boolean(user));
+  const { refresh } = passport;
   const [visible, setVisible] = useState(true);
   const [eligible, setEligible] = useState<EligibleClaim | null>(null);
   const [claiming, setClaiming] = useState(false);
@@ -93,9 +94,9 @@ export function PassportPresenceBridge() {
 
   useEffect(() => {
     if (eligible?.event.claimState !== "pending_certification") return;
-    const timer = window.setInterval(() => { void passport.refresh(); }, 30_000);
+    const timer = window.setInterval(() => { void refresh(); }, 30_000);
     return () => window.clearInterval(timer);
-  }, [eligible?.event.claimState, passport.refresh]);
+  }, [eligible?.event.claimState, refresh]);
 
   useEffect(() => {
     if (!user || !current || !event || !match || !visible || !mark?.positionUpdatedAt || !marker) return;
@@ -136,11 +137,11 @@ export function PassportPresenceBridge() {
             editionId: status.editionId,
             watchSeconds: status.watchSeconds,
           });
-          void passport.refresh();
+          void refresh();
         }
       })
       .catch(() => {});
-  }, [current, event, mark?.positionSeconds, mark?.positionUpdatedAt, marker, match, passport.refresh, user, visible]);
+  }, [current, event, mark?.positionSeconds, mark?.positionUpdatedAt, marker, match, refresh, user, visible]);
 
   const claim = useCallback(async () => {
     if (!eligible?.event.canClaim || claiming) return;

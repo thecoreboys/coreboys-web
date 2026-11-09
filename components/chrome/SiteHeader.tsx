@@ -14,5 +14,5 @@ export function SiteHeader({ children }: { children: ReactNode }) {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  return <div ref={ref} className="fixed inset-x-0 top-0 z-50">{children}</div>;
+  return <div ref={ref} className="site-header fixed inset-x-0 top-0 z-50">{children}</div>;
 }

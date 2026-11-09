@@ -16,15 +16,15 @@ interface NativeSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>
 
 const styles = {
     sm: {
-        root: "py-2 pl-3 text-sm",
+        root: "py-2 pr-9 pl-3 text-sm",
         icon: "size-4 right-2.5 stroke-[2.25px]",
     },
     md: {
-        root: "py-2 pl-3 text-md",
+        root: "py-2 pr-10 pl-3 text-md",
         icon: "size-4 stroke-[2.25px] right-3",
     },
     lg: {
-        root: "py-2.5 px-3.5 text-md",
+        root: "py-2.5 pr-11 pl-3.5 text-md",
         icon: "size-5 right-3",
     },
 };
@@ -32,12 +32,13 @@ const styles = {
 export const NativeSelect = ({ label, hint, options, className, selectClassName, size = "md", ...props }: NativeSelectProps) => {
     const id = useId();
     const selectId = `select-native-${id}`;
+    const labelId = `select-native-label-${id}`;
     const hintId = `select-native-hint-${id}`;
 
     return (
         <div className={cx("w-full in-data-input-wrapper:w-max", className)}>
             {label && (
-                <Label htmlFor={selectId} id={selectId} className="mb-1.5">
+                <Label htmlFor={selectId} id={labelId} className="mb-1.5">
                     {label}
                 </Label>
             )}
@@ -46,10 +47,10 @@ export const NativeSelect = ({ label, hint, options, className, selectClassName,
                 <select
                     {...props}
                     id={selectId}
-                    aria-describedby={hintId}
-                    aria-labelledby={selectId}
+                    aria-describedby={hint ? hintId : props["aria-describedby"]}
+                    aria-labelledby={label ? labelId : props["aria-labelledby"]}
                     className={cx(
-                        "appearance-none rounded-lg bg-primary font-medium text-primary shadow-xs ring-1 ring-primary outline-hidden transition duration-100 ease-linear ring-inset placeholder:text-fg-quaternary focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50",
+                        "min-h-11 w-full appearance-none rounded-xl bg-primary font-medium text-primary shadow-none ring-1 ring-primary outline-hidden transition duration-100 ease-linear ring-inset placeholder:text-fg-quaternary focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50",
 
                         styles[size].root,
 
@@ -67,7 +68,7 @@ export const NativeSelect = ({ label, hint, options, className, selectClassName,
                     )}
                 >
                     {options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
+                        <option key={opt.value} value={opt.value} disabled={opt.disabled}>
                             {opt.label}
                         </option>
                     ))}

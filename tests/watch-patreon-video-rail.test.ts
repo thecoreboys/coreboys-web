@@ -18,5 +18,7 @@ test("Patreon rail renders every discovered video before one final unlock card",
   assert.doesNotMatch(shelf, /\.slice\(|PatreonFilter|FILTERS|Member benefit/);
   assert.ok(shelf.indexOf("data.items.map") < shelf.indexOf("<UnlockCard"));
   assert.equal((shelf.match(/<UnlockCard/g) ?? []).length, 1);
-  assert.match(shelf, />\s*Exclusive video\s*</);
+  assert.match(shelf, /data-patreon-kind=\{item\.kind\}/);
+  assert.match(shelf, /<LockKeyhole/);
+  assert.match(shelf, /href=\{item\.href\}[\s\S]{0,100}target="_blank"[\s\S]{0,100}rel="noopener noreferrer"/);
 });

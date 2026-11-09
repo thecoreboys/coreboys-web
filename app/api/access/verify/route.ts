@@ -10,6 +10,7 @@ import {
 import {
   clearSiteAccessRateLimit,
   consumeSiteAccessRateLimit,
+  siteAccessClientIp,
 } from "@/lib/site-access-rate-limit";
 
 export const runtime = "nodejs";
@@ -25,10 +26,7 @@ export async function POST(request: Request) {
     return noStore(NextResponse.json({ error: "Access gate is not enabled." }, { status: 404 }));
   }
 
-  const ip = request.headers.get("cf-connecting-ip")?.trim()
-    || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || request.headers.get("x-real-ip")?.trim()
-    || "unknown";
+  const ip = siteAccessClientIp(request.headers);
 
   try {
     const subjectKey = await siteAccessSubjectKey(ip);

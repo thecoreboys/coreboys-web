@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Calendar, Eye, LayoutGrid01, Play, XClose } from "@untitledui/icons";
-import { Button } from "@/components/base/buttons/button";
-import { ButtonUtility } from "@/components/base/buttons/button-utility";
+import { useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { ArrowRight, ArrowUpRight, CalendarDays, Eye, Grid2X2, Play, X } from "lucide-react";
+import Image from "@/components/ui/SiteImage";
+import { WatchThumb } from "@/components/watch/WatchThumb";
 import { MEMBERS } from "@/lib/members";
 import type { LiveEntry } from "@/lib/twitch";
 import { cn } from "@/lib/utils";
 import { LiveDuration } from "@/components/watch/LiveAirtime";
 import type { UnifiedLiveEntry } from "@/lib/watch/live-snapshot";
 import { groupCrossPlatformLiveSources } from "@/lib/watch/live-source-groups";
+import { readableTitle } from "@/lib/watch/presentation";
+import styles from "./LiveNowModal.module.css";
 
 type YouTubeLiveEntry = UnifiedLiveEntry & {
   platform: "youtube";
@@ -74,55 +77,46 @@ function LiveNowCard({ sources, onClose }: { sources: ModalLiveSource[]; onClose
     : `/watch/live/${twitchEntry!.login}`;
   const viewers = source.entry.viewerCount;
   const startedAt = source.entry.startedAt;
+  const creator = source.member?.stageName ?? source.memberLabel;
+  const platform = isYoutube ? "YouTube" : "Twitch";
 
   return (
-    <li className="flex min-w-0 flex-col overflow-hidden rounded-xl bg-[color:var(--bg)] ring-1 ring-[color:var(--rule-strong)]">
-      <Link href={href as never} onClick={onClose} className="group relative block aspect-video overflow-hidden bg-black" aria-label={`Watch ${source.member?.stageName ?? source.memberLabel} live on ${isYoutube ? "YouTube" : "Twitch"}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={poster} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]" />
-        <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-        <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-[color:var(--live)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">Live</span>
-        {viewers != null ? (
-          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] tabular-nums text-white/90">
-            <Eye aria-hidden="true" className="size-3" /><span>{formatCount(viewers)}</span>
+    <li className={styles.card}>
+      <Link href={href as never} onClick={onClose} className={styles.watchLink} aria-label={`Watch ${creator} live on ${platform}`}>
+        <span className={styles.poster}>
+          <WatchThumb src={poster} youtubeId={youtubeEntry?.youtubeId} alt="" className={styles.posterImage} fallback={<span className={styles.posterFallback}>{creator}</span>} />
+          <span className={styles.posterShade} />
+          <span className={styles.liveBadge}><span />Live</span>
+          {viewers != null ? <span className={styles.viewerBadge}><Eye aria-hidden size={12} />{formatCount(viewers)}</span> : null}
+          <span className={styles.playOverlay} aria-hidden><span className={styles.playCircle}><Play size={22} fill="currentColor" strokeWidth={1.5} /></span></span>
+          <span className={styles.platformBadge}>{platform}</span>
+        </span>
+        <span className={styles.cardBody}>
+          <span className={styles.identity}>
+            <span className={styles.avatar}>
+              {source.member ? <Image src={source.member.comm.logo} alt="" width={44} height={44} /> : <Play size={18} aria-hidden />}
+            </span>
+            <span className={styles.creatorCopy}>
+              <span className={styles.creatorName}>{creator}</span>
+              <span className={styles.category} title={twitchEntry?.game || `${platform} live`}>{twitchEntry?.game || `${platform} live`}</span>
+            </span>
           </span>
-        ) : null}
-        <span className="absolute bottom-2 right-2 rounded-lg border border-white/20 bg-black/75 px-3 py-1.5 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-          <Play aria-hidden="true" className="mr-1 inline size-3" fill="currentColor" />Watch {isYoutube ? "YouTube" : "Twitch"}
+          <span className={styles.streamTitle} title={title}>{readableTitle(title)}</span>
+          <LiveDuration startedAt={startedAt ?? undefined} className={styles.duration} />
+        </span>
+        <span className={styles.watchAction}>
+          <span><Play size={13} fill="currentColor" aria-hidden />Watch live</span>
+          <ArrowRight size={17} aria-hidden />
         </span>
       </Link>
-      <div className="flex min-w-0 flex-1 items-start gap-2.5 px-3 py-3">
-        <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-black text-[10px] font-bold text-white ring-1 ring-white/10">
-          {source.member ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={source.member.comm.logo} alt="" className="h-[78%] w-[78%] object-contain" style={{ imageRendering: "pixelated" }} />
-          ) : "YT"}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block break-words text-sm font-semibold tracking-tight text-[color:var(--ink)]">{source.member?.stageName ?? source.memberLabel}</span>
-          <span className="block text-[11px] text-[color:var(--ink-dim)]">{isYoutube ? "YouTube live" : `${source.member?.stageName ?? "Twitch"}${twitchEntry?.game ? ` · ${twitchEntry.game}` : ""}`}</span>
-          <span className="mt-1 block break-words text-[13px] leading-snug text-[color:var(--ink)]">{title}</span>
-          <LiveDuration startedAt={startedAt ?? undefined} className="mt-1.5 block text-[11px] tabular-nums text-[color:var(--ink-dim)]" />
-          {sources.length > 1 ? (
-            <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Choose a live source">
-              {sources.map((item) => {
-                const active = item.key === source.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setSelectedKey(item.key)}
-                    className={cn("min-h-8 rounded-full border px-3 text-xs font-semibold transition-colors", active ? "border-[color:var(--core)] bg-[color:var(--core)]/15 text-[color:var(--ink)]" : "border-[color:var(--rule-strong)] text-[color:var(--ink-dim)] hover:border-[color:var(--core)]/60 hover:text-[color:var(--ink)]")}
-                  >
-                    {item.platform === "youtube" ? "YouTube" : "Twitch"}{item.entry.viewerCount != null ? ` · ${formatCount(item.entry.viewerCount)}` : ""}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-        </span>
-      </div>
+      {sources.length > 1 ? <div className={styles.sources} aria-label="Choose a live source">
+        {sources.map((item) => {
+          const active = item.key === source.key;
+          return <button key={item.key} type="button" aria-pressed={active} onClick={() => setSelectedKey(item.key)} className={styles.sourceButton}>
+            {item.platform === "youtube" ? "YouTube" : "Twitch"}{item.entry.viewerCount != null ? ` · ${formatCount(item.entry.viewerCount)}` : ""}
+          </button>;
+        })}
+      </div> : null}
     </li>
   );
 }
@@ -138,6 +132,7 @@ export function LiveNowModal({
   combinedViewers: number;
   onClose: () => void;
 }) {
+  const returnFocus = useRef<HTMLElement | null>(typeof document === "undefined" ? null : document.activeElement as HTMLElement | null);
   const sources: ModalLiveSource[] = [
     ...entries.flatMap((entry) => {
       const member = MEMBERS.find((item) => item.twitchLogin.toLowerCase() === entry.login.toLowerCase());
@@ -155,54 +150,28 @@ export function LiveNowModal({
   const fourOrMore = count >= 4;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Live now"
-      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={onClose}
-    >
-      <div
-        className={cn(
-          "relative flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-none border border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl",
-          fourOrMore ? "max-w-7xl" : many ? "max-w-5xl" : wide ? "max-w-3xl" : "max-w-xl",
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--rule)] px-5 py-3 md:px-5">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <p className="inline-flex shrink-0 items-center gap-2 leading-none text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--live)]">
-              <span
-                aria-hidden
-                className="size-2 rounded-full bg-[color:var(--live)]"
-                style={{ animation: "live-blink 1s ease-in-out infinite" }}
-              />
-              Live now · {count}
-            </p>
-            {combinedViewers > 0 ? (
-              <>
-                <span aria-hidden className="hidden h-3.5 w-px shrink-0 bg-white/10 sm:block" />
-                <p className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap leading-none text-xs tabular-nums text-[color:var(--ink-dim)]">
-                  <Eye aria-hidden="true" className="size-3.5 shrink-0" />
-                  {combinedViewers.toLocaleString("en-US")} watching across the house
-                </p>
-              </>
-            ) : null}
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className={styles.overlay} />
+        <Dialog.Content aria-label="Live now" className={cn(styles.panel, fourOrMore ? styles.fourColumns : many ? styles.threeColumns : wide ? styles.twoColumns : styles.oneColumn)} data-lenis-prevent onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true });
+        }}>
+        <header className={styles.header}>
+          <div>
+            <Dialog.Title className={styles.heading}>Live now <span className={styles.count} aria-hidden>{count}</span></Dialog.Title>
+            <Dialog.Description className={styles.description}>Choose a stream to watch.</Dialog.Description>
           </div>
-          <ButtonUtility
-            size="sm"
-            color="tertiary"
-            onClick={onClose}
-            tooltip="Close"
-            aria-label="Close"
-            icon={XClose}
-            className="max-md:size-11"
-          />
-        </div>
+          <div className={styles.headerEnd}>
+            {combinedViewers > 0 ? <p className={styles.audience}><Eye size={16} aria-hidden /><span><strong>{combinedViewers.toLocaleString("en-US")}</strong><span>watching across CORE</span></span></p> : null}
+            <Dialog.Close className={styles.close} aria-label="Close"><X size={20} aria-hidden /></Dialog.Close>
+          </div>
+        </header>
 
         <ul
           className={cn(
-            "grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain p-3 md:p-4",
+            "min-h-0 flex-1",
+            styles.grid,
             count === 1
               ? "grid-cols-1"
               : count === 2
@@ -215,37 +184,20 @@ export function LiveNowModal({
           {groups.map((group) => <LiveNowCard key={group.key} sources={group.sources} onClose={onClose} />)}
         </ul>
 
-        <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-[color:var(--rule)] bg-[color:var(--bg)] p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] md:px-4">
-          <Button
-            href="/guide"
-            onPress={onClose}
-            color="secondary"
-            size="lg"
-            iconLeading={Calendar}
-            className="min-w-0 min-h-14 justify-start rounded-xl px-3.5 py-2.5 text-left sm:px-4"
-          >
-            <span className="flex min-w-0 flex-col items-start leading-tight">
-              <span>Guide</span>
-              <span className="mt-0.5 hidden text-xs font-medium text-current/60 sm:block">Browse the live schedule</span>
-            </span>
-          </Button>
-          <Button
-            href="/multiview?live=all"
-            onPress={onClose}
-            color="primary"
-            size="lg"
-            iconLeading={LayoutGrid01}
-            className="min-w-0 min-h-14 justify-start rounded-xl px-3.5 py-2.5 text-left sm:px-4"
-          >
-            <span className="flex min-w-0 flex-col items-start leading-tight">
-              <span>Open in multiview</span>
-              <span className="mt-0.5 hidden text-xs font-medium text-current/70 sm:block">
-                Watch all {count} live {count === 1 ? "stream" : "streams"}
-              </span>
-            </span>
-          </Button>
-        </div>
-      </div>
-    </div>
+        <footer className={styles.footer}>
+          <Link href="/guide" onClick={onClose} className={styles.footerLink}>
+            <span className={styles.footerIcon}><CalendarDays size={20} aria-hidden /></span>
+            <span className={styles.footerCopy}><strong>Open guide</strong><span>See what’s on next</span></span>
+            <ArrowUpRight className={styles.footerArrow} size={18} aria-hidden />
+          </Link>
+          <Link href="/multiview?live=all" onClick={onClose} className={cn(styles.footerLink, styles.primaryLink)}>
+            <span className={styles.footerIcon}><Grid2X2 size={20} aria-hidden /></span>
+            <span className={styles.footerCopy}><strong>Open in multiview</strong><span>Watch all {count} live {count === 1 ? "stream" : "streams"}</span></span>
+            <ArrowUpRight className={styles.footerArrow} size={18} aria-hidden />
+          </Link>
+        </footer>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

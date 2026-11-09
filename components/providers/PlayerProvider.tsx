@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { WatchItem } from "@/lib/watch/types";
+import { ContentAvailabilityGuard } from "@/components/watch/ContentAvailabilityGuard";
 import { clampMultiviewItems, effectiveMultiviewFillLimit } from "@/lib/watch/multiview-access";
 import { useSubscription } from "@/hooks/useSubscription";
 import { catalogPlayables, itemToPlayable, type Playable } from "@/lib/watch/playable";
@@ -692,6 +693,81 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setChatDockState(value);
   }, []);
 
+  const setMixAudio = useCallback((value: boolean) => {
+    const nextValue = Boolean(value);
+    mixAudioRef.current = nextValue;
+    setMixAudioState(nextValue);
+    if (!nextValue) {
+      const focus = focusedRef.current;
+      const next = tilesRef.current.map((tile) => ({ ...tile, muted: tile.id !== focus }));
+      tilesRef.current = next;
+      setTiles(next);
+    }
+  }, []);
+
+  const muteAll = useCallback(() => {
+    const next = tilesRef.current.map((tile) => ({ ...tile, muted: true }));
+    tilesRef.current = next;
+    setTiles(next);
+  }, []);
+
+  const setMaxActivePlayers = useCallback((value: number) => {
+    const next = Math.min(multiviewTileLimit, 8, Math.max(1, Math.round(value)));
+    maxActivePlayersRef.current = next;
+    setMaxActivePlayersState(next);
+  }, [multiviewTileLimit]);
+
+  const setChatChannels = useCallback((channels: string[]) => {
+    const next = Array.from(new Set(channels.map((channel) => channel.trim().toLowerCase()).filter(Boolean))).slice(0, multiviewTileLimit);
+    chatChannelsRef.current = next;
+    setChatChannelsState(next);
+  }, [multiviewTileLimit]);
+
+  const setChatMode = useCallback((value: ChatViewMode) => {
+    chatModeRef.current = value;
+    setChatModeState(value);
+  }, []);
+
+  const setChatFocusedLogin = useCallback((value: string | null) => {
+    const next = value ? value.trim().toLowerCase().slice(0, 80) : null;
+    chatFocusedLoginRef.current = next;
+    setChatFocusedLoginState(next);
+  }, []);
+
+  const setChatTextScale = useCallback((value: number) => {
+    if (!Number.isFinite(value)) return;
+    const next = Math.max(0.7, Math.min(1.8, value));
+    chatTextScaleRef.current = next;
+    setChatTextScaleState(next);
+  }, []);
+
+  const setShowChatTimestamps = useCallback((value: boolean) => {
+    const next = Boolean(value);
+    showChatTimestampsRef.current = next;
+    setShowChatTimestampsState(next);
+  }, []);
+
+  const setChatDockSize = useCallback((patch: Partial<ChatDockSize>) => {
+    const current = chatDockSizeRef.current;
+    const next = {
+      side: Math.max(280, Math.min(520, Math.round(patch.side ?? current.side))),
+      bottom: Math.max(220, Math.min(560, Math.round(patch.bottom ?? current.bottom))),
+      floatingWidth: Math.max(280, Math.min(560, Math.round(patch.floatingWidth ?? current.floatingWidth))),
+      floatingHeight: Math.max(320, Math.min(760, Math.round(patch.floatingHeight ?? current.floatingHeight))),
+      floatingX: Math.max(8, Math.min(2_000, Math.round(patch.floatingX ?? current.floatingX))),
+      floatingY: Math.max(8, Math.min(2_000, Math.round(patch.floatingY ?? current.floatingY))),
+    } satisfies ChatDockSize;
+    chatDockSizeRef.current = next;
+    setChatDockSizeState(next);
+  }, []);
+
+  const setPlaybackRate = useCallback((value: number) => {
+    if (!Number.isFinite(value)) return;
+    const next = Math.min(2, Math.max(0.5, value));
+    playbackRateRef.current = next;
+    setPlaybackRateState(next);
+  }, []);
+
   const commitSavedLayouts = useCallback((layouts: SavedWorkspace[]) => {
     savedLayoutsRef.current = layouts;
     writeLocalLayouts(layouts);
@@ -725,7 +801,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (subscription.loading || restoredClientStateRef.current) return;
     restoredClientStateRef.current = true;
-    const deviceProfile = devicePerformanceProfile(typeof navigator === "undefined" ? null : { ...navigator, gpuWeak: detectWeakGpu() });
+    const capabilities = typeof navigator === "undefined" ? null : navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean; effectiveType?: string } };
+    const deviceProfile = devicePerformanceProfile(capabilities ? {
+      hardwareConcurrency: capabilities.hardwareConcurrency,
+      deviceMemory: capabilities.deviceMemory,
+      connection: capabilities.connection,
+      gpuWeak: detectWeakGpu(),
+    } : null);
     if (typeof document !== "undefined") document.documentElement.dataset.performanceProfile = deviceProfile;
     if (deviceProfile === "conserve") {
       // A weak/software GPU still supports a small multiview room. Only an
@@ -922,7 +1004,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       // Corrupt or unavailable client storage should never stop playback.
     }
     setReady(true);
-  }, [commitAutoplayMode, commitQueue, commitSavedLayouts, multiviewTileLimit, subscription.loading]);
+  }, [
+    commitAutoplayMode, commitQueue, commitSavedLayouts, multiviewTileLimit, subscription.loading,
+    setCaptionsEnabled, setChatChannels, setChatDock, setChatDockSize, setChatFocusedLogin,
+    setChatMode, setChatTextScale, setDataSaver, setMaxActivePlayers, setMixAudio,
+    setPlaybackRate, setQualityPreference, setShowChatTimestamps,
+  ]);
 
   useEffect(() => {
     if (!ready || subscription.loading) return;
@@ -944,7 +1031,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setFocusedTileId(nextFocus);
     setCurrent(nextCurrent);
     setMaximizedTileId((id) => id && next.some((tile) => tile.id === id) ? id : null);
-  }, [multiviewTileLimit, ready, subscription.loading]);
+  }, [multiviewTileLimit, ready, subscription.loading, setChatChannels, setMaxActivePlayers, setMaximizedTileId]);
 
   useEffect(() => {
     // Device-local playback/accessibility preferences are available to every
@@ -1036,7 +1123,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // durable while offline, and delete tombstones prevent a stale account copy
   // from returning before its DELETE can be retried.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !savedLayoutSyncAllowed || subscription.loading) return;
     let cancelled = false;
     const requestedAt = Date.now();
     void fetch("/api/account/workspaces?kind=watch", { credentials: "same-origin" })
@@ -1343,7 +1430,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setCurrent(successor?.item ?? null);
     }
     setMaximizedTileId((value) => value === id ? null : value);
-  }, [remember]);
+  }, [remember, setMaximizedTileId]);
 
   const replaceTile = useCallback((id: string, item: WatchItem | Playable) => {
     const playable = asPlayable(item);
@@ -1452,74 +1539,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setTiles(nextTiles);
     presetRef.current = "freeform";
     setLayoutPreset("freeform");
-  }, []);
-
-  const setMixAudio = useCallback((value: boolean) => {
-    const nextValue = Boolean(value);
-    mixAudioRef.current = nextValue;
-    setMixAudioState(nextValue);
-    if (!nextValue) {
-      const focus = focusedRef.current;
-      const next = tilesRef.current.map((tile) => ({ ...tile, muted: tile.id !== focus }));
-      tilesRef.current = next;
-      setTiles(next);
-    }
-  }, []);
-
-  const muteAll = useCallback(() => {
-    const next = tilesRef.current.map((tile) => ({ ...tile, muted: true }));
-    tilesRef.current = next;
-    setTiles(next);
-  }, []);
-
-  const setMaxActivePlayers = useCallback((value: number) => {
-    const next = Math.min(multiviewTileLimit, 8, Math.max(1, Math.round(value)));
-    maxActivePlayersRef.current = next;
-    setMaxActivePlayersState(next);
-  }, [multiviewTileLimit]);
-
-  const setChatChannels = useCallback((channels: string[]) => {
-    const next = Array.from(new Set(channels.map((channel) => channel.trim().toLowerCase()).filter(Boolean))).slice(0, multiviewTileLimit);
-    chatChannelsRef.current = next;
-    setChatChannelsState(next);
-  }, [multiviewTileLimit]);
-
-  const setChatMode = useCallback((value: ChatViewMode) => {
-    chatModeRef.current = value;
-    setChatModeState(value);
-  }, []);
-
-  const setChatFocusedLogin = useCallback((value: string | null) => {
-    const next = value ? value.trim().toLowerCase().slice(0, 80) : null;
-    chatFocusedLoginRef.current = next;
-    setChatFocusedLoginState(next);
-  }, []);
-
-  const setChatTextScale = useCallback((value: number) => {
-    if (!Number.isFinite(value)) return;
-    const next = Math.max(0.7, Math.min(1.8, value));
-    chatTextScaleRef.current = next;
-    setChatTextScaleState(next);
-  }, []);
-
-  const setShowChatTimestamps = useCallback((value: boolean) => {
-    const next = Boolean(value);
-    showChatTimestampsRef.current = next;
-    setShowChatTimestampsState(next);
-  }, []);
-
-  const setChatDockSize = useCallback((patch: Partial<ChatDockSize>) => {
-    const current = chatDockSizeRef.current;
-    const next = {
-      side: Math.max(280, Math.min(520, Math.round(patch.side ?? current.side))),
-      bottom: Math.max(220, Math.min(560, Math.round(patch.bottom ?? current.bottom))),
-      floatingWidth: Math.max(280, Math.min(560, Math.round(patch.floatingWidth ?? current.floatingWidth))),
-      floatingHeight: Math.max(320, Math.min(760, Math.round(patch.floatingHeight ?? current.floatingHeight))),
-      floatingX: Math.max(8, Math.min(2_000, Math.round(patch.floatingX ?? current.floatingX))),
-      floatingY: Math.max(8, Math.min(2_000, Math.round(patch.floatingY ?? current.floatingY))),
-    } satisfies ChatDockSize;
-    chatDockSizeRef.current = next;
-    setChatDockSizeState(next);
   }, []);
 
   const fillWithLive = useCallback((items: Array<WatchItem | Playable>, options?: { limit?: number }) => {
@@ -1763,7 +1782,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setSeekRequest(null);
     setQueueOpen(false);
     setMode("mini");
-  }, [commitQueue, remember]);
+  }, [commitQueue, remember, setMaximizedTileId]);
 
   const refill = useCallback((items: Playable[], options?: { channelId?: string }) => {
     const requestedChannelId = options?.channelId?.trim();
@@ -1876,13 +1895,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setPlaybackRate = useCallback((value: number) => {
-    if (!Number.isFinite(value)) return;
-    const next = Math.min(2, Math.max(0.5, value));
-    playbackRateRef.current = next;
-    setPlaybackRateState(next);
-  }, []);
-
   const applyAccessibilityPreset = useCallback((value: AccessibilityPreset) => {
     setAccessibilityPreset(value);
     if (value === "standard") {
@@ -1905,7 +1917,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setPlaybackRate(0.9);
     setPreviewAutoplay(false);
     setPreviewSoundEnabled(true);
-  }, [setPlaybackRate, setPreviewSoundEnabled]);
+  }, [setCaptionsEnabled, setPlaybackRate, setPreviewSoundEnabled]);
 
   const workspaceSnapshot = useCallback((name = "My layout"): WorkspaceSnapshot => {
     const geometry = workspaceGeometryRef.current;
@@ -2301,12 +2313,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     qualityPreference, ready, removeFromQueue, removeTile, replaceTile, requestSeek,
     savedLayouts, saveLayout, seekRequest, setAutoplay, setPlaybackRate, setChatDockSize, setChatFocusedLogin, setChatMode, setChatTextScale, setShowChatTimestamps,
     setAutoplayMode, setChatChannels, setGridColumns, setMaxActivePlayers,
+    setCaptionsEnabled, setChatDock, setDataSaver, setMaximizedTileId, setQualityPreference,
     setPreviewSoundEnabled, setPreviewVolume, claimPreviewAudio, releasePreviewAudio,
     setMixAudio, shareWorkspace, shortFormNavigation, shortFormPreloads, skip, stop, swapTiles, tiles, updateTile,
     showChatTimestamps, snapDensityState, workspaceSnapshot, applyWorkspaceLayout, applyWorkspaceDraft,
   ]);
 
-  return <PlayerCtx.Provider value={value}>{children}</PlayerCtx.Provider>;
+  return <PlayerCtx.Provider value={value}><ContentAvailabilityGuard />{children}</PlayerCtx.Provider>;
 }
 
 export function usePlayer() {

@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useBrowseFilters } from "@/hooks/useBrowseFilters";
+import { readableTitle } from "@/lib/watch/presentation";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { LayoutGrid, Play } from "lucide-react";
-import { Eye, Stars02, TrendUp01 as TrendingUpIcon, Users01, SearchLg, FaceSad } from "@untitledui/icons";
+import { Eye, SearchLg, FaceSad } from "@untitledui/icons";
 import { ClipEmbed, ClipPlatformBadge, ExternalClipLink } from "@/components/clips/ClipEmbed";
 import { ClipUpvoteButton } from "@/components/clips/ClipUpvoteButton";
 import { ClipLeaderboard } from "@/components/clips/ClipLeaderboard";
-import { PlatformLogo } from "@/components/clips/PlatformLogo";
+import { FilterSelect } from "@/components/ui/FilterSelect";
+import browse from "@/components/ui/BrowseControls.module.css";
 import { Input } from "@/components/base/input/input";
-import { ButtonGroup, ButtonGroupItem } from "@/components/base/button-group/button-group";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { sortClips, type Clip, type ClipSortKey } from "@/lib/clips";
 import { usePlayer } from "@/components/providers/PlayerProvider";
@@ -30,18 +32,23 @@ export type ClipsPageClientProps = {
 
 const SORT_OPTIONS: Array<{ key: ClipSortKey; label: string }> = [
   { key: "newest", label: "Newest" },
-  { key: "popular", label: "Most popular" },
+  { key: "popular", label: "Popular" },
   { key: "oldest", label: "Oldest" },
 ];
 
 export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
   const player = usePlayer();
-  const [sort, setSort] = useState<ClipSortKey>("newest");
-  const [activeMember, setActiveMember] = useState<string | null>(null);
-  const [activeSource, setActiveSource] = useState<Clip["source"] | null>(null);
-  const [query, setQuery] = useState("");
-  // Search is AI-powered by default whenever the user has typed something.
-  const aiSearch = query.trim().length > 0;
+  const { filters, update } = useBrowseFilters({ sort: "newest", creator: "", platform: "", q: "", date: "all" });
+  const sort: ClipSortKey = filters.sort === "popular" || filters.sort === "oldest" ? filters.sort : "newest";
+  const setSort = (value: ClipSortKey) => update({ sort: value });
+  const activeMember = filters.creator || null;
+  const setActiveMember = (value: string | null) => update({ creator: value ?? "" });
+  const activeSource = filters.platform || null;
+  const setActiveSource = (value: Clip["source"] | null) => update({ platform: value ?? "" });
+  const query = filters.q;
+  const setQuery = (value: string) => update({ q: value });
+  const [visibleCount, setVisibleCount] = useState(24);
+  useEffect(() => setVisibleCount(24), [filters]);
 
   // Upvote hydration — counts per clip + which the current fan has upvoted.
   const [voteCounts, setVoteCounts] = useState<Record<string, number>>({});
@@ -86,6 +93,7 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
     if (activeSource) {
       filtered = filtered.filter((c) => c.source === activeSource);
     }
+    if (filters.date !== "all") filtered = filtered.filter((clip) => Date.parse(clip.publishedAt) >= Date.now() - Number(filters.date) * 86_400_000);
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       filtered = filtered.filter(
@@ -94,8 +102,8 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
           (c.aiDescription ?? "").toLowerCase().includes(q),
       );
     }
-    return sortClips(filtered, aiSearch ? "ai" : sort, query);
-  }, [clips, sort, activeMember, activeSource, aiSearch, query]);
+    return sortClips(filtered, sort, query);
+  }, [clips, sort, activeMember, activeSource, query, filters.date]);
 
   const playableClips = useMemo(
     () => visibleClips.map((clip) => playableOfClip(clip, members)),
@@ -129,116 +137,39 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
         </div>
       ) : null}
 
-      {/* Toolbar — UUI search input + sort button group */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="min-w-[280px] flex-1">
+      <div className={browse.panel} role="search" aria-label="Find clips">
+        <div className={browse.primaryRow}>
+        <div className={browse.search}>
           <Input
+            label="Search"
             icon={SearchLg}
             size="md"
             value={query}
             onChange={(v) => setQuery(v)}
-            placeholder="AI search — describe the moment, e.g. 'ron clutch'"
+            placeholder="Search clips"
             aria-label="Search clips"
           />
         </div>
 
-        <ButtonGroup
-          size="md"
-          selectedKeys={aiSearch ? new Set<string>() : new Set([sort])}
-          onSelectionChange={(keys) => {
-            const next = Array.from(keys)[0] as ClipSortKey | undefined;
-            if (next) setSort(next);
-          }}
-        >
-          {SORT_OPTIONS.map((opt) => (
-            <ButtonGroupItem
-              key={opt.key}
-              id={opt.key}
-              iconLeading={opt.key === "popular" ? TrendingUpIcon : undefined}
-            >
-              {opt.label}
-            </ButtonGroupItem>
-          ))}
-        </ButtonGroup>
-
-        <span className="ml-auto text-sm font-medium text-quaternary">
-          {visibleClips.length} of {clips.length}
-        </span>
-      </div>
-
-      {/* AI search backend stub — until the AI ranker is wired up, the
-          search box just falls back to substring filtering. Tell users so
-          they don't expect natural-language matching yet. */}
-      {aiSearch ? (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-secondary bg-secondary p-4 shadow-xs-skeuomorphic">
-          <FeaturedIcon icon={Stars02} size="md" color="brand" theme="light" />
-          <p className="text-sm font-medium text-secondary">
-            AI search abilty backend is not set up yet sorry guys! &lt;3
-          </p>
+        <FilterSelect label="Sort" ariaLabel="Sort clips" value={sort} onChange={(value) => setSort(value as ClipSortKey)} options={SORT_OPTIONS.map((option) => ({ value: option.key, label: option.label }))} />
+        <FilterSelect label="Date" ariaLabel="Filter clips by date" value={filters.date} onChange={(value) => update({ date: value })} options={[{ value: "all", label: "Any time" }, { value: "7", label: "Past week" }, { value: "30", label: "Past month" }, { value: "365", label: "Past year" }]} />
         </div>
-      ) : null}
-
-      {/* Filters */}
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        <FilterChip
-          label="All members"
-          allIcon
-          active={activeMember === null}
-          onClick={() => setActiveMember(null)}
+        <div className={browse.secondaryRow}>
+        <FilterSelect
+          label="Creator"
+          ariaLabel="Filter clips by creator"
+          value={activeMember ?? ""}
+          onChange={(value) => setActiveMember(value || null)}
+          options={[{ value: "", label: "Everyone" }, ...members.map((member) => ({ value: member.slug, label: member.stageName, avatarUrl: member.avatarUrl }))]}
         />
-        {members.map((m) => (
-          <FilterChip
-            key={m.slug}
-            label={m.stageName}
-            color={m.accent}
-            avatarUrl={m.avatarUrl}
-            active={activeMember === m.slug}
-            onClick={() => setActiveMember(activeMember === m.slug ? null : m.slug)}
-          />
-        ))}
-        <span className="mx-1 h-5 w-px bg-border-secondary" aria-hidden />
-        {(["twitch", "youtube", "tiktok", "instagram"] as const).map((s) => {
-          const brand =
-            s === "twitch"
-              ? "#9146FF"
-              : s === "youtube"
-                ? "#FF0033"
-                : s === "tiktok"
-                  ? "#FE2C55"
-                  : "#E1306C";
-          const active = activeSource === s;
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setActiveSource(activeSource === s ? null : s)}
-              aria-pressed={active}
-              title={s.charAt(0).toUpperCase() + s.slice(1)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all cursor-pointer hover:-translate-y-0.5"
-              style={
-                active
-                  ? {
-                      borderColor: brand,
-                      color: brand,
-                      background: `color-mix(in oklab, ${brand} 18%, transparent)`,
-                      boxShadow: `0 0 0 1px ${brand}55`,
-                    }
-                  : {
-                      borderColor: "var(--rule)",
-                      color: "var(--ink-dim)",
-                      background: "var(--bg-elev)",
-                    }
-              }
-            >
-              <PlatformLogo platform={s} size={14} />
-            </button>
-          );
-        })}
+        <FilterSelect label="Platform" ariaLabel="Filter clips by platform" value={activeSource ?? ""} onChange={(value) => setActiveSource(value as Clip["source"] || null)} options={[{ value: "", label: "All" }, { value: "twitch", label: "Twitch" }, { value: "youtube", label: "YouTube" }, { value: "tiktok", label: "TikTok" }, { value: "instagram", label: "Instagram" }]} />
+        <p className={browse.resultCount} role="status"><span><strong>{visibleClips.length}</strong> of {clips.length} clips</span></p>
+        </div>
       </div>
 
       {/* Collage — CSS columns so vertical + horizontal clips pack tightly. */}
       {visibleClips.length === 0 ? (
-        <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-secondary bg-secondary p-10 text-center shadow-xs-skeuomorphic">
+        <div className="collection-empty flex flex-col items-center justify-center p-8 text-center">
           <FeaturedIcon icon={FaceSad} size="xl" color="gray" theme="modern" />
           <p className="mt-4 text-lg font-semibold text-primary">
             {clips.length === 0 ? "No clips yet" : "No clips match"}
@@ -251,21 +182,21 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
         </div>
       ) : (
         <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4 [column-fill:_balance]">
-          {visibleClips.map((c) => {
+          {visibleClips.slice(0, visibleCount).map((c) => {
             const taggedMembers = c.memberSlugs
               .map((slug) => members.find((m) => m.slug === slug))
               .filter((m): m is MemberLite => !!m);
             return (
               <article
                 key={c.id}
-                className="mb-5 break-inside-avoid overflow-hidden rounded-2xl border border-secondary bg-secondary shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+                className="collection-card mb-5 break-inside-avoid overflow-hidden"
               >
-                <ClipEmbed clip={c} />
+                <ClipEmbed clip={c} onPlay={() => player.play(playableOfClip(c, members), playableClips)} />
                 <div className="flex flex-col gap-3 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <h3 className="text-balance text-md font-semibold leading-snug tracking-tight text-primary">
-                        {c.title}
+                        {readableTitle(c.title)}
                       </h3>
                       <p className="mt-1 text-sm text-tertiary">
                         {formatRelative(c.publishedAt)}
@@ -361,6 +292,7 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
           })}
         </div>
       )}
+      {visibleClips.length > visibleCount ? <button type="button" className="my-6 min-h-11 rounded-lg border border-secondary px-5" onClick={() => setVisibleCount((count) => count + 24)}>Show 24 more clips</button> : null}
     </div>
   );
 }
@@ -388,67 +320,6 @@ function playableOfClip(clip: Clip, members: MemberLite[]): Playable {
     format: "short",
     publishedAt: clip.publishedAt,
   };
-}
-
-function FilterChip({
-  label,
-  avatarUrl,
-  color,
-  active,
-  onClick,
-  allIcon = false,
-}: {
-  label: string;
-  avatarUrl?: string;
-  color?: string;
-  active: boolean;
-  onClick: () => void;
-  /** Render the generic Users glyph in the avatar slot so the chip
-   *  matches the height of the member chips even without a portrait. */
-  allIcon?: boolean;
-}) {
-  const tint = color ?? "var(--core)";
-  const hasAvatarSlot = !!avatarUrl || allIcon;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full py-1 ring-1 ring-inset ${
-        hasAvatarSlot ? "pl-1 pr-3" : "px-2.5 py-1.5"
-      } text-xs font-medium transition-all cursor-pointer ${
-        active
-          ? "text-primary"
-          : "bg-secondary text-tertiary ring-secondary hover:text-primary"
-      }`}
-      style={
-        active
-          ? {
-              ["--tw-ring-color" as string]: tint,
-              background: `color-mix(in oklab, ${tint} 18%, transparent)`,
-              boxShadow: `0 0 0 1px ${tint}55`,
-            }
-          : undefined
-      }
-    >
-      {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatarUrl}
-          alt=""
-          className="h-6 w-6 rounded-full ring-1 ring-inset"
-          style={{ ["--tw-ring-color" as string]: `${tint}66` }}
-        />
-      ) : allIcon ? (
-        <span
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full ring-1 ring-inset bg-[color:var(--bg)] text-[color:var(--ink-dim)]"
-          style={{ ["--tw-ring-color" as string]: `${tint}66` }}
-        >
-          <Users01 className="size-3" />
-        </span>
-      ) : null}
-      {label}
-    </button>
-  );
 }
 
 /**

@@ -1,6 +1,10 @@
 "use client";
 
+import { isRecentItem } from "@/lib/watch/presentation";
+import { xLinkPresentation } from "@/lib/watch/x-link-presentation";
+
 import { ExternalLink, Link2, MessageCircle, Mic2, Play, Radio } from "lucide-react";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { PlatformLogo } from "@/components/clips/PlatformLogo";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -29,7 +33,9 @@ type LinkPreview = {
 };
 
 function linkLabel(entity: WatchHomeXPost["entities"][number]): string {
-  if (entity.label?.trim()) return entity.label.trim();
+  if (/^https:\/\/t\.co\//i.test(entity.href)) return "Shared link";
+  const { label } = xLinkPresentation(entity.href, entity.label);
+  if (label) return label;
   try {
     const url = new URL(entity.href);
     const path = url.pathname.split("/").filter(Boolean)[0];
@@ -77,17 +83,19 @@ function linkPreviews(
   entities: readonly WatchHomeXPost["entities"][number][],
   sourceUrl: string,
   suppressStatusId?: string,
-  _hasMedia = false,
+  hasMedia = false,
 ): LinkPreview[] {
   const seen = new Set<string>();
   return entities.flatMap<LinkPreview>((entity): LinkPreview[] => {
-    if (entity.kind !== "url" || seen.has(entity.href) || entity.href === sourceUrl) return [];
+    if (entity.kind !== "url" || seen.has(entity.href) || entity.href === sourceUrl
+      || isAttachedMediaLink(entity, sourceUrl, hasMedia)) return [];
     seen.add(entity.href);
+    const presentation = xLinkPresentation(entity.href, entity.label, entity.title);
     const videoId = youtubeId(entity.href);
     if (videoId) return [{
-      href: entity.href, kind: "youtube" as const, label: "YouTube", title: entity.title ?? "Watch video",
+      href: entity.href, kind: "youtube" as const, label: "YouTube", title: presentation.title ?? "Watch video",
       description: entity.description,
-      imageUrl: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+      imageUrl: entity.imageUrl ?? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
     }];
     const quoted = xStatus(entity.href);
     if (quoted) {
@@ -103,8 +111,9 @@ function linkPreviews(
       return [{
         href: entity.href,
         kind: "link" as const,
-        label: entity.label ?? (quoted ? "X" : url.hostname.replace(/^www\./, "")),
-        title: entity.title ?? (quoted ? "Open linked post on X" : previewTitleFromUrl(url)),
+        label: /^(?:www\.)?twitch\.tv$/i.test(url.hostname) ? "Twitch"
+          : presentation.label ?? (quoted ? "X" : url.hostname.replace(/^www\./, "")),
+        title: presentation.title ?? (quoted ? "Open linked post on X" : previewTitleFromUrl(url)),
         description: entity.description,
         imageUrl: entity.imageUrl,
       }];
@@ -112,18 +121,33 @@ function linkPreviews(
   }).slice(0, 2);
 }
 
+function isAttachedMediaLink(entity: WatchHomeXPost["entities"][number], sourceUrl: string, hasMedia: boolean) {
+  if (!hasMedia || entity.kind !== "url") return false;
+  const linked = xStatus(entity.href);
+  const source = xStatus(sourceUrl);
+  return Boolean(linked && source && linked.id === source.id)
+    || /^(?:https?:\/\/)?pic\.(?:x|twitter)\.com\//i.test(entity.label ?? entity.href);
+}
+
 function XPostText({
   text,
   entities,
+  sourceUrl,
+  hasMedia = false,
+  suppressStatusId,
   className = styles.postText,
 }: {
   text: string;
   entities: readonly WatchHomeXPost["entities"][number][];
+  sourceUrl: string;
+  hasMedia?: boolean;
+  suppressStatusId?: string;
   className?: string;
 }) {
   const content: ReactNode[] = [];
   let cursor = 0;
   let hasVisibleCopy = false;
+  const previewUrls = new Set(linkPreviews(entities, sourceUrl, suppressStatusId, hasMedia).map((preview) => preview.href));
 
   for (const [index, entity] of entities.entries()) {
     if (
@@ -140,9 +164,13 @@ function XPostText({
       hasVisibleCopy ||= Boolean(copy.trim());
     }
     if (entity.kind === "url") {
-      // Entity hrefs are already expanded upstream. Show a concise destination
-      // in the post as well as its rich preview; never leave raw t.co text as
-      // the only visible representation of a shared link.
+      // The card or attachment below already provides the accessible link.
+      // Keep post copy readable instead of repeating shortened URLs above it.
+      if (previewUrls.has(entity.href) || isAttachedMediaLink(entity, sourceUrl, hasMedia)
+        || (suppressStatusId && xStatus(entity.href)?.id === suppressStatusId)) {
+        cursor = entity.end;
+        continue;
+      }
       content.push(
         <a
           key={`${entity.start}:${entity.end}:${index}`}
@@ -176,6 +204,12 @@ function XPostText({
     content.push(copy);
     hasVisibleCopy ||= Boolean(copy.trim());
   }
+  // Removing a trailing attachment/link must not leave several blank lines.
+  while (typeof content.at(-1) === "string") {
+    const tail = (content.at(-1) as string).trimEnd();
+    if (tail) { content[content.length - 1] = tail; break; }
+    content.pop();
+  }
   return hasVisibleCopy ? <p className={className}>{content}</p> : null;
 }
 
@@ -184,23 +218,32 @@ function XLinkPreviews({
   sourceUrl,
   suppressStatusId,
   hasMedia = false,
+  priority = false,
   className = styles.linkPreviews,
 }: {
   entities: readonly WatchHomeXPost["entities"][number][];
   sourceUrl: string;
   suppressStatusId?: string;
   hasMedia?: boolean;
+  priority?: boolean;
   className?: string;
 }) {
+  const [failedImages, setFailedImages] = useState<string[]>([]);
   const previews = linkPreviews(entities, sourceUrl, suppressStatusId, hasMedia);
   if (!previews.length) return null;
   return (
     <div className={className} aria-label="Links shared in this post">
-      {previews.map((preview) => (
-        <a key={preview.href} className={styles.linkPreview} data-kind={preview.kind} href={preview.href} target="_blank" rel={EXTERNAL_REL}>
-          {preview.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview.imageUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+      {previews.map((preview) => {
+        const imageUrl = preview.imageUrl && !failedImages.includes(preview.imageUrl) ? preview.imageUrl : null;
+        return (
+        <a key={preview.href} className={styles.linkPreview} data-kind={preview.kind} data-has-image={Boolean(imageUrl)} href={preview.href} target="_blank" rel={EXTERNAL_REL}>
+          {imageUrl ? (
+            <span className={styles.linkPreviewVisual}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imageUrl} alt="" loading={priority ? "eager" : "lazy"} decoding="async" referrerPolicy="no-referrer"
+                onError={() => setFailedImages((current) => current.includes(imageUrl) ? current : [...current, imageUrl])} />
+              {preview.kind === "youtube" ? <span className={styles.linkPreviewVisualPlay} aria-hidden="true"><Play /></span> : null}
+            </span>
           ) : (
             <span className={styles.linkPreviewIcon} aria-hidden="true">
               <Link2 />
@@ -211,9 +254,9 @@ function XLinkPreviews({
             <strong>{preview.title}</strong>
             {preview.description ? <em>{preview.description}</em> : null}
           </span>
-          {preview.kind === "youtube" ? <Play className={styles.linkPreviewPlay} aria-hidden="true" /> : <ExternalLink className={styles.linkPreviewExternal} aria-hidden="true" />}
+          <ExternalLink className={styles.linkPreviewExternal} aria-hidden="true" />
         </a>
-      ))}
+      );})}
     </div>
   );
 }
@@ -261,7 +304,8 @@ function XQuotePreview({
             <ExternalLink aria-hidden="true" />
           </a>
         </header>
-        <XPostText text={quote.text} entities={quote.entities} className={styles.quoteText} />
+        <XPostText text={quote.text} entities={quote.entities} sourceUrl={quote.statusUrl} hasMedia={media.length > 0}
+          suppressStatusId={quote.statusId} className={styles.quoteText} />
         <XLinkPreviews
           entities={quote.entities}
           sourceUrl={quote.statusUrl}
@@ -299,7 +343,7 @@ function XQuotePreview({
   );
 }
 
-function XPostCard({ post, onOpen }: { post: WatchHomeXPost; onOpen?: (post: WatchHomeXPost) => void }) {
+function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; onOpen?: (post: WatchHomeXPost) => void; priority?: boolean }) {
   const { rootRef, isNew } = useSeenXPost(post.statusId);
   const visibleMedia = post.media.flatMap((media) => {
     const source = media.thumbnailUrl ?? (media.kind === "image" ? media.mediaUrl : null);
@@ -318,12 +362,12 @@ function XPostCard({ post, onOpen }: { post: WatchHomeXPost; onOpen?: (post: Wat
         onOpen(post);
       }}
       onKeyDown={(event) => {
-        if (!onOpen || (event.key !== "Enter" && event.key !== " ")) return;
+        if (event.target !== event.currentTarget || !onOpen || (event.key !== "Enter" && event.key !== " ")) return;
         event.preventDefault();
         onOpen(post);
       }}
     >
-      {isNew ? <span className={styles.newBadge}>New</span> : null}
+      {isNew && isRecentItem(post) ? <span className={styles.newBadge}>New</span> : null}
       <header className={styles.postHeader}>
         <a
           className={styles.avatarLink}
@@ -363,7 +407,8 @@ function XPostCard({ post, onOpen }: { post: WatchHomeXPost; onOpen?: (post: Wat
         </a>
       </header>
 
-      <XPostText text={post.text} entities={post.entities} />
+      <XPostText text={post.text} entities={post.entities} sourceUrl={post.sourceUrl} hasMedia={visibleMedia.length > 0}
+        suppressStatusId={post.quote?.statusId ?? post.unavailableQuote?.statusId} />
 
       <XQuotePreview quote={post.quote} unavailableQuote={post.unavailableQuote} />
 
@@ -371,7 +416,8 @@ function XPostCard({ post, onOpen }: { post: WatchHomeXPost; onOpen?: (post: Wat
         entities={post.entities}
         sourceUrl={post.sourceUrl}
         suppressStatusId={post.quote?.statusId ?? post.unavailableQuote?.statusId}
-        hasMedia={post.media.length > 0}
+        hasMedia={visibleMedia.length > 0}
+        priority={priority}
       />
 
       {visibleMedia.length ? (
@@ -394,7 +440,7 @@ function XPostCard({ post, onOpen }: { post: WatchHomeXPost; onOpen?: (post: Wat
             >
               {/* X image and video thumbnails are cached by the server. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={media.source} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+              <img src={media.source} alt="" loading={priority ? "eager" : "lazy"} decoding="async" referrerPolicy="no-referrer" />
               {media.kind === "video" ? <span className={styles.videoBadge}><i aria-hidden="true" /> Video</span> : null}
               {index === 3 && visibleMedia.length > 4 ? <span className={styles.moreMedia}>+{visibleMedia.length - 4}</span> : null}
             </a>
@@ -426,7 +472,7 @@ function XPostModal({ post, onClose }: { post: WatchHomeXPost | null; onClose: (
       {post ? (
         <DialogContent className="w-[min(42rem,calc(100vw-1.5rem))] max-h-[min(48rem,calc(100dvh-1.5rem))] overflow-y-auto bg-[color:var(--bg)] p-3 sm:p-5">
           <DialogTitle className="sr-only">Post from {post.author.label}</DialogTitle>
-          <XPostCard post={post} />
+          <XPostCard post={post} priority />
         </DialogContent>
       ) : null}
     </Dialog>
@@ -459,7 +505,7 @@ function XSpaceCard({ space }: { space: WatchHomeXSpace }) {
 }
 
 /**
- * First-party cards rendered from the hourly roster snapshot. The browser
+ * First-party cards rendered from the shared roster snapshot. The browser
  * never loads X widgets or calls the X API; only an explicit profile/post link
  * navigates away from CORE.
  */
@@ -482,10 +528,13 @@ export function XTweetsRail({
       return [{ slug: post.author.slug, label: post.author.label }];
     });
   }, [items]);
+  // A refresh can remove the selected account from the bounded window.
+  // Keep the rail usable even when that leaves only one author/filter.
+  const activeCreator = creators.some((entry) => entry.slug === creator) ? creator : "all";
   const limit = Math.max(1, Math.min(48, Math.trunc(maxItems)));
   const posts = useMemo(() => items
-    .filter((post) => creator === "all" || post.author.slug === creator)
-    .slice(0, limit), [creator, items, limit]);
+    .filter((post) => activeCreator === "all" || post.author.slug === activeCreator)
+    .slice(0, limit), [activeCreator, items, limit]);
 
   // Empty shelves behave like the other Watch rails. Never replace cached
   // content with a consent prompt or a browser-loaded provider timeline.
@@ -494,6 +543,7 @@ export function XTweetsRail({
   return (
     <section
       className={styles.section}
+      data-embedded={!showHeading || undefined}
       aria-labelledby={showHeading ? headingId : undefined}
       aria-label={showHeading ? undefined : title}
     >
@@ -510,14 +560,19 @@ export function XTweetsRail({
       ) : null}
 
       {creators.length > 1 ? (
-        <div className={styles.filters} role="group" aria-label="Filter X posts by creator">
-          <button type="button" aria-pressed={creator === "all"} onClick={() => setCreator("all")}>Everyone</button>
-          {creators.map((entry) => (
-            <button key={entry.slug} type="button" aria-pressed={creator === entry.slug} onClick={() => setCreator(entry.slug)}>
-              {entry.label}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className={styles.mobileFilter}>
+            <FilterSelect label="Creator" ariaLabel="Filter X posts by creator" value={activeCreator} onChange={setCreator} options={[{ value: "all", label: "Everyone" }, ...creators.map((entry) => ({ value: entry.slug, label: entry.label }))]} />
+          </div>
+          <div className={styles.filters} role="group" aria-label="Filter X posts by creator">
+            <button type="button" aria-pressed={activeCreator === "all"} onClick={() => setCreator("all")}>Everyone</button>
+            {creators.map((entry) => (
+              <button key={entry.slug} type="button" aria-pressed={activeCreator === entry.slug} onClick={() => setCreator(entry.slug)}>
+                {entry.label}
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
 
       {posts.length ? (
@@ -537,7 +592,7 @@ export function XTweetsRail({
               // deliberately does not make featured posts span rows.
               data-featured={post.media.length > 0 && index % 7 === 0 ? "true" : undefined}
             >
-              <XPostCard post={post} onOpen={setSelectedPost} />
+              <XPostCard post={post} onOpen={setSelectedPost} priority={index < 6} />
             </div>
           ))}
         </div>

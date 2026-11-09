@@ -1,10 +1,20 @@
 import "server-only";
+import { isIP } from "node:net";
 
 import { query } from "@/lib/db";
 
 const WINDOW_SECONDS = 15 * 60;
 const SUBJECT_PREFIX = "site-preview:";
 const MAX_FALLBACK_BUCKETS = 2_048;
+
+export function siteAccessClientIp(headers: Headers): string {
+  // Azure ingress appends the actual peer. The first entry and CF headers
+  // can be supplied by a caller hitting the Azure hostname directly.
+  const forwarded = headers.get("x-forwarded-for")?.split(",").at(-1)?.trim();
+  const candidate = forwarded?.replace(/^\[([^\]]+)\](?::\d+)?$/, "$1")
+    .replace(/^(\d+\.\d+\.\d+\.\d+):\d+$/, "$1");
+  return candidate && isIP(candidate) ? candidate.toLowerCase() : "unknown";
+}
 
 type FallbackBucket = { hits: number; startedAt: number };
 
@@ -74,7 +84,10 @@ export async function consumeSiteAccessRateLimit(
     const elapsed = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 1_000 : 0;
     return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil(WINDOW_SECONDS - elapsed)) };
   } catch (error) {
-    console.error("site_access_database_throttle_unavailable", error);
+    console.error("site_access_database_throttle_unavailable");
+    // Production replicas must share one counter. A local fallback would
+    // reset the allowance on each replica or restart during an outage.
+    if (process.env.NODE_ENV === "production") throw new Error("site_access_rate_limit_unavailable", { cause: error });
     return consumeFallback(storedSubjectKey, maxAttempts);
   }
 }

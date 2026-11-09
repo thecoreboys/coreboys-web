@@ -1,13 +1,14 @@
 "use client";
 
+import { NotificationArtwork } from "@/components/notifications/NotificationArtwork";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, CheckCheck, Clock3, Inbox, Play, Settings2 } from "lucide-react";
+import { Bell, Check, CheckCheck, Clock3, Inbox, Play, Settings2 } from "lucide-react";
 import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
-import { NotificationPreviewSurface } from "@/components/notifications/NotificationContentPreview";
 import type { InboxCategory, InboxNotification, NotificationCenterPage as NotificationCenterData } from "@/lib/inbox-notification";
 import { notificationProviderForUrl, notificationTargetFor } from "@/lib/notification-target";
 import { cn } from "@/lib/utils";
+import { groupInboxNotifications } from "@/lib/notification-groups";
 
 type Filter = "all" | InboxCategory;
 type Reminder = { id: string; title: string; href: string; startsAt: string; enabled: boolean };
@@ -77,57 +78,46 @@ function NotificationFeedItem({
     return () => observer.disconnect();
   }, [item.id, item.readAt, onRead]);
 
-  const preview = provider === "core" ? null : {
-    sourceHref: item.href,
-    title: item.title,
-    body: item.body,
-    imageUrl: item.imageUrl,
-    avatarUrl: item.avatarUrl,
-    provider,
-    xPost: item.xPost ?? null,
-  };
-
   return (
     <article
       ref={rootRef}
       className={cn(
-        "overflow-hidden rounded-3xl bg-primary shadow-sm ring-1 ring-inset ring-secondary transition",
-        !item.readAt && "ring-brand/45",
+        "grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 px-4 py-4 transition-colors sm:grid-cols-[3.5rem_minmax(0,1fr)_auto] sm:gap-4 sm:px-5",
+        !item.readAt && "border-l-2 border-l-[color:var(--core)] bg-brand-primary/20 pl-[calc(1rem-2px)] sm:pl-[calc(1.25rem-2px)]",
       )}
       data-notification-feed-item
       data-read={item.readAt ? "true" : "false"}
     >
-      <header className="flex items-start justify-between gap-4 border-b border-secondary px-5 py-4 sm:px-6">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-quaternary">{categoryLabel(item.category)} · {relativeTime(item.createdAt)}</p>
-          <h2 className="mt-1 text-base font-semibold leading-6 text-primary">{item.title}</h2>
+      <NotificationArtwork href={item.href} imageUrl={item.imageUrl || item.xPost?.media[0]?.thumbnailUrl} avatarUrl={item.avatarUrl || item.xPost?.authorAvatarUrl} variant="feed" />
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[10px] font-bold uppercase tracking-[0.13em] text-quaternary">{categoryLabel(item.category)}</span>
+          <span className="size-1 shrink-0 rounded-full bg-quaternary" aria-hidden />
+          <time dateTime={item.createdAt} className="shrink-0 text-xs text-tertiary">{relativeTime(item.createdAt)}</time>
+          {!item.readAt ? <span className="ml-auto size-2 shrink-0 rounded-full bg-brand-solid" aria-label="Unread" /> : null}
         </div>
-        {!item.readAt ? <span className="mt-2 size-2 shrink-0 rounded-full bg-brand-solid" aria-label="Unread" /> : null}
-      </header>
-
-      <div className="p-3 sm:p-4">
-        {preview ? <NotificationPreviewSurface preview={preview} /> : (
-          <div className="overflow-hidden rounded-2xl border border-secondary bg-secondary/55">
-            {item.imageUrl ? <img src={item.imageUrl} alt="" className="max-h-[30rem] w-full object-cover" /> : null}
-            <div className="p-5 sm:p-6">
-              {item.body ? <p className="text-sm leading-6 text-tertiary">{item.body}</p> : <p className="text-sm text-tertiary">Open this CORE update for the full details.</p>}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <footer className="flex flex-wrap items-center gap-2 border-t border-secondary px-5 py-4 sm:px-6">
-        <button
-          type="button"
-          onClick={() => onOpen(item)}
-          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-semibold text-brand-secondary transition hover:bg-brand-primary_hover"
-        >
-          <Play className="size-4" aria-hidden />{target.kind === "theater" ? "Watch now" : "Open update"}
+        <button type="button" onClick={() => onOpen(item)} className="mt-1 block max-w-full text-left text-sm font-semibold leading-5 text-primary transition hover:text-brand-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]">
+          <span className="line-clamp-2">{item.title}</span>
         </button>
-        {!item.readAt ? <button type="button" onClick={() => onRead(item.id)} className="min-h-10 rounded-xl px-3 text-sm font-semibold text-tertiary ring-1 ring-inset ring-secondary transition hover:bg-secondary hover:text-primary">Mark as read</button> : null}
-      </footer>
+        <p className="mt-1 line-clamp-2 text-sm leading-5 text-tertiary">{item.body || (provider === "core" ? "Open this CORE update for the full details." : `Open a preview of this ${provider} update.`)}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 sm:hidden">
+          <FeedActions item={item} targetKind={target.kind} onOpen={onOpen} onRead={onRead} />
+        </div>
+      </div>
+      <div className="hidden items-center gap-2 sm:flex">
+        <FeedActions item={item} targetKind={target.kind} onOpen={onOpen} onRead={onRead} />
+      </div>
     </article>
   );
+}
+
+function FeedActions({ item, targetKind, onOpen, onRead }: { item: InboxNotification; targetKind: string; onOpen: (item: InboxNotification) => void; onRead: (id: string) => void }) {
+  return <>
+    <button type="button" onClick={() => onOpen(item)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-solid px-3 text-xs font-semibold text-white transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]">
+      <Play className="size-3.5" aria-hidden />{targetKind === "theater" ? "Watch" : "View"}
+    </button>
+    {!item.readAt ? <button type="button" onClick={() => onRead(item.id)} aria-label="Mark notification as read" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-tertiary transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]"><Check className="size-3.5" aria-hidden /><span className="sm:hidden lg:inline">Mark read</span></button> : null}
+  </>;
 }
 
 async function fetchPage(filter: Filter, cursor?: string | null): Promise<NotificationCenterData> {
@@ -244,32 +234,32 @@ export function NotificationCenterPage() {
   }
 
   return (
-    <main className="mx-auto min-h-[70vh] max-w-4xl px-5 py-10 sm:px-6 lg:px-8 lg:py-16">
-      <div className="flex flex-wrap items-end justify-between gap-5">
-        <div className="flex gap-3">
-          <span className="mt-1 grid size-10 shrink-0 place-items-center rounded-xl bg-brand-primary text-brand-secondary ring-1 ring-inset ring-brand">
+    <div className="mx-auto min-h-[70vh] max-w-5xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="flex min-w-0 items-start gap-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-primary text-brand-secondary ring-1 ring-inset ring-brand">
             <Bell className="size-5" aria-hidden />
           </span>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-secondary">Account center</p>
-            <h1 className="mt-1 text-display-sm font-semibold tracking-tight text-primary">Notifications</h1>
-            <p className="mt-2 max-w-2xl text-[15px] leading-6 text-tertiary">Creator activity, CORE account updates, and community notices — all in one place.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-secondary">Account center</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">Notifications</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-tertiary">Creator activity, account updates, and community notices in one place.</p>
           </div>
         </div>
         <button
           type="button"
           disabled={!unreadCount}
           onClick={() => void markAllRead()}
-          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-secondary px-4 text-sm font-semibold text-secondary ring-1 ring-inset ring-secondary transition hover:bg-primary_hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-secondary bg-primary px-3.5 text-sm font-semibold text-secondary transition hover:bg-primary_hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
         >
           <CheckCheck className="size-4" aria-hidden />
           Mark {filter === "all" ? "all" : "shown"} read
         </button>
       </div>
 
-      <section className="mt-8 overflow-hidden rounded-3xl bg-secondary/80 shadow-2xl shadow-black/10 ring-1 ring-inset ring-secondary">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-secondary px-5 py-4 sm:px-6">
-          <nav className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-primary p-1 ring-1 ring-inset ring-secondary" aria-label="Notification categories">
+      <section className="mt-7 overflow-hidden rounded-2xl border border-secondary bg-primary shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-secondary bg-secondary/40 px-4 py-3 sm:px-5">
+          <nav className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-primary p-1 ring-1 ring-inset ring-secondary [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Notification categories">
             {FILTERS.map((option) => (
               <button
                 key={option.value}
@@ -277,19 +267,19 @@ export function NotificationCenterPage() {
                 aria-pressed={filter === option.value}
                 onClick={() => setFilter(option.value)}
                 className={cn(
-                  "min-h-9 shrink-0 rounded-lg px-3 text-xs font-semibold transition",
-                  filter === option.value ? "bg-brand-primary text-brand-secondary" : "text-tertiary hover:bg-secondary hover:text-primary",
+                  "min-h-8 shrink-0 rounded-md px-3 text-xs font-semibold transition",
+                  filter === option.value ? "bg-brand-solid text-white shadow-sm" : "text-tertiary hover:bg-secondary hover:text-primary",
                 )}
               >
                 {option.label}
               </button>
             ))}
           </nav>
-          <p className="text-xs font-semibold text-tertiary">{unreadCount ? `${unreadCount} unread` : "All caught up"}</p>
+          <p className="text-xs font-medium text-tertiary" aria-live="polite">{unreadCount ? <><span className="font-semibold text-primary">{unreadCount.toLocaleString()}</span> unread</> : "All caught up"}</p>
         </div>
 
-        <div className="p-2 sm:p-3">
-          {loading ? <div className="h-64 animate-pulse rounded-xl bg-primary" /> : null}
+        <div>
+          {loading ? <div className="m-4 h-32 animate-pulse rounded-xl bg-secondary sm:m-5" /> : null}
           {error ? (
             <div className="px-5 py-12 text-center">
               <p className="text-sm font-semibold text-primary">Notifications are temporarily unavailable</p>
@@ -305,19 +295,21 @@ export function NotificationCenterPage() {
             </div>
           ) : null}
           {!loading && !error ? (
-            <ol className="space-y-4" aria-label="Notification feed">
-              {items.map((item) => {
+            <ol className="divide-y divide-secondary" aria-label="Notification feed">
+              {groupInboxNotifications(items).map((group) => {
+                const item = group.items[0]!;
                 return (
-                  <li key={item.id}>
+                  <li key={group.key} className="first:border-t-0">
                     <NotificationFeedItem item={item} onOpen={activateNotification} onRead={(id) => void markRead(id)} />
+                    {group.items.length > 1 ? <details className="px-5 pb-4"><summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-secondary">{group.items.length - 1} more {item.xPost?.authorName ? `from ${item.xPost.authorName}` : "updates"} on this day</summary><ol className="divide-y divide-secondary">{group.items.slice(1).map((older) => <li key={older.id}><NotificationFeedItem item={older} onOpen={activateNotification} onRead={(id) => void markRead(id)} /></li>)}</ol></details> : null}
                   </li>
                 );
               })}
             </ol>
           ) : null}
           {nextCursor && !loading && !error ? (
-            <div ref={loadMoreRef} className="mt-4 flex justify-center">
-              <button type="button" disabled={loadingMore} onClick={() => void load(filter, nextCursor, true)} className="min-h-10 rounded-lg px-4 text-sm font-semibold text-brand-secondary transition hover:bg-brand-primary disabled:cursor-wait disabled:opacity-50">
+            <div ref={loadMoreRef} className="flex justify-center border-t border-secondary p-4">
+              <button type="button" disabled={loadingMore} onClick={() => void load(filter, nextCursor, true)} className="min-h-10 rounded-lg border border-secondary px-4 text-sm font-semibold text-secondary transition hover:bg-secondary disabled:cursor-wait disabled:opacity-50">
                 {loadingMore ? "Loading…" : "Load older notifications"}
               </button>
             </div>
@@ -344,6 +336,6 @@ export function NotificationCenterPage() {
         <Link href="/account/settings#notifications" className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"><Settings2 className="size-4" aria-hidden />Manage alert settings</Link>
       </section>
       {previewDialog}
-    </main>
+    </div>
   );
 }

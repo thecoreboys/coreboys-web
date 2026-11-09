@@ -1,0 +1,159 @@
+/* Shared browsing surfaces; video players and precise timeline geometry retain
+   their own layouts. Pattern and artwork accents live around the content. */
+.core-archive-body { min-width: 0; }
+.core-archive-filters > label { min-width: 0; }
+.core-archive-filters :is(input, select) { width: 100%; min-width: 0; }
+.core-archive-body :is(input, select) {
+  min-height: 46px;
+  border-radius: .8rem;
+  border-color: var(--ui-line);
+  background-color: var(--bg-elev);
+  font-size: .9375rem;
+}
+.core-archive-body :is(input, select):focus-visible {
+  outline: 2px solid var(--core-2);
+  outline-offset: 3px;
+}
+.core-archive-body .watch-poster {
+  border-radius: 1.25rem;
+  border-color: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.core-archive-body .watch-poster-title { font-size: 1rem; line-height: 1.5; }
+.core-archive-body .watch-poster-copy { padding: 1rem; }
+
+.core-settings nav[aria-label="Account settings"] {
+  border-radius: 1.25rem;
+  padding: .5rem;
+  background: var(--bg-elev);
+  border-color: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.core-settings nav[aria-label="Account settings"] a { min-height: 3rem; border-radius: .9rem; }
+.core-settings nav[aria-label="Account settings"] a[aria-current="page"] {
+  background: color-mix(in srgb, var(--core) 10%, var(--bg));
+  box-shadow: none;
+}
+
+.guide-v2 .core-guide-intro {
+  position: relative;
+  isolation: isolate;
+  margin-bottom: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 1.75rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  background:
+    radial-gradient(ellipse at 95% 20%, color-mix(in srgb, var(--core) 12%, transparent), transparent 60%),
+    radial-gradient(ellipse at 55% 110%, #cfa07b12, transparent 60%),
+    var(--bg-elev);
+}
+.guide-v2 .core-guide-intro::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  background: repeating-radial-gradient(ellipse at 100% 140%, transparent 0 40px, color-mix(in srgb, var(--ink) 4%, transparent) 41px 42px, transparent 43px 80px);
+  mask-image: linear-gradient(90deg, transparent 35%, #000);
+}
+.guide-v2 .core-guide-intro .watch-title {
+  font-size: clamp(2.25rem, 4.8vw, 4rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -.055em;
+}
+.guide-v2 .core-guide-intro__eyebrow { color: var(--ink-dim); font-size: .875rem; }
+.guide-v2 .core-guide-intro > div > .core-guide-intro__description {
+  max-width: 42rem;
+  margin-top: 1.25rem;
+  color: var(--ink-dim);
+  font-size: clamp(1rem, 1.4vw, 1.125rem);
+  line-height: 1.65;
+}
+.guide-v2 .guide-view-switch { gap: .5rem; flex-wrap: wrap; }
+.guide-v2 .guide-view-switch button { min-height: 3rem; border-radius: 999px; padding-inline: 1.3rem; font-size: .9375rem; }
+.guide-v2 .guide-controls { border-radius: 1.25rem; }
+.guide-v2 .guide-now-next-card { border-radius: 1.25rem; }
+.guide-v2 .guide-inline-note { color: var(--ink-dim); font-size: .875rem; line-height: 1.6; }
+.guide-v2 .guide-section-heading > span { color: var(--ink-dim); font-size: .875rem; }
+
+/* The sign-in surface stays dark independently of the surrounding page. */
+.auth-modal-form {
+  color-scheme: dark;
+  --ui-surface: #242128;
+  --ui-line: #ffffff2b;
+  color: #fff;
+}
+.auth-modal-form :is([data-label], .text-secondary) { color: #e2dce8; }
+.auth-modal-form :is([slot="description"], .text-tertiary, .text-quaternary) { color: #c4bacd; }
+.auth-modal-form input { color: #fff; background-color: transparent; }
+.auth-modal-form input::placeholder { color: #a99eb2; }
+.auth-modal-form [class~="group/input"] { background: #242128; }
+.auth-modal-form button[aria-label="Toggle password visibility"] { min-width: 2.75rem; min-height: 2.75rem; color: #c4bacd; }
+.auth-modal-form button[aria-label="Toggle password visibility"]:focus-visible { outline: 2px solid #f0a5c1; outline-offset: -3px; border-radius: .5rem; }
+.auth-modal-form :is(.text-brand-secondary, .text-brand-tertiary) { color: #f1a5c1; }
+
+.core-links-page .core-links-intro {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--ui-line);
+  border-radius: 1.75rem;
+  padding: clamp(1.5rem, 4vw, 3rem) 1.25rem;
+  background: radial-gradient(ellipse at 95% 0%, color-mix(in srgb, var(--core) 12%, transparent), transparent 70%), var(--bg-elev);
+}
+.core-links-intro::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  border-radius: inherit;
+  background: repeating-radial-gradient(ellipse at 100% 140%, transparent 0 40px, color-mix(in srgb, var(--ink) 4%, transparent) 41px 42px, transparent 43px 80px);
+  mask-image: linear-gradient(90deg, transparent 30%, #000);
+  pointer-events: none;
+}
+.core-links-intro h1 { font-size: clamp(2.75rem, 5vw, 4rem); font-weight: 600; line-height: 1.08; letter-spacing: -.055em; }
+.core-links-intro > p:last-child { color: var(--ink-dim); font-size: .875rem; line-height: 1.6; }
+.core-links-page > ul > li { border-radius: 1.25rem; }
+
+.core-profile-intro { background: radial-gradient(ellipse at 95% 0%, color-mix(in srgb, var(--core) 8%, transparent), transparent 65%), var(--bg); }
+.core-profile-intro .lens-flare { display: none; }
+.core-profile-intro h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); overflow-wrap: anywhere; }
+.core-profile-intro dl { font-size: .875rem; letter-spacing: 0; text-transform: none; }
+.core-profile-intro .core-profile-portrait { border-radius: 1.5rem; }
+.core-profile-intro > div > a { min-height: 2.75rem; }
+.core-profile-page :is(section h2, section h3) { font-weight: 600; letter-spacing: -.035em; }
+.core-tonight-intro h1 { font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight: 600; line-height: 1.08; letter-spacing: -.055em; }
+.core-tonight-intro > div > p { font-size: 1rem; line-height: 1.65; }
+.core-tonight-intro > div > p:first-child { font-size: .875rem; font-weight: 550; letter-spacing: .02em; text-transform: none; }
+
+/* A warm finish on standard pages, with the color fading in from below. */
+.site-footer {
+  --footer-rose: #b7779424;
+  --footer-warmth: #caa7851f;
+  position: relative;
+  background:
+    radial-gradient(ellipse 65% 145% at 8% 115%, var(--footer-rose), transparent 70%),
+    radial-gradient(ellipse 60% 130% at 95% 120%, var(--footer-warmth), transparent 72%),
+    var(--bg);
+}
+.site-footer::before {
+  position: absolute;
+  inset: -1px 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 8%, #bd79924d 40%, #ccb08c33 78%, transparent 95%);
+  content: "";
+  pointer-events: none;
+}
+html[data-theme="light"] .site-footer {
+  --footer-rose: #c793a52e;
+  --footer-warmth: #d9b48a33;
+}
+
+@media (forced-colors: active) {
+  .site-footer { background: Canvas; }
+  .site-footer::before { display: none; }
+}
+
+@media (max-width: 767px) {
+  .guide-v2 .core-guide-intro { border-radius: 1.25rem; }
+  .guide-v2 .core-guide-intro__description { text-wrap: pretty; }
+}

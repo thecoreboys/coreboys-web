@@ -2,7 +2,10 @@
 
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings2, Volume2, VolumeX, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
+import Image from "@/components/ui/SiteImage";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { audioFadeProgress } from "@/lib/radio/fade";
 import {
   RADIO_CUE_LIFECYCLE_EVENT,
   RADIO_CUE_REQUEST_EVENT,
@@ -148,9 +151,14 @@ function saveWidgetPlacement(placement: WidgetPlacement) {
 }
 
 function clampVisiblePlacement(placement: WidgetPlacement, width: number, height: number) {
+  const headerHeight = Number.parseFloat(
+    window.getComputedStyle(document.documentElement).getPropertyValue("--site-header-h"),
+  ) || 0;
+  const maxTop = Math.max(WIDGET_INSET, window.innerHeight - height - WIDGET_INSET);
+  const minTop = Math.min(maxTop, Math.max(WIDGET_INSET, headerHeight + WIDGET_INSET));
   return {
     x: clamp(placement.x, WIDGET_INSET, Math.max(WIDGET_INSET, window.innerWidth - width - WIDGET_INSET)),
-    y: clamp(placement.y, WIDGET_INSET, Math.max(WIDGET_INSET, window.innerHeight - height - WIDGET_INSET)),
+    y: clamp(placement.y, minTop, maxTop),
     hiddenEdge: null,
     edgeOffset: null,
   } satisfies WidgetPlacement;
@@ -253,12 +261,19 @@ export function RadioAudioDirector({
   const [voiceLevel, setVoiceLevel] = useState(0);
   const [tunerIndex, setTunerIndex] = useState(0);
   const [placement, setPlacement] = useState<WidgetPlacement | null>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [compactScreen, setCompactScreen] = useState(true);
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  const widgetExpanded = mobileExpanded && !autoCollapse && !placement?.hiddenEdge;
+  const widgetExpandedRef = useRef(widgetExpanded);
+  widgetExpandedRef.current = widgetExpanded;
   useEffect(() => {
     const media = window.matchMedia("(max-width: 560px)");
-    const update = () => setCompactScreen(media.matches);
+    const update = () => {
+      setCompactScreen(media.matches);
+      setMobileExpanded(!media.matches);
+    };
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
@@ -280,6 +295,10 @@ export function RadioAudioDirector({
   const reducedMotionRef = useRef(reducedMotion);
   const audioContextRef = useRef<AudioContext | null>(null);
   const lastCommittedTunerNetworkRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setPortalTarget(document.body);
+  }, []);
 
   enabledRef.current = enabled;
   volumeRef.current = clamp(volume);
@@ -304,16 +323,19 @@ export function RadioAudioDirector({
       const rect = root.getBoundingClientRect();
       const width = root.offsetWidth || rect.width;
       const height = root.offsetHeight || rect.height;
-      const current = placementRef.current ?? readWidgetPlacement();
-      // New listeners start with the DJ Cora widget tucked just beyond the
-      // bottom-right edge so it never competes with player controls. A saved
-      // placement (including an intentional visible position) is respected.
+      const current = placementRef.current;
+      const remembered = current ? null : readWidgetPlacement();
+      // Open visibly on desktop, retaining saved coordinates within the screen.
+      // Edge hiding remains available when the listener drags it away.
       const next = current?.hiddenEdge
         ? hiddenWidgetPlacement(current.hiddenEdge, current.edgeOffset ?? (current.hiddenEdge === "left" || current.hiddenEdge === "right" ? rect.top + height / 2 : rect.left + width / 2), width, height)
-        : current
-          ? clampVisiblePlacement(current, width, height)
-          : hiddenWidgetPlacement("right", window.innerHeight - Math.max(72, height / 2), width, height);
-      updatePlacement(next, Boolean(current));
+        : clampVisiblePlacement(current ?? remembered ?? {
+          x: window.innerWidth - width - 16,
+          y: window.innerHeight - height - 76,
+          hiddenEdge: null,
+          edgeOffset: null,
+        }, width, height);
+      updatePlacement(next, Boolean(current ?? remembered));
     };
 
     const onResize = () => {
@@ -327,7 +349,7 @@ export function RadioAudioDirector({
       window.removeEventListener("resize", onResize);
       window.cancelAnimationFrame(resizeFrame);
     };
-  }, [updatePlacement]);
+  }, [portalTarget, updatePlacement]);
 
   useEffect(() => {
     const index = tunerNetworks.findIndex((network) => network.name === tunedNetwork);
@@ -429,8 +451,8 @@ export function RadioAudioDirector({
           resolve();
           return;
         }
-        const progress = Math.min(1, (now - startedAt) / duration);
-        playback.audio.volume = start + ((target - start) * progress);
+        const progress = audioFadeProgress(now, startedAt, duration);
+        playback.audio.volume = clamp(start + ((target - start) * progress));
         if (progress >= 1) {
           playback.fadeFrame = null;
           resolve();
@@ -501,6 +523,9 @@ export function RadioAudioDirector({
       request: RadioCueRequest & { id: string; cue: RadioCue },
       resolve?: (outcome: RadioCueOutcome) => void,
     ) => {
+      // Recheck after any async preemption: the listener may have collapsed
+      // the dock while the previous cue was fading out.
+      if (suppressCollapsedTune(request, resolve)) return;
       const targetVolume = clamp((typeof request.cue.volume === "number" ? request.cue.volume : 1) * volumeRef.current);
       const audio = new Audio(request.audioUrl);
       audio.preload = "auto";
@@ -589,6 +614,15 @@ export function RadioAudioDirector({
       resolve?.(outcome);
     };
 
+    const suppressCollapsedTune = (
+      request: RadioCueRequest & { id: string; cue: RadioCue },
+      resolve?: (outcome: RadioCueOutcome) => void,
+    ) => {
+      if (request.kind !== "network_tune_in" || widgetExpandedRef.current) return false;
+      suppress(request, resolve, "widget_collapsed");
+      return true;
+    };
+
     const accept = async (
       incoming: RadioCueRequest,
       resolve?: (outcome: RadioCueOutcome) => void,
@@ -604,6 +638,7 @@ export function RadioAudioDirector({
         suppress(request, resolve, "disabled");
         return;
       }
+      if (suppressCollapsedTune(request, resolve)) return;
       // This is intentionally a hard condition, not merely lower priority.
       // A new 24/7 takeover can never speak over a visitor's other live view.
       if (request.kind === "live_takeover" && (request.viewerIsWatchingLive || request.allowWhenLive === false)) {
@@ -766,6 +801,14 @@ export function RadioAudioDirector({
     if (!enabled) window.dispatchEvent(new CustomEvent<{ reason: string }>(RADIO_CUE_SKIP_EVENT, { detail: { reason: "audio_disabled" } }));
   }, [enabled]);
 
+  useEffect(() => {
+    if (widgetExpanded) return;
+    if (activeRef.current?.request.kind === "network_tune_in") {
+      window.dispatchEvent(new CustomEvent(RADIO_CUE_SKIP_EVENT, { detail: { reason: "widget_collapsed" } }));
+    }
+    setPresentation((current) => current?.request.kind === "network_tune_in" ? null : current);
+  }, [widgetExpanded]);
+
   const retry = () => {
     if (!presentation?.blocked) return;
     window.dispatchEvent(new CustomEvent<RadioCueRequest>(RADIO_CUE_REQUEST_EVENT, {
@@ -784,7 +827,7 @@ export function RadioAudioDirector({
   const caption = activeRequest
     ? cueCaption(activeRequest)
     : tunedNetwork
-      ? `Signal locked to ${tunedNetwork}. DJ Cora is standing by.`
+      ? `Selected: ${tunedNetwork}. ${enabled ? "Announcements enabled." : "Audio off."}`
       : "Choose a network to tune in.";
   const label = activeRequest ? cueLabel(activeRequest) : tunedNetwork ?? "Untuned";
   const signalLevel = isSpeaking ? Math.max(voiceLevel, 0.26) : 0;
@@ -899,15 +942,15 @@ export function RadioAudioDirector({
         ? ChevronDown
         : ChevronUp;
 
-  return (
+  return portalTarget ? createPortal((
     <>
       <aside
         id="dj-cora-panel"
         ref={rootRef}
-        className={`${styles.root}${compactScreen && !mobileExpanded ? ` ${styles.isMobileCollapsed}` : ""}${isDragging ? ` ${styles.isDragging}` : ""}${placement?.hiddenEdge && !compactScreen ? ` ${styles.isHidden}` : ""}${autoCollapse ? ` ${styles.isAutoCollapsed}` : ""}${blocked ? ` ${styles.isBlocked}` : ""}${isSpeaking ? ` ${styles.isSpeaking}` : ""}${tunedNetwork ? ` ${styles.isTuned}` : ` ${styles.isUntuned}`}${className ? ` ${className}` : ""}`}
+        className={`${styles.root}${!mobileExpanded ? ` ${styles.isMobileCollapsed}` : ""}${isDragging ? ` ${styles.isDragging}` : ""}${placement?.hiddenEdge && !compactScreen ? ` ${styles.isHidden}` : ""}${autoCollapse ? ` ${styles.isAutoCollapsed}` : ""}${blocked ? ` ${styles.isBlocked}` : ""}${isSpeaking ? ` ${styles.isSpeaking}` : ""}${tunedNetwork ? ` ${styles.isTuned}` : ` ${styles.isUntuned}`}${className ? ` ${className}` : ""}`}
         style={widgetStyle}
         aria-live="polite"
-        aria-hidden={autoCollapse || (compactScreen ? !mobileExpanded : Boolean(placement?.hiddenEdge)) ? true : undefined}
+        aria-hidden={!widgetExpanded ? true : undefined}
         aria-label={blocked ? "DJ Cora audio needs confirmation" : "DJ Cora radio"}
         onPointerDown={startDragging}
         onPointerMove={continueDragging}
@@ -920,12 +963,12 @@ export function RadioAudioDirector({
           {selectedNetwork?.slug === "core" ? (
             <CoreWordmark className={styles.networkWordmark} />
           ) : selectedNetwork?.artwork ? (
-            <img className={styles.networkMark} src={selectedNetwork.artwork} alt="" draggable={false} />
+            <Image className={styles.networkMark} src={selectedNetwork.artwork} alt="" width={20} height={20} draggable={false} />
           ) : null}
           <span>CHANNEL DIAL</span>
           <strong>{selectedNetwork?.name ?? "UNTUNED"}</strong>
         </div>
-        <div className={styles.dialTrack}>
+        <div className={styles.dialTrack} style={{ "--dial-position": `${tunerNetworks.length > 1 ? tunerIndex / (tunerNetworks.length - 1) * 100 : 0}%` } as CSSProperties}>
           <input
             type="range"
             min="0"
@@ -934,27 +977,31 @@ export function RadioAudioDirector({
             value={tunerIndex}
             onChange={(event) => moveTuner(Number(event.target.value))}
             onPointerUp={(event) => commitTuner(Number(event.currentTarget.value))}
-            onKeyUp={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End", "Enter", " "].includes(event.key)) commitTuner(Number(event.currentTarget.value)); }}
+            onKeyUp={(event) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", "Enter", " "].includes(event.key)) commitTuner(Number(event.currentTarget.value)); }}
             onBlur={(event) => commitTuner(Number(event.currentTarget.value))}
             aria-label="Tune DJ Cora to a network"
+            aria-valuetext={selectedNetwork?.name ?? "Untuned"}
           />
           <div className={styles.dialTicks} aria-hidden>{tunerNetworks.map((network, index) => <span key={network.slug} className={index === tunerIndex ? styles.activeTick : ""} />)}</div>
+          <span className={styles.dialNeedle} aria-hidden />
         </div>
         <span className={styles.tunerHint}>Stations</span>
       </div> : null}
       <div className={styles.signal} aria-hidden>
-        {!autoCollapse && !compactScreen && !placement?.hiddenEdge && !reducedMotion ? <Strands
-          colors={["#fb7185", "#f97316", "#22d3ee"]}
+        <span className={styles.signalRest} />
+        {mobileExpanded && !autoCollapse && !compactScreen && !placement?.hiddenEdge && !reducedMotion ? <Strands
+          colors={["#a3d9c5", "#78b5a6", "#d1e7c9"]}
           count={3}
-          speed={isSpeaking ? 0.9 + signalLevel * 2.4 : 0.13}
-          amplitude={isSpeaking ? 0.85 + signalLevel * 1.8 : 0.2}
+          audioLevel={signalLevel}
+          speed={isSpeaking ? 0.7 + signalLevel * 0.6 : 0.08}
+          amplitude={isSpeaking ? 0.8 + signalLevel * 0.8 : 0.1}
           waviness={1.7}
-          thickness={0.72}
-          glow={2.8}
+          thickness={isSpeaking ? 0.9 : 0.72}
+          glow={1.2}
           taper={3}
           spread={1}
-          intensity={isSpeaking ? 0.42 + signalLevel * 0.58 : 0.18}
-          saturation={1.8}
+          intensity={isSpeaking ? 0.52 + signalLevel * 0.48 : 0.12}
+          saturation={0.85}
           opacity={enabled ? 1 : 0.32}
           scale={1.6}
         /> : null}
@@ -963,7 +1010,6 @@ export function RadioAudioDirector({
         <div className={styles.topline}><span className={styles.statusDot} aria-hidden /> <span className={styles.coraLabel}>DJ CORA</span></div>
         <strong>{blocked ? "Voice ready" : label}</strong>
         <p>{blocked ? displayNameForReason(presentation?.reason) : caption}</p>
-        <div className={styles.meter} aria-hidden><span style={{ transform: `scaleX(${Math.max(0.06, signalLevel)})` }} /></div>
       </div>
       <div className={styles.controls}>
         <span className={styles.tunedState}>{tunedNetwork ? "TUNED" : "UNTUNED"}</span>
@@ -975,15 +1021,16 @@ export function RadioAudioDirector({
         <button type="button" className={styles.settings} onClick={user ? openSettings : undefined} aria-disabled={!user} aria-label={user ? "DJ Cora settings" : "Sign in to adjust DJ Cora settings"} title={user ? "DJ Cora settings" : "Sign in to adjust DJ Cora settings"}><Settings2 aria-hidden /></button>
       </div>
       </aside>
-      {compactScreen && !autoCollapse ? <button
+      {!autoCollapse ? <button
         type="button"
         className={styles.mobileToggle}
         aria-label={mobileExpanded ? "Close DJ Cora controls" : "Show DJ Cora controls"}
         aria-expanded={mobileExpanded}
         aria-controls="dj-cora-panel"
-        onClick={() => setMobileExpanded((value) => !value)}
-      >{mobileExpanded ? <X size={18} aria-hidden /> : <span>DJ</span>}</button> : null}
-      {!compactScreen && !autoCollapse && placement?.hiddenEdge && restoreStyle ? (
+        title={mobileExpanded ? "Minimize DJ Cora" : "Open DJ Cora"}
+        onClick={() => { if (placement?.hiddenEdge) restoreWidget(); setMobileExpanded((value) => !value); }}
+      >{mobileExpanded ? <X size={18} aria-hidden /> : <><span>DJ</span><ChevronUp size={14} aria-hidden /></>}</button> : null}
+      {mobileExpanded && !compactScreen && !autoCollapse && placement?.hiddenEdge && restoreStyle ? (
         <button
           type="button"
           className={styles.edgeRestore}
@@ -998,7 +1045,7 @@ export function RadioAudioDirector({
         </button>
       ) : null}
     </>
-  );
+  ), portalTarget) : null;
 }
 
 /** Useful to analytics callers without importing the implementation event name. */

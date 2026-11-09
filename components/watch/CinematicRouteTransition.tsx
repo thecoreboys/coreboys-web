@@ -291,6 +291,10 @@ export function CinematicRouteTransition() {
   const playTuningAudio = useCallback((networkSlug: string | undefined) => {
     const settings = readRadioAudioSettings();
     if (!settings.enabled || document.documentElement.dataset.radioAudioSuppressed === "true") return;
+    // Read the visible dock synchronously from the navigation gesture. A
+    // collapsed/hidden DJ must not request an announcement for this route.
+    const panel = document.getElementById("dj-cora-panel");
+    if (!panel || panel.getAttribute("aria-hidden") === "true") return;
     const asset = chooseTuningAsset(networkSlug);
     if (!asset) return;
     const cueId = `network-tune:${asset.id}:${++tuningCueSequence}`;

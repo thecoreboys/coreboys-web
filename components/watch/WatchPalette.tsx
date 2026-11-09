@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ArrowRight,
+  ArrowUpRight,
   Archive,
   ChevronDown,
   Clock3,
@@ -36,6 +38,7 @@ import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { SocialIcon } from "@/components/ui/SocialIcon";
 import { hasAnalyticsConsent } from "@/lib/consent";
 import { WatchThumb } from "./WatchThumb";
+import { readableTitle } from "@/lib/watch/presentation";
 
 type SearchFilter = "all" | "live" | "videos" | "broadcasts" | "shorts" | "photos" | "posts";
 type SearchPlatformFilter = "all" | WatchPlatform;
@@ -1210,7 +1213,7 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
               <strong>{row.member.stageName}</strong>
               <span>{row.member.comm.name} · Everything from this creator</span>
             </span>
-            <span className="watch-search-row-cta">View channel</span>
+            <span className="watch-search-row-cta">View channel <ArrowRight aria-hidden /></span>
           </button>
         </li>
       );
@@ -1232,6 +1235,7 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
         <button
           type="button"
           className={`watch-search-result-main${featured ? " is-featured watch-search-featured-card" : ""}`}
+          aria-label={`${action} ${readableTitle(item.title)}`}
           aria-current={selected ? "true" : undefined}
           onMouseEnter={() => beginHover(row.key)}
           onFocus={() => setActiveKey(row.key)}
@@ -1246,13 +1250,13 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
           </span>
           <span className="watch-search-result-copy">
             <small className="has-platform-icon"><PlatformMark platform={item.platform} /> {platformLabel(item.platform)} · {formatLabel(item)}</small>
-            <strong>{item.title}</strong>
+            <strong title={item.title}>{readableTitle(item.title)}</strong>
             <span>{watchAttributionLabel(item)}{detail ? ` · ${detail}` : ""}</span>
             {canSearchMoments && row.result.moment ? <mark>Matched scene · {row.result.moment.title}</mark> : null}
             {canSemanticSearch && !row.result.moment && row.result.evidence ? <mark>Smart match · {row.result.evidence}</mark> : null}
             {watched.completed ? <mark>Watched</mark> : null}
           </span>
-          {!featured ? <span className="watch-search-row-cta">{action}</span> : null}
+          <span className="watch-search-row-cta">{action} <ArrowRight aria-hidden /></span>
         </button>
       </li>
     );
@@ -1281,24 +1285,30 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
           <div className="watch-search-title-row">
             <span className="watch-search-brand is-neutral" aria-hidden><Search /></span>
             <h1 id="watch-search-title">Search CORE</h1>
-            <Tooltip title="Close search" description="Return to Watch without changing playback." placement="bottom">
-              <button type="button" className="watch-search-close" onClick={close} aria-label="Close search"><X /></button>
-            </Tooltip>
+            <div className="watch-search-header-actions">
+              <Link href={{ pathname: "/search", query: { q } }} onClick={close} className="watch-search-full-link">Full search <ArrowUpRight size={15} aria-hidden /></Link>
+              <Tooltip title="Close search" description="Return to Watch without changing playback." placement="bottom">
+                <button type="button" className="watch-search-close" onClick={close} aria-label="Close search"><X /></button>
+              </Tooltip>
+            </div>
           </div>
           <div className="watch-search-field">
             <Search aria-hidden />
-            <input
-              ref={inputRef}
-              type="search"
-              value={q}
-              onChange={(event) => setQ(event.target.value)}
-              placeholder="Search titles, creators, platforms, and formats"
-              aria-label="Search all CORE content"
-              role="searchbox"
-              aria-controls="watch-search-results"
-              autoComplete="off"
-              spellCheck="false"
-            />
+            <div className="watch-search-prompt-field">
+              <input
+                ref={inputRef}
+                type="search"
+                value={q}
+                onChange={(event) => setQ(event.target.value)}
+                placeholder=""
+                aria-label="Search all CORE content"
+                role="searchbox"
+                aria-controls="watch-search-results"
+                autoComplete="off"
+                spellCheck="false"
+              />
+              {!q ? <span aria-hidden="true" className="watch-search-prompt luxury-glisten">Find your next moment</span> : null}
+            </div>
             {q ? (
               <Tooltip title="Clear search" description="Remove your query and show all available results." placement="bottom">
                 <button type="button" onClick={() => setQ("")} aria-label="Clear search"><X /></button>

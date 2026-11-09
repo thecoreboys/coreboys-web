@@ -1,21 +1,28 @@
 import "server-only";
 
-import type { FeedItem } from "@/components/feed/types";
+import type { FeedItem, XFeedQuoteReference } from "@/components/feed/types";
 import { configuredXRosterFeedAccounts } from "@/lib/x/roster";
+import { configuredXCrewFeedAccounts } from "@/lib/x/crew-roster";
 import {
   applyXQuoteLookup,
-  collectPendingXQuoteReferences,
-  fetchXRecentSearchOnce,
+  collectXQuoteLookupReferences,
+  fetchXRecentSearchPageOnce,
   fetchXQuoteLookupOnce,
   fetchXFullArchiveSearch,
+  normalizeXFeedAccounts,
   type XFeedAccount,
+  type XRecentSearchPage,
+  type XQuoteLookupResult,
 } from "@/lib/x-feed-request";
 
 export type { XFeedAccount } from "@/lib/x-feed-request";
 
-/** The six member accounts and the CORE organization account, in one query. */
+/** Member, organization and crew accounts, fetched once for the whole site. */
 export function configuredXFeedAccounts(): XFeedAccount[] {
-  return configuredXRosterFeedAccounts();
+  return normalizeXFeedAccounts([
+    ...configuredXRosterFeedAccounts(),
+    ...configuredXCrewFeedAccounts(),
+  ]);
 }
 
 /**
@@ -25,15 +32,16 @@ export function configuredXFeedAccounts(): XFeedAccount[] {
  */
 export async function fetchConfiguredXFeedOnce(
   accounts: readonly XFeedAccount[],
-  options?: { sinceId?: string },
-): Promise<FeedItem[]> {
+  options?: { sinceId?: string; nextToken?: string },
+): Promise<XRecentSearchPage> {
   const bearerToken = process.env.X_BEARER_TOKEN?.trim();
   if (!bearerToken) {
     throw new Error("X_BEARER_TOKEN is not configured");
   }
-  return fetchXRecentSearchOnce(accounts, {
+  return fetchXRecentSearchPageOnce(accounts, {
     bearerToken,
     sinceId: options?.sinceId,
+    nextToken: options?.nextToken,
   });
 }
 
@@ -44,14 +52,16 @@ export async function fetchConfiguredXFeedOnce(
  */
 export async function hydrateConfiguredXQuotesOnce(
   items: readonly FeedItem[],
+  verification: readonly XFeedQuoteReference[] = [],
 ): Promise<{
   items: FeedItem[];
   requestedCount: number;
   resolvedCount: number;
   resolvedUserCount: number;
   unavailableCount: number;
+  lookup: XQuoteLookupResult;
 }> {
-  const references = collectPendingXQuoteReferences(items);
+  const references = collectXQuoteLookupReferences(items, verification);
   if (!references.length) {
     return {
       items: [...items],
@@ -59,6 +69,7 @@ export async function hydrateConfiguredXQuotesOnce(
       resolvedCount: 0,
       resolvedUserCount: 0,
       unavailableCount: 0,
+      lookup: { quotes: new Map(), unavailableIds: new Set(), foundIds: new Set(), confirmedMissingIds: new Set(), returnedUserCount: 0 },
     };
   }
   const bearerToken = process.env.X_BEARER_TOKEN?.trim();
@@ -67,11 +78,12 @@ export async function hydrateConfiguredXQuotesOnce(
   return {
     items: applyXQuoteLookup(items, result),
     requestedCount: references.length,
-    resolvedCount: result.quotes.size,
-    resolvedUserCount: new Set(
+    resolvedCount: result.foundIds?.size ?? result.quotes.size,
+    resolvedUserCount: result.returnedUserCount ?? new Set(
       [...result.quotes.values()].map((quote) => quote.authorHandle.toLowerCase()),
     ).size,
     unavailableCount: result.unavailableIds.size,
+    lookup: result,
   };
 }
 

@@ -1,9 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { Clock, LayoutGrid, PanelsTopLeft, PlayCircle, Youtube } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { useBrowseFilters } from "@/hooks/useBrowseFilters";
+import { useWatchProgress } from "@/hooks/useWatchProgress";
+import { readableTitle } from "@/lib/watch/presentation";
+import { Clock, PanelsTopLeft, PlayCircle, Youtube } from "lucide-react";
 import type { FeedItem } from "@/lib/social-feed";
-import { cn } from "@/lib/utils";
+import { CollectionFilter } from "@/components/ui/CollectionFilter";
+import { FilterSelect } from "@/components/ui/FilterSelect";
+import browse from "@/components/ui/BrowseControls.module.css";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import type { Playable } from "@/lib/watch/playable";
 
@@ -78,15 +83,19 @@ export function VideosGrid({
   channels: VideoChannel[];
   durationById?: Record<string, string>;
 }) {
-  const [active, setActive] = useState<string>("all");
+  const { filters, update } = useBrowseFilters({ creator: "all", q: "", date: "all", type: "all" });
+  const active = filters.creator;
+  const setActive = (creator: string) => update({ creator });
+  const { map } = useWatchProgress();
   const player = usePlayer();
 
   const filtered = useMemo(
     () =>
-      active === "all"
-        ? videos
-        : videos.filter((v) => (v.authorSlug ?? "org") === active),
-    [videos, active],
+      videos.filter((video) => (active === "all" || (video.authorSlug ?? "org") === active)
+        && (!filters.q || `${video.title} ${video.authorLabel}`.toLowerCase().includes(filters.q.toLowerCase()))
+        && (filters.type === "all" || (video.url.includes("/shorts/") ? "short" : "video") === filters.type)
+        && (filters.date === "all" || Date.parse(video.publishedAt) >= Date.now() - Number(filters.date) * 86_400_000)),
+    [videos, active, filters.q, filters.type, filters.date],
   );
 
   const context = useMemo(
@@ -117,8 +126,8 @@ export function VideosGrid({
 
   if (videos.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-10 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
+      <div className="collection-empty grid place-items-center p-8 text-center">
+        <p className="text-sm text-[color:var(--ink-dim)]">
           No videos available right now
         </p>
       </div>
@@ -132,52 +141,23 @@ export function VideosGrid({
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Channel filter — horizontally scrollable row of avatar/logo pill
-          chips. Active chip uses the Ironbow brand; each carries a count. */}
-      <div
-        role="tablist"
-        aria-label="Filter videos by channel"
-        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {tabs.map((t) => {
-          const isActive = active === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setActive(t.key)}
-              className={cn(
-                "group inline-flex shrink-0 items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm font-medium transition-colors cursor-pointer",
-                isActive
-                  ? "border-[color:var(--core)] bg-[color:var(--core)]/12 text-[color:var(--core)]"
-                  : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] hover:border-[color:var(--rule-strong)] hover:text-[color:var(--ink)]",
-              )}
-            >
-              <ChipMark channel={t} isAll={t.key === "all"} isActive={isActive} />
-              <span className="whitespace-nowrap">{t.label}</span>
-              {typeof t.count === "number" ? (
-                <span
-                  className={cn(
-                    "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
-                    isActive
-                      ? "bg-[color:var(--core)]/20 text-[color:var(--core)]"
-                      : "bg-[color:var(--surface)] text-[color:var(--ink-faint)]",
-                  )}
-                >
-                  {t.count}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
+      <div className={browse.panel} role="search" aria-label="Find videos"><div className={browse.primaryRow}>
+        <label className={`${browse.field} ${browse.search}`}><span>Search</span><input type="search" value={filters.q} onChange={(event) => update({ q: event.target.value })} placeholder="Search video titles" /></label>
+        <FilterSelect label="Type" ariaLabel="Filter videos by type" value={filters.type} onChange={(value) => update({ type: value })} options={[{ value: "all", label: "All videos" }, { value: "video", label: "Videos" }, { value: "short", label: "Shorts" }]} />
+        <FilterSelect label="Date" ariaLabel="Filter videos by date" value={filters.date} onChange={(value) => update({ date: value })} options={[{ value: "all", label: "Any time" }, { value: "7", label: "Past week" }, { value: "30", label: "Past month" }, { value: "365", label: "Past year" }]} />
+      </div></div>
+      <CollectionFilter
+        label="Channel"
+        ariaLabel="Filter videos by channel"
+        options={tabs.map((channel) => ({ value: channel.key, label: channel.label, count: channel.count }))}
+        value={active}
+        onChange={setActive}
+      />
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-10 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-            No videos from this channel yet
+        <div className="collection-empty grid place-items-center p-8 text-center">
+          <p className="text-sm text-[color:var(--ink-dim)]">
+            No videos match these filters
           </p>
         </div>
       ) : (
@@ -195,7 +175,7 @@ export function VideosGrid({
                   rel="noopener noreferrer"
                   data-icon="youtube"
                   onClick={(e) => onCardClick(e, vid, it)}
-                  className="group flex h-full flex-col overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] shadow-xs-skeuomorphic transition-all hover:-translate-y-0.5 hover:border-[color:var(--rule-strong)] hover:bg-[color:var(--surface)] hover:shadow-md"
+                  className="collection-card group flex h-full flex-col overflow-hidden"
                 >
                   <span className="relative block aspect-video w-full overflow-hidden bg-black media-tone">
                     {it.thumbnailUrl ? (
@@ -258,9 +238,10 @@ export function VideosGrid({
                   </span>
 
                   <div className="flex flex-1 flex-col gap-2 p-4">
-                    <h3 className="line-clamp-2 text-balance text-sm font-semibold leading-snug tracking-tight text-[color:var(--ink)]">
-                      {it.title}
+                    <h3 title={it.title} className="line-clamp-2 text-balance text-base font-medium leading-snug tracking-tight text-[color:var(--ink)]">
+                      {readableTitle(it.title)}
                     </h3>
+                    {map[it.id]?.progress ? <p className="text-sm text-secondary">{map[it.id]?.completed ? "Watched" : `Resume · ${Math.round((map[it.id]?.progress ?? 0) * 100)}% watched`}</p> : null}
                     <span className="mt-auto flex items-center gap-2 border-t border-[color:var(--rule)] pt-2.5 text-xs font-medium text-[color:var(--ink-dim)]">
                       <span className="tabular-nums">
                         {formatRelative(it.publishedAt)}
@@ -331,72 +312,6 @@ function CardMark({
   return (
     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 text-[10px] font-semibold uppercase text-white">
       {label.charAt(0)}
-    </span>
-  );
-}
-
-/**
- * The leading mark on each filter chip: a rounded avatar/logo badge.
- *  - "All"        → a neutral grid glyph.
- *  - org channel  → a YouTube-red badge with the YouTube mark.
- *  - member       → real Twitch avatar; falls back to an initial monogram.
- */
-function ChipMark({
-  channel,
-  isAll,
-  isActive,
-}: {
-  channel: VideoChannel;
-  isAll: boolean;
-  isActive: boolean;
-}) {
-  const ring = isActive
-    ? "ring-[color:var(--core)]/40"
-    : "ring-[color:var(--rule)]";
-
-  if (isAll) {
-    return (
-      <span
-        className={cn(
-          "flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--surface)] ring-1",
-          ring,
-        )}
-      >
-        <LayoutGrid size={12} className="opacity-80" />
-      </span>
-    );
-  }
-
-  if (channel.kind === "org") {
-    return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FF0033] ring-1 ring-white/20">
-        <Youtube size={13} className="text-white" />
-      </span>
-    );
-  }
-
-  if (channel.avatarUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={channel.avatarUrl}
-        alt=""
-        aria-hidden
-        className={cn("h-6 w-6 rounded-full object-cover ring-1", ring)}
-        loading="lazy"
-      />
-    );
-  }
-
-  // Monogram fallback when Twitch has no avatar / failed to resolve.
-  return (
-    <span
-      className={cn(
-        "flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--surface)] text-[11px] font-semibold uppercase ring-1",
-        ring,
-      )}
-    >
-      {channel.label.charAt(0)}
     </span>
   );
 }

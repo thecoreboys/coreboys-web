@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import type { WatchItem } from "@/lib/watch/types";
 import { WatchChrome } from "@/components/watch/WatchChromeServer";
-import { GuideGrid } from "@/components/watch/GuideGrid";
+import { GuideGrid } from "@/components/watch/GuideGridServer";
 import { GuideHistory } from "@/components/watch/GuideHistory";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { buildGuideNetworkRows } from "@/lib/watch/channels";
 import { buildBroadcastHistoryFallback } from "@/lib/watch/airtime-history";
-import { loadAirtimeDailyArchive } from "@/lib/watch/airtime-archive";
-import { loadTwitchTrackerAnalytics } from "@/lib/twitchtracker-snapshots";
+import { loadCachedChannelAirtime, loadCachedChannelTracker } from "@/lib/watch/channel-data";
 import "../watch/watch.css";
 import "./guide.css";
 
@@ -18,28 +19,34 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function GuidePage() {
-  const [catalog, twitchTracker, archivedDaily] = await Promise.all([
-    getWatchCatalog(),
-    loadTwitchTrackerAnalytics().catch(() => ({ latest: [], history: [], games: [] })),
-    loadAirtimeDailyArchive(),
+async function AirtimeHistory({ broadcasts, serverNow }: { broadcasts: WatchItem[]; serverNow: string }) {
+  const [twitchTracker, archivedDaily] = await Promise.all([
+    loadCachedChannelTracker().catch(() => []),
+    loadCachedChannelAirtime(null),
   ]);
-  const networks = buildGuideNetworkRows(catalog);
-  const serverNow = new Date().toISOString();
   const airtimeFallback = buildBroadcastHistoryFallback(
-    catalog.broadcasts,
+    broadcasts,
     Date.parse(serverNow),
   );
 
+  return <GuideHistory
+        serverNow={serverNow}
+        twitchTracker={twitchTracker}
+        fallbackSessions={airtimeFallback}
+        archivedDaily={archivedDaily}
+      />;
+}
+
+export default async function GuidePage() {
+  const catalog = await getWatchCatalog();
+  const serverNow = new Date().toISOString();
+  const networks = buildGuideNetworkRows(catalog);
   return (
     <WatchChrome catalog={catalog}>
       <GuideGrid serverNow={serverNow} initialLive={catalog.live} networks={networks} />
-      <GuideHistory
-        serverNow={serverNow}
-        twitchTracker={twitchTracker.latest}
-        fallbackSessions={airtimeFallback}
-        archivedDaily={archivedDaily}
-      />
+      <Suspense fallback={<p role="status" className="px-5 py-8 text-sm text-secondary">Loading airtime history. The guide is ready above.</p>}>
+        <AirtimeHistory broadcasts={catalog.broadcasts} serverNow={serverNow} />
+      </Suspense>
     </WatchChrome>
   );
 }

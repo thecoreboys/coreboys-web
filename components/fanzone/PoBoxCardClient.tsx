@@ -72,6 +72,7 @@ export function PoBoxCardClient({
       ? document.activeElement
       : null;
     const previousOverflow = document.body.style.overflow;
+    const trigger = triggerRef.current;
     document.body.style.overflow = "hidden";
     const focusFrame = window.requestAnimationFrame(() => dialogRef.current?.focus());
 
@@ -105,7 +106,7 @@ export function PoBoxCardClient({
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
-      const restoreTarget = previouslyFocused?.isConnected ? previouslyFocused : triggerRef.current;
+      const restoreTarget = previouslyFocused?.isConnected ? previouslyFocused : trigger;
       restoreTarget?.focus();
     };
   }, [open]);
@@ -153,7 +154,7 @@ export function PoBoxCardClient({
               ) : null}
             </p>
             <p className="line-clamp-2 text-xs font-bold uppercase tracking-[.12em] opacity-65" style={{ color: featuredDesign?.ink }}>
-              {identity?.concept ?? "Tap to view postcard"}
+              {`View mailing details for ${stageName}` }
             </p>
           </div>
           <ArrowUpRight className="size-4 opacity-65 transition-opacity group-hover:opacity-100" />
