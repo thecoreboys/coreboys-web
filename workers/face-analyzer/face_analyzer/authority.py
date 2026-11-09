@@ -188,8 +188,8 @@ def assert_db_enrollment_authority(
     identity_id: str,
     reference_sha256: Iterable[str],
     *,
-    content_id: str,
-    purpose: str,
+    content_id: str | None,
+    purpose: str | None,
 ) -> dict[str, Any]:
     dsn = configured_database_url()
     if dsn is None:
@@ -228,8 +228,8 @@ def record_db_enrollment_metadata(
     model_fingerprint: Mapping[str, str],
     template_fingerprint: str,
     template_count: int,
-    content_id: str,
-    purpose: str,
+    content_id: str | None,
+    purpose: str | None,
     actor_id: str,
 ) -> str | None:
     dsn = configured_database_url()
@@ -287,11 +287,11 @@ def record_db_local_purge(
         if dsn is None:
             return False
         psycopg, dict_row, _ = _db_modules()
-        identity = config.identities[identity_id]
         with psycopg.connect(dsn, connect_timeout=5, row_factory=dict_row) as connection:
             with connection.cursor() as cursor:
                 _assert_schema(cursor)
                 if template_set_id is None:
+                    identity = config.identities[identity_id]
                     cursor.execute(
                         """
                         SELECT sets.id::text
@@ -334,7 +334,7 @@ def list_db_purge_requests(config: AnalyzerConfig, *, actor_id: str) -> list[dic
                 _assert_schema(cursor)
                 cursor.execute(
                     """
-                    SELECT sets.id::text AS template_set_id,
+                    SELECT sets.id::text AS template_set_id, identities.id::text AS identity_uuid,
                            identities.canonical_kind, identities.canonical_slug,
                            sets.template_fingerprint, sets.state
                       FROM face_template_sets sets
@@ -349,6 +349,8 @@ def list_db_purge_requests(config: AnalyzerConfig, *, actor_id: str) -> list[dic
                 requests: list[dict[str, str]] = []
                 for row in cursor.fetchall():
                     identity_id = canonical_to_local.get((row["canonical_kind"], row["canonical_slug"]))
+                    if identity_id is None and config.identity_registry == "database":
+                        identity_id = row["identity_uuid"]
                     if identity_id is None:
                         continue
                     requests.append({

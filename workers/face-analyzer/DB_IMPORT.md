@@ -17,7 +17,7 @@ Proposal import sends only:
 
 It does not send display names, profile paths, social accounts, frames, crops,
 reference images, features, embeddings, model vectors, or local template keys.
-The web application resolves profiles from its canonical member/crew data.
+The web application resolves profiles from its canonical member/crew/guest data.
 Every imported row remains `proposed` or `unknown`; the functions cannot approve
 or publish it.
 
@@ -29,7 +29,10 @@ The HMAC key and vectors remain local.
 ## Provisioning order
 
 Use PostgreSQL on the same machine or another explicitly loopback-bound local
-instance. Provision the login before applying migration 024 so its conditional
+instance for local operation. The Azure enrollment service has a narrow hosted
+exception requiring an exact hostname pin and verified TLS; see
+[site enrollment operations](../../docs/face-enrollment-operations.md).
+Provision the login before applying migration 024 so its conditional
 hardening block removes legacy ACLs and grants the current contract:
 
 ```sql

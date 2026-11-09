@@ -185,6 +185,7 @@ class AnalyzerConfig:
     identities: Mapping[str, Identity]
     sources: Mapping[str, Source]
     sessions: Mapping[str, Session]
+    identity_registry: str = "config"
 
 
 def _parse_consent(raw: Any, field: str) -> Consent:
@@ -367,8 +368,8 @@ def load_config(path: str | Path) -> AnalyzerConfig:
         canonical_slug = value.get("canonical_slug")
         if not isinstance(display_name, str) or not display_name.strip():
             raise ConfigError(f"{field}.display_name must not be empty")
-        if canonical_kind not in {"member", "crew"}:
-            raise ConfigError(f"{field}.canonical_kind must be member or crew")
+        if canonical_kind not in {"member", "crew", "guest"}:
+            raise ConfigError(f"{field}.canonical_kind must be member, crew or guest")
         if not isinstance(canonical_slug, str) or not _CANONICAL_SLUG_RE.fullmatch(canonical_slug):
             raise ConfigError(f"{field}.canonical_slug must be a lowercase canonical profile slug")
         canonical_key = (canonical_kind, canonical_slug)
@@ -446,6 +447,9 @@ def load_config(path: str | Path) -> AnalyzerConfig:
             identity_allowlist=allowlist,
         )
 
+    identity_registry = root.get("identity_registry", "config")
+    if identity_registry not in {"config", "database"}:
+        raise ConfigError("identity_registry must be config or database")
     return AnalyzerConfig(
         path=config_path,
         runtime=runtime,
@@ -456,4 +460,5 @@ def load_config(path: str | Path) -> AnalyzerConfig:
         identities=identities,
         sources=sources,
         sessions=sessions,
+        identity_registry=identity_registry,
     )

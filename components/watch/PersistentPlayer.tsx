@@ -51,6 +51,7 @@ import { PlayerNetworkWatermark } from "@/components/watch/PlayerNetworkWatermar
 import { TwitchSubscribeCta } from "@/components/watch/TwitchSubscribeCta";
 import { YouTubeSubscribeCta } from "@/components/watch/YouTubeSubscribeCta";
 import { OnScreenIdentityOverlay } from "@/components/watch/OnScreenIdentityOverlay";
+import { facePresencePlaybackMs, type FacePlaybackSample } from "@/lib/face-presence-playback";
 import { CreatorTags } from "@/components/watch/CreatorTags";
 import { creatorTimelineSeconds } from "@/lib/creator-tags/model";
 import { SocialIcon } from "@/components/ui/SocialIcon";
@@ -898,6 +899,7 @@ export function PersistentPlayer() {
   const twitchPlayPendingRef = useRef(false);
   const twitchDvrActiveRef = useRef(false);
   const positionRef = useRef(0);
+  const presenceClockRef = useRef<FacePlaybackSample | null>(null);
   const durationRef = useRef(0);
   const playingRef = useRef(false);
   const measurementStartedAtRef = useRef<number | null>(null);
@@ -1950,6 +1952,7 @@ export function PersistentPlayer() {
         if (details) {
           if (typeof details.currentTime === "number" && Number.isFinite(details.currentTime)) {
             const currentTime = Math.max(0, details.currentTime);
+            presenceClockRef.current = { contentId: current.key, seconds: currentTime, observedAt: Date.now() };
             positionRef.current = currentTime;
             setUiPosition(currentTime);
           }
@@ -1998,6 +2001,7 @@ export function PersistentPlayer() {
         if (message.type === "onCurrentTime" && message.value && typeof message.value === "object") {
           const value = message.value as Record<string, unknown>;
           if (typeof value.currentTime === "number") {
+            presenceClockRef.current = { contentId: current.key, seconds: value.currentTime, observedAt: Date.now() };
             positionRef.current = value.currentTime;
             setUiPosition(value.currentTime);
           }
@@ -2583,8 +2587,10 @@ export function PersistentPlayer() {
   }, [minimize, playerPage, playerReturnPath, router, stopPlayback]);
 
   const readPresenceTimeMs = useCallback(
-    () => Math.max(0, positionRef.current * 1_000),
-    [],
+    () => videoRef.current && videoRef.current.readyState >= 2
+      ? videoRef.current.currentTime * 1000
+      : facePresencePlaybackMs(presenceClockRef.current, current?.key),
+    [current?.key],
   );
 
   if (routeHidden) return null;
@@ -3142,6 +3148,7 @@ export function PersistentPlayer() {
                     return true;
                   }}
                   onProgress={(position, duration) => {
+                    presenceClockRef.current = { contentId: current.key, seconds: position, observedAt: Date.now() };
                     positionRef.current = Number.isFinite(position) ? position : 0;
                     durationRef.current = Number.isFinite(duration) ? duration : 0;
                     setUiPosition(positionRef.current);
@@ -4060,7 +4067,7 @@ export function PersistentPlayer() {
             ) : null}
             {current.kind !== "live"
               && !imageMedia
-              && !usesVisibleTimeProxy(current)
+              && (nativeMedia || !usesVisibleTimeProxy(current))
               && !(nativeMedia && current.platform === "house") ? (
               <OnScreenIdentityOverlay
                 contentId={current.key}

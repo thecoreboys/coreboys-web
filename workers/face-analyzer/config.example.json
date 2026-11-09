@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "identity_registry": "database",
   "runtime": {
     "data_dir": ".local-data",
     "enrollment_roots": ["authorized-enrollment"],

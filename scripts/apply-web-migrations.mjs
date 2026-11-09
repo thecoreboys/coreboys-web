@@ -61,6 +61,8 @@ const migrations = [
   "053_passport_watch_registry_state.sql",
   "054_azure_creator_text.sql",
   "055_x_live_feed_sources.sql",
+  "056_face_guest_profiles.sql",
+  "057_face_site_enrollment.sql",
 ];
 
 function loadEnvLocal() {

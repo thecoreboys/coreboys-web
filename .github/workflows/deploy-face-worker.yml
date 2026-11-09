@@ -1,0 +1,41 @@
+name: Deploy face enrollment worker
+on:
+  push:
+    branches: [main]
+    paths: ['workers/face-analyzer/**', '.github/workflows/deploy-face-worker.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: face-enrollment-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify worker behavior
+        working-directory: workers/face-analyzer
+        run: python -m unittest discover -s tests -q
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build verified CPU worker
+        run: |
+          set -euo pipefail
+          az acr login --name coreboysprodc245e8
+          docker build -t "coreboysprodc245e8.azurecr.io/coreboys-face-worker:$GITHUB_SHA" workers/face-analyzer
+          docker push "coreboysprodc245e8.azurecr.io/coreboys-face-worker:$GITHUB_SHA"
+      - name: Update the existing single worker
+        run: |
+          set -euo pipefail
+          az containerapp update -g coreboys-prod -n coreboys-face-worker \
+            --image "coreboysprodc245e8.azurecr.io/coreboys-face-worker:$GITHUB_SHA" \
+            --min-replicas 1 --max-replicas 1 --output none

@@ -1,0 +1,8 @@
+# Python 3.12, Linux x86_64 wheels. Public PyPI SHA-256 digests, 2026-11-08.
+# Regenerate for other platforms; deployment verifies every downloaded wheel.
+av==15.1.0 --hash=sha256:11326f197e7001c4ca53a83b2dbc67fd39ddff8cdf62ce6be3b22d9f3f9338bd
+numpy==2.2.6 --hash=sha256:fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249
+opencv-python-headless==4.12.0.88 --hash=sha256:236c8df54a90f4d02076e6f9c1cc763d794542e886c576a6fee46ec8ff75a7a9
+psycopg==3.2.10 --hash=sha256:ab5caf09a9ec42e314a21f5216dbcceac528e0e05142e42eea83a3b28b320ac3
+psycopg-binary==3.2.10 --hash=sha256:14bcbcac0cab465d88b2581e43ec01af4b01c9833e663f1352e05cb41be19e44
+typing_extensions==4.16.0 --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

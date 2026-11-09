@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FaceGuestProfileSchema } from "@/lib/face-people";
 import {
   Activity,
   AlertCircle,
@@ -81,7 +82,7 @@ type Mutate = (
 ) => Promise<boolean>;
 
 export function FaceRecognitionControlRoom({
-  people,
+  people: initialPeople,
   apiBase = "/api/admin/faces",
 }: {
   people: FaceCanonicalPerson[];
@@ -93,6 +94,7 @@ export function FaceRecognitionControlRoom({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const people = overview.people.length ? overview.people : initialPeople;
 
   const load = useCallback(
     async (quiet = false) => {
@@ -137,6 +139,17 @@ export function FaceRecognitionControlRoom({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const enrollmentPending = overview.identities.some((identity) =>
+    identity.enrollmentJob?.status === "queued" || identity.enrollmentJob?.status === "running",
+  );
+  useEffect(() => {
+    if (!enrollmentPending || busy !== null) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load(true);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [enrollmentPending, busy, load]);
 
   const mutate = useCallback<Mutate>(
     async (busyKey, path, method, body, successMessage) => {
@@ -214,6 +227,11 @@ export function FaceRecognitionControlRoom({
 
   return (
     <div className="space-y-5">
+      <div className="rounded-xl border border-secondary bg-primary p-4 text-sm text-tertiary">
+        <p className="font-semibold text-primary">One people directory across your recordings</p>
+        <p className="mt-1">Add friends and streamers here, record their consent, then use Enrollment → Sources & jobs → Review queue. AI scans require approved reference photos and an active analyzer connected to the original recording.</p>
+        <p className="mt-2">Current coverage: authorized videos and recorded streams. Live-stream AI matching is not available yet. Embedded Twitch clips and Instagram players do not expose a reliable playback clock; use an authorized video copy for synchronized tags.</p>
+      </div>
       <section className="overflow-hidden rounded-2xl border border-secondary bg-primary shadow-sm">
         <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div className="flex min-w-0 items-start gap-3">
@@ -323,6 +341,7 @@ export function FaceRecognitionControlRoom({
         <LoadingState />
       ) : tab === "people" ? (
         <PeopleConsentPanel
+          apiBase={apiBase}
           panelId="face-panel-people"
           people={people}
           identities={overview.identities}
@@ -377,6 +396,7 @@ export function FaceRecognitionControlRoom({
 }
 
 function PeopleConsentPanel({
+  apiBase,
   panelId,
   people,
   identities,
@@ -384,6 +404,7 @@ function PeopleConsentPanel({
   busy,
   mutate,
 }: {
+  apiBase: string;
   panelId: string;
   people: FaceCanonicalPerson[];
   identities: FaceIdentity[];
@@ -392,6 +413,8 @@ function PeopleConsentPanel({
   mutate: Mutate;
 }) {
   const [selectedKey, setSelectedKey] = useState(people[0]?.key ?? "");
+  const [search, setSearch] = useState("");
+  const [addingGuest, setAddingGuest] = useState(false);
   const records = useMemo(
     () => new Map(identities.map((identity) => [identity.canonicalKey, identity])),
     [identities],
@@ -407,11 +430,19 @@ function PeopleConsentPanel({
     <div id={panelId} role="tabpanel" aria-labelledby="face-tab-people" className="grid items-start gap-4 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.2fr)]">
       <Panel
         icon={<Users className="size-5" />}
-        title="Canonical people"
+        title="Creators, crew & friends"
         description="These profiles provide names and approved social destinations only. Their portraits are never submitted to the analyzer."
       >
+        <div className="mb-4 space-y-3">
+          <SavedCreatorImport apiBase={apiBase} apiAvailable={apiAvailable} busy={busy} mutate={mutate} onSaved={(key) => { setSelectedKey(key); setSearch(""); }} />
+          <button type="button" className={secondaryButton} disabled={!apiAvailable || busy !== null} onClick={() => setAddingGuest((value) => !value)}>
+            <Users className="size-4" /> {addingGuest ? "Close new profile" : "Add friend or streamer"}
+          </button>
+          {addingGuest ? <GuestProfileEditor apiAvailable={apiAvailable} busy={busy} mutate={mutate} onSaved={(key) => { setSelectedKey(key); setAddingGuest(false); setSearch(""); }} /> : null}
+          <Field label="Find a person"><input type="search" className={inputClass} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, profile ID, or handle" /></Field>
+        </div>
         <ul className="max-h-[720px] space-y-2 overflow-y-auto pr-1">
-          {people.map((item) => {
+          {people.filter((item) => `${item.displayName} ${item.slug} ${item.socials.map((social) => social.handle ?? social.url).join(" ")}`.toLowerCase().includes(search.trim().toLowerCase())).map((item) => {
             const record = records.get(item.key);
             const selected = item.key === person.key;
             return (
@@ -441,6 +472,12 @@ function PeopleConsentPanel({
         </ul>
       </Panel>
 
+      <div className="space-y-4">
+      {person.kind === "guest" ? (
+        <Panel icon={<Users className="size-5" />} title="Guest profile" description="Update the name and channels used by this person's reviewed on-screen tags.">
+          <GuestProfileEditor key={`${person.key}:${person.displayName}:${JSON.stringify(person.socials)}`} person={person} apiAvailable={apiAvailable} busy={busy} mutate={mutate} />
+        </Panel>
+      ) : null}
       <ConsentEditor
         key={`${person.key}:${identity?.updatedAt ?? "new"}`}
         person={person}
@@ -449,7 +486,85 @@ function PeopleConsentPanel({
         busy={busy}
         mutate={mutate}
       />
+      </div>
     </div>
+  );
+}
+
+function SavedCreatorImport({ apiBase, apiAvailable, busy, mutate, onSaved }: {
+  apiBase: string; apiAvailable: boolean; busy: string | null; mutate: Mutate; onSaved: (key: string) => void;
+}) {
+  const [creators, setCreators] = useState<Array<{ id: string; name: string }>>([]);
+  const [selected, setSelected] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
+  useEffect(() => {
+    if (!apiAvailable) return;
+    const controller = new AbortController();
+    void fetch(`${apiBase}/people/directory`, { cache: "no-store", signal: controller.signal }).then(async (response) => {
+      if (!response.ok) throw new Error("Directory unavailable");
+      const data = await response.json();
+      setCreators(Array.isArray(data.creators) ? data.creators.filter((item: { id?: unknown; name?: unknown }) => typeof item.id === "string" && typeof item.name === "string") : []);
+    }).catch(() => { if (!controller.signal.aborted) setUnavailable(true); });
+    return () => controller.abort();
+  }, [apiAvailable, apiBase]);
+  return (
+    <div className="space-y-2 rounded-xl border border-secondary p-3">
+      <Field label="Use a saved creator">
+        <select className={inputClass} value={selected} onChange={(event) => setSelected(event.target.value)} disabled={!apiAvailable || busy !== null}>
+          <option value="">Select a friend or streamer</option>
+          {creators.map((creator) => <option key={creator.id} value={creator.id}>{creator.name}</option>)}
+        </select>
+      </Field>
+      <p className="text-xs text-tertiary">{unavailable ? "The saved creator directory could not load. You can still add a profile below." : "Import or refresh their name and social links from the creator directory. Consent and enrollment remain separate."}</p>
+      <button type="button" className={secondaryButton} disabled={!apiAvailable || !selected || busy !== null} onClick={async () => {
+        if (await mutate(`import-creator:${selected}`, "/people/directory", "POST", { creatorId: selected }, "Creator profile imported. Record their consent before enrollment.")) onSaved(`guest:${selected}`);
+      }}>Use this creator</button>
+      <Link href="/admin/media-intelligence" className="ml-3 text-xs font-semibold text-brand-secondary">Manage creator directory</Link>
+    </div>
+  );
+}
+
+function GuestProfileEditor({ person, apiAvailable, busy, mutate, onSaved }: {
+  person?: FaceCanonicalPerson;
+  apiAvailable: boolean;
+  busy: string | null;
+  mutate: Mutate;
+  onSaved?: (key: string) => void;
+}) {
+  const [displayName, setDisplayName] = useState(person?.displayName ?? "");
+  const [slug, setSlug] = useState(person?.slug ?? "");
+  const [slugEdited, setSlugEdited] = useState(Boolean(person));
+  const [twitchLogin, setTwitchLogin] = useState(person?.socials.find((social) => social.platform === "twitch")?.handle ?? "");
+  const [youtubeUrl, setYoutubeUrl] = useState(person?.socials.find((social) => social.platform === "youtube")?.url ?? "");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const disabled = !apiAvailable || busy !== null;
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const parsed = FaceGuestProfileSchema.safeParse({ slug, displayName, twitchLogin: twitchLogin.trim().replace(/^@/, "") || null, youtubeUrl: youtubeUrl.trim() || null, socialLinks: person?.socials.map(({ platform, url }) => ({ platform, url })) ?? [] });
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues.map((issue) => `${issue.path.join(" ")}: ${issue.message}`).join(" "));
+      return;
+    }
+    setValidationError(null);
+    const saved = await mutate(`guest-profile:${person?.slug ?? "new"}`, person ? `/people/${encodeURIComponent(person.slug)}` : "/people", person ? "PUT" : "POST", parsed.data,
+      person ? "Guest profile updated." : "Guest profile saved. Record their consent, then add reference photos in Enrollment.");
+    if (saved) onSaved?.(`guest:${parsed.data.slug}`);
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-xl border border-secondary bg-secondary p-4">
+      {!person ? <p className="text-sm text-tertiary">Add friends and other streamers without changing the six CORE creators. Saving a profile does not enroll or publish anyone.</p> : null}
+      <Field label="Display name"><input className={inputClass} value={displayName} maxLength={120} required disabled={disabled} onChange={(event) => {
+        setDisplayName(event.target.value);
+        if (!slugEdited) setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80));
+      }} /></Field>
+      <Field label="Profile ID" hint={person ? "Permanent" : "Unique, lowercase letters, numbers and hyphens"}><input className={inputClass} value={slug} maxLength={80} required disabled={disabled || Boolean(person)} onChange={(event) => { setSlugEdited(true); setSlug(event.target.value); }} /></Field>
+      <Field label="Twitch username" hint="Optional"><input className={inputClass} value={twitchLogin} maxLength={26} disabled={disabled} placeholder="streamer_name" onChange={(event) => setTwitchLogin(event.target.value)} /></Field>
+      <Field label="YouTube channel" hint="Optional"><input type="url" className={inputClass} value={youtubeUrl} maxLength={300} disabled={disabled} placeholder="https://www.youtube.com/@streamer" onChange={(event) => setYoutubeUrl(event.target.value)} /></Field>
+      {validationError ? <p role="alert" className="text-sm text-error-primary">{validationError}</p> : null}
+      <button type="submit" className={primaryButton} disabled={disabled}>{person ? "Save profile" : "Add person"}</button>
+    </form>
   );
 }
 
@@ -830,6 +945,14 @@ function EnrollmentPanel({
       </Panel>
 
       <Panel icon={<FileImage className="size-5" />} title={`${canonical?.displayName ?? identity?.displayName ?? "Reference"} · inventory`} description="Accepted references may produce templates only after quality review. Rejected and deleted items are never matchable." actions={identity ? <StatusPill tone={eligible ? "success" : "warning"}>{identity.templateCount} templates</StatusPill> : undefined}>
+        {identity ? <div className="mb-4 space-y-3 rounded-xl border border-secondary p-4">
+          <p className="text-sm font-semibold text-primary">{identity.enrollmentJob?.status === "running" ? "Creating face templates…" : identity.enrollmentJob?.status === "queued" ? "Enrollment queued" : identity.enrollmentJob?.status === "failed" ? "Enrollment needs attention" : identity.enrollmentStatus === "ready" ? "Ready for approved recordings" : "Enroll this person"}</p>
+          <p className="text-xs text-tertiary">{identity.enrollmentJob?.status === "failed" ? "Check permission and photo approvals, then retry with clear, different photos containing only this person. Expired approvals need new reference photos." : "A second admin must approve at least 3 different photos. Enrollment uses up to 20 approved photos and does not publish any names."}</p>
+          <button type="button" className={primaryButton} disabled={!apiAvailable || !eligible || busy !== null || identity.references.filter(reference=>reference.status === "accepted").length < 3 || ["queued","running"].includes(identity.enrollmentJob?.status ?? "")}
+            onClick={()=>void mutate(`enroll:${identity.id}`,`/identities/${identity.id}/enroll`,"POST",{},"Enrollment queued. This screen will show when the person is ready.")}>
+            {identity.enrollmentJob?.status === "failed" ? "Retry enrollment" : identity.templateCount > 0 ? "Update enrollment from approved photos" : "Enroll approved photos"}
+          </button>
+        </div> : null}
         {!apiAvailable ? (
           <Empty title="Inventory unavailable" detail="Reference counts and status come only from the admin API." />
         ) : !identity ? (
@@ -936,7 +1059,7 @@ function SourcesPanel({
         {!apiAvailable ? (
           <div className="xl:col-span-2"><Empty title="Sources unavailable" detail="No source is assumed safe or active when the API cannot be reached." /></div>
         ) : sources.length === 0 ? (
-          <div className="xl:col-span-2"><Empty title="No configured sources" detail="Add authorized OBS/live ingest or archive sources through the server configuration. Embedded Twitch and YouTube pixels are not scanned here." /></div>
+          <div className="xl:col-span-2"><Empty title="No configured sources" detail="Add an authorized recording with its exact Watch content ID. The analyzer needs the original video file; embedding a Twitch or YouTube player does not supply footage to scan." /></div>
         ) : sources.map((source) => (
           <SourceCard key={`${source.id}:${source.status}:${source.allowedIdentityIds.join(",")}`} source={source} identities={identities} people={people} busy={busy} mutate={mutate} />
         ))}
@@ -947,7 +1070,7 @@ function SourcesPanel({
         {!apiAvailable ? (
           <Empty title="Jobs unavailable" detail="Connect the API to see queued, running, and completed work." />
         ) : jobs.length === 0 ? (
-          <Empty title="No analyzer jobs" detail="No live session, archive scan, or reference-processing job has been reported." />
+          <Empty title="No analyzer jobs" detail="No recording scan or manual review job has been reported." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-secondary text-left text-sm">
@@ -1099,7 +1222,7 @@ function CreateSourceForm({
               value={contentId}
               onChange={(event) => setContentId(event.target.value)}
               maxLength={300}
-              placeholder="live-marlon or vod-123456"
+              placeholder="yt-videoId or vod-123456"
               required
               disabled={!apiAvailable || isBusy}
             />
@@ -1130,7 +1253,7 @@ function CreateSourceForm({
           <Field label="Source type">
             <select className={inputClass} value={sourceKind} onChange={(event) => setSourceKind(event.target.value as "live" | "archive")} disabled={!apiAvailable || isBusy}>
               <option value="archive">Authorized archive</option>
-              <option value="live">Controlled live ingest (future/manual only)</option>
+              <option value="live" disabled>Live ingest (not supported yet)</option>
             </select>
           </Field>
         </div>
