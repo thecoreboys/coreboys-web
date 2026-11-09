@@ -2,7 +2,8 @@ import "server-only";
 
 import type { PoolClient } from "pg";
 import { CREW, MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
-import { faceGuestPerson, type FaceCanonicalKind, type FaceCanonicalPerson, type FaceGuestProfile } from "@/lib/face-people";
+import { faceGuestPerson, FaceGuestProfileSchema, FaceProfileResearchSchema, type FaceCanonicalKind, type FaceCanonicalPerson, type FaceGuestProfile, type FaceGuestRecord, type FaceProfileReviewInput } from "@/lib/face-people";
+import type { z } from "zod";
 import assetManifest from "@/lib/asset-manifest.json";
 import { query, withTransaction } from "@/lib/db";
 import type { StaffIdentity } from "@/lib/staff-policy";
@@ -198,15 +199,15 @@ async function audit(
   );
 }
 
-function canonicalProfile(kind: FaceCanonicalKind, slug: string, guests: FaceGuestProfile[] = []) {
+function canonicalProfile(kind: FaceCanonicalKind, slug: string, guests: FaceGuestRecord[] = []) {
   if (kind === "guest") {
     const guest = guests.find((person) => person.slug === slug);
-    if (!guest) return null;
+    if (!guest || guest.review && guest.review.status !== "approved") return null;
     const person = faceGuestPerson(guest);
     return {
       displayName: person.displayName,
       profileHref: person.profileHref,
-      avatarUrl: undefined,
+      avatarUrl: person.portraitUrl ?? undefined,
       socialLinks: person.socials,
     };
   }
@@ -231,16 +232,30 @@ function canonicalProfile(kind: FaceCanonicalKind, slug: string, guests: FaceGue
   };
 }
 
-export async function listFaceGuestProfiles(): Promise<FaceGuestProfile[]> {
-  const result = await query<{ slug: string; display_name: string; twitch_login: string | null; youtube_url: string | null; social_links: FaceGuestProfile["socialLinks"] }>(
-    `SELECT slug, display_name, twitch_login, youtube_url, social_links FROM face_guest_profiles ORDER BY display_name, slug`,
-  );
-  return result.rows.map((row) => ({
-    slug: row.slug, displayName: row.display_name, twitchLogin: row.twitch_login, youtubeUrl: row.youtube_url, socialLinks: row.social_links,
-  }));
+type GuestProfileRow = {
+  slug: string; display_name: string; twitch_login: string | null; youtube_url: string | null;
+  social_links: FaceGuestProfile["socialLinks"]; avatar_url: string | null; avatar_source_profile: string | null;
+  avatar_checked_at: string | null; research: unknown; review_status: "pending" | "approved" | "needs_changes";
+  reviewed_at: string | null; review_note: string | null; updated_at: string;
+};
+const guestProfileColumns = `slug, display_name, twitch_login, youtube_url, social_links, avatar_url, avatar_source_profile,
+  avatar_checked_at::text, research, review_status, reviewed_at::text, review_note, updated_at::text`;
+function guestProfileRecord(row: GuestProfileRow): FaceGuestRecord {
+  return {
+    ...FaceGuestProfileSchema.parse({ slug: row.slug, displayName: row.display_name, twitchLogin: row.twitch_login,
+      youtubeUrl: row.youtube_url, socialLinks: row.social_links, avatarUrl: row.avatar_url ?? undefined,
+      avatarSourceProfile: row.avatar_source_profile ?? undefined,
+      avatarCheckedAt: row.avatar_checked_at ? new Date(row.avatar_checked_at).toISOString() : undefined }),
+    review: { status: row.review_status, version: row.updated_at, reviewedAt: row.reviewed_at,
+      note: row.review_note, research: row.research ? FaceProfileResearchSchema.parse(row.research) : null },
+  };
+}
+export async function listFaceGuestProfiles(): Promise<FaceGuestRecord[]> {
+  const result = await query<GuestProfileRow>(`SELECT ${guestProfileColumns} FROM face_guest_profiles ORDER BY display_name, slug`);
+  return result.rows.map(guestProfileRecord);
 }
 
-function facePeople(guests: FaceGuestProfile[]): FaceCanonicalPerson[] {
+function facePeople(guests: FaceGuestRecord[]): FaceCanonicalPerson[] {
   return [
     ...MEMBERS.map((member) => ({
       key: `member:${member.slug}`, kind: "member" as const, slug: member.slug,
@@ -263,14 +278,24 @@ export async function saveFaceGuestProfile(input: FaceGuestProfile, mode: "creat
   }
   try {
     return await withTransaction(async (db) => {
+      // Match the identity -> profile lock order used by consent and enrollment.
+      await db.query(`SELECT id FROM face_identities WHERE canonical_kind='guest' AND canonical_slug=$1 FOR UPDATE`, [input.slug]);
       const existing = await db.query(`SELECT slug, display_name, twitch_login, youtube_url FROM face_guest_profiles WHERE slug=$1 FOR UPDATE`, [input.slug]);
       if (mode === "update" && !existing.rows[0]) throw new FaceStoreError("not_found", "Guest profile was not found.");
       if (mode === "create" && existing.rows[0]) throw new FaceStoreError("conflict", "That profile ID is already used. Edit the existing profile or choose another ID.");
-      const values = [input.slug, input.displayName, input.twitchLogin, input.youtubeUrl, context.actor.id, JSON.stringify(input.socialLinks)];
+      const values = [input.slug, input.displayName, input.twitchLogin, input.youtubeUrl, context.actor.id, JSON.stringify(input.socialLinks),
+        input.avatarUrl ?? null, input.avatarSourceProfile ?? null, input.avatarCheckedAt ?? null];
       if (mode === "create") {
-        await db.query(`INSERT INTO face_guest_profiles (slug, display_name, twitch_login, youtube_url, created_by, updated_by, social_links) VALUES ($1,$2,$3,$4,$5,$5,$6::jsonb)`, values);
+        await db.query(`INSERT INTO face_guest_profiles (slug, display_name, twitch_login, youtube_url, created_by, updated_by, social_links,
+          avatar_url, avatar_source_profile, avatar_checked_at) VALUES ($1,$2,$3,$4,$5,$5,$6::jsonb,$7,$8,$9)`, values);
       } else {
-        await db.query(`UPDATE face_guest_profiles SET display_name=$2, twitch_login=$3, youtube_url=$4, updated_by=$5, social_links=$6::jsonb, updated_at=now() WHERE slug=$1`, values);
+        await db.query(`UPDATE face_guest_profiles SET display_name=$2, twitch_login=$3, youtube_url=$4, updated_by=$5, social_links=$6::jsonb,
+          avatar_url=$7, avatar_source_profile=$8, avatar_checked_at=$9,
+          review_status=CASE WHEN research IS NOT NULL THEN 'pending' ELSE review_status END,
+          reviewed_by=CASE WHEN research IS NOT NULL THEN NULL ELSE reviewed_by END,
+          reviewed_at=CASE WHEN research IS NOT NULL THEN NULL ELSE reviewed_at END,
+          review_note=CASE WHEN research IS NOT NULL THEN NULL ELSE review_note END,
+          updated_at=clock_timestamp() WHERE slug=$1`, values);
         await db.query(`UPDATE face_identities SET display_name=$2, updated_at=now() WHERE canonical_kind='guest' AND canonical_slug=$1`, [input.slug, input.displayName]);
       }
       await audit(db, context, {
@@ -278,7 +303,8 @@ export async function saveFaceGuestProfile(input: FaceGuestProfile, mode: "creat
         targetType: "face_guest_profile", targetId: input.slug,
         before: existing.rows[0] ?? null, after: input,
       });
-      return faceGuestPerson(input);
+      const saved = await db.query<GuestProfileRow>(`SELECT ${guestProfileColumns} FROM face_guest_profiles WHERE slug=$1`, [input.slug]);
+      return faceGuestPerson(guestProfileRecord(saved.rows[0]!));
     });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "23505") {
@@ -288,12 +314,37 @@ export async function saveFaceGuestProfile(input: FaceGuestProfile, mode: "creat
   }
 }
 
+export async function reviewFaceGuestProfile(slug: string, input: z.infer<typeof FaceProfileReviewInput>, context: FaceMutationContext) {
+  return withTransaction(async (db) => {
+    const result = await db.query<GuestProfileRow>(`SELECT ${guestProfileColumns} FROM face_guest_profiles WHERE slug=$1 FOR UPDATE`, [slug]);
+    const row = result.rows[0];
+    if (!row) throw new FaceStoreError("not_found", "Guest profile was not found.");
+    if (row.updated_at !== input.version) throw new FaceStoreError("conflict", "This profile changed. Reload and review its latest details.");
+    const record = guestProfileRecord(row);
+    if (input.decision === "approved" && !faceGuestPerson(record).socials.length) {
+      throw new FaceStoreError("conflict", "Add at least one confirmed social profile before approval.");
+    }
+    await db.query(`UPDATE face_guest_profiles SET review_status=$2, reviewed_by=$3, reviewed_at=now(), review_note=$4,
+      updated_by=$3, updated_at=clock_timestamp() WHERE slug=$1`, [slug, input.decision, context.actor.id, input.note]);
+    await audit(db, context, { action: `guest_profile.${input.decision}`, targetType: "face_guest_profile", targetId: slug,
+      before: { status: row.review_status }, after: { status: input.decision, reason: input.note } });
+    return { status: input.decision };
+  });
+}
+
+async function assertGuestProfileReviewed(db: Db, kind: FaceCanonicalKind, slug: string) {
+  if (kind !== "guest") return;
+  const result = await db.query(`SELECT review_status FROM face_guest_profiles WHERE slug=$1 FOR SHARE`, [slug]);
+  if (!result.rows[0]) throw new FaceStoreError("not_found", "Save this person's profile first.");
+  if (result.rows[0].review_status !== "approved") throw new FaceStoreError("consent_required", "An admin must approve this person's profile research before enrollment.");
+}
+
 export async function getPublicFaceGuestProfile(slug: string): Promise<FaceCanonicalPerson | null> {
   if (!facePresencePublicIsEnabled()) return null;
-  const result = await query<{ slug: string; display_name: string; twitch_login: string | null; youtube_url: string | null; social_links: FaceGuestProfile["socialLinks"] }>(
-    `SELECT guests.slug, guests.display_name, guests.twitch_login, guests.youtube_url, guests.social_links
+  const result = await query<GuestProfileRow>(
+    `SELECT ${guestProfileColumns}
        FROM face_guest_profiles guests
-      WHERE guests.slug=$1 AND EXISTS (
+      WHERE guests.slug=$1 AND guests.review_status='approved' AND EXISTS (
         SELECT 1 FROM face_identities identities
         JOIN face_consents consents ON consents.identity_id=identities.id
         WHERE identities.canonical_kind='guest' AND identities.canonical_slug=guests.slug
@@ -303,7 +354,9 @@ export async function getPublicFaceGuestProfile(slug: string): Promise<FaceCanon
       )`, [slug],
   );
   const row = result.rows[0];
-  return row ? faceGuestPerson({ slug: row.slug, displayName: row.display_name, twitchLogin: row.twitch_login, youtubeUrl: row.youtube_url, socialLinks: row.social_links }) : null;
+  if (!row) return null;
+  const { review: _privateReview, ...profile } = guestProfileRecord(row);
+  return faceGuestPerson(profile);
 }
 
 function safeSocialLinks(
@@ -355,6 +408,8 @@ async function insertConsent(
   context: FaceMutationContext,
 ): Promise<ConsentRow> {
   assertConsentDates(input);
+  const identity = await db.query(`SELECT canonical_kind, canonical_slug FROM face_identities WHERE id=$1`, [identityId]);
+  if (identity.rows[0]) await assertGuestProfileReviewed(db, identity.rows[0].canonical_kind, identity.rows[0].canonical_slug);
   const result = await db.query<ConsentRow>(
     `INSERT INTO face_consents
        (identity_id, consent_version, capture_method, evidence_ref,
@@ -498,12 +553,17 @@ export async function createFaceIdentity(
   input: FaceIdentityCreateInput,
   context: FaceMutationContext,
 ) {
-  const profile = canonicalProfile(input.canonicalKind, input.canonicalSlug, input.canonicalKind === "guest" ? await listFaceGuestProfiles() : []);
+  const guests = input.canonicalKind === "guest" ? await listFaceGuestProfiles() : [];
+  if (guests.some((guest) => guest.slug === input.canonicalSlug && guest.review?.status !== "approved")) {
+    throw new FaceStoreError("consent_required", "An admin must approve this person's profile research before enrollment.");
+  }
+  const profile = canonicalProfile(input.canonicalKind, input.canonicalSlug, guests);
   if (!profile) {
     throw new FaceStoreError("not_found", "That person was not found. Save their profile before recording consent.");
   }
   try {
     return await withTransaction(async (db) => {
+      await assertGuestProfileReviewed(db, input.canonicalKind, input.canonicalSlug);
       const created = await db.query<{ id: string }>(
         `INSERT INTO face_identities
            (canonical_kind, canonical_slug, display_name, state, created_by)
@@ -2267,8 +2327,9 @@ function faceConsentUi(consent: ReturnType<typeof identityResponse>["currentCons
 export async function queueFaceEnrollment(identityId: string, context: FaceMutationContext) {
   if (process.env.FACE_ANALYZER_ENABLED !== "true") throw new FaceStoreError("conflict", "Enrollment is not enabled yet.");
   return withTransaction(async (db) => {
-    const identity = await db.query(`SELECT id FROM face_identities WHERE id=$1 AND state='active' FOR UPDATE`, [identityId]);
+    const identity = await db.query(`SELECT id, canonical_kind, canonical_slug FROM face_identities WHERE id=$1 AND state='active' FOR UPDATE`, [identityId]);
     if (!identity.rows[0]) throw new FaceStoreError("not_found", "Save active permission for this person first.");
+    await assertGuestProfileReviewed(db, identity.rows[0].canonical_kind, identity.rows[0].canonical_slug);
     const existing = await db.query(`SELECT id FROM face_enrollment_jobs WHERE identity_id=$1 AND state IN ('queued','running')`, [identityId]);
     if (existing.rows[0]) return { id: existing.rows[0].id };
     const consent = await db.query(`SELECT id FROM face_consents WHERE identity_id=$1 AND revoked_at IS NULL AND expires_at>now()

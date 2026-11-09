@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FaceGuestProfileSchema } from "@/lib/face-people";
+import { SocialPlatform } from "@/lib/creator-tags/model";
 import {
   Activity,
   AlertCircle,
@@ -415,6 +416,7 @@ function PeopleConsentPanel({
   const [selectedKey, setSelectedKey] = useState(people[0]?.key ?? "");
   const [search, setSearch] = useState("");
   const [addingGuest, setAddingGuest] = useState(false);
+  const [pendingOnly, setPendingOnly] = useState(false);
   const records = useMemo(
     () => new Map(identities.map((identity) => [identity.canonicalKey, identity])),
     [identities],
@@ -440,9 +442,12 @@ function PeopleConsentPanel({
           </button>
           {addingGuest ? <GuestProfileEditor apiAvailable={apiAvailable} busy={busy} mutate={mutate} onSaved={(key) => { setSelectedKey(key); setAddingGuest(false); setSearch(""); }} /> : null}
           <Field label="Find a person"><input type="search" className={inputClass} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, profile ID, or handle" /></Field>
+          <label className="flex items-center gap-2 text-sm text-secondary"><input type="checkbox" checked={pendingOnly} onChange={(event) => setPendingOnly(event.target.checked)} />
+            Awaiting profile review ({people.filter((item) => item.profileReview && item.profileReview.status !== "approved").length})
+          </label>
         </div>
         <ul className="max-h-[720px] space-y-2 overflow-y-auto pr-1">
-          {people.filter((item) => `${item.displayName} ${item.slug} ${item.socials.map((social) => social.handle ?? social.url).join(" ")}`.toLowerCase().includes(search.trim().toLowerCase())).map((item) => {
+          {people.filter((item) => (!pendingOnly || item.profileReview && item.profileReview.status !== "approved") && `${item.displayName} ${item.slug} ${item.socials.map((social) => social.handle ?? social.url).join(" ")}`.toLowerCase().includes(search.trim().toLowerCase())).map((item) => {
             const record = records.get(item.key);
             const selected = item.key === person.key;
             return (
@@ -462,6 +467,8 @@ function PeopleConsentPanel({
                   </span>
                   {!apiAvailable ? (
                     <StatusPill tone="neutral">Unknown</StatusPill>
+                  ) : item.profileReview && item.profileReview.status !== "approved" ? (
+                    <StatusPill tone="warning">Review profile</StatusPill>
                   ) : (
                     <ConsentStatus identity={record} />
                   )}
@@ -473,6 +480,7 @@ function PeopleConsentPanel({
       </Panel>
 
       <div className="space-y-4">
+      {person.profileReview && (person.profileReview.research || person.profileReview.status !== "approved") ? <ProfileResearchReview key={`${person.key}:${person.profileReview.version}`} person={person} apiAvailable={apiAvailable} busy={busy} mutate={mutate} /> : null}
       {person.kind === "guest" ? (
         <Panel icon={<Users className="size-5" />} title="Guest profile" description="Update the name and channels used by this person's reviewed on-screen tags.">
           <GuestProfileEditor key={`${person.key}:${person.displayName}:${JSON.stringify(person.socials)}`} person={person} apiAvailable={apiAvailable} busy={busy} mutate={mutate} />
@@ -489,6 +497,38 @@ function PeopleConsentPanel({
       </div>
     </div>
   );
+}
+
+function ProfileResearchReview({ person, apiAvailable, busy, mutate }: {
+  person: FaceCanonicalPerson; apiAvailable: boolean; busy: string | null; mutate: Mutate;
+}) {
+  const [note, setNote] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const review = person.profileReview!;
+  return <Panel icon={<FileCheck2 className="size-5" />} title="Review researched profile" description="Check the creator's name, channels and profile picture before continuing to permission and photo enrollment.">
+    <div className="space-y-4">
+      <StatusPill tone={review.status === "approved" ? "success" : "warning"}>{review.status === "approved" ? "Profile approved" : review.status === "needs_changes" ? "Needs changes" : "Awaiting admin review"}</StatusPill>
+      <div className="flex items-center gap-4">
+        {person.portraitUrl ? <a href={person.portraitUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${person.displayName}'s profile picture`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={person.portraitUrl} alt={`${person.displayName} profile picture candidate`} referrerPolicy="no-referrer" className="size-32 shrink-0 rounded-xl object-cover" />
+        </a> : <PersonAvatar person={person} />}
+        <span className="text-sm text-secondary">Profile picture only. This image is never used to create face templates.</span>
+      </div>
+      <div className="flex flex-wrap gap-3">{person.socials.map((link) => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-brand-secondary underline">{link.platform}<span className="sr-only"> — {person.displayName}</span></a>)}</div>
+      {person.portraitSourceProfile ? <a className="block text-sm text-brand-secondary underline" href={person.portraitSourceProfile} target="_blank" rel="noopener noreferrer">Profile picture source</a> : null}
+      <p className="whitespace-pre-line text-sm text-secondary">{review.research?.note}</p>
+      <details className="text-sm text-tertiary"><summary className="cursor-pointer">Research sources · {review.research ? new Date(review.research.checkedAt).toLocaleDateString() : ""}</summary><ul className="mt-2 space-y-2">{review.research?.sources.map((source) => <li key={source.url}><a className="underline" href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></li>)}</ul></details>
+      {review.note ? <p className="text-sm text-tertiary">Last review: {review.note}</p> : null}
+      <p className="text-sm text-tertiary">Next: record this person's permission, upload at least 3 photos they supplied or approved, then have a second admin review the photos. Profile approval alone does not enroll or publish them.</p>
+      <Field label="Review note"><textarea className={textareaClass} value={note} maxLength={1000} disabled={!apiAvailable || busy !== null} onChange={(event) => setNote(event.target.value)} placeholder="What you checked, or what needs correcting" /></Field>
+      <label className="flex items-start gap-2 text-sm text-secondary"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /> I checked that these accounts and the profile picture belong to this creator.</label>
+      <div className="flex flex-wrap gap-2">
+        <button className={primaryButton} disabled={!apiAvailable || busy !== null || !confirmed || note.trim().length < 3} onClick={() => void mutate(`profile-review:${person.slug}`, `/people/${encodeURIComponent(person.slug)}/review`, "POST", { decision: "approved", version: review.version, note }, "Profile approved. Record permission and upload approved enrollment photos next.")}>Approve profile</button>
+        <button className={secondaryButton} disabled={!apiAvailable || busy !== null || note.trim().length < 3} onClick={() => void mutate(`profile-review:${person.slug}`, `/people/${encodeURIComponent(person.slug)}/review`, "POST", { decision: "needs_changes", version: review.version, note }, "Profile marked for correction.")}>Needs changes</button>
+      </div>
+    </div>
+  </Panel>;
 }
 
 function SavedCreatorImport({ apiBase, apiAvailable, busy, mutate, onSaved }: {
@@ -536,12 +576,18 @@ function GuestProfileEditor({ person, apiAvailable, busy, mutate, onSaved }: {
   const [slugEdited, setSlugEdited] = useState(Boolean(person));
   const [twitchLogin, setTwitchLogin] = useState(person?.socials.find((social) => social.platform === "twitch")?.handle ?? "");
   const [youtubeUrl, setYoutubeUrl] = useState(person?.socials.find((social) => social.platform === "youtube")?.url ?? "");
+  const [extraSocials, setExtraSocials] = useState<Record<string, string>>(() => Object.fromEntries(person?.socials.filter((link) => link.platform !== "twitch" && link.platform !== "youtube").map((link) => [link.platform, link.url]) ?? []));
+  const [avatarUrl, setAvatarUrl] = useState(person?.portraitUrl ?? "");
+  const [avatarSourceProfile, setAvatarSourceProfile] = useState(person?.portraitSourceProfile ?? "");
   const [validationError, setValidationError] = useState<string | null>(null);
   const disabled = !apiAvailable || busy !== null;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parsed = FaceGuestProfileSchema.safeParse({ slug, displayName, twitchLogin: twitchLogin.trim().replace(/^@/, "") || null, youtubeUrl: youtubeUrl.trim() || null, socialLinks: person?.socials.map(({ platform, url }) => ({ platform, url })) ?? [] });
+    const parsed = FaceGuestProfileSchema.safeParse({ slug, displayName, twitchLogin: twitchLogin.trim().replace(/^@/, "") || null, youtubeUrl: youtubeUrl.trim() || null,
+      socialLinks: Object.entries(extraSocials).filter(([, url]) => url.trim()).map(([platform, url]) => ({ platform, url: url.trim() })),
+      avatarUrl: avatarUrl.trim() || undefined, avatarSourceProfile: avatarSourceProfile.trim() || undefined,
+      avatarCheckedAt: avatarUrl.trim() ? (avatarUrl === person?.portraitUrl ? person.portraitCheckedAt : new Date().toISOString()) : undefined });
     if (!parsed.success) {
       setValidationError(parsed.error.issues.map((issue) => `${issue.path.join(" ")}: ${issue.message}`).join(" "));
       return;
@@ -562,6 +608,12 @@ function GuestProfileEditor({ person, apiAvailable, busy, mutate, onSaved }: {
       <Field label="Profile ID" hint={person ? "Permanent" : "Unique, lowercase letters, numbers and hyphens"}><input className={inputClass} value={slug} maxLength={80} required disabled={disabled || Boolean(person)} onChange={(event) => { setSlugEdited(true); setSlug(event.target.value); }} /></Field>
       <Field label="Twitch username" hint="Optional"><input className={inputClass} value={twitchLogin} maxLength={26} disabled={disabled} placeholder="streamer_name" onChange={(event) => setTwitchLogin(event.target.value)} /></Field>
       <Field label="YouTube channel" hint="Optional"><input type="url" className={inputClass} value={youtubeUrl} maxLength={300} disabled={disabled} placeholder="https://www.youtube.com/@streamer" onChange={(event) => setYoutubeUrl(event.target.value)} /></Field>
+      <details className="text-sm text-secondary"><summary className="cursor-pointer">More socials and profile picture</summary><div className="mt-3 space-y-3">
+        {SocialPlatform.options.filter((platform) => platform !== "twitch" && platform !== "youtube").map((platform) => <Field key={platform} label={`${platform} profile`} hint="Optional"><input type="url" className={inputClass} value={extraSocials[platform] ?? ""} maxLength={500} disabled={disabled} onChange={(event) => setExtraSocials((values) => ({ ...values, [platform]: event.target.value }))} /></Field>)}
+        <Field label="Profile picture URL" hint="Provider profile image; not an enrollment photo"><input type="url" className={inputClass} value={avatarUrl} maxLength={2000} disabled={disabled} onChange={(event) => setAvatarUrl(event.target.value)} /></Field>
+        <Field label="Picture source profile"><input type="url" className={inputClass} value={avatarSourceProfile} maxLength={500} disabled={disabled} onChange={(event) => setAvatarSourceProfile(event.target.value)} /></Field>
+      </div></details>
+      {person?.profileReview?.research ? <p className="text-xs text-tertiary">Saving changes sends this researched profile back for admin review.</p> : null}
       {validationError ? <p role="alert" className="text-sm text-error-primary">{validationError}</p> : null}
       <button type="submit" className={primaryButton} disabled={disabled}>{person ? "Save profile" : "Add person"}</button>
     </form>
@@ -642,7 +694,8 @@ function ConsentEditor({
     && approvedContentIds.length <= 100
     && approvedContentIds.every((value) => value.length <= 300 && value !== "*" && !value.includes("://"))
   );
-  const canSave = apiAvailable && adultConfirmed && purposesSelected && purposesCoherent
+  const profileApproved = !person.profileReview || person.profileReview.status === "approved";
+  const canSave = apiAvailable && profileApproved && adultConfirmed && purposesSelected && purposesCoherent
     && Boolean(confirmationMethod) && evidenceReference.trim().length >= 3
     && subjectAttested && (!replacesActiveConsent || replacementConfirmed)
     && confirmationTimeValid && expiryValid && contentScopeValid;
@@ -703,6 +756,7 @@ function ConsentEditor({
         <Empty title="Consent API unavailable" detail="This form is read-only until the server can return and persist an actual consent record." />
       ) : (
         <form className="space-y-5" onSubmit={submit}>
+          {!profileApproved ? <Message tone="warning" role="status">Approve the researched profile above before recording permission for enrollment.</Message> : null}
           <fieldset className="space-y-3">
             <legend className="text-sm font-semibold text-primary">Eligibility and direct confirmation</legend>
             <CheckRow
@@ -1700,11 +1754,12 @@ function ConfirmationBox({ title, detail, children }: { title: string; detail: s
 }
 
 function PersonAvatar({ person }: { person: FaceCanonicalPerson }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   return (
     <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary text-sm font-bold text-quaternary ring-1 ring-inset ring-secondary">
-      {person.portraitUrl ? (
+      {person.portraitUrl && failedUrl !== person.portraitUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={person.portraitUrl} alt="" className="h-full w-full object-cover" />
+        <img src={person.portraitUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(person.portraitUrl)} className="h-full w-full object-cover" />
       ) : person.displayName.split(" ").map((part) => part[0]).filter(Boolean).slice(0, 2).join("")}
     </span>
   );

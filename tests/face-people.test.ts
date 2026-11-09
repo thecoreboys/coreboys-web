@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FaceGuestProfileSchema, FaceCanonicalKeySchema, faceGuestPerson } from "../lib/face-people";
+import { FaceGuestProfileSchema, FaceCanonicalKeySchema, FaceProfileResearchSchema, faceGuestPerson } from "../lib/face-people";
 import { parsePublicFacePresenceResponse } from "../lib/face-presence-public";
 import { EMPTY_FACE_OVERVIEW, parseFaceOverview } from "../components/admin/faces/types";
 import { facePresencePlaybackMs, faceTagsAtPlaybackTime } from "../lib/face-presence-playback";
@@ -31,6 +31,22 @@ test("guest profiles reject unsafe destinations, invalid keys and enrollment fie
   assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, twitchLogin: "https://twitch.tv/guest" }).success, false);
   assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, embedding: [1, 0] }).success, false);
   assert.equal(FaceGuestProfileSchema.safeParse(profile).success, true, "social accounts are optional");
+});
+
+test("profile images use approved providers and research cannot supply enrollment approval", () => {
+  const profile = { slug: "guest", displayName: "Guest" };
+  const avatarUrl = "https://static-cdn.jtvnw.net/jtv_user_pictures/test-profile_image-300x300.png";
+  const guest = FaceGuestProfileSchema.parse({ ...profile, avatarUrl, avatarSourceProfile: "https://www.twitch.tv/guest" });
+  const person = faceGuestPerson({ ...guest, review: { status: "pending", version: "revision-1", reviewedAt: null, note: null,
+    research: { checkedAt: new Date().toISOString(), sources: [{ label: "Official channel", url: "https://www.twitch.tv/guest" }], note: "Needs permission and photos" } } });
+  assert.equal(parseFaceOverview({ ...EMPTY_FACE_OVERVIEW, people: [person] }).ok, true);
+  assert.equal(person.portraitUrl, avatarUrl);
+  for (const invalid of ["http://static-cdn.jtvnw.net/photo.png", "https://static-cdn.jtvnw.net.attacker.test/photo.jpg", "https://127.0.0.1/photo.jpg", "/members/../private.jpg", "data:image/png;base64,test"]) {
+    assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, avatarUrl: invalid }).success, false);
+  }
+  assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, review: { status: "approved" } }).success, false);
+  assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, subjectApproved: true }).success, false);
+  assert.equal(FaceProfileResearchSchema.safeParse({ checkedAt: new Date().toISOString(), sources: [{ label: "Invalid", url: "javascript:alert(1)" }], note: "" }).success, false);
 });
 
 test("guest profile tags survive public parsing while private and malformed routes are rejected", () => {

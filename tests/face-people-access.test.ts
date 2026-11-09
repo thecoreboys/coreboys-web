@@ -6,7 +6,38 @@ import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { FaceWatchContentIdSchema } from "../lib/face-recognition-contracts";
 import { parseFacePresenceAtMs } from "../lib/face-recognition-policy";
 import { CreatorInput } from "../lib/creator-tags/model";
-import { FaceGuestProfileSchema, type FaceGuestProfile } from "../lib/face-people";
+import { FaceGuestProfileSchema, FacePersonSlugSchema, FaceProfileReviewInput, type FaceGuestProfile } from "../lib/face-people";
+
+test("research approval requires admin access, same origin and an explicit current review", async () => {
+  let admin = false;
+  let sameOrigin = true;
+  const writes: unknown[] = [];
+  const imports: Record<string, unknown> = {
+    "@/lib/admin-api": { requireAdmin: async () => admin ? { ok: true, id: "reviewer" } : { ok: false, response: Response.json({}, { status: 403 }) } },
+    "@/lib/face-people": { FacePersonSlugSchema, FaceProfileReviewInput },
+    "@/lib/x/security": { requestHasSameOrigin: () => sameOrigin },
+    "@/lib/face-recognition-http": {
+      facePrivateJson: (body: unknown, status = 200) => Response.json(body, { status }), facePrivateResponse: (response: Response) => response,
+      faceRequestId: () => "review-test", faceStoreErrorResponse: (error: unknown) => { throw error; },
+    },
+    "@/lib/face-recognition-store": { reviewFaceGuestProfile: async (...args: unknown[]) => { writes.push(args); return { status: "approved" }; } },
+  };
+  const source = transpileModule(readFileSync("app/api/admin/faces/people/[slug]/review/route.ts", "utf8"), { compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2022 } }).outputText;
+  const api = {} as { POST(request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> };
+  vm.runInNewContext(`(function(exports, require) { ${source}\n })`)(api, (id: string) => { assert.ok(id in imports); return imports[id]; });
+  const body = { decision: "approved", version: "latest-revision", note: "Checked official channel and photo" };
+  const post = (input = body) => api.POST(new Request("https://thecoreboys.com/api/admin/faces/people/guest/review", { method: "POST", body: JSON.stringify(input) }), { params: Promise.resolve({ slug: "guest" }) });
+  assert.equal((await post()).status, 403);
+  admin = true; sameOrigin = false;
+  assert.equal((await post()).status, 403);
+  sameOrigin = true;
+  assert.equal((await post({ ...body, version: "" })).status, 400);
+  assert.equal((await post({ ...body, note: "" })).status, 400);
+  assert.equal((await post({ ...body, subjectApproved: true } as typeof body)).status, 400);
+  assert.equal(writes.length, 0);
+  assert.equal((await post()).status, 200);
+  assert.equal(writes.length, 1);
+});
 
 test("AI presence preserves creator-tag membership access before any identity lookup", async () => {
   for (const allowed of [false, true]) {
