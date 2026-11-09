@@ -118,8 +118,16 @@ templates and the worker rejects a model-fingerprint mismatch.
 
 1. Copy the example; never add API tokens, stream keys, cookies, or passwords.
 2. Create local `authorized-media/` and `authorized-enrollment/` directories.
-3. Add one identity record per person with the canonical `member`/`crew` kind
-   and slug. Do not copy profile routes or social URLs into worker config.
+3. Use `identity_registry: "database"` (the example's default) to load admin
+   identities and source assignments before jobs and on every service poll.
+   New members, crew and `guest` streamers need no roster-file edit. New local
+   template IDs are the DB identity UUIDs shown in the admin identity API;
+   existing configured IDs are retained when their canonical kind/slug matches.
+   Keep protected media paths, session expiry and all-visible consent assertions
+   configured locally. Database mode never falls back to config-only matching.
+   `identity_registry: "config"` retains the original explicit roster mode for
+   existing installations and synthetic tests. Never copy profile/social URLs
+   into worker config.
 4. Record explicit, time-bounded consent for template creation and the exact
    archive content/PTS interval. `public_tag` is visible to operators but does
    not authorize or block private worker proposals.

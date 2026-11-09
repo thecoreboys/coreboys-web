@@ -1,7 +1,8 @@
 import "server-only";
 
 import type { PoolClient } from "pg";
-import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
+import { CREW, MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
+import { faceGuestPerson, type FaceCanonicalKind, type FaceCanonicalPerson, type FaceGuestProfile } from "@/lib/face-people";
 import assetManifest from "@/lib/asset-manifest.json";
 import { query, withTransaction } from "@/lib/db";
 import type { StaffIdentity } from "@/lib/staff-policy";
@@ -73,7 +74,7 @@ type ConsentRow = {
 
 type IdentityDbRow = {
   id: string;
-  canonical_kind: "member" | "crew";
+  canonical_kind: FaceCanonicalKind;
   canonical_slug: string;
   display_name: string;
   state: "draft" | "active" | "archived" | "revoked";
@@ -197,7 +198,18 @@ async function audit(
   );
 }
 
-function canonicalProfile(kind: "member" | "crew", slug: string) {
+function canonicalProfile(kind: FaceCanonicalKind, slug: string, guests: FaceGuestProfile[] = []) {
+  if (kind === "guest") {
+    const guest = guests.find((person) => person.slug === slug);
+    if (!guest) return null;
+    const person = faceGuestPerson(guest);
+    return {
+      displayName: person.displayName,
+      profileHref: person.profileHref,
+      avatarUrl: undefined,
+      socialLinks: person.socials,
+    };
+  }
   if (kind === "member") {
     const member = MEMBERS_BY_SLUG[slug];
     if (!member) return null;
@@ -217,6 +229,81 @@ function canonicalProfile(kind: "member" | "crew", slug: string) {
     avatarUrl: crewManifest?.[crew.slug]?.[0],
     socialLinks: crew.socials,
   };
+}
+
+export async function listFaceGuestProfiles(): Promise<FaceGuestProfile[]> {
+  const result = await query<{ slug: string; display_name: string; twitch_login: string | null; youtube_url: string | null; social_links: FaceGuestProfile["socialLinks"] }>(
+    `SELECT slug, display_name, twitch_login, youtube_url, social_links FROM face_guest_profiles ORDER BY display_name, slug`,
+  );
+  return result.rows.map((row) => ({
+    slug: row.slug, displayName: row.display_name, twitchLogin: row.twitch_login, youtubeUrl: row.youtube_url, socialLinks: row.social_links,
+  }));
+}
+
+function facePeople(guests: FaceGuestProfile[]): FaceCanonicalPerson[] {
+  return [
+    ...MEMBERS.map((member) => ({
+      key: `member:${member.slug}`, kind: "member" as const, slug: member.slug,
+      displayName: member.stageName, secondaryLabel: member.comm.name,
+      portraitUrl: member.portrait, profileHref: `/m/${member.slug}`, socials: member.socials,
+    })),
+    ...CREW.map((crew) => ({
+      key: `crew:${crew.slug}`, kind: "crew" as const, slug: crew.slug,
+      displayName: crew.name, secondaryLabel: crew.roleLabel ?? crew.role,
+      portraitUrl: canonicalProfile("crew", crew.slug)?.avatarUrl ?? null,
+      profileHref: `/crew/${crew.slug}`, socials: crew.socials,
+    })),
+    ...guests.map(faceGuestPerson),
+  ];
+}
+
+export async function saveFaceGuestProfile(input: FaceGuestProfile, mode: "create" | "update", context: FaceMutationContext) {
+  if (input.twitchLogin && MEMBERS.some((member) => member.twitchLogin.toLowerCase() === input.twitchLogin)) {
+    throw new FaceStoreError("conflict", "That Twitch account already belongs to a CORE member. Use their existing profile.");
+  }
+  try {
+    return await withTransaction(async (db) => {
+      const existing = await db.query(`SELECT slug, display_name, twitch_login, youtube_url FROM face_guest_profiles WHERE slug=$1 FOR UPDATE`, [input.slug]);
+      if (mode === "update" && !existing.rows[0]) throw new FaceStoreError("not_found", "Guest profile was not found.");
+      if (mode === "create" && existing.rows[0]) throw new FaceStoreError("conflict", "That profile ID is already used. Edit the existing profile or choose another ID.");
+      const values = [input.slug, input.displayName, input.twitchLogin, input.youtubeUrl, context.actor.id, JSON.stringify(input.socialLinks)];
+      if (mode === "create") {
+        await db.query(`INSERT INTO face_guest_profiles (slug, display_name, twitch_login, youtube_url, created_by, updated_by, social_links) VALUES ($1,$2,$3,$4,$5,$5,$6::jsonb)`, values);
+      } else {
+        await db.query(`UPDATE face_guest_profiles SET display_name=$2, twitch_login=$3, youtube_url=$4, updated_by=$5, social_links=$6::jsonb, updated_at=now() WHERE slug=$1`, values);
+        await db.query(`UPDATE face_identities SET display_name=$2, updated_at=now() WHERE canonical_kind='guest' AND canonical_slug=$1`, [input.slug, input.displayName]);
+      }
+      await audit(db, context, {
+        action: `guest_profile.${mode === "create" ? "created" : "updated"}`,
+        targetType: "face_guest_profile", targetId: input.slug,
+        before: existing.rows[0] ?? null, after: input,
+      });
+      return faceGuestPerson(input);
+    });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+      throw new FaceStoreError("conflict", "That profile ID or Twitch account already belongs to a saved guest.");
+    }
+    throw error;
+  }
+}
+
+export async function getPublicFaceGuestProfile(slug: string): Promise<FaceCanonicalPerson | null> {
+  if (!facePresencePublicIsEnabled()) return null;
+  const result = await query<{ slug: string; display_name: string; twitch_login: string | null; youtube_url: string | null; social_links: FaceGuestProfile["socialLinks"] }>(
+    `SELECT guests.slug, guests.display_name, guests.twitch_login, guests.youtube_url, guests.social_links
+       FROM face_guest_profiles guests
+      WHERE guests.slug=$1 AND EXISTS (
+        SELECT 1 FROM face_identities identities
+        JOIN face_consents consents ON consents.identity_id=identities.id
+        WHERE identities.canonical_kind='guest' AND identities.canonical_slug=guests.slug
+          AND identities.state='active' AND consents.revoked_at IS NULL
+          AND consents.expires_at > now() AND consents.subject_confirmed_adult
+          AND consents.allow_public_tag AND consents.allow_profile_links
+      )`, [slug],
+  );
+  const row = result.rows[0];
+  return row ? faceGuestPerson({ slug: row.slug, displayName: row.display_name, twitchLogin: row.twitch_login, youtubeUrl: row.youtube_url, socialLinks: row.social_links }) : null;
 }
 
 function safeSocialLinks(
@@ -395,7 +482,7 @@ export async function listFaceIdentities(identityId?: string) {
 }
 
 export async function findFaceIdentityByCanonical(
-  canonicalKind: "member" | "crew",
+  canonicalKind: FaceCanonicalKind,
   canonicalSlug: string,
 ) {
   const result = await query<IdentityDbRow>(
@@ -411,9 +498,9 @@ export async function createFaceIdentity(
   input: FaceIdentityCreateInput,
   context: FaceMutationContext,
 ) {
-  const profile = canonicalProfile(input.canonicalKind, input.canonicalSlug);
+  const profile = canonicalProfile(input.canonicalKind, input.canonicalSlug, input.canonicalKind === "guest" ? await listFaceGuestProfiles() : []);
   if (!profile) {
-    throw new FaceStoreError("not_found", "Canonical member or crew profile was not found.");
+    throw new FaceStoreError("not_found", "That person was not found. Save their profile before recording consent.");
   }
   try {
     return await withTransaction(async (db) => {
@@ -1648,7 +1735,7 @@ type TrackRow = {
   source_kind: "live" | "archive";
   job_id: string | null;
   identity_id: string | null;
-  canonical_kind: "member" | "crew" | null;
+  canonical_kind: FaceCanonicalKind | null;
   canonical_slug: string | null;
   match_method: "manual" | "automatic";
   state: "proposed" | "unknown" | "approved" | "rejected" | "published" | "withdrawn";
@@ -1682,9 +1769,9 @@ const TRACK_SELECT = `
     JOIN face_sources sources ON sources.id=tracks.source_id
     LEFT JOIN face_identities identities ON identities.id=tracks.identity_id`;
 
-function trackAdminResponse(row: TrackRow) {
+function trackAdminResponse(row: TrackRow, guests: FaceGuestProfile[] = []) {
   const profile = row.canonical_kind && row.canonical_slug
-    ? canonicalProfile(row.canonical_kind, row.canonical_slug)
+    ? canonicalProfile(row.canonical_kind, row.canonical_slug, guests)
     : null;
   const status = row.state === "proposed"
     ? row.identity_id ? "assigned" : "pending"
@@ -1758,7 +1845,8 @@ export async function listFaceTracks(filters: { sourceId?: string; state?: strin
       LIMIT 500`,
     params,
   );
-  return result.rows.map(trackAdminResponse);
+  const guests = result.rows.some((row) => row.canonical_kind === "guest") ? await listFaceGuestProfiles() : [];
+  return result.rows.map((row) => trackAdminResponse(row, guests));
 }
 
 async function consentForTrackIdentity(
@@ -2044,7 +2132,7 @@ export async function reviewFaceTrack(
 type PublicPresenceRow = {
   track_id: string;
   identity_id: string;
-  canonical_kind: "member" | "crew";
+  canonical_kind: FaceCanonicalKind;
   canonical_slug: string;
   start_ms: string;
   end_ms: string | null;
@@ -2078,8 +2166,9 @@ export async function getPublicFacePresence(
       LIMIT 12`,
     params,
   );
+  const guests = result.rows.some((row) => row.canonical_kind === "guest") ? await listFaceGuestProfiles() : [];
   const tags: PublicFacePresenceTag[] = result.rows.flatMap((row) => {
-    const profile = canonicalProfile(row.canonical_kind, row.canonical_slug);
+    const profile = canonicalProfile(row.canonical_kind, row.canonical_slug, guests);
     if (!profile) return [];
     const startMs = Number(row.start_ms);
     const endMs = row.end_ms == null ? null : Number(row.end_ms);
@@ -2175,7 +2264,7 @@ function faceConsentUi(consent: ReturnType<typeof identityResponse>["currentCons
 }
 
 export async function getFaceAdminOverview() {
-  const [identities, references, sources, jobs, reviews, publishedRows, auditRows, heartbeatRows] = await Promise.all([
+  const [identities, references, sources, jobs, reviews, publishedRows, auditRows, heartbeatRows, guests] = await Promise.all([
     listFaceIdentities(),
     listFaceReferences(),
     listFaceSources(),
@@ -2221,6 +2310,7 @@ export async function getFaceAdminOverview() {
         heartbeats.last_heartbeat_at DESC
         LIMIT 1`,
     ),
+    listFaceGuestProfiles(),
   ]);
 
   const referencesByIdentity = new Map<string, typeof references>();
@@ -2255,7 +2345,7 @@ export async function getFaceAdminOverview() {
 
   const published = publishedRows.rows.flatMap((row) => {
     if (!row.identity_id || !row.canonical_kind || !row.canonical_slug) return [];
-    const profile = canonicalProfile(row.canonical_kind, row.canonical_slug);
+    const profile = canonicalProfile(row.canonical_kind, row.canonical_slug, guests);
     if (!profile) return [];
     return [{
       id: row.id,
@@ -2326,6 +2416,7 @@ export async function getFaceAdminOverview() {
       published: published.length,
     },
     identities: uiIdentities,
+    people: facePeople(guests),
     sources,
     jobs,
     reviews,

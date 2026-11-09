@@ -59,7 +59,10 @@ Paid image transcription has been removed. The search endpoint accepts text
 only and rejects image payloads, even when Azure credentials are configured.
 The feature cannot invoke an AI model or incur model charges. Existing hosting,
 database and cache infrastructure still have their normal operating costs.
-No facial recognition, reusable face database or model training is implemented.
+This text-only creator-tag path does not perform facial recognition or model
+training. The separate [AI enrollment controls](on-screen-people.md) can import
+saved guest profiles, but require approved reference photos, a configured worker
+and reviewed matches before AI proposals can be published.
 
 Apply media migration `055_creator_tags.sql` and primary migration
 `054_azure_creator_text.sql` before deploying. The normal Azure workflow applies

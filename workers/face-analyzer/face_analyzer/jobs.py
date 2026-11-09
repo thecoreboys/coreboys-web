@@ -19,6 +19,7 @@ from .retention import cleanup_local_retention
 from .runtime_gate import gate_status, require_biometric_enabled
 from .store import PurgeTombstoneStore
 from .vision import verified_model_fingerprint
+from .registry import refresh_database_people
 
 
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
@@ -294,6 +295,7 @@ def run_job(
     dsn = configured_database_url()
     if dsn is None:
         raise PolicyError("run-job requires FACE_ANALYZER_DATABASE_URL")
+    config = refresh_database_people(config)
     normalized_job_id = _job_uuid(job_id) if job_id is not None else None
     model_version = _automatic_runtime_model(config, actor_id)
     heartbeat_worker(dsn, actor_id, model_version, status="healthy")
@@ -442,6 +444,7 @@ def serve(
     model_version: str | None = None
     try:
         while True:
+            config = refresh_database_people(config)
             purge_result = synchronize_db_purges(config, worker_id=actor_id)
             purge_count += len(purge_result["purged"]) + len(
                 purge_result.get("tombstones_acknowledged", [])

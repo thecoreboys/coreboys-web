@@ -17,7 +17,7 @@ Proposal import sends only:
 
 It does not send display names, profile paths, social accounts, frames, crops,
 reference images, features, embeddings, model vectors, or local template keys.
-The web application resolves profiles from its canonical member/crew data.
+The web application resolves profiles from its canonical member/crew/guest data.
 Every imported row remains `proposed` or `unknown`; the functions cannot approve
 or publish it.
 

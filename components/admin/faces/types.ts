@@ -1,21 +1,12 @@
 import { z } from "zod";
+import { FaceCanonicalKeySchema, FaceCanonicalPersonSchema, type FaceCanonicalPerson } from "../../../lib/face-people";
+export type { FaceCanonicalPerson } from "../../../lib/face-people";
 
 export type FaceSocialLink = {
   platform: string;
   url: string;
   handle?: string;
   label?: string;
-};
-
-export type FaceCanonicalPerson = {
-  key: string;
-  kind: "member" | "crew";
-  slug: string;
-  displayName: string;
-  secondaryLabel: string;
-  portraitUrl: string | null;
-  profileHref: string;
-  socials: FaceSocialLink[];
 };
 
 export type FaceConsentPurpose = {
@@ -157,6 +148,7 @@ export type FaceAdminOverview = {
     published: number;
   };
   identities: FaceIdentity[];
+  people: FaceCanonicalPerson[];
   sources: FaceSource[];
   jobs: FaceJob[];
   reviews: FaceReview[];
@@ -180,6 +172,7 @@ export const EMPTY_FACE_OVERVIEW: FaceAdminOverview = {
     published: 0,
   },
   identities: [],
+  people: [],
   sources: [],
   jobs: [],
   reviews: [],
@@ -230,7 +223,7 @@ const ReferenceSchema = z.object({
 });
 const IdentitySchema = z.object({
   id: z.string().uuid(),
-  canonicalKey: z.string().regex(/^(member|crew):[a-z0-9][a-z0-9-]{0,79}$/),
+  canonicalKey: FaceCanonicalKeySchema,
   displayName: z.string(),
   templateCount: z.number().int().nonnegative(),
   enrollmentStatus: z.enum(["not_enrolled", "pending", "ready", "suspended", "revoked"]),
@@ -277,7 +270,7 @@ const ReviewSchema = z.object({
 const PublishedSchema = z.object({
   id: z.string().uuid(), identityId: z.string().uuid(), displayName: z.string(),
   canonicalKey: z.string(), sourceName: z.string(), startedAt: z.string(), endedAt: NullableString,
-  public: z.boolean(), profileHref: z.string().regex(/^\/(m|crew)\/[a-z0-9-]+$/),
+  public: z.boolean(), profileHref: z.string().regex(/^\/(m|crew|people)\/[a-z0-9-]+$/),
   socialLinks: z.array(SocialLinkSchema),
 });
 const AuditSchema = z.object({
@@ -296,6 +289,7 @@ const FaceAdminOverviewSchema = z.object({
     published: z.number().nonnegative(),
   }),
   identities: z.array(IdentitySchema), sources: z.array(SourceSchema), jobs: z.array(JobSchema),
+  people: z.array(FaceCanonicalPersonSchema).default([]),
   reviews: z.array(ReviewSchema), published: z.array(PublishedSchema), audit: z.array(AuditSchema),
 });
 

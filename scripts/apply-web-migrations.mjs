@@ -60,6 +60,7 @@ const migrations = [
   "052_account_watch_measurement.sql",
   "053_passport_watch_registry_state.sql",
   "054_azure_creator_text.sql",
+  "056_face_guest_profiles.sql",
 ];
 
 function loadEnvLocal() {

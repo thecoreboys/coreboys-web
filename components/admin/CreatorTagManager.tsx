@@ -61,6 +61,7 @@ export function CreatorTagManager() {
   return <section className="space-y-8" aria-labelledby="creator-manager-heading">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="creator-manager-heading" className="text-xl font-semibold text-primary">Creator tags</h2><p className="mt-2 max-w-2xl text-sm text-tertiary">Maintain verified social profiles and publish tags for specific moments. Names found in captions or titles enter the review queue.</p></div><button type="button" className={button} disabled={busy} onClick={() => void mutate({ action: "scan" })}>Find text mentions</button></div>
     <p className="text-sm text-tertiary">Included with CORE Membership. Text matching and reviewed tags use no paid image analysis.</p>
+    <p className="text-sm text-tertiary">This queue contains text mentions and human suggestions. For AI matching against approved face references, use <a href="/admin/faces" className="font-semibold text-brand-secondary underline">On-screen people enrollment</a>. Saved guest profiles can be imported there; adding a name here does not enroll a face.</p>
     {message ? <p role="status" className="rounded-lg border border-secondary bg-primary p-3 text-sm text-primary">{message}</p> : null}
     {loading ? <p role="status" className="text-sm text-tertiary">Loading creator tags…</p> : null}
     <div className="grid items-start gap-6 lg:grid-cols-2">

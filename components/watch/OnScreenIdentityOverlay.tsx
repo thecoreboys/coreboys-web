@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Eye, EyeOff, UserRound } from "lucide-react";
+import { faceTagsAtPlaybackTime } from "@/lib/face-presence-playback";
 import {
   parsePublicFacePresenceResponse,
   type PublicFacePresenceTag,
@@ -153,6 +154,10 @@ export function OnScreenIdentityOverlay({
         return;
       }
       const mediaMs = timeReader.current?.();
+      setTags((current) => {
+        const inRange = faceTagsAtPlaybackTime(current, mediaMs);
+        return inRange.length === current.length ? current : inRange;
+      });
       const observedAt = performance.now();
       if (typeof mediaMs !== "number" || !Number.isFinite(mediaMs) || mediaMs < 0) {
         clearForDiscontinuity();
@@ -249,7 +254,7 @@ export function OnScreenIdentityOverlay({
         setTags([]);
         return;
       }
-      setTags(parsed.tags);
+      setTags(mode === "vod" ? faceTagsAtPlaybackTime(parsed.tags, timeReader.current?.()) : parsed.tags);
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         // Presence is an enhancement. Playback must continue when its API is absent.

@@ -30,7 +30,7 @@ export type PublicFacePresenceResponse = {
   tags: PublicFacePresenceTag[];
 };
 
-const PUBLIC_PROFILE_PREFIXES = ["/m/", "/crew/"] as const;
+const PUBLIC_PROFILE_PREFIXES = ["/m/", "/crew/", "/people/"] as const;
 const PUBLIC_AVATAR_PREFIXES = ["/members/", "/crew/", "/comms/"] as const;
 const MAX_PUBLIC_TAGS = 12;
 
@@ -54,7 +54,7 @@ function finite(value: unknown, minimum = 0): number | null {
 
 function safeProfileHref(value: unknown): string | null {
   const href = text(value, 240);
-  if (!href || href.startsWith("//") || !PUBLIC_PROFILE_PREFIXES.some((prefix) => href.startsWith(prefix))) {
+  if (!href || !/^\/(m|crew|people)\/[a-z0-9][a-z0-9-]{0,79}$/.test(href)) {
     return null;
   }
   try {

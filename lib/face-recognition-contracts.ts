@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FaceCanonicalKindSchema } from "./face-people";
 import {
   faceConsentPermissionsAreCoherent,
   faceSourceConfigurationIsSafe,
@@ -80,7 +81,7 @@ export const FaceConsentGrantSchema = z.object({
 });
 
 export const FaceIdentityCreateSchema = z.object({
-  canonicalKind: z.enum(["member", "crew"]),
+  canonicalKind: FaceCanonicalKindSchema,
   canonicalSlug: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
   consent: FaceConsentGrantSchema,
 }).strict();

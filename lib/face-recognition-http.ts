@@ -9,7 +9,8 @@ const PRIVATE_HEADERS = {
 } as const;
 
 const PUBLIC_HEADERS = {
-  "Cache-Control": "no-store, max-age=0",
+  "Cache-Control": "private, no-store, max-age=0",
+  Vary: "Cookie",
   "X-Content-Type-Options": "nosniff",
 } as const;
 

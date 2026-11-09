@@ -11,6 +11,7 @@ const client = new pg.Client({ connectionString: url.href });
 const dependencies = {
   'server-only': {}, '@/lib/members': { CREW: [], MEMBERS_BY_SLUG: {} },
   '@/lib/asset-manifest.json': {}, '@/lib/face-recognition-policy': {},
+  '@/lib/face-people': {},
   '@/lib/db': { query: (...args) => client.query(...args), withTransaction: (run) => run(client) },
 };
 const source = readFileSync(new URL('../lib/face-recognition-store.ts', import.meta.url), 'utf8');

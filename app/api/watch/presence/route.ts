@@ -5,11 +5,14 @@ import {
   parseFacePresenceAtMs,
 } from "@/lib/face-recognition-policy";
 import { getPublicFacePresence } from "@/lib/face-recognition-store";
+import { requireCreatorTagAccess } from "@/lib/creator-tags/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const access = await requireCreatorTagAccess(request);
+  if (!access.ok) return access.response;
   const url = new URL(request.url);
   const contentId = FaceWatchContentIdSchema.safeParse(url.searchParams.get("contentId"));
   const atMs = parseFacePresenceAtMs(url.searchParams.get("atMs"));

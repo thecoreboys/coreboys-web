@@ -24,11 +24,11 @@ def purge_local_enrollment(
     normalized_reason = reason.strip()
     if not 3 <= len(normalized_reason) <= 500:
         raise DataError("purge reason must contain 3..500 characters")
-    if identity_id not in config.identities:
-        raise DataError("identity is not configured")
     actor_id = require_worker_id(worker_id)
     metadata = EnrollmentStore.metadata(config.runtime.enrollment_store)
     local_record = metadata.get("identities", {}).get(identity_id)
+    if identity_id not in config.identities and not (config.identity_registry == "database" and isinstance(local_record, dict)):
+        raise DataError("identity is not configured or locally enrolled")
     fingerprint = local_record.get("template_fingerprint") if isinstance(local_record, dict) else None
     tombstones = _tombstones(config)
     if isinstance(fingerprint, str) and len(fingerprint) == 64:
@@ -104,7 +104,7 @@ def synchronize_db_purges(
     for tombstone in tombstones.pending(worker_id=actor_id):
         tombstone_retries += 1
         identity_id = tombstone["identity_id"]
-        if identity_id not in config.identities:
+        if identity_id not in config.identities and not (config.identity_registry == "database" and tombstone.get("template_set_id")):
             blocked.append({"identity_id": identity_id, "reason": "purge tombstone identity is no longer configured"})
             continue
         fingerprint = tombstone["template_fingerprint"]

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { FaceCanonicalKeySchema, type FaceCanonicalKind } from "@/lib/face-people";
 import { requireAdmin } from "@/lib/admin-api";
 import { FaceConsentGrantSchema, FaceWatchContentIdSchema } from "@/lib/face-recognition-contracts";
 import {
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ id: string }> };
 const UiConsent = z.object({
-  canonicalKey: z.string().regex(/^(member|crew):[a-z0-9][a-z0-9-]{0,79}$/),
+  canonicalKey: FaceCanonicalKeySchema,
   adultConfirmed: z.literal(true),
   subjectConfirmed: z.literal(true),
   confirmationMethod: z.enum(["signed_release", "subject_portal"]),
@@ -48,7 +49,7 @@ const CONSENT_TEXT = "CORE closed-set face presence v1: adult subject authorizes
 const CONSENT_TEXT_SHA256 = createHash("sha256").update(CONSENT_TEXT).digest("hex");
 
 function canonicalKey(value: string) {
-  const [kind, slug] = value.split(":") as ["member" | "crew", string];
+  const [kind, slug] = value.split(":") as [FaceCanonicalKind, string];
   return { kind, slug };
 }
 
