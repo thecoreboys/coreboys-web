@@ -2,20 +2,26 @@ import "server-only";
 
 import type { FeedItem } from "@/components/feed/types";
 import { configuredXRosterFeedAccounts } from "@/lib/x/roster";
+import { configuredXCrewFeedAccounts } from "@/lib/x/crew-roster";
 import {
   applyXQuoteLookup,
   collectPendingXQuoteReferences,
-  fetchXRecentSearchOnce,
+  fetchXRecentSearchPageOnce,
   fetchXQuoteLookupOnce,
   fetchXFullArchiveSearch,
+  normalizeXFeedAccounts,
   type XFeedAccount,
+  type XRecentSearchPage,
 } from "@/lib/x-feed-request";
 
 export type { XFeedAccount } from "@/lib/x-feed-request";
 
-/** The six member accounts and the CORE organization account, in one query. */
+/** Member, organization and crew accounts, fetched once for the whole site. */
 export function configuredXFeedAccounts(): XFeedAccount[] {
-  return configuredXRosterFeedAccounts();
+  return normalizeXFeedAccounts([
+    ...configuredXRosterFeedAccounts(),
+    ...configuredXCrewFeedAccounts(),
+  ]);
 }
 
 /**
@@ -25,15 +31,16 @@ export function configuredXFeedAccounts(): XFeedAccount[] {
  */
 export async function fetchConfiguredXFeedOnce(
   accounts: readonly XFeedAccount[],
-  options?: { sinceId?: string },
-): Promise<FeedItem[]> {
+  options?: { sinceId?: string; nextToken?: string },
+): Promise<XRecentSearchPage> {
   const bearerToken = process.env.X_BEARER_TOKEN?.trim();
   if (!bearerToken) {
     throw new Error("X_BEARER_TOKEN is not configured");
   }
-  return fetchXRecentSearchOnce(accounts, {
+  return fetchXRecentSearchPageOnce(accounts, {
     bearerToken,
     sinceId: options?.sinceId,
+    nextToken: options?.nextToken,
   });
 }
 
