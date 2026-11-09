@@ -64,7 +64,7 @@ try {
   await db.query(`ALTER ROLE core_face_worker PASSWORD ${pg.escapeLiteral(workerPassword)}`);
   await db.query("GRANT CONNECT ON DATABASE postgres TO core_face_worker");
   await db.query("GRANT USAGE ON SCHEMA public TO core_face_worker");
-  for(const name of ["024_face_presence.sql","056_face_guest_profiles.sql","057_face_site_enrollment.sql","061_face_private_access.sql","062_face_profile_review.sql"]) await db.query(readFileSync(new URL(`./migrations/${name}`,import.meta.url),"utf8"));
+  for(const name of ["024_face_presence.sql","056_face_guest_profiles.sql","057_face_site_enrollment.sql","061_face_private_access.sql","062_face_profile_review.sql","063_face_photo_candidates.sql"]) await db.query(readFileSync(new URL(`./migrations/${name}`,import.meta.url),"utf8"));
   await db.query("COMMIT");
   console.log("Enrollment schema and restricted database role provisioned.");
 } catch(error) {

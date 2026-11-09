@@ -18,6 +18,29 @@ the subject supplied or approved. A different admin must review the photos
 before enrollment can be queued. Public tagging and automatic/live matching
 remain controlled by their existing separate switches and content permissions.
 
+## Researched photo candidates
+
+The People & consent screen also shows privately stored **Reference photo
+candidates** with their source pages and research notes. These files have no
+consent, identity, enrollment or worker assignment. An admin must verify the
+pictured person, a clear single face, the subject's approval of that exact photo,
+and the image rights. Profile review and active adult template-creation permission
+are required before **Submit for photo review** becomes available.
+
+Submitting copies the exact researched bytes into the existing reference flow.
+The same transaction checks the profile, consent, candidate owner, image hash and
+pending state; it creates only a pending reference. A different admin still must
+accept it in Enrollment. Submission and dismissal retire the research file;
+hourly maintenance retries physical deletion if storage was unavailable. The
+enrollment copy follows the existing consent and reference expiry policy.
+
+Apply `063_face_photo_candidates.sql` with the web deployment. Import manifests
+through `importPhotoCandidates` in `scripts/import-face-photo-candidates.mjs`
+only after the normalized WebP files exist in protected reference storage.
+The strict manifest accepts provenance and file metadata, and rejects approval,
+consent or template fields. Imports are idempotent and preserve admin decisions.
+The research manifest and images stay outside the public repository.
+
 ## Preparing a batch
 
 Apply `062_face_profile_review.sql` through the normal web migration runner.

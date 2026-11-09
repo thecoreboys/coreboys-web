@@ -122,3 +122,15 @@ export async function readFaceReferenceFile(key: string): Promise<Buffer> {
     throw error;
   }
 }
+
+/** Copy a reviewed candidate byte-for-byte so approval covers the exact image. */
+export async function copyFaceReferenceFile(key: string, expectedSha256: string) {
+  const image = await readFaceReferenceFile(key);
+  if (image.length > FACE_REFERENCE_MAX_BYTES || createHash("sha256").update(image).digest("hex") !== expectedSha256) {
+    throw new FaceReferenceStorageError("The researched photo changed. Refresh before submitting it.", 409);
+  }
+  const storageKey = `${randomUUID()}.webp`;
+  const { target } = targetForKey(storageKey);
+  await writeFile(target, image, { flag: "wx", mode: 0o600 });
+  return storageKey;
+}

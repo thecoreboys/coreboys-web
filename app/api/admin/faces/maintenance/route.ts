@@ -10,6 +10,8 @@ import {
   prepareExpiredFaceDataPurge,
   purgeExpiredFaceAudit,
   reviewFaceReference,
+  listReviewedFacePhotoCandidateFiles,
+  markFacePhotoCandidateFileDeleted,
 } from "@/lib/face-recognition-store";
 import { deleteFaceReferenceFile, FaceReferenceStorageError } from "@/lib/face-reference-storage";
 import { requestHasSameOrigin } from "@/lib/x/security";
@@ -64,6 +66,14 @@ export async function POST(request: Request) {
         }
       }
     }
+    let candidateFilesDeleted=0;
+    for(const candidate of await listReviewedFacePhotoCandidateFiles()) {
+      try {
+        await deleteFaceReferenceFile(candidate.storage_key);
+        await markFacePhotoCandidateFileDeleted(candidate.id);
+        candidateFilesDeleted++;
+      } catch { deletionPending++; }
+    }
     const auditRowsPurged = await purgeExpiredFaceAudit();
     return facePrivateJson({
       ok: true,
@@ -72,6 +82,7 @@ export async function POST(request: Request) {
         referenceFilesDeleted: deleted,
         referenceFilesPending: deletionPending,
         auditRowsPurged,
+        candidateFilesDeleted,
       },
     }, deletionPending ? 202 : 200);
   } catch (error) {

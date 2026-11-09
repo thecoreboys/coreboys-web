@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FaceCanonicalKeySchema, FaceCanonicalPersonSchema, type FaceCanonicalPerson } from "../../../lib/face-people";
+import { FacePhotoCandidateSchema, type FacePhotoCandidate } from "../../../lib/face-photo-candidates";
 export type { FaceCanonicalPerson } from "../../../lib/face-people";
 
 export type FaceSocialLink = {
@@ -150,6 +151,7 @@ export type FaceAdminOverview = {
   };
   identities: FaceIdentity[];
   people: FaceCanonicalPerson[];
+  photoCandidates?: FacePhotoCandidate[];
   sources: FaceSource[];
   jobs: FaceJob[];
   reviews: FaceReview[];
@@ -174,6 +176,7 @@ export const EMPTY_FACE_OVERVIEW: FaceAdminOverview = {
   },
   identities: [],
   people: [],
+  photoCandidates: [],
   sources: [],
   jobs: [],
   reviews: [],
@@ -292,6 +295,7 @@ const FaceAdminOverviewSchema = z.object({
   }),
   identities: z.array(IdentitySchema), sources: z.array(SourceSchema), jobs: z.array(JobSchema),
   people: z.array(FaceCanonicalPersonSchema).default([]),
+  photoCandidates: z.array(FacePhotoCandidateSchema).default([]),
   reviews: z.array(ReviewSchema), published: z.array(PublishedSchema), audit: z.array(AuditSchema),
 });
 
