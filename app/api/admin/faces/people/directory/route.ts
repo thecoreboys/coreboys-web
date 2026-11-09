@@ -33,6 +33,9 @@ export async function POST(request: Request) {
     twitchLogin: twitch ? new URL(twitch.url).pathname.replace(/^\/|\/$/g, "") : null,
     youtubeUrl: creator.socials.find((link) => link.platform === "youtube")?.url ?? null,
     socialLinks: creator.socials,
+    avatarUrl: creator.avatarUrl,
+    avatarSourceProfile: creator.avatarSourceProfile,
+    avatarCheckedAt: creator.avatarCheckedAt,
   });
   if (!profile.success) return facePrivateJson({ error: "Update this creator's profile details before importing." }, 422);
   try {

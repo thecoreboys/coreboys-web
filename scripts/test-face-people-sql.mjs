@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import pg from "pg";
 import ts from "typescript";
+import { importResearch, parseResearchManifest } from "./import-face-profile-research.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -37,10 +38,10 @@ try {
       await new Promise((done) => setTimeout(done, 300));
     }
   }
-  await client.query("CREATE TABLE admin_users (id uuid PRIMARY KEY, email text)");
+  await client.query("CREATE TABLE admin_users (id uuid PRIMARY KEY, email text, role text DEFAULT 'admin', deleted_at timestamptz)");
   await client.query("CREATE ROLE core_face_worker NOLOGIN");
   await client.query("CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO anon,authenticated; ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO anon,authenticated");
-  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql"]) {
+  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql", "062_face_profile_review.sql", "062_face_profile_review.sql"]) {
     await client.query(readFileSync(resolve(root, "scripts/migrations", file), "utf8"));
   }
 
@@ -113,7 +114,32 @@ try {
     approvedContentIds: contentIds,
     approvedArchiveScopes: contentIds.map((contentId) => ({ contentId, startMs: 1000, endMs: 5000 })),
   };
-  const identity = await store.createFaceIdentity(contracts.FaceIdentityCreateSchema.parse({ canonicalKind: "guest", canonicalSlug: guest.slug, consent }), context);
+  const createInput = contracts.FaceIdentityCreateSchema.parse({ canonicalKind: "guest", canonicalSlug: guest.slug, consent });
+  await client.query(`UPDATE face_guest_profiles SET research=$2::jsonb, review_status='pending' WHERE slug=$1`, [guest.slug, JSON.stringify({ checkedAt: new Date().toISOString(), sources: [{ label: "Twitch profile", url: "https://www.twitch.tv/fixture_guest" }], note: "Public metadata; permission still needed." })]);
+  const pendingProfile = (await store.listFaceGuestProfiles())[0];
+  await assert.rejects(store.createFaceIdentity(createInput, context), /admin must approve/);
+  await assert.rejects(store.reviewFaceGuestProfile(guest.slug, { decision: "approved", version: "stale", note: "Checked source" }, context), /changed/);
+  await store.reviewFaceGuestProfile(guest.slug, { decision: "needs_changes", version: pendingProfile.review.version, note: "Correct channel first" }, context);
+  await assert.rejects(store.createFaceIdentity(createInput, context), /admin must approve/);
+  await store.saveFaceGuestProfile({ ...guest, avatarUrl: "https://static-cdn.jtvnw.net/jtv_user_pictures/test-profile_image-300x300.png", avatarSourceProfile: "https://www.twitch.tv/fixture_guest", avatarCheckedAt: new Date().toISOString() }, "update", context);
+  let reviewedProfile = (await store.listFaceGuestProfiles())[0];
+  assert.equal(reviewedProfile.review.status, "pending");
+  assert.ok(reviewedProfile.avatarUrl);
+  await store.reviewFaceGuestProfile(guest.slug, { decision: "approved", version: reviewedProfile.review.version, note: "Checked name, channel and picture" }, context);
+  assert.equal((await store.listFaceIdentities()).length, 0, "Profile approval must not create consent or identity");
+  assert.equal((await client.query("SELECT count(*)::int AS n FROM face_reference_assets")).rows[0].n, 0);
+  const identity = await store.createFaceIdentity(createInput, context);
+  const publicProfile = await store.getPublicFaceGuestProfile(guest.slug);
+  assert.equal(publicProfile, null, "Public switch is still disabled");
+  // Later metadata edits must require a fresh review without losing provenance.
+  await store.saveFaceGuestProfile(guest, "update", context);
+  reviewedProfile = (await store.listFaceGuestProfiles())[0];
+  assert.equal(reviewedProfile.review.status, "pending");
+  assert.ok(reviewedProfile.review.research);
+  await store.reviewFaceGuestProfile(guest.slug, { decision: "approved", version: reviewedProfile.review.version, note: "Reviewed corrected details" }, context);
+  // The remaining existing integration cases exercise independent photo review,
+  // time-scoped publication, withdrawal and worker enrollment against this profile.
+  await client.query("UPDATE face_guest_profiles SET research=NULL WHERE slug=$1", [guest.slug]);
   await assert.rejects(client.query("DELETE FROM face_guest_profiles WHERE slug=$1", [guest.slug]), /foreign key/);
   await client.query("SET ROLE core_face_worker");
   const registryCode = readFileSync(resolve(root, "workers/face-analyzer/face_analyzer/registry.py"), "utf8");
@@ -124,6 +150,7 @@ try {
   assert.equal(overview.people[0].key, `guest:${guest.slug}`);
   assert.equal(overview.identities[0].enrollmentStatus, "not_enrolled");
   process.env.FACE_PRESENCE_PUBLIC_ENABLED = "true";
+  assert.equal((await store.getPublicFaceGuestProfile(guest.slug)).profileReview, undefined, "Private review metadata must not be public");
   for (const contentId of contentIds) {
     const source = await store.createFaceSource(contracts.FaceSourceCreateSchema.parse({ contentId, displayName: contentId, provider: contentId.startsWith("yt-") ? "youtube" : "twitch", sourceKind: "archive", state: "active" }), context);
     const track = await store.createManualFaceTrack({ sourceId: source.id, identityId: identity.id, startMs: 1000, endMs: 4000 }, context);
@@ -147,13 +174,16 @@ try {
   await store.updateFaceIdentity(identity.id, { action: "revoke_consent", reason: "Fixture consent withdrawn" }, context);
   for (const contentId of contentIds) assert.equal((await store.getPublicFacePresence(contentId, 2000)).tags.length, 0);
   assert.equal(await store.getPublicFaceGuestProfile(guest.slug), null);
-  assert.equal((await client.query("SELECT count(*)::int AS count FROM face_audit_log WHERE action LIKE 'guest_profile.%'")).rows[0].count, 2);
+  assert.equal((await client.query("SELECT count(*)::int AS count FROM face_audit_log WHERE action LIKE 'guest_profile.%'")).rows[0].count, 7);
   // Enrollment is a separate, template-only permission: no fake footage scope is needed.
   const enrolledGuest = profiles.FaceGuestProfileSchema.parse({slug:"enrollment-fixture",displayName:"Enrollment fixture"});
   await store.saveFaceGuestProfile(enrolledGuest,"create",context);
   const enrollmentIdentity = await store.createFaceIdentity(contracts.FaceIdentityCreateSchema.parse({canonicalKind:"guest",canonicalSlug:enrolledGuest.slug,
     consent:{...consent,permissions:{allowTemplateCreation:true,allowLiveMatching:false,allowArchiveMatching:false,allowPublicTag:false,allowProfileLinks:false},approvedContentIds:[],approvedArchiveScopes:[]}}),context);
   process.env.FACE_ANALYZER_ENABLED="true";
+  await client.query("UPDATE face_guest_profiles SET review_status='pending' WHERE slug=$1",[enrolledGuest.slug]);
+  await assert.rejects(store.queueFaceEnrollment(enrollmentIdentity.id,context),/admin must approve/);
+  await client.query("UPDATE face_guest_profiles SET review_status='approved' WHERE slug=$1",[enrolledGuest.slug]);
   await client.query("SELECT heartbeat_face_worker('fixture-worker','test',false,NULL,'healthy',NULL)");
   await client.query("SELECT heartbeat_face_enrollment('fixture-worker',$1)",["a".repeat(64)]);
   await assert.rejects(store.queueFaceEnrollment(enrollmentIdentity.id,context),/at least 3/);
@@ -187,6 +217,19 @@ try {
   assert.equal((await client.query("SELECT state FROM face_enrollment_jobs WHERE id=$1",[pending.id])).rows[0].state,"failed");
   assert.equal((await store.getFaceAdminOverview()).identities.find(person=>person.id===enrollmentIdentity.id).enrollmentStatus,"revoked");
   console.log("PASS: site enrollment requires independent approved references, claims once, reports Ready only after registered templates, and rejects revoked permission.");
+  const researchEntries = parseResearchManifest([{ profile: { slug: "researched-fixture", displayName: "Researched fixture", twitchLogin: "researched_fixture" }, research: {
+    checkedAt: new Date().toISOString(), sources: [{ label: "Source profile", url: "https://www.twitch.tv/researched_fixture" }], note: "No subject permission supplied." } }]);
+  const identityCount = (await store.listFaceIdentities()).length;
+  assert.equal((await importResearch(client,researchEntries,actor.email,false)).toCreate,1);
+  assert.equal((await importResearch(client,researchEntries,actor.email,true)).created,1);
+  assert.equal((await store.listFaceGuestProfiles()).find(profile=>profile.slug==="researched-fixture").review.status,"pending");
+  assert.equal((await importResearch(client,researchEntries,actor.email,true)).created,0,"Imports must be idempotent");
+  assert.equal((await store.listFaceIdentities()).length,identityCount,"Imports must not create identities or consent");
+  const staged = (await store.listFaceGuestProfiles()).find(profile=>profile.slug==="researched-fixture");
+  await store.reviewFaceGuestProfile(staged.slug,{decision:"approved",version:staged.review.version,note:"Verified fixture"},context);
+  await importResearch(client,researchEntries,actor.email,true);
+  assert.equal((await store.listFaceGuestProfiles()).find(profile=>profile.slug===staged.slug).review.status,"approved","Reimports must preserve admin decisions");
+  console.log("PASS: research staging, stale review protection, independent admin approval, private provenance and idempotent import.");
   console.log("PASS: guest persistence, duplicate protection, consent, review, YouTube/Twitch VOD/clip tag metadata, time boundaries, profile updates, revocation and audit; disposable database only.");
 } finally {
   if (priorPublicGate === undefined) delete process.env.FACE_PRESENCE_PUBLIC_ENABLED;

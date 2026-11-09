@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FaceGuestProfileSchema, FaceCanonicalKeySchema, faceGuestPerson } from "../lib/face-people";
+import { FaceGuestProfileSchema, FaceCanonicalKeySchema, FaceProfileResearchSchema, faceGuestPerson, safeFacePortraitUrl } from "../lib/face-people";
 import { parsePublicFacePresenceResponse } from "../lib/face-presence-public";
 import { EMPTY_FACE_OVERVIEW, parseFaceOverview } from "../components/admin/faces/types";
 import { facePresencePlaybackMs, faceTagsAtPlaybackTime } from "../lib/face-presence-playback";
@@ -31,6 +31,32 @@ test("guest profiles reject unsafe destinations, invalid keys and enrollment fie
   assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, twitchLogin: "https://twitch.tv/guest" }).success, false);
   assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, embedding: [1, 0] }).success, false);
   assert.equal(FaceGuestProfileSchema.safeParse(profile).success, true, "social accounts are optional");
+});
+
+test("profile images use approved providers and research cannot supply enrollment approval", () => {
+  const profile = { slug: "guest", displayName: "Guest" };
+  const avatarUrl = "https://static-cdn.jtvnw.net/jtv_user_pictures/test-profile_image-300x300.png";
+  const guest = FaceGuestProfileSchema.parse({ ...profile, avatarUrl, avatarSourceProfile: "https://www.twitch.tv/guest" });
+  const person = faceGuestPerson({ ...guest, review: { status: "pending", version: "revision-1", reviewedAt: null, note: null,
+    research: { checkedAt: new Date().toISOString(), sources: [{ label: "Official channel", url: "https://www.twitch.tv/guest" }], note: "Needs permission and photos" } } });
+  assert.equal(parseFaceOverview({ ...EMPTY_FACE_OVERVIEW, people: [person] }).ok, true);
+  assert.equal(person.portraitUrl, avatarUrl);
+  for (const invalid of ["http://static-cdn.jtvnw.net/photo.png", "https://static-cdn.jtvnw.net.attacker.test/photo.jpg", "https://127.0.0.1/photo.jpg", "/members/../private.jpg", "data:image/png;base64,test"]) {
+    assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, avatarUrl: invalid }).success, false);
+  }
+  assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, review: { status: "approved" } }).success, false);
+  assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, subjectApproved: true }).success, false);
+  assert.equal(FaceProfileResearchSchema.safeParse({ checkedAt: new Date().toISOString(), sources: [{ label: "Invalid", url: "javascript:alert(1)" }], note: "" }).success, false);
+});
+
+test("rendered portraits reject executable schemes, external lookalikes and unsafe local paths", () => {
+  assert.equal(safeFacePortraitUrl("/members/ron/portrait.webp"), "/members/ron/portrait.webp");
+  assert.equal(safeFacePortraitUrl("https://static-cdn.jtvnw.net/avatar.png"), "https://static-cdn.jtvnw.net/avatar.png");
+  assert.equal(safeFacePortraitUrl("https://static-cdn.jtvnw.net/avatar%20one.png?name=profile%20one&size=300"), "https://static-cdn.jtvnw.net/avatar%20one.png?name=profile%20one&size=300");
+  assert.equal(safeFacePortraitUrl("https://static-cdn.jtvnw.net/%ZZ.png"), null);
+  for (const value of [null, {}, "javascript:alert(1)", " java\nscript:alert(1)", "data:image/svg+xml,test", "//evil.test/image.png", "/\\evil.test/image.png", "/members/../private.jpg", "https://static-cdn.jtvnw.net.evil.test/avatar.png", "https://user:password@static-cdn.jtvnw.net/avatar.png"]) {
+    assert.equal(safeFacePortraitUrl(value), null);
+  }
 });
 
 test("guest profile tags survive public parsing while private and malformed routes are rejected", () => {
