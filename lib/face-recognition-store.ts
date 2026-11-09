@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { CREW, MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { faceGuestPerson, FaceGuestProfileSchema, FaceProfileResearchSchema, type FaceCanonicalKind, type FaceCanonicalPerson, type FaceGuestProfile, type FaceGuestRecord, type FaceProfileReviewInput } from "@/lib/face-people";
 import type { z } from "zod";
+import { FacePhotoCandidateSchema } from "@/lib/face-photo-candidates";
 import assetManifest from "@/lib/asset-manifest.json";
 import { query, withTransaction } from "@/lib/db";
 import type { StaffIdentity } from "@/lib/staff-policy";
@@ -852,6 +853,7 @@ export async function faceIdentityHasPendingLocalTemplatePurge(identityId: strin
 export async function registerFaceReference(
   input: FaceReferenceUploadRecord,
   context: FaceMutationContext,
+  candidateId?: string,
 ) {
   try {
     return await withTransaction(async (db) => {
@@ -865,6 +867,24 @@ export async function registerFaceReference(
         "consent_required",
         "Current adult template-creation consent is required for this exact reference.",
       );
+    }
+    if (candidateId) {
+      const identity = await db.query<{ canonical_kind: FaceCanonicalKind; canonical_slug: string }>(
+        "SELECT canonical_kind,canonical_slug FROM face_identities WHERE id=$1", [input.identityId],
+      );
+      const person = identity.rows[0];
+      if (!person) throw new FaceStoreError("not_found", "Identity was not found.");
+      await assertGuestProfileReviewed(db, person.canonical_kind, person.canonical_slug);
+      const candidate = await db.query<{ canonical_kind: string; canonical_slug: string; state: string; content_sha256: string }>(
+        "SELECT canonical_kind,canonical_slug,state,content_sha256 FROM face_photo_candidates WHERE id=$1 FOR UPDATE", [candidateId],
+      );
+      const row = candidate.rows[0];
+      if (!row || row.canonical_kind !== person.canonical_kind || row.canonical_slug !== person.canonical_slug) {
+        throw new FaceStoreError("conflict", "This photo belongs to a different profile.");
+      }
+      if (row.state !== "pending" || row.content_sha256 !== input.contentSha256) {
+        throw new FaceStoreError("conflict", "This photo was already reviewed or its contents changed. Refresh before continuing.");
+      }
     }
     const retentionExpiresAt = new Date(
       Math.min(Date.now() + FACE_REFERENCE_PENDING_REVIEW_MS, Date.parse(consent.expires_at)),
@@ -895,6 +915,12 @@ export async function registerFaceReference(
     );
     const id = result.rows[0]?.id;
     if (!id) throw new FaceStoreError("conflict", "Reference could not be registered.");
+    if (candidateId) {
+      await db.query(`UPDATE face_photo_candidates SET state='submitted',reference_id=$2,reviewed_by=$3,
+        reviewed_at=now(),review_note=$4 WHERE id=$1`, [candidateId,id,context.actor.id,input.notes ?? null]);
+      await audit(db,context,{action:"photo_candidate.submitted",targetType:"face_photo_candidate",targetId:candidateId,
+        identityId:input.identityId,after:{referenceId:id,subjectApproved:true,rightsConfirmed:true}});
+    }
     await audit(db, context, {
       action: "reference.created",
       targetType: "face_reference",
@@ -915,6 +941,48 @@ export async function registerFaceReference(
     }
     throw error;
   }
+}
+
+type PhotoCandidateRow = {
+  id: string; canonical_kind: string; canonical_slug: string; source_url: string; source_label: string;
+  research_note: string; checked_at: string; storage_key: string; content_sha256: string;
+  byte_size: number; width: number; height: number; state: string; reference_id: string | null;
+};
+const PHOTO_CANDIDATE_COLUMNS = `id::text,canonical_kind,canonical_slug,source_url,source_label,research_note,
+  checked_at::text,storage_key,content_sha256,byte_size,width,height,state,reference_id::text`;
+
+export async function listFacePhotoCandidates() {
+  const result = await query<PhotoCandidateRow>(`SELECT ${PHOTO_CANDIDATE_COLUMNS} FROM face_photo_candidates ORDER BY created_at,id LIMIT 2000`);
+  return result.rows.map((row) => FacePhotoCandidateSchema.parse({
+    id:row.id,canonicalKey:`${row.canonical_kind}:${row.canonical_slug}`,sourceUrl:row.source_url,sourceLabel:row.source_label,
+    researchNote:row.research_note,checkedAt:row.checked_at,width:row.width,height:row.height,status:row.state,
+    previewUrl:`/api/admin/faces/photo-candidates/${encodeURIComponent(row.id)}/image`,referenceId:row.reference_id,
+  }));
+}
+
+export async function getFacePhotoCandidate(id: string) {
+  const result = await query<PhotoCandidateRow>(`SELECT ${PHOTO_CANDIDATE_COLUMNS} FROM face_photo_candidates WHERE id=$1`,[id]);
+  return result.rows[0] ?? null;
+}
+
+export async function dismissFacePhotoCandidate(id: string, reason: string, context: FaceMutationContext) {
+  return withTransaction(async (db) => {
+    const result = await db.query<{state:string}>("SELECT state FROM face_photo_candidates WHERE id=$1 FOR UPDATE",[id]);
+    if (!result.rows[0]) throw new FaceStoreError("not_found", "Photo candidate was not found.");
+    if (result.rows[0].state !== "pending") throw new FaceStoreError("conflict", "This photo was already reviewed.");
+    await db.query("UPDATE face_photo_candidates SET state='dismissed',reviewed_by=$2,reviewed_at=now(),review_note=$3 WHERE id=$1",[id,context.actor.id,reason]);
+    await audit(db,context,{action:"photo_candidate.dismissed",targetType:"face_photo_candidate",targetId:id,after:{reason}});
+    return {ok:true};
+  });
+}
+
+export async function listReviewedFacePhotoCandidateFiles() {
+  const result=await query<{id:string;storage_key:string}>("SELECT id::text,storage_key FROM face_photo_candidates WHERE state<>'pending' AND storage_deleted_at IS NULL LIMIT 250");
+  return result.rows;
+}
+
+export async function markFacePhotoCandidateFileDeleted(id: string) {
+  await query("UPDATE face_photo_candidates SET storage_deleted_at=now() WHERE id=$1 AND state<>'pending' AND storage_deleted_at IS NULL",[id]);
 }
 
 export async function reviewFaceReference(
@@ -2351,7 +2419,7 @@ export async function queueFaceEnrollment(identityId: string, context: FaceMutat
 }
 
 export async function getFaceAdminOverview() {
-  const [identities, references, sources, jobs, reviews, publishedRows, auditRows, heartbeatRows, guests] = await Promise.all([
+  const [identities, references, sources, jobs, reviews, publishedRows, auditRows, heartbeatRows, guests, photoCandidates] = await Promise.all([
     listFaceIdentities(),
     listFaceReferences(),
     listFaceSources(),
@@ -2398,6 +2466,7 @@ export async function getFaceAdminOverview() {
         LIMIT 1`,
     ),
     listFaceGuestProfiles(),
+    listFacePhotoCandidates(),
   ]);
 
   const referencesByIdentity = new Map<string, typeof references>();
@@ -2511,6 +2580,7 @@ export async function getFaceAdminOverview() {
     },
     identities: uiIdentities,
     people: facePeople(guests),
+    photoCandidates,
     sources,
     jobs,
     reviews,

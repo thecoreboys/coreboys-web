@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FaceGuestProfileSchema, safeFacePortraitUrl } from "@/lib/face-people";
 import { SocialPlatform } from "@/lib/creator-tags/model";
+import { safeFacePhotoSource, type FacePhotoCandidate } from "@/lib/face-photo-candidates";
 import {
   Activity,
   AlertCircle,
@@ -346,6 +347,7 @@ export function FaceRecognitionControlRoom({
           panelId="face-panel-people"
           people={people}
           identities={overview.identities}
+          photoCandidates={overview.photoCandidates ?? []}
           apiAvailable={apiAvailable}
           busy={busy}
           mutate={mutate}
@@ -401,6 +403,7 @@ function PeopleConsentPanel({
   panelId,
   people,
   identities,
+  photoCandidates,
   apiAvailable,
   busy,
   mutate,
@@ -409,6 +412,7 @@ function PeopleConsentPanel({
   panelId: string;
   people: FaceCanonicalPerson[];
   identities: FaceIdentity[];
+  photoCandidates: FacePhotoCandidate[];
   apiAvailable: boolean;
   busy: string | null;
   mutate: Mutate;
@@ -480,6 +484,7 @@ function PeopleConsentPanel({
       </Panel>
 
       <div className="space-y-4">
+      <PhotoCandidates key={person.key} person={person} identity={identity} candidates={photoCandidates.filter((candidate)=>candidate.canonicalKey===person.key)} apiAvailable={apiAvailable} busy={busy} mutate={mutate} />
       {person.profileReview && (person.profileReview.research || person.profileReview.status !== "approved") ? <ProfileResearchReview key={`${person.key}:${person.profileReview.version}`} person={person} apiAvailable={apiAvailable} busy={busy} mutate={mutate} /> : null}
       {person.kind === "guest" ? (
         <Panel icon={<Users className="size-5" />} title="Guest profile" description="Update the name and channels used by this person's reviewed on-screen tags.">
@@ -497,6 +502,51 @@ function PeopleConsentPanel({
       </div>
     </div>
   );
+}
+
+function PhotoCandidates({person,identity,candidates,apiAvailable,busy,mutate}: {
+  person: FaceCanonicalPerson; identity: FaceIdentity | null; candidates: FacePhotoCandidate[];
+  apiAvailable: boolean; busy: string | null; mutate: Mutate;
+}) {
+  if (!candidates.length) return null;
+  const eligible = Boolean(identity && identity.consent.status === "active" && identity.consent.adultConfirmed
+    && identity.consent.templateCreation && (!person.profileReview || person.profileReview.status === "approved"));
+  return <Panel icon={<FileImage className="size-5" />} title={`Reference photo candidates · ${candidates.filter((candidate)=>candidate.status!=="dismissed").length}`}
+    description="Review these researched photos and their sources. Confirm the person, a clear single face, and permission for each exact photo before submitting it for independent photo review.">
+    {!eligible ? <p className="mb-4 text-sm text-tertiary">Approve the profile and record active adult enrollment permission to submit these photos.</p> : null}
+    <div className="grid gap-4 sm:grid-cols-2">
+      {candidates.map((candidate)=><PhotoCandidateCard key={candidate.id} candidate={candidate} identityId={identity?.id ?? null} eligible={eligible} disabled={!apiAvailable || busy!==null} mutate={mutate} />)}
+    </div>
+  </Panel>;
+}
+
+function PhotoCandidateCard({candidate,identityId,eligible,disabled,mutate}: {
+  candidate: FacePhotoCandidate; identityId: string | null; eligible: boolean; disabled: boolean; mutate: Mutate;
+}) {
+  const [confirmed,setConfirmed] = useState(false);
+  const [note,setNote] = useState("");
+  const source = safeFacePhotoSource(candidate.sourceUrl);
+  const preview = `/api/admin/faces/photo-candidates/${encodeURIComponent(candidate.id)}/image`;
+  return <article className="space-y-3 rounded-xl border border-secondary p-3">
+    {candidate.status==="pending" ? <a href={preview} target="_blank" rel="noopener noreferrer" aria-label="Open full photo candidate">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={preview} alt="Researched reference photo awaiting identity and permission review" className="h-48 w-full rounded-lg bg-black object-contain" loading="lazy" />
+    </a> : null}
+    <StatusPill tone={candidate.status==="submitted"?"success":candidate.status==="dismissed"?"neutral":"warning"}>{candidate.status==="submitted"?"Submitted for independent review":candidate.status==="dismissed"?"Dismissed":"Awaiting photo approval"}</StatusPill>
+    {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="block text-sm font-semibold text-brand-secondary">{candidate.sourceLabel} <ExternalLink className="inline size-3" /></a> : null}
+    <p className="text-xs text-tertiary">{candidate.width} × {candidate.height} · researched {formatDate(candidate.checkedAt)}</p>
+    <p className="text-xs text-tertiary">{candidate.researchNote}</p>
+    {candidate.status==="pending" ? <>
+      <CheckRow checked={confirmed} onChange={setConfirmed} disabled={disabled || !eligible} label="I verified this person and photo" detail="The subject approved this exact image for enrollment, and we have the rights to use it." />
+      <Field label="Photo approval evidence"><input className={inputClass} maxLength={500} value={note} disabled={disabled || !eligible} onChange={(event)=>setNote(event.target.value)} placeholder="Approval or release reference for this photo" /></Field>
+      <button type="button" className={primaryButton} disabled={disabled || !eligible || !identityId || !confirmed || note.trim().length<3}
+        onClick={()=>void mutate(`candidate-submit:${candidate.id}`,`/photo-candidates/${candidate.id}`,"POST",{action:"submit",identityId,subjectApproved:true,rightsConfirmed:true,note:note.trim()},"Photo submitted. A different admin must approve it in Enrollment before it can be used.")}>Submit for photo review</button>
+      <button type="button" className={secondaryButton} disabled={disabled} onClick={()=>{
+        const reason=window.prompt("Why is this photo unsuitable?");
+        if(reason && reason.trim().length>=3) void mutate(`candidate-dismiss:${candidate.id}`,`/photo-candidates/${candidate.id}`,"POST",{action:"dismiss",reason:reason.trim()},"Photo candidate dismissed.");
+      }}>Dismiss photo</button>
+    </> : null}
+  </article>;
 }
 
 function ProfileResearchReview({ person, apiAvailable, busy, mutate }: {
@@ -966,7 +1016,7 @@ function EnrollmentPanel({
               <Message tone="warning" role="status">Reference submission is locked. This person needs active adult confirmation and explicit template-creation consent.</Message>
             ) : null}
 
-            <Field label="Reference image" hint="JPEG, PNG, or WebP supplied or approved by the subject. No screenshots scraped from social media.">
+            <Field label="Reference image" hint="JPEG, PNG, or WebP supplied or approved by the subject for this exact enrollment use.">
               <input
                 className={`${inputClass} py-2 file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary`}
                 type="file"

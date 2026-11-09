@@ -10,6 +10,7 @@ import vm from "node:vm";
 import pg from "pg";
 import ts from "typescript";
 import { importResearch, parseResearchManifest } from "./import-face-profile-research.mjs";
+import { importPhotoCandidates, PhotoResearchManifest } from "./import-face-photo-candidates.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -41,13 +42,14 @@ try {
   await client.query("CREATE TABLE admin_users (id uuid PRIMARY KEY, email text, role text DEFAULT 'admin', deleted_at timestamptz)");
   await client.query("CREATE ROLE core_face_worker NOLOGIN");
   await client.query("CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO anon,authenticated; ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO anon,authenticated");
-  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql", "062_face_profile_review.sql", "062_face_profile_review.sql"]) {
+  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql", "062_face_profile_review.sql", "062_face_profile_review.sql", "063_face_photo_candidates.sql", "063_face_photo_candidates.sql"]) {
     await client.query(readFileSync(resolve(root, "scripts/migrations", file), "utf8"));
   }
 
   for (const role of ["anon", "authenticated"]) {
     await client.query(`SET ROLE ${role}`);
     await assert.rejects(client.query("SELECT * FROM face_enrollment_jobs"),/permission denied/);
+    await assert.rejects(client.query("SELECT * FROM face_photo_candidates"),/permission denied/);
     await assert.rejects(client.query("SELECT * FROM face_presence_public_safe"),/permission denied/);
     await assert.rejects(client.query("SELECT claim_face_enrollment('untrusted')"),/permission denied/);
     await assert.rejects(client.query("SELECT purge_face_audit_retention()"),/permission denied/);
@@ -189,17 +191,39 @@ try {
   await assert.rejects(store.queueFaceEnrollment(enrollmentIdentity.id,context),/at least 3/);
   const reviewer={id:randomUUID(),email:"reviewer@example.invalid"};
   await client.query("INSERT INTO admin_users(id,email) VALUES ($1,$2)",[reviewer.id,reviewer.email]);
+  const candidates=PhotoResearchManifest.parse([1,4,5].map((n)=>({id:randomUUID(),kind:"guest",slug:n===4?guest.slug:enrolledGuest.slug,
+    sourceUrl:"https://www.twitch.tv/fixture/clip/source",imageSourceUrl:`https://static-cdn.jtvnw.net/photo-${n}.jpg`,sourceLabel:"Fixture source",researchNote:"Unapproved research candidate",
+    checkedAt:new Date().toISOString(),storageKey:`${randomUUID()}.webp`,contentSha256:String(n).repeat(64),byteSize:500,width:256,height:256})));
+  const identitiesBefore=(await store.listFaceIdentities()).length;
+  assert.equal((await importPhotoCandidates(client,candidates,actor.email,false)).toCreate,3);
+  assert.equal((await importPhotoCandidates(client,candidates,actor.email,true)).created,3);
+  assert.equal((await store.listFaceIdentities()).length,identitiesBefore,"Research photos never create identities");
+  assert.equal((await client.query("SELECT count(*)::int n FROM face_reference_assets")).rows[0].n,0,"Research photos never become references automatically");
+  assert.equal((await store.getFaceAdminOverview()).photoCandidates.length,3);
+  const upload={identityId:enrollmentIdentity.id,storageKey:`${randomUUID()}.webp`,contentSha256:"1".repeat(64),contentType:"image/webp",fileName:"candidate.webp",sourceKind:"licensed_archive",subjectApproved:true,byteSize:500,width:256,height:256};
+  await assert.rejects(store.registerFaceReference({...upload,contentSha256:"4".repeat(64)},context,candidates[1].id),/different profile/);
+  await assert.rejects(store.registerFaceReference({...upload,contentSha256:"a".repeat(64)},context,candidates[0].id),/contents changed/);
+  await client.query("UPDATE face_guest_profiles SET review_status='pending' WHERE slug=$1",[enrolledGuest.slug]);
+  await assert.rejects(store.registerFaceReference(upload,context,candidates[0].id),/admin must approve/);
+  await client.query("UPDATE face_guest_profiles SET review_status='approved' WHERE slug=$1",[enrolledGuest.slug]);
   const referenceHashes=[];
   for(let index=1;index<=3;index++) {
     const digest=String(index).repeat(64); referenceHashes.push(digest);
     const reference=await store.registerFaceReference({identityId:enrollmentIdentity.id,storageKey:`${randomUUID()}.webp`,contentSha256:digest,
-      contentType:"image/webp",fileName:`fixture-${index}.webp`,sourceKind:"subject_provided",byteSize:500,width:256,height:256},context);
+      contentType:"image/webp",fileName:`fixture-${index}.webp`,sourceKind:index===1?"licensed_archive":"subject_provided",subjectApproved:true,byteSize:500,width:256,height:256},context,index===1?candidates[0].id:undefined);
     await assert.rejects(store.reviewFaceReference(reference.id,{action:"approve"},context),/independent|different|second|own/);
     await store.reviewFaceReference(reference.id,{action:"approve"},{actor:reviewer,requestId:"fixture-review"});
   }
+  await assert.rejects(store.registerFaceReference(upload,context,candidates[0].id),/already reviewed/);
+  assert.equal((await importPhotoCandidates(client,candidates,actor.email,true)).created,0,"Repeat import preserves photo decisions");
+  assert.equal((await store.getFacePhotoCandidate(candidates[0].id)).state,"submitted");
+  assert.ok((await store.listReviewedFacePhotoCandidateFiles()).some(row=>row.id===candidates[0].id));
+  await store.markFacePhotoCandidateFileDeleted(candidates[0].id);
+  assert.equal((await store.listReviewedFacePhotoCandidateFiles()).length,0);
   const queued=await store.queueFaceEnrollment(enrollmentIdentity.id,context);
   assert.equal((await store.queueFaceEnrollment(enrollmentIdentity.id,context)).id,queued.id,"Enqueue is idempotent while pending");
   await client.query("SET ROLE core_face_worker");
+  await assert.rejects(client.query("SELECT * FROM face_photo_candidates"),/permission denied/);
   await assert.rejects(client.query("SELECT * FROM face_enrollment_jobs"),/permission denied/);
   const claimed=(await client.query("SELECT claim_face_enrollment('fixture-worker') AS job")).rows[0].job;
   assert.equal(claimed.id,queued.id);
@@ -213,10 +237,14 @@ try {
   assert.equal((await store.getFaceAdminOverview()).identities.find(person=>person.id===enrollmentIdentity.id).enrollmentStatus,"ready");
   const pending=await store.queueFaceEnrollment(enrollmentIdentity.id,context);
   await store.updateFaceIdentity(enrollmentIdentity.id,{action:"revoke_consent",reason:"Fixture permission removed"},context);
+  await assert.rejects(store.registerFaceReference({...upload,contentSha256:"5".repeat(64)},context,candidates[2].id),/consent/);
+  await store.dismissFacePhotoCandidate(candidates[2].id,"Wrong photo for this reference",context);
+  assert.equal((await store.getFacePhotoCandidate(candidates[2].id)).state,"dismissed");
   await client.query("SELECT claim_face_enrollment('fixture-worker')");
   assert.equal((await client.query("SELECT state FROM face_enrollment_jobs WHERE id=$1",[pending.id])).rows[0].state,"failed");
   assert.equal((await store.getFaceAdminOverview()).identities.find(person=>person.id===enrollmentIdentity.id).enrollmentStatus,"revoked");
   console.log("PASS: site enrollment requires independent approved references, claims once, reports Ready only after registered templates, and rejects revoked permission.");
+  console.log("PASS: researched photo imports remain private and unapproved; submission checks exact photo, profile, consent, independent review and repeat-safe decisions; reviewed copies enter file cleanup.");
   const researchEntries = parseResearchManifest([{ profile: { slug: "researched-fixture", displayName: "Researched fixture", twitchLogin: "researched_fixture" }, research: {
     checkedAt: new Date().toISOString(), sources: [{ label: "Source profile", url: "https://www.twitch.tv/researched_fixture" }], note: "No subject permission supplied." } }]);
   const identityCount = (await store.listFaceIdentities()).length;
