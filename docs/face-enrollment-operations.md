@@ -1,8 +1,9 @@
 Site enrollment operations
 
 The website queues an enrollment after checking current adult template permission,
-3–20 distinct independently approved reference photos and a fresh enrollment-capable
-worker heartbeat. The worker claims it through restricted database functions,
+3–20 distinct independently approved reference photos. A continuous worker needs
+a fresh enrollment heartbeat; an on-demand worker is woken after the durable request
+is saved. The worker claims it through restricted database functions,
 checks the exact approved bytes, creates local SFace templates and reports completion.
 Consent and reference approval are checked again before the website shows completion.
 Unknown faces and public recognition are outside this enrollment operation.
@@ -33,9 +34,9 @@ verification remain enabled; `node scripts/provision-face-enrollment.mjs --check
 performs a read-only production connection check.
 
 One-time bootstrap: build/push the worker image, set `FACE_DEPLOY_IMAGE` to its
-versioned ACR name and run `node scripts/provision-face-enrollment.mjs --apply`.
+versioned ACR name and run `node scripts/provision-face-enrollment.mjs --apply --on-demand`.
 The script reads existing Azure credentials in memory, provisions the restricted
-database login and migrations 024/056/057/061, mounts private storage and starts the worker.
+database login and migrations through 064, mounts private storage and starts the worker.
 It never creates consent or reference photos. Subsequent main-branch worker changes
 deploy through `.github/workflows/deploy-face-worker.yml`.
 
@@ -45,17 +46,41 @@ Keep `FACE_AUTOMATIC_MATCHING_ENABLED=false`, `FACE_PRESENCE_PUBLIC_ENABLED=fals
 and `NEXT_PUBLIC_FACE_PRESENCE_UI_ENABLED=false` until actual recognition evaluation.
 The worker separately sets `FACE_SITE_ENROLLMENT_ENABLED=true` and uses a restricted
 database secret. Hourly retention runs remove expired reference files. Revoked
-templates are purged by the worker. A stopped worker cannot claim new enrollment.
+templates are purged by the worker. New enrollment and purge requests wake a sleeping
+worker. Failed wake delivery preserves the database request and is retried by the
+hourly retention task or the same admin action.
 
-Cost estimate in USD, East US list rates retrieved November 8, 2026:
-0.5 vCPU and 1 GiB for 730 hours costs approximately $11.83 at idle rates or $39.42
-at continuous active rates, before any unused subscription free grant. Add storage,
-transactions and logs; budget roughly $15–$45/month incremental for this initial
-small enrollment service. This is an estimate, not a billing cap, and excludes the
-existing web/database bill, taxes and future video/live processing. CPU rate is
-$0.000024 active or $0.000003 idle per vCPU-second; memory is $0.000003/GiB-second.
+Cost estimate in USD, East US list rates verified November 9, 2026:
+the on-demand worker uses zero replicas while idle, eliminating its idle compute
+bill. At 0.5 vCPU and 1 GiB, active compute is approximately **$0.054 per worker
+running hour**, before the shared subscription free grant. Ten active hours would
+be $0.54; 100 hours would be $5.40. These are worker running hours, not recording
+hours: speed depends on codec, interval, number of faces and sampling rate. Start-up
+and shutdown time also count. Storage, queue transactions, logs, and the existing
+website/database charges remain separate. There is no paid inference API or model
+training call in this review/enrollment path. Chrome-only previews and human labels
+start no worker; saving their small metadata still uses the website/database.
+CPU rate is $0.000024 active per vCPU-second; memory is $0.000003/GiB-second.
 [Azure pricing](https://azure.microsoft.com/en-us/pricing/details/container-apps/)
 and the [Azure Retail Prices API](https://prices.azure.com/api/retail/prices).
+
+On-demand provisioning adds only the `face-work` queue in the existing storage
+account. The web identity can send messages to that queue. The worker identity can
+read its length and process/delete messages. These roles are queue-scoped; neither
+app receives an account key. Wake messages contain only `wake`. Database jobs stay
+authoritative. The worker acknowledges old wake hints only after no eligible work,
+running leases or required local-template purges remain. New hints racing this
+probe are preserved. KEDA polls every 30 seconds and uses a 60-second cooldown;
+cold starts can take a minute. A maximum of one replica and persistent singleton
+locks serialize enrollment and scans. Image deployments preserve this scale rule.
+To restore the previous always-running behavior, change the worker minimum replicas
+to one; its queue configuration can remain intact. Do not roll back the additive
+metadata migration or discard the persistent template share.
+
+After deployment, use the authenticated retention route with `{"wakeWorker":true}`
+as an empty-work startup probe. Verify a fresh enrollment heartbeat, an empty queue,
+and automatic return to zero replicas. This probe must never create subject consent,
+reference approval or a recognition job.
 
 The software and real models are tested without using anyone's photos. Synthetic
 database/worker tests establish queue/approval correctness, not real face accuracy.

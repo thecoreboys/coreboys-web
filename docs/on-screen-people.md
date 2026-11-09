@@ -49,6 +49,47 @@ paths, model verification and session limits local. Existing local template IDs
 are preserved; newly enrolled guests use their DB identity UUID. Registry
 failure stops matching. Local template deletion still works during a DB outage.
 
+## Processing cost and reuse
+
+Open **Video review** in `/admin/faces` and select a saved archive source plus a
+local video you are authorized to review. Chrome plays/seeks the file, fingerprints
+its complete contents in 4-MiB chunks in a background worker, and generates up to
+12 interval previews locally. Confirm the file matches the selected source, then
+open/reuse its saved review. Videos and preview pixels are never uploaded. Only
+small metadata and appearance labels go to the private database. Reopening the
+same bytes, including a renamed file, restores labels; resaving the same mark
+preserves its approved/rejected/published state. Named marks still require current
+adult permission covering the complete recording interval. Human inputs remain
+review proposals until separately approved and published; they do not retrain a
+model or start an AI job.
+
+YouTube/Twitch iframe players do not expose their cross-origin pixels to this
+tool. This path uses authorized local files. Automatic facial matching remains
+server-side, with private fixed-model templates; no embeddings or private
+enrollment images are downloaded into viewers' browsers.
+
+Server requests use an application-generated fingerprint of source/content ID,
+protected recording locator, optional prepared-file fingerprint, interval,
+sampling, pipeline version and current approved consent/template/model versions.
+Random client request keys cannot force duplicate work. Concurrent identical
+requests reuse one job, including queued, completed and failed jobs. Failed or
+cancelled jobs require an explicit **Retry**; permission is rechecked. Human review
+decisions are preserved. New settings, reference templates or source versions need
+fresh work. Protected recording locators must name immutable recordings: when
+replacing an input file, configure a new locator/version rather than overwriting
+the old path. A matching local file can also supply a prepared-file fingerprint
+through `browserReviewId`. A name/metadata cache cannot detect bytes overwritten
+behind an unchanged protected locator.
+
+The default is one sample every two seconds. Each server job is limited to 1,800
+sampled frames and a two-hour interval, enforced independently by the API and
+worker. The decoder seeks to the requested interval and stops at its end. Sparse
+sampling can miss brief appearances; use smaller intervals with higher sampling
+or human labels when necessary. Nothing starts an AI job merely because a viewer
+opens a video. Existing media-description/caption analysis also reuses unchanged
+content and analyzer versions. See [enrollment operations](face-enrollment-operations.md)
+for on-demand worker costs and startup checks.
+
 ## Playback coverage
 
 | Source | Recognition and display |

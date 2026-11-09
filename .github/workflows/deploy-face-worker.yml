@@ -38,4 +38,4 @@ jobs:
           set -euo pipefail
           az containerapp update -g coreboys-prod -n coreboys-face-worker \
             --image "coreboysprodc245e8.azurecr.io/coreboys-face-worker:$GITHUB_SHA" \
-            --min-replicas 1 --max-replicas 1 --output none
+            --max-replicas 1 --output none

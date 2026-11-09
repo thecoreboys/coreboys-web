@@ -21,6 +21,7 @@ let client;
 let pool;
 let started = false;
 const priorPublicGate = process.env.FACE_PRESENCE_PUBLIC_ENABLED;
+const priorAutomaticGate = process.env.FACE_AUTOMATIC_MATCHING_ENABLED;
 
 try {
   docker("run", "--rm", "-d", "--name", container, "-e", `POSTGRES_PASSWORD=${password}`, "-p", "127.0.0.1::5432", "postgres:16-alpine");
@@ -42,7 +43,7 @@ try {
   await client.query("CREATE TABLE admin_users (id uuid PRIMARY KEY, email text, role text DEFAULT 'admin', deleted_at timestamptz)");
   await client.query("CREATE ROLE core_face_worker NOLOGIN");
   await client.query("CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO anon,authenticated; ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO anon,authenticated");
-  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql", "062_face_profile_review.sql", "062_face_profile_review.sql", "063_face_photo_candidates.sql", "063_face_photo_candidates.sql"]) {
+  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql", "062_face_profile_review.sql", "062_face_profile_review.sql", "063_face_photo_candidates.sql", "063_face_photo_candidates.sql", "064_face_processing_costs.sql", "064_face_processing_costs.sql"]) {
     await client.query(readFileSync(resolve(root, "scripts/migrations", file), "utf8"));
   }
 
@@ -50,6 +51,8 @@ try {
     await client.query(`SET ROLE ${role}`);
     await assert.rejects(client.query("SELECT * FROM face_enrollment_jobs"),/permission denied/);
     await assert.rejects(client.query("SELECT * FROM face_photo_candidates"),/permission denied/);
+    await assert.rejects(client.query("SELECT * FROM face_browser_reviews"),/permission denied/);
+    await assert.rejects(client.query("SELECT * FROM face_browser_marks"),/permission denied/);
     await assert.rejects(client.query("SELECT * FROM face_presence_public_safe"),/permission denied/);
     await assert.rejects(client.query("SELECT claim_face_enrollment('untrusted')"),/permission denied/);
     await assert.rejects(client.query("SELECT purge_face_audit_retention()"),/permission denied/);
@@ -153,13 +156,34 @@ try {
   assert.equal(overview.identities[0].enrollmentStatus, "not_enrolled");
   process.env.FACE_PRESENCE_PUBLIC_ENABLED = "true";
   assert.equal((await store.getPublicFaceGuestProfile(guest.slug)).profileReview, undefined, "Private review metadata must not be public");
+  const browserFixtures=[];
   for (const contentId of contentIds) {
     const source = await store.createFaceSource(contracts.FaceSourceCreateSchema.parse({ contentId, displayName: contentId, provider: contentId.startsWith("yt-") ? "youtube" : "twitch", sourceKind: "archive", state: "active" }), context);
-    const track = await store.createManualFaceTrack({ sourceId: source.id, identityId: identity.id, startMs: 1000, endMs: 4000 }, context);
+    const metadata={sourceId:source.id,fingerprint:"a".repeat(64),algorithm:"sha256-chunks-v1-4mib",byteSize:5000,durationMs:10000,fileName:"fixture.webm"};
+    const [project,duplicate]=await Promise.all([store.prepareBrowserVideoReview(metadata,context),store.prepareBrowserVideoReview({...metadata,fileName:"renamed.webm"},context)]);
+    assert.equal(project.id,duplicate.id,"Concurrent identical videos reuse one saved review despite renaming");
+    await assert.rejects(store.prepareBrowserVideoReview({...metadata,byteSize:6000},context),/different file metadata/);
+    const mark={sourceId:source.id,browserReviewId:project.id,identityId:identity.id,startMs:1000,endMs:4000};
+    browserFixtures.push(mark);
+    const [track,duplicateTrack]=await Promise.all([store.createManualFaceTrack(mark,context),store.createManualFaceTrack(mark,context)]);
+    assert.equal(track.id,duplicateTrack.id,"Concurrent manual marks reuse one proposal");
+    await assert.rejects(store.createManualFaceTrack({...mark,endMs:11000,identityId:null},context),/duration/);
+    const manualJob={sourceId:source.id,kind:"manual_review",configuration:{startMs:1000,endMs:4000}};
+    const [firstJob,sameJob]=await Promise.all([store.createFaceJob({...manualJob,idempotencyKey:"random-click-one"},context),store.createFaceJob({...manualJob,idempotencyKey:"random-click-two"},context)]);
+    assert.equal(firstJob.id,sameJob.id,"Random caller keys cannot create duplicate server work");
+    await client.query("UPDATE face_jobs SET status='succeeded',finished_at=now() WHERE id=$1",[firstJob.id]);
+    assert.equal((await store.createFaceJob(manualJob,context)).status,"succeeded","Completed work is reused without running again");
+    const changedJob=await store.createFaceJob({...manualJob,configuration:{startMs:1000,endMs:4500}},context);
+    assert.notEqual(changedJob.id,firstJob.id,"Changed interval requires new work");
+    await client.query("UPDATE face_jobs SET status='failed',finished_at=now() WHERE id=$1",[changedJob.id]);
+    assert.equal((await store.createFaceJob({...manualJob,configuration:{startMs:1000,endMs:4500}},context)).status,"failed","Failures require explicit retry");
     assert.equal((await store.getPublicFacePresence(contentId, 2000)).tags.length, 0);
     await assert.rejects(store.reviewFaceTrack(track.id, { action: "publish" }, context), /human approval/);
     await store.reviewFaceTrack(track.id, { action: "approve", sourceMomentVerified: true, confidenceBand: "reviewed" }, context);
     await store.reviewFaceTrack(track.id, { action: "publish" }, context);
+    assert.equal((await store.createManualFaceTrack(mark,context)).state,"published","Resaving cannot overwrite a human review");
+    const reopened=await store.prepareBrowserVideoReview(metadata,context);
+    assert.equal(reopened.reused,true);assert.equal(reopened.markers[0].status,"published");
     const visible = publicParser.parsePublicFacePresenceResponse(await store.getPublicFacePresence(contentId, 2000));
     assert.equal(visible.tags[0].displayName, guest.displayName);
     assert.equal(visible.tags[0].profileHref, `/people/${guest.slug}`);
@@ -173,7 +197,9 @@ try {
   assert.equal((await store.getPublicFacePresence(contentIds[0], 2000)).tags[0].displayName, "Updated guest");
   assert.equal((await store.getPublicFaceGuestProfile(guest.slug)).displayName, "Updated guest");
   assert.equal((await store.getFaceAdminOverview()).published.length, 3);
+  assert.equal(await store.faceWorkerHasPendingWork(),false,"Completed/failed jobs and browser labels do not wake the worker");
   await store.updateFaceIdentity(identity.id, { action: "revoke_consent", reason: "Fixture consent withdrawn" }, context);
+  await assert.rejects(store.createManualFaceTrack(browserFixtures[0],context),/consent|permission/);
   for (const contentId of contentIds) assert.equal((await store.getPublicFacePresence(contentId, 2000)).tags.length, 0);
   assert.equal(await store.getPublicFaceGuestProfile(guest.slug), null);
   assert.equal((await client.query("SELECT count(*)::int AS count FROM face_audit_log WHERE action LIKE 'guest_profile.%'")).rows[0].count, 7);
@@ -221,8 +247,12 @@ try {
   await store.markFacePhotoCandidateFileDeleted(candidates[0].id);
   assert.equal((await store.listReviewedFacePhotoCandidateFiles()).length,0);
   const queued=await store.queueFaceEnrollment(enrollmentIdentity.id,context);
+  assert.equal(await store.faceWorkerHasPendingWork(),true,"A durable enrollment request wakes a sleeping service");
   assert.equal((await store.queueFaceEnrollment(enrollmentIdentity.id,context)).id,queued.id,"Enqueue is idempotent while pending");
   await client.query("SET ROLE core_face_worker");
+  await assert.rejects(client.query("SELECT * FROM face_browser_reviews"),/permission denied/);
+  await assert.rejects(client.query("SELECT * FROM face_browser_marks"),/permission denied/);
+  assert.equal((await client.query("SELECT face_worker_has_pending_work('fixture-worker') pending")).rows[0].pending,true);
   await assert.rejects(client.query("SELECT * FROM face_photo_candidates"),/permission denied/);
   await assert.rejects(client.query("SELECT * FROM face_enrollment_jobs"),/permission denied/);
   const claimed=(await client.query("SELECT claim_face_enrollment('fixture-worker') AS job")).rows[0].job;
@@ -235,7 +265,47 @@ try {
   assert.equal((await client.query("SELECT finish_face_enrollment($1,'fixture-worker',$2,NULL) AS ok",[queued.id,template])).rows[0].ok,true);
   await client.query("RESET ROLE");
   assert.equal((await store.getFaceAdminOverview()).identities.find(person=>person.id===enrollmentIdentity.id).enrollmentStatus,"ready");
+  const currentModel=loadModule(resolve(root,"lib/face-processing-costs.ts")).FACE_ENROLLMENT_MODEL_VERSION;
+  await client.query("UPDATE face_template_sets SET model_version=$2 WHERE id=$1",[template,currentModel]);
+  const alreadyReady=await store.queueFaceEnrollment(enrollmentIdentity.id,context);
+  assert.equal(alreadyReady.status,"ready");assert.equal(alreadyReady.templateSetId,template);
+  assert.equal((await client.query("SELECT count(*)::int n FROM face_enrollment_jobs WHERE identity_id=$1",[enrollmentIdentity.id])).rows[0].n,1,"Unchanged approved photos reuse existing enrollment");
+  const addedReference=await store.registerFaceReference({...upload,storageKey:`${randomUUID()}.webp`,contentSha256:"6".repeat(64)},context);
+  await store.reviewFaceReference(addedReference.id,{action:"approve"},{actor:reviewer,requestId:"new-photo"});
   const pending=await store.queueFaceEnrollment(enrollmentIdentity.id,context);
+  assert.equal(pending.reused,false,"A changed set of approved photos requires new enrollment");
+  // Real archive scan caching includes settings, model/template version and consent.
+  const scanGuest=profiles.FaceGuestProfileSchema.parse({slug:"scan-fixture",displayName:"Scan fixture"});
+  await store.saveFaceGuestProfile(scanGuest,"create",context);
+  const scanIdentity=await store.createFaceIdentity(contracts.FaceIdentityCreateSchema.parse({canonicalKind:"guest",canonicalSlug:scanGuest.slug,
+    consent:{...consent,permissions:{...consent.permissions,allowTemplateCreation:true,allowArchiveMatching:true}}}),context);
+  const scanConsent=(await client.query("SELECT id FROM face_consents WHERE identity_id=$1",[scanIdentity.id])).rows[0].id;
+  for(let n=7;n<=9;n++){
+    const photo=await store.registerFaceReference({...upload,identityId:scanIdentity.id,storageKey:`${randomUUID()}.webp`,contentSha256:String(n).repeat(64)},context);
+    await store.reviewFaceReference(photo.id,{action:"approve"},{actor:reviewer,requestId:"scan-photo"});
+  }
+  const scanTemplate=(await client.query("SELECT sync_face_template_set('fixture-worker',$1,$2,$3,$4,3,$5::text[],now()+interval '1 hour') id",
+    [scanIdentity.id,scanConsent,currentModel,"c".repeat(64),[7,8,9].map(n=>String(n).repeat(64))])).rows[0].id;
+  process.env.FACE_AUTOMATIC_MATCHING_ENABLED="true";
+  const scanSource=await store.createFaceSource(contracts.FaceSourceCreateSchema.parse({contentId:"yt-fixture1234",displayName:"Scan source",provider:"youtube",sourceKind:"archive",state:"active",automaticMatchingEnabled:true,allVisiblePeopleConsented:true,allowedIdentityIds:[scanIdentity.id]}),context).catch(async error=>{
+    if(!error.message.includes("already"))throw error;
+    const id=(await client.query("SELECT id FROM face_sources WHERE content_id='yt-fixture1234'")).rows[0].id;
+    await store.configureFaceSource(id,{mode:"review_only",recognitionEnabled:true,state:"active",allVisiblePeopleConsented:true,allowedIdentityIds:[scanIdentity.id]},context);
+    return{id};
+  });
+  const scan={sourceId:scanSource.id,kind:"archive_scan",configuration:{startMs:1000,endMs:4000}};
+  const scanJob=await store.createFaceJob(scan,context);
+  assert.equal((await store.createFaceJob({...scan,configuration:{...scan.configuration,samplingFps:.5}},context)).id,scanJob.id,"Default and explicit sampling share a result");
+  await client.query("UPDATE face_jobs SET status='succeeded',finished_at=now() WHERE id=$1",[scanJob.id]);
+  assert.equal((await store.createFaceJob(scan,context)).id,scanJob.id);
+  const faster=await store.createFaceJob({...scan,configuration:{...scan.configuration,samplingFps:1}},context);
+  assert.notEqual(faster.id,scanJob.id,"Sampling changes require new work");
+  await client.query("UPDATE face_template_sets SET template_fingerprint=$2 WHERE id=$1",[scanTemplate,"d".repeat(64)]);
+  const newTemplateJob=await store.createFaceJob(scan,context);
+  assert.notEqual(newTemplateJob.id,scanJob.id,"New approved templates invalidate the result cache");
+  await store.updateFaceIdentity(scanIdentity.id,{action:"revoke_consent",reason:"Scan fixture revoked"},context);
+  await assert.rejects(store.createFaceJob(scan,context),/consent|templates/);
+  delete process.env.FACE_AUTOMATIC_MATCHING_ENABLED;
   await store.updateFaceIdentity(enrollmentIdentity.id,{action:"revoke_consent",reason:"Fixture permission removed"},context);
   await assert.rejects(store.registerFaceReference({...upload,contentSha256:"5".repeat(64)},context,candidates[2].id),/consent/);
   await store.dismissFacePhotoCandidate(candidates[2].id,"Wrong photo for this reference",context);
@@ -244,6 +314,7 @@ try {
   assert.equal((await client.query("SELECT state FROM face_enrollment_jobs WHERE id=$1",[pending.id])).rows[0].state,"failed");
   assert.equal((await store.getFaceAdminOverview()).identities.find(person=>person.id===enrollmentIdentity.id).enrollmentStatus,"revoked");
   console.log("PASS: site enrollment requires independent approved references, claims once, reports Ready only after registered templates, and rejects revoked permission.");
+  console.log("PASS: browser video/marks and concurrent scan requests reuse saved work, preserve reviewed labels, invalidate changed settings/templates and recheck revoked permissions.");
   console.log("PASS: researched photo imports remain private and unapproved; submission checks exact photo, profile, consent, independent review and repeat-safe decisions; reviewed copies enter file cleanup.");
   const researchEntries = parseResearchManifest([{ profile: { slug: "researched-fixture", displayName: "Researched fixture", twitchLogin: "researched_fixture" }, research: {
     checkedAt: new Date().toISOString(), sources: [{ label: "Source profile", url: "https://www.twitch.tv/researched_fixture" }], note: "No subject permission supplied." } }]);
@@ -262,6 +333,8 @@ try {
 } finally {
   if (priorPublicGate === undefined) delete process.env.FACE_PRESENCE_PUBLIC_ENABLED;
   else process.env.FACE_PRESENCE_PUBLIC_ENABLED = priorPublicGate;
+  if (priorAutomaticGate === undefined) delete process.env.FACE_AUTOMATIC_MATCHING_ENABLED;
+  else process.env.FACE_AUTOMATIC_MATCHING_ENABLED = priorAutomaticGate;
   await pool?.end().catch(() => {});
   await client?.end().catch(() => {});
   if (started) docker("stop", container);

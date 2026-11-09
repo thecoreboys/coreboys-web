@@ -9,6 +9,7 @@ import {
 } from "@/lib/face-recognition-http";
 import { updateFaceJob } from "@/lib/face-recognition-store";
 import { requestHasSameOrigin } from "@/lib/x/security";
+import { wakeFaceWorker } from "@/lib/face-worker-wake";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function PATCH(request: Request, { params }: Context) {
   if (!z.string().uuid().safeParse(id).success || !body.success) return facePrivateJson({ error: "invalid job action" }, 400);
   try {
     const result = await updateFaceJob(id, body.data, { actor: auth, requestId: faceRequestId(request) });
-    return facePrivateJson({ ok: true, ...result });
+    return facePrivateJson({ ok: true, ...result,...(body.data.action==="retry"?await wakeFaceWorker():{}) });
   } catch (error) {
     return faceStoreErrorResponse(error);
   }
