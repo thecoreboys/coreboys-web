@@ -68,6 +68,7 @@ const migrations = [
   "058_content_verification.sql",
   "059_twitch_content_verification.sql",
   "060_x_content_verification.sql",
+  "061_face_private_access.sql",
 ];
 
 function loadEnvLocal() {

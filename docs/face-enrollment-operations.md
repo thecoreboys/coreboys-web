@@ -35,7 +35,7 @@ performs a read-only production connection check.
 One-time bootstrap: build/push the worker image, set `FACE_DEPLOY_IMAGE` to its
 versioned ACR name and run `node scripts/provision-face-enrollment.mjs --apply`.
 The script reads existing Azure credentials in memory, provisions the restricted
-database login and migrations 024/056/057, mounts private storage and starts the worker.
+database login and migrations 024/056/057/061, mounts private storage and starts the worker.
 It never creates consent or reference photos. Subsequent main-branch worker changes
 deploy through `.github/workflows/deploy-face-worker.yml`.
 
