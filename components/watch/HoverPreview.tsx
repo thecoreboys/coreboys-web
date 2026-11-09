@@ -15,6 +15,7 @@ import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
 import { clampPreviewPosition, previewPlaybackSample } from "@/lib/watch/preview-progress";
+import { listenToYouTube } from "@/lib/watch/youtube-player";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import type { WatchFeedbackValue } from "@/lib/watch/discovery-state";
@@ -308,7 +309,7 @@ function MediaHoverPreview({
     if (!target) return;
     const origin = new URL(iframeSrc).origin;
     if (previewPlayable?.youtubeId) {
-      target.postMessage(JSON.stringify({ event: "listening", id: `core-hover-${item.id}` }), origin);
+      listenToYouTube(target, `core-hover-${item.id}`);
       target.postMessage(JSON.stringify({ event: "command", func: "mute", args: [] }), origin);
       target.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), origin);
       return;

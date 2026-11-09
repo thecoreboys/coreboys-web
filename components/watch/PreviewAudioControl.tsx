@@ -73,6 +73,7 @@ export function PreviewAudioControl({
     releasePreviewAudio,
   } = usePlayer();
   const reducedMotion = useReducedMotion();
+  const [soundRequested, setSoundRequested] = useState(false);
   const reactId = useId();
   const ownerId = `hover-preview-${reactId}`;
   const sourceSupported = native || youtube;
@@ -279,12 +280,14 @@ export function PreviewAudioControl({
       stopSound(true, "off");
       return;
     }
-    if (!active || !previewSoundEnabled) {
+    // Unmuting from a saved preference can make browsers pause muted autoplay.
+    // Every new popup needs its own direct sound gesture before requesting it.
+    if (!active || !previewSoundEnabled || !soundRequested) {
       stopSound(false, "off");
       return;
     }
     void requestSound();
-  }, [active, previewSoundEnabled, ready, requestSound, stopSound, supported]);
+  }, [active, previewSoundEnabled, ready, requestSound, soundRequested, stopSound, supported]);
 
   useEffect(() => {
     if ((status !== "on" && status !== "starting") || !claimedRef.current) return;
@@ -365,7 +368,7 @@ export function PreviewAudioControl({
 
   const unavailable = status === "unavailable";
   const disabled = unavailable;
-  const muted = !previewSoundEnabled || status === "blocked" || status === "unavailable";
+  const muted = !soundRequested || !previewSoundEnabled || (status !== "on" && status !== "starting");
   const label = muted ? "Unmute preview" : "Mute preview";
   const title = unavailable
     ? mainPlayerSuppressionReason
@@ -390,7 +393,7 @@ export function PreviewAudioControl({
           type="button"
           className="watch-preview-audio-toggle"
           aria-label={`${label}. ${title}`}
-          aria-pressed={previewSoundEnabled}
+          aria-pressed={!muted}
           aria-disabled={disabled}
           onClick={(event) => {
             event.preventDefault();
@@ -398,10 +401,12 @@ export function PreviewAudioControl({
             onKeepOpen?.();
             if (disabled) return;
             if (!muted) {
+              setSoundRequested(false);
               setPreviewSoundEnabled(false);
               stopSound(false, "off");
               return;
             }
+            setSoundRequested(true);
             setPreviewSoundEnabled(true);
             void requestSound();
           }}

@@ -14,6 +14,15 @@ test("reads YouTube preview time and duration updates", () => {
   );
 });
 
+test("YouTube's initial playback state reveals a running preview without waiting for another update", () => {
+  assert.deepEqual(previewPlaybackSample({ event: "initialDelivery", info: {
+    playerState: 1, currentTime: 6.5, duration: 120,
+  } }), { positionSeconds: 6.5, durationSeconds: 120, playing: true });
+  assert.deepEqual(previewPlaybackSample({ event: "initialDelivery", info: {
+    playerState: -1, currentTime: 0, duration: 120,
+  } }), { positionSeconds: 0, durationSeconds: 120, playing: false });
+});
+
 test("reads TikTok preview time updates, including the loop boundary", () => {
   assert.deepEqual(
     previewPlaybackSample({

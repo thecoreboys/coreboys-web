@@ -28,7 +28,7 @@ export function previewPlaybackSample(payload: unknown): PreviewPlaybackSample |
   const value = message as Record<string, unknown>;
   let detail: Record<string, unknown> | null = null;
   let playing: boolean | null = null;
-  if (value.event === "infoDelivery" && value.info && typeof value.info === "object") {
+  if ((value.event === "infoDelivery" || value.event === "initialDelivery") && value.info && typeof value.info === "object") {
     detail = value.info as Record<string, unknown>;
     if (typeof detail.playerState === "number") {
       playing = detail.playerState === 1

@@ -541,10 +541,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [channelItems, setChannelItems] = useState<Playable[]>([]);
   const [autoplayMode, setAutoplayModeState] = useState<AutoplayMode>("live-first");
   const [previewAutoplay, setPreviewAutoplay] = useState(true);
-  // Hover previews start with sound unless a viewer has explicitly muted them.
-  // Browsers can still require a direct gesture for a particular provider; the
-  // preview control handles that gracefully without changing this preference.
-  const [previewSoundEnabled, setPreviewSoundEnabledState] = useState(true);
+  // Muted autoplay works without a click. Sound is enabled deliberately from
+  // the preview control, so a browser never pauses a new hover for audio policy.
+  const [previewSoundEnabled, setPreviewSoundEnabledState] = useState(false);
   const [previewVolume, setPreviewVolumeState] = useState(DEFAULT_PREVIEW_VOLUME);
   const [activePreviewAudioId, setActivePreviewAudioId] = useState<string | null>(null);
   const [dataSaver, setDataSaverState] = useState(false);

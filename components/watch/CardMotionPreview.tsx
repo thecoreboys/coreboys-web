@@ -5,6 +5,7 @@ import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { previewPlaybackSample } from "@/lib/watch/preview-progress";
+import { listenToYouTube } from "@/lib/watch/youtube-player";
 import { nativeCardPreviewUrl } from "@/lib/watch/card-preview";
 import type { WatchItem } from "@/lib/watch/types";
 import { TwitchHoverMedia } from "./TwitchHoverMedia";
@@ -34,7 +35,7 @@ export function CardMotionPreview({ item, active, startSeconds = 0 }: { item: Wa
     if (!target || !src) return;
     const origin = new URL(src).origin;
     if (playable?.youtubeId) {
-      target.postMessage(JSON.stringify({ event: "listening", id: `card-${item.id}` }), origin);
+      listenToYouTube(target, `card-${item.id}`);
       for (const func of ["mute", "playVideo"]) target.postMessage(JSON.stringify({ event: "command", func, args: [] }), origin);
     } else if (playable?.platform === "tiktok") {
       target.postMessage({ "x-tiktok-player": true, type: "mute" }, origin);

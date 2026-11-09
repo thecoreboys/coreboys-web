@@ -5144,6 +5144,14 @@ html[data-watch-motion="calm"] .watch-os *::after { animation-duration: 1ms !imp
   transform: scale(1);
 }
 
+/* Provider autoplay can depend on visibility. Do not wait for PLAYING to
+   expose the very iframe that must first be visible to reach that state. */
+.watch-preview-frame.watch-preview-motion {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
 .watch-preview-provider-state {
   position: absolute;
   z-index: 5;
