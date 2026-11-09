@@ -40,14 +40,20 @@ try {
   await client.query("CREATE TABLE admin_users (id uuid PRIMARY KEY, email text)");
   await client.query("CREATE ROLE core_face_worker NOLOGIN");
   await client.query("CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO anon,authenticated; ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO anon,authenticated");
-  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql"]) {
+  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql"]) {
     await client.query(readFileSync(resolve(root, "scripts/migrations", file), "utf8"));
   }
 
-  await client.query("SET ROLE anon");
-  await assert.rejects(client.query("SELECT * FROM face_enrollment_jobs"),/permission denied/);
-  await assert.rejects(client.query("SELECT claim_face_enrollment('untrusted')"),/permission denied/);
-  await client.query("RESET ROLE");
+  for (const role of ["anon", "authenticated"]) {
+    await client.query(`SET ROLE ${role}`);
+    await assert.rejects(client.query("SELECT * FROM face_enrollment_jobs"),/permission denied/);
+    await assert.rejects(client.query("SELECT * FROM face_presence_public_safe"),/permission denied/);
+    await assert.rejects(client.query("SELECT claim_face_enrollment('untrusted')"),/permission denied/);
+    await assert.rejects(client.query("SELECT purge_face_audit_retention()"),/permission denied/);
+    assert.equal((await client.query(`SELECT count(*)::int AS accessible FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname ~ '(^face_|_face_)' AND has_function_privilege(current_user,p.oid,'EXECUTE')`)).rows[0].accessible,0);
+    await client.query("RESET ROLE");
+  }
 
   const db = {
     query: (...args) => pool.query(...args),
