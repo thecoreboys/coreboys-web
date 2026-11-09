@@ -34,7 +34,12 @@ test("paid reads reserve the worst case before X and share the write ceiling", (
   assert.match(usage, /spent \+ worstCase > cap/);
   assert.ok(feed.indexOf("const gate = await reserveXApiBudget") < feed.indexOf("await fetchConfiguredXFeedOnce"));
   assert.match(feed, /const maximumResources = 100/);
-  assert.match(feed, /newestXSnapshotStatusId\(existing\.items\)/);
+  // A streamed post or an incomplete recent-search page cannot advance the
+  // completed polling cursor past posts that have not been fetched yet.
+  assert.doesNotMatch(feed, /newestXSnapshotStatusId\(existing\.items\)/);
+  assert.match(feed, /existing\.searchCursor/);
+  assert.match(feed, /existing\.searchContinuation/);
+  assert.match(feed, /advanceXSearchPage\(page/);
   assert.doesNotMatch(feed, /X_FEED_FULL_ARCHIVE_BACKFILL|fetchConfiguredXFeedHistory|search\/all/);
   assert.ok(communities.indexOf("reserveXApiBudgetInTransaction") < communities.indexOf("for (const entry of due)"));
   assert.match(communities, /AbortSignal\.timeout\(LOOKUP_TIMEOUT_MS\)/);

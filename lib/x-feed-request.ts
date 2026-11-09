@@ -181,6 +181,7 @@ export function newestXSnapshotStatusId(items: readonly FeedItem[]): string | un
 export function buildXRecentSearchUrl(
   accounts: readonly XFeedAccount[],
   sinceId?: string,
+  nextToken?: string,
 ): string | null {
   const normalized = normalizeXFeedAccounts(accounts);
   if (normalized.length === 0) return null;
@@ -198,6 +199,7 @@ export function buildXRecentSearchUrl(
   });
   const cursor = normalizeXStatusId(sinceId);
   if (cursor) params.set("since_id", cursor);
+  if (nextToken) params.set("next_token", nextToken);
   return `${X_RECENT_SEARCH_ENDPOINT}?${params}`;
 }
 
@@ -850,6 +852,24 @@ export async function fetchXRecentSearchOnce(
     fetchImpl?: XFeedFetch;
   },
 ): Promise<FeedItem[]> {
+  return (await fetchXRecentSearchPageOnce(accounts, options)).items;
+}
+
+export type XRecentSearchPage = {
+  items: FeedItem[];
+  nextToken: string | null;
+};
+
+/** One budgeted page; callers must retain its continuation before advancing since_id. */
+export async function fetchXRecentSearchPageOnce(
+  accounts: readonly XFeedAccount[],
+  options: {
+    bearerToken: string;
+    sinceId?: string;
+    nextToken?: string;
+    fetchImpl?: XFeedFetch;
+  },
+): Promise<XRecentSearchPage> {
   const bearerToken = options.bearerToken.trim();
   if (!bearerToken) {
     throw new XFeedUpstreamError("X_BEARER_TOKEN is not configured");
@@ -858,7 +878,7 @@ export async function fetchXRecentSearchOnce(
   if (normalized.length === 0) {
     throw new XFeedUpstreamError("No valid X accounts are configured");
   }
-  const url = buildXRecentSearchUrl(normalized, options.sinceId);
+  const url = buildXRecentSearchUrl(normalized, options.sinceId, options.nextToken);
   if (!url) {
     throw new XFeedUpstreamError("No valid X accounts are configured");
   }
@@ -867,7 +887,14 @@ export async function fetchXRecentSearchOnce(
     bearerToken,
     options.fetchImpl ?? fetch,
   );
-  return parseXRecentSearchResponse(payload, normalized);
+  const nextToken = payload.meta?.next_token;
+  if (nextToken !== undefined && (typeof nextToken !== "string" || !nextToken.trim() || nextToken.length > 4096)) {
+    throw new XFeedUpstreamError("X recent search returned an invalid pagination token");
+  }
+  if (nextToken && nextToken === options.nextToken) {
+    throw new XFeedUpstreamError("X recent search returned a repeated pagination token");
+  }
+  return { items: parseXRecentSearchResponse(payload, normalized), nextToken: nextToken ?? null };
 }
 
 /**

@@ -8,8 +8,8 @@ import {
 } from "@/lib/x-feed-upstream";
 import {
   collectPendingXQuoteReferences,
-  newestXSnapshotStatusId,
 } from "@/lib/x-feed-request";
+import { advanceXSearchPage, type XSearchContinuation } from "@/lib/x-feed-pagination";
 import {
   getXFeedSnapshot,
   refreshXFeedSnapshot,
@@ -103,16 +103,23 @@ export async function POST(request: Request) {
     const accounts = configuredXFeedAccounts();
     let fetchedPostCount = 0;
     let fetchedUserCount = 0;
+    let searchCursor: string | undefined;
+    let searchContinuation: XSearchContinuation | null | undefined;
     let budgetGateReason: XBudgetGateReason | null = null;
     let quoteHydration: "not_needed" | "hydrated" | "unavailable" | "skipped_budget" | "failed" = "not_needed";
     let eventCandidates: FeedItem[] = [];
     const result = await refreshXFeedSnapshot(
       async (existing) => {
         const pricing = xApiPricing();
-        const sinceId = newestXSnapshotStatusId(existing.items);
-        // The routine reader always performs one complete recent-search
-        // window. Six-month history is owned by the guarded, resumable Social
-        // Fetch admin backfill and can no longer be triggered by an env flag.
+        // A new crew account must get its initial recent window even when a
+        // different creator already advanced the shared cursor.
+        const pendingWindow = existing.sourceAccountsChanged ? undefined : existing.searchContinuation;
+        const sinceId = existing.sourceAccountsChanged
+          ? undefined
+          : pendingWindow ? pendingWindow.sinceId : existing.searchCursor;
+        // One budgeted page per scheduled run. A busy window resumes on the
+        // next run rather than discarding older pages after the first 100.
+        // Six-month history remains the guarded Social Fetch admin backfill.
         const maximumResources = 100;
         // author_id expansion returns user resources alongside Post resources,
         // so reserve both documented unit prices before the one X request.
@@ -133,7 +140,14 @@ export async function POST(request: Request) {
         }
 
         try {
-          const items = await fetchConfiguredXFeedOnce(accounts, { sinceId });
+          const page = await fetchConfiguredXFeedOnce(accounts, { sinceId, nextToken: pendingWindow?.nextToken });
+          const items = page.items;
+          // Webhook posts also live in the snapshot. Only a completed search
+          // may advance this cursor, or a streamed post could skip another
+          // account's still-unseen update during polling recovery.
+          const progress = advanceXSearchPage(page, { sinceId, highWatermark: pendingWindow?.highWatermark });
+          searchCursor = progress.searchCursor;
+          searchContinuation = progress.continuation;
           fetchedPostCount = new Set(items.map((item) => {
             const status = /\/status\/(\d{5,25})/i.exec(item.sourceUrl ?? item.url)?.[1];
             return status ?? item.id;
@@ -228,6 +242,11 @@ export async function POST(request: Request) {
           throw error;
         }
       },
+      {
+        sourceAccountKeys: accounts.map((account) => `${account.authorSlug ?? "core"}:${account.handle.toLowerCase().replace(/^@/, "")}`),
+        searchCursor: () => searchCursor,
+        searchContinuation: () => searchContinuation ?? null,
+      },
     );
 
     let socialEvents = { candidates: 0, created: 0 };
@@ -246,7 +265,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       budgetGateReason
         ? { ...result, budgetGate: { allowed: false, reason: budgetGateReason } }
-        : { ...result, quoteHydration, socialEvents, deliveries },
+        : { ...result, ...(searchContinuation === undefined ? {} : { catchingUp: searchContinuation !== null }), quoteHydration, socialEvents, deliveries },
       {
         status: result.ok ? 200 : budgetGateReason ? 503 : 502,
         headers: { "Cache-Control": "no-store" },
