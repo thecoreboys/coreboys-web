@@ -1,7 +1,21 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, observedTwitchLivePlayback } from "../lib/watch/twitch-autoplay";
+import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, exposedTwitchPreview, observedTwitchLivePlayback } from "../lib/watch/twitch-autoplay";
+
+test("a clipped hover popup preserves its autoplay budget until fully exposed", () => {
+  const budget = createTwitchAutoplayBudget();
+  for (const entry of [
+    { isIntersecting: true, intersectionRatio: 0.98 },
+    { isIntersecting: true, intersectionRatio: 0.6 },
+    { isIntersecting: false, intersectionRatio: 0 },
+  ]) {
+    budget.setVisible(exposedTwitchPreview(entry));
+    for (let n = 0; n < 20; n++) assert.equal(budget.takeAttempt(), false);
+  }
+  budget.setVisible(exposedTwitchPreview({ isIntersecting: true, intersectionRatio: 1 }));
+  assert.equal(budget.takeAttempt(), true);
+});
 
 test("an unpaused Twitch flag at a frozen playhead never confirms autoplay", () => {
   assert.equal(advancingTwitchPlayback(-1, 0, false), false);

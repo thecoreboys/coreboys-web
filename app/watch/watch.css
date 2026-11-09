@@ -2613,6 +2613,8 @@
   filter: none;
   overflow: visible;
   transform: none;
+  border-radius: 0;
+  box-shadow: none;
   will-change: auto;
 }
 

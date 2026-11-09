@@ -211,15 +211,17 @@ function MediaHoverPreview({
       if (!anchor) return;
       const target = anchor.getBoundingClientRect();
       const gutter = 12;
+      const headerBottom = document.querySelector(".site-header")?.getBoundingClientRect().bottom ?? 0;
+      const topInset = Math.max(gutter, headerBottom + gutter);
       const width = previewWidth(shape, window.innerWidth, window.innerHeight, isInstagramPhoto, isTwitchPreview);
-      const height = window.innerHeight - gutter * 2;
+      const height = Math.max(0, window.innerHeight - topInset - gutter);
       const panelHeight = Math.min(panelRef.current?.offsetHeight || (isTwitchPreview ? 300 : width * (shape === "portrait" ? 16 / 9 : shape === "square" ? 1 : 9 / 16)) + 150, height);
       const maxLeft = Math.max(gutter, window.innerWidth - width - gutter);
-      const maxTop = Math.max(gutter, window.innerHeight - panelHeight - gutter);
+      const maxTop = Math.max(topInset, window.innerHeight - panelHeight - gutter);
       const centeredLeft = target.left + target.width / 2 - width / 2;
       const centeredTop = target.top + target.height / 2 - panelHeight / 2;
       const left = Math.min(maxLeft, Math.max(gutter, centeredLeft));
-      const top = Math.min(maxTop, Math.max(gutter, centeredTop));
+      const top = Math.min(maxTop, Math.max(topInset, centeredTop));
       setPosition((previous) => {
         if (
           previous &&
@@ -327,8 +329,10 @@ function MediaHoverPreview({
   }, [motionSource]);
 
   useEffect(() => {
-    if (!motionSource || motionReady) return;
-    const timeout = window.setTimeout(() => setFailedMotionSource(motionSource), twitchSource ? 20_000 : 10_000);
+    // A Twitch ad or slow stream startup can outlast the generic embed timeout.
+    // Keep the visible SDK player alive so it can actually reach PLAYING.
+    if (!motionSource || motionReady || twitchSource) return;
+    const timeout = window.setTimeout(() => setFailedMotionSource(motionSource), 10_000);
     return () => window.clearTimeout(timeout);
   }, [motionSource, motionReady, twitchSource]);
 
@@ -610,6 +614,7 @@ function MediaHoverPreview({
               onPlayingChange={onTwitchPlayingChange}
               onProgress={onTwitchProgress}
               onSelect={playNow}
+              onLoadError={() => setFailedMotionSource(twitchSource)}
             />
           ) : iframeSrc && !motionFailed ? (
             <iframe

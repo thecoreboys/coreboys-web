@@ -2,11 +2,11 @@
 
 import { useEffect, useId, useRef } from "react";
 import { loadTwitchPlayer, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
-import { advancingTwitchPlayback, createTwitchAutoplayBudget, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
+import { advancingTwitchPlayback, createTwitchAutoplayBudget, exposedTwitchPreview, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import { withTwitchAutoplayPermissions } from "@/lib/watch/player-autoplay";
 
 /** A muted preview that hands a provider-frame click to Theater. */
-export function TwitchHoverMedia({ channel, video, active, title, startSeconds, onPlayingChange, onProgress, onSelect }: {
+export function TwitchHoverMedia({ channel, video, active, title, startSeconds, onPlayingChange, onProgress, onSelect, onLoadError }: {
   channel: string | null;
   video: string | null;
   active: boolean;
@@ -15,12 +15,13 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
   onPlayingChange: (playing: boolean) => void;
   onProgress: (position: number, duration: number) => void;
   onSelect: () => void;
+  onLoadError?: () => void;
 }) {
   const id = `core-hover-twitch-${useId().replace(/[^a-z0-9_-]/gi, "")}`;
   const mountRef = useRef<HTMLDivElement>(null);
   const syncActiveRef = useRef<(() => void) | null>(null);
-  const current = useRef({ active, title, startSeconds, onPlayingChange, onProgress, onSelect });
-  current.current = { active, title, startSeconds, onPlayingChange, onProgress, onSelect };
+  const current = useRef({ active, title, startSeconds, onPlayingChange, onProgress, onSelect, onLoadError });
+  current.current = { active, title, startSeconds, onPlayingChange, onProgress, onSelect, onLoadError };
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -34,6 +35,7 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
     let playing = false;
     let previousPosition = -1;
     let selectTimer = 0;
+    let observedFrame: HTMLIFrameElement | null = null;
     const budget = createTwitchAutoplayBudget();
     const setPlaying = (next: boolean) => {
       if (disposed || next === playing) return;
@@ -48,6 +50,11 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
       frame.title = `${current.current.title} muted preview`;
       frame.tabIndex = -1;
       frame.setAttribute("aria-hidden", "true");
+      if (frame !== observedFrame) {
+        visibilityObserver.disconnect();
+        visibilityObserver.observe(frame);
+        observedFrame = frame;
+      }
     };
     const requestPlayback = () => {
       if (disposed || !ready || !instance || !budget.takeAttempt()) return;
@@ -77,10 +84,9 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
     const frameObserver = new MutationObserver(prepareFrame);
     frameObserver.observe(mount, { childList: true, subtree: true });
     const visibilityObserver = new IntersectionObserver((entries) => {
-      inView = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
+      inView = entries.some(exposedTwitchPreview);
       syncActive();
-    }, { threshold: [0, 0.5] });
-    visibilityObserver.observe(mount);
+    }, { threshold: [0, 0.99, 1] });
     document.addEventListener("visibilitychange", syncActive);
     const selectFrame = () => {
       window.clearTimeout(selectTimer);
@@ -96,8 +102,9 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
 
     void loadTwitchPlayer().then((api) => {
       if (disposed) return;
+      const bounds = mount.getBoundingClientRect();
       instance = new api.Player(id, {
-        width: "100%", height: "100%", parent: [window.location.hostname],
+        width: Math.round(bounds.width), height: Math.round(bounds.height), parent: [window.location.hostname],
         // Active hover windows request autoplay immediately. Intent-only
         // mounts remain paused until their visibility observer promotes them.
         autoplay: current.current.active, muted: true,
@@ -127,7 +134,11 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
       instance.addEventListener(api.Player.PLAYBACK_BLOCKED, stopped);
       instance.addEventListener(api.Player.OFFLINE, stopped);
       instance.addEventListener(api.Player.ENDED, stopped);
-    }).catch(() => { setPlaying(false); });
+    }).catch(() => {
+      if (disposed) return;
+      setPlaying(false);
+      current.current.onLoadError?.();
+    });
 
     const poll = window.setInterval(() => {
       if (disposed || !ready || !instance || !budget.visible) return;

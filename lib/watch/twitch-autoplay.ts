@@ -1,3 +1,10 @@
+/** Do not spend autoplay retries while a popup is clipped by the viewport. */
+export function exposedTwitchPreview(entry: {
+  isIntersecting: boolean; intersectionRatio: number;
+}) {
+  return entry.isIntersecting && entry.intersectionRatio >= 0.99;
+}
+
 /** A provider's unpaused flag can arrive before any media actually starts. */
 export function advancingTwitchPlayback(previous: number, position: number, paused: boolean | undefined) {
   return Number.isFinite(position) && previous >= 0 && position > previous + 0.05 && paused === false;
