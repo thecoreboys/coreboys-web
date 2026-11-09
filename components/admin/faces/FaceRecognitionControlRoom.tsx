@@ -521,7 +521,7 @@ function ProfileResearchReview({ person, apiAvailable, busy, mutate }: {
       <p className="whitespace-pre-line text-sm text-secondary">{review.research?.note}</p>
       <details className="text-sm text-tertiary"><summary className="cursor-pointer">Research sources · {review.research ? new Date(review.research.checkedAt).toLocaleDateString() : ""}</summary><ul className="mt-2 space-y-2">{review.research?.sources.map((source) => <li key={source.url}><a className="underline" href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></li>)}</ul></details>
       {review.note ? <p className="text-sm text-tertiary">Last review: {review.note}</p> : null}
-      <p className="text-sm text-tertiary">Next: record this person's permission, upload at least 3 photos they supplied or approved, then have a second admin review the photos. Profile approval alone does not enroll or publish them.</p>
+      <p className="text-sm text-tertiary">Next: record this person&apos;s permission, upload at least 3 photos they supplied or approved, then have a second admin review the photos. Profile approval alone does not enroll or publish them.</p>
       <Field label="Review note"><textarea className={textareaClass} value={note} maxLength={1000} disabled={!apiAvailable || busy !== null} onChange={(event) => setNote(event.target.value)} placeholder="What you checked, or what needs correcting" /></Field>
       <label className="flex items-start gap-2 text-sm text-secondary"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /> I checked that these accounts and the profile picture belong to this creator.</label>
       <div className="flex flex-wrap gap-2">
