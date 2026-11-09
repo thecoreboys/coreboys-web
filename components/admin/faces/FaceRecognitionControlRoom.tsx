@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FaceGuestProfileSchema } from "@/lib/face-people";
+import { FaceGuestProfileSchema, safeFacePortraitUrl } from "@/lib/face-people";
 import { SocialPlatform } from "@/lib/creator-tags/model";
 import {
   Activity,
@@ -505,13 +505,14 @@ function ProfileResearchReview({ person, apiAvailable, busy, mutate }: {
   const [note, setNote] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const review = person.profileReview!;
+  const portraitUrl = safeFacePortraitUrl(person.portraitUrl);
   return <Panel icon={<FileCheck2 className="size-5" />} title="Review researched profile" description="Check the creator's name, channels and profile picture before continuing to permission and photo enrollment.">
     <div className="space-y-4">
       <StatusPill tone={review.status === "approved" ? "success" : "warning"}>{review.status === "approved" ? "Profile approved" : review.status === "needs_changes" ? "Needs changes" : "Awaiting admin review"}</StatusPill>
       <div className="flex items-center gap-4">
-        {person.portraitUrl ? <a href={person.portraitUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${person.displayName}'s profile picture`}>
+        {portraitUrl ? <a href={portraitUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${person.displayName}'s profile picture`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={person.portraitUrl} alt={`${person.displayName} profile picture candidate`} referrerPolicy="no-referrer" className="size-32 shrink-0 rounded-xl object-cover" />
+          <img src={portraitUrl} alt={`${person.displayName} profile picture candidate`} referrerPolicy="no-referrer" className="size-32 shrink-0 rounded-xl object-cover" />
         </a> : <PersonAvatar person={person} />}
         <span className="text-sm text-secondary">Profile picture only. This image is never used to create face templates.</span>
       </div>
@@ -1755,11 +1756,12 @@ function ConfirmationBox({ title, detail, children }: { title: string; detail: s
 
 function PersonAvatar({ person }: { person: FaceCanonicalPerson }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const portraitUrl = safeFacePortraitUrl(person.portraitUrl);
   return (
     <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary text-sm font-bold text-quaternary ring-1 ring-inset ring-secondary">
-      {person.portraitUrl && failedUrl !== person.portraitUrl ? (
+      {portraitUrl && failedUrl !== portraitUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={person.portraitUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(person.portraitUrl)} className="h-full w-full object-cover" />
+        <img src={portraitUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(portraitUrl)} className="h-full w-full object-cover" />
       ) : person.displayName.split(" ").map((part) => part[0]).filter(Boolean).slice(0, 2).join("")}
     </span>
   );

@@ -31,6 +31,18 @@ export const FaceGuestProfileSchema = z.object({
 }).strict();
 export type FaceGuestProfile = z.infer<typeof FaceGuestProfileSchema>;
 
+/** Recheck persisted image destinations at the rendering boundary as well. */
+export function safeFacePortraitUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 2000) return null;
+  if (/^\/(?:members|crew|comms|group|avatars|brand)\/[A-Za-z0-9_./-]+$/.test(value) && !value.includes("..")) {
+    return "/" + value.slice(1).split("/").map(encodeURIComponent).join("/");
+  }
+  if (!value.startsWith("https://") || !verifiedCreatorAvatar(value)) return null;
+  const url = new URL(value);
+  // Construct an explicit HTTPS destination rather than returning stored text.
+  return "https://" + url.hostname + url.pathname + url.search;
+}
+
 export const FaceProfileResearchSchema = z.object({
   checkedAt: z.string().datetime({ offset: true }),
   sources: z.array(z.object({
@@ -62,8 +74,7 @@ export const FaceCanonicalPersonSchema = z.object({
   slug: FacePersonSlugSchema,
   displayName: z.string().min(1).max(120),
   secondaryLabel: z.string(),
-  portraitUrl: z.string().max(2000).refine((value) => verifiedCreatorAvatar(value)
-    || /^\/(members|crew|comms)\/[A-Za-z0-9_./-]+$/.test(value) && !value.includes("..")).nullable(),
+  portraitUrl: z.string().max(2000).refine((value) => safeFacePortraitUrl(value) !== null).nullable(),
   portraitSourceProfile: CreatorInput.shape.avatarSourceProfile,
   portraitCheckedAt: CreatorInput.shape.avatarCheckedAt,
   profileReview: FaceProfileReviewSchema.optional(),

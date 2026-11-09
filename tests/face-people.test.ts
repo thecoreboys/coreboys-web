@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FaceGuestProfileSchema, FaceCanonicalKeySchema, FaceProfileResearchSchema, faceGuestPerson } from "../lib/face-people";
+import { FaceGuestProfileSchema, FaceCanonicalKeySchema, FaceProfileResearchSchema, faceGuestPerson, safeFacePortraitUrl } from "../lib/face-people";
 import { parsePublicFacePresenceResponse } from "../lib/face-presence-public";
 import { EMPTY_FACE_OVERVIEW, parseFaceOverview } from "../components/admin/faces/types";
 import { facePresencePlaybackMs, faceTagsAtPlaybackTime } from "../lib/face-presence-playback";
@@ -47,6 +47,14 @@ test("profile images use approved providers and research cannot supply enrollmen
   assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, review: { status: "approved" } }).success, false);
   assert.equal(FaceGuestProfileSchema.safeParse({ ...profile, subjectApproved: true }).success, false);
   assert.equal(FaceProfileResearchSchema.safeParse({ checkedAt: new Date().toISOString(), sources: [{ label: "Invalid", url: "javascript:alert(1)" }], note: "" }).success, false);
+});
+
+test("rendered portraits reject executable schemes, external lookalikes and unsafe local paths", () => {
+  assert.equal(safeFacePortraitUrl("/members/ron/portrait.webp"), "/members/ron/portrait.webp");
+  assert.equal(safeFacePortraitUrl("https://static-cdn.jtvnw.net/avatar.png"), "https://static-cdn.jtvnw.net/avatar.png");
+  for (const value of [null, {}, "javascript:alert(1)", " java\nscript:alert(1)", "data:image/svg+xml,test", "//evil.test/image.png", "/\\evil.test/image.png", "/members/../private.jpg", "https://static-cdn.jtvnw.net.evil.test/avatar.png", "https://user:password@static-cdn.jtvnw.net/avatar.png"]) {
+    assert.equal(safeFacePortraitUrl(value), null);
+  }
 });
 
 test("guest profile tags survive public parsing while private and malformed routes are rejected", () => {
