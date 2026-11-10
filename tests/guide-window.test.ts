@@ -51,6 +51,13 @@ test("undated catalog items still produce continuous blocks at the shared clock"
   assert.equal(program?.watchItem?.publishedAt, undefined);
 });
 
+test("a completed broadcast with an old live format is a replay, not live", () => {
+  const program = guideProgramFromItem({ ...items[0]!, kind: "vod", format: "live" });
+  assert.equal(program?.status, "replay");
+  assert.equal(program?.contentType, "broadcast");
+  assert.ok(program?.endsAt);
+});
+
 test("invalid or unbounded date windows cannot request the complete archive", () => {
   assert.throws(() => projectGuideWindow(payload, NaN, now), /Invalid guide window/);
   assert.throws(() => projectGuideWindow(payload, now, now), /Invalid guide window/);

@@ -10,7 +10,7 @@ export const GUIDE_MAX_WINDOW_MS = 9 * 24 * HOUR;
 export function guideProgramFromItem(item: WatchItem, fallbackStart?: string): GuideProgram | null {
   const startsAt = item.live?.startedAt ?? item.publishedAt ?? fallbackStart;
   if (!startsAt || !Number.isFinite(Date.parse(startsAt))) return null;
-  const live = item.kind === "live" || item.format === "live";
+  const live = item.kind === "live";
   return {
     id: `catalog-${item.id}`, slug: item.memberSlug ?? "house", login: item.live?.login ?? null,
     title: item.title, game: item.subtitle ?? item.live?.game ?? null, startsAt,

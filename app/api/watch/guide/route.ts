@@ -423,7 +423,7 @@ function twitchVodIdFromItem(item: WatchItem): string | null {
 }
 
 function contentTypeFor(item: WatchItem): GuideContentType {
-  if (item.kind === "live" || item.format === "live") return "live";
+  if (item.kind === "live") return "live";
   if (item.kind === "vod") return "broadcast";
   if (item.format === "short") return "short";
   if (item.format === "photo") return "photo";
@@ -447,7 +447,7 @@ function loadCatalogTimeline(catalog: WatchCatalog): GuideProgram[] {
     seen.add(item.id);
     const startsAt = item.live?.startedAt ?? item.publishedAt;
     if (!startsAt || !Number.isFinite(Date.parse(startsAt))) return [];
-    const isLive = item.kind === "live" || item.format === "live";
+    const isLive = item.kind === "live";
     const isReplay = item.kind === "vod";
     const seconds = item.durationSeconds && item.durationSeconds > 0 ? item.durationSeconds : null;
     const startMs = Date.parse(startsAt);

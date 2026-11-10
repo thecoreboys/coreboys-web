@@ -181,7 +181,7 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
       events.push("catalog");
       catalogReads++;
       if (catalogReads === 1) throw new Error("temporary catalog failure");
-      return { all: [{ ...video(`recovered_${catalogReads}`, "ron"), publishedAt: new Date().toISOString() }] };
+      return { all: [{ ...video(`recovered_${catalogReads}`, "ron"), format: "live", publishedAt: new Date().toISOString() }] };
     } },
   });
   const request = new Request("https://example.test/api/watch/guide");
@@ -194,7 +194,9 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
   assert.equal(first.headers.get("Cache-Control"), "no-store");
 
   const second = await handlers.GET(request);
-  assert.equal((await second.json()).programs[0].id, "catalog-recovered_2");
+  const recovered = (await second.json()).programs[0];
+  assert.equal(recovered.id, "catalog-recovered_2");
+  assert.equal(recovered.status, "published", "an old live format must not mark an upload live");
   const third = await handlers.GET(request);
   assert.equal((await third.json()).programs[0].id, "catalog-recovered_3");
   assert.equal(catalogReads, 3, "Guide must follow the shared catalog freshness instead of holding another five-minute snapshot");
