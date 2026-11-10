@@ -265,7 +265,7 @@ export function RadioAudioDirector({
   const [isDragging, setIsDragging] = useState(false);
   const [compactScreen, setCompactScreen] = useState(true);
   const [mobileExpanded, setMobileExpanded] = useState(false);
-  const widgetExpanded = mobileExpanded && !autoCollapse && !placement?.hiddenEdge;
+  const widgetExpanded = mobileExpanded && !autoCollapse && !(placement?.hiddenEdge && !compactScreen);
   const widgetExpandedRef = useRef(widgetExpanded);
   widgetExpandedRef.current = widgetExpanded;
   useEffect(() => {
@@ -645,7 +645,7 @@ export function RadioAudioDirector({
       request: RadioCueRequest & { id: string; cue: RadioCue },
       resolve?: (outcome: RadioCueOutcome) => void,
     ) => {
-      if (request.kind !== "network_tune_in" || widgetExpandedRef.current) return false;
+      if (widgetExpandedRef.current) return false;
       suppress(request, resolve, "widget_collapsed");
       return true;
     };
@@ -726,6 +726,13 @@ export function RadioAudioDirector({
 
     const handleSkip = (event: Event) => {
       const reason = (event as CustomEvent<{ reason?: string }>).detail?.reason ?? "user_skip";
+      if (reason === "widget_collapsed") {
+        for (const queued of queueRef.current) suppress(queued.request, queued.resolve, reason);
+        queueRef.current = [];
+        const playback = activeRef.current;
+        if (playback) finish(playback, "skipped", reason, false);
+        return;
+      }
       void stop("skipped", reason);
     };
 
@@ -830,10 +837,8 @@ export function RadioAudioDirector({
 
   useEffect(() => {
     if (widgetExpanded) return;
-    if (activeRef.current?.request.kind === "network_tune_in") {
-      window.dispatchEvent(new CustomEvent(RADIO_CUE_SKIP_EVENT, { detail: { reason: "widget_collapsed" } }));
-    }
-    setPresentation((current) => current?.request.kind === "network_tune_in" ? null : current);
+    window.dispatchEvent(new CustomEvent(RADIO_CUE_SKIP_EVENT, { detail: { reason: "widget_collapsed" } }));
+    setPresentation(null);
   }, [widgetExpanded]);
 
   const retry = () => {
@@ -1041,7 +1046,15 @@ export function RadioAudioDirector({
         aria-expanded={mobileExpanded}
         aria-controls="dj-cora-panel"
         title={mobileExpanded ? "Minimize DJ Cora" : "Open DJ Cora"}
-        onClick={() => { if (placement?.hiddenEdge) restoreWidget(); setMobileExpanded((value) => !value); }}
+        onClick={() => {
+          if (placement?.hiddenEdge && !compactScreen) {
+            restoreWidget();
+            setMobileExpanded(true);
+          } else {
+            if (widgetExpanded) widgetExpandedRef.current = false;
+            setMobileExpanded((value) => !value);
+          }
+        }}
       >{mobileExpanded ? <X size={18} aria-hidden /> : <><span>DJ</span><ChevronUp size={14} aria-hidden /></>}</button> : null}
       {mobileExpanded && !compactScreen && !autoCollapse && placement?.hiddenEdge && restoreStyle ? (
         <button

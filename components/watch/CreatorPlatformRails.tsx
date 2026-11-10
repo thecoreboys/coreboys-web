@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { memo, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   buildCuratedChannelRails,
   type CuratedChannelPlatform,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/watch/creator-platform-rails";
 import { MEMBERS_BY_SLUG } from "@/lib/members";
 import type { WatchItem } from "@/lib/watch/types";
+import { useWatchDiscovery, type WatchDiscoveryState, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import { selectWatchHomeXPosts, type WatchHomeXPost } from "@/lib/watch/x-posts";
 import { DragScrollRail } from "./DragScrollRail";
 import {
@@ -28,6 +30,7 @@ export type CreatorPlatformSourceLink = {
 
 export type CreatorPlatformRailsProps = {
   channelName: string;
+  channelSlug?: string;
   items: readonly WatchItem[];
   onPlay: (item: WatchItem, sourceQueue: readonly WatchItem[]) => void;
   maxItemsPerSource?: number;
@@ -110,13 +113,20 @@ function MediaSourceRail({
   initialCount,
   archiveEndpoint,
   total,
+  feedback,
+  onFeedback,
+  channelSlug,
 }: {
   rail: CuratedChannelRail;
   onPlay: (item: WatchItem, sourceQueue: readonly WatchItem[]) => void;
   initialCount: number;
   archiveEndpoint?: string;
   total?: number;
+  feedback: WatchDiscoveryState["feedback"];
+  onFeedback: (item: WatchItem, value: WatchFeedbackValue | null) => void;
+  channelSlug?: string;
 }) {
+  const router = useRouter();
   const [visibleCount, setVisibleCount] = useState(initialCount);
   const [loadedItems, setLoadedItems] = useState<WatchItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,6 +144,16 @@ function MediaSourceRail({
     });
   }, [rail.items, loadedItems]);
   const visibleItems = availableItems.slice(0, visibleCount);
+  const shortFormRail = rail.kind === "shorts" || (rail.kind === "videos" && rail.items.length > 0 && rail.items.every((item) => item.format === "short" || item.orientation === "portrait"));
+  const openItem = useCallback((item: WatchItem, sourceQueue: readonly WatchItem[]) => {
+    if (!shortFormRail || !channelSlug) { onPlay(item, sourceQueue); return; }
+    const selected = `${item.platform}:${item.id}`;
+    const index = Math.max(0, sourceQueue.findIndex((entry) => entry.platform === item.platform && entry.id === item.id));
+    const items = sourceQueue.slice(Math.max(0, index - 6), index + 18);
+    try { sessionStorage.setItem("core:scoped-shorts-seed", JSON.stringify({ channel: channelSlug, rail: rail.id, selected, items })); } catch { /* The archive endpoint also supports direct links. */ }
+    const params = new URLSearchParams({ channel: channelSlug, rail: rail.id, item: selected });
+    router.push(`/shorts?${params}` as never);
+  }, [channelSlug, onPlay, rail.id, router, shortFormRail]);
   const availableTotal = loadedTotal ?? total ?? rail.items.length;
   const remaining = exhausted ? Math.max(0, availableItems.length - visibleItems.length) : Math.max(0, availableTotal - visibleItems.length);
   const revealCount = Math.min(MEDIA_ITEMS_STEP, remaining);
@@ -175,7 +195,10 @@ function MediaSourceRail({
             key={`${item.platform}:${item.id}`}
             item={item}
             context={availableItems}
-            onPlay={onPlay}
+            onPlay={openItem}
+            previewUsesOnPlay={shortFormRail && Boolean(channelSlug)}
+            feedback={feedback[item.id]?.value ?? null}
+            onFeedback={onFeedback}
             hoverAutoplay
           />
         ))}
@@ -199,6 +222,7 @@ function MediaSourceRail({
  */
 export const CreatorPlatformRails = memo(function CreatorPlatformRails({
   channelName,
+  channelSlug,
   items,
   onPlay,
   maxItemsPerSource = 20_000,
@@ -209,6 +233,10 @@ export const CreatorPlatformRails = memo(function CreatorPlatformRails({
   archiveEndpoint,
   railTotals,
 }: CreatorPlatformRailsProps) {
+  const discovery = useWatchDiscovery();
+  const handleFeedback = useCallback((item: WatchItem, value: WatchFeedbackValue | null) => {
+    discovery.setFeedback(item.id, value);
+  }, [discovery.setFeedback]);
   const rails = useMemo(
     () => buildCuratedChannelRails(items, { maxItemsPerSource, sources }),
     [items, maxItemsPerSource, sources],
@@ -299,7 +327,7 @@ export const CreatorPlatformRails = memo(function CreatorPlatformRails({
               ) : usesOfficialEmbedFallback ? (
                 <OfficialSocialEmbedFallback rail={rail} />
               ) : (
-                <MediaSourceRail rail={rail} onPlay={onPlay} initialCount={initialItemsPerSource} archiveEndpoint={archiveEndpoint} total={railTotals?.[rail.id]} />
+                <MediaSourceRail rail={rail} channelSlug={channelSlug} onPlay={onPlay} initialCount={initialItemsPerSource} archiveEndpoint={archiveEndpoint} total={railTotals?.[rail.id]} feedback={discovery.state.feedback} onFeedback={handleFeedback} />
               )}
             </section>
           );

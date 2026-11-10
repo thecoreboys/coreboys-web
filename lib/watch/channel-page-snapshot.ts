@@ -33,15 +33,17 @@ export function channelLibraryPreview(hub: NetworkChannelHub) {
   };
 }
 
-export function channelArchivePage(hub: NetworkChannelHub, railId: string, after: string | null) {
+export function channelArchivePage(hub: NetworkChannelHub, railId: string, after: string | null, around: string | null = null) {
   const rail = buildCuratedChannelRails(hub.all).find((entry) => entry.id === railId);
   if (!rail) return null;
   const previous = after ? rail.items.findIndex((item) => `${item.platform}:${item.id}` === after) : -1;
   // If a provider removed the cursor item, restart safely; the client deduplicates.
-  const offset = previous + 1;
+  const selected = around ? rail.items.findIndex((item) => `${item.platform}:${item.id}` === around) : -1;
+  if (around && !after && selected < 0) return null;
+  const offset = selected >= 0 && !after ? Math.max(0, selected - 6) : previous + 1;
   const items = rail.items.slice(offset, offset + CHANNEL_ARCHIVE_PAGE_SIZE);
   const last = items.at(-1);
-  return { items, total: rail.items.length, nextCursor: last && offset + items.length < rail.items.length ? `${last.platform}:${last.id}` : null };
+  return { items, total: rail.items.length, offset, nextCursor: last && offset + items.length < rail.items.length ? `${last.platform}:${last.id}` : null };
 }
 
 export function createChannelPageSnapshot({ channel, mode, items, continuousItems, hub, now, completedLiveInterruptions }: {

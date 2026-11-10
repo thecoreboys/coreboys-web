@@ -11,10 +11,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const query = new URL(request.url).searchParams;
   const rail = query.get("rail");
   const after = query.get("after");
-  if (!rail || rail.length > 300 || (after && after.length > 300)) return NextResponse.json({ error: "Invalid archive request" }, { status: 400 });
+  const around = query.get("around");
+  if (!rail || rail.length > 300 || (after && after.length > 300) || (around && around.length > 300)) return NextResponse.json({ error: "Invalid archive request" }, { status: 400 });
   try {
     const catalog = await getWatchCatalog();
-    const page = channelArchivePage(buildNetworkChannelHub(catalog, channel), rail, after);
+    const page = channelArchivePage(buildNetworkChannelHub(catalog, channel), rail, after, around);
     return page ? NextResponse.json(page, { headers: { "Cache-Control": "private, no-store" } })
       : NextResponse.json({ error: "Source not found" }, { status: 404 });
   } catch {

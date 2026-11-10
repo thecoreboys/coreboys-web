@@ -360,7 +360,7 @@ export function isConnectedShortChannelItem(item: WatchItem): boolean {
 
 function connectedNetworkActivity(item: WatchItem): boolean {
   if (item.platform === "twitch") {
-    return item.kind === "live" || item.format === "live" || item.kind === "vod";
+    return item.kind === "live" || item.kind === "vod";
   }
   if (item.platform === "youtube") {
     return (item.kind === "youtube" || item.kind === "vod") && item.format !== "live";
@@ -413,7 +413,7 @@ export function buildNetworkChannelLineup(
   const scoped = exactScope(catalog, channel, mode);
   if (mode === "live") {
     const current = newest(scoped.filter(
-      (item) => item.kind === "live" || item.format === "live",
+      (item) => item.kind === "live",
     ));
     const broadcasts = newest(scoped.filter(
       (item) => item.kind === "vod",
@@ -435,7 +435,9 @@ export function buildNetworkChannelLineup(
     );
   }
   const rotation = scoped.filter((item) => playable(item) && item.format !== "photo" && item.kind !== "post");
-  return shuffledSourceMix(rotation, `guide:${channel.slug}:24-7:v2`);
+  const live = newest(rotation.filter((item) => item.kind === "live"));
+  const replays = rotation.filter((item) => item.kind !== "live");
+  return [...live, ...shuffledSourceMix(replays, `guide:${channel.slug}:24-7:v2`)];
 }
 
 /**
@@ -521,7 +523,7 @@ export function buildGuideNetworkRows(catalog: WatchCatalog): GuideNetworkGroup[
 }
 
 export function activityKind(item: WatchItem): ChannelActivityKind {
-  if (item.kind === "live" || item.format === "live") return "live";
+  if (item.kind === "live") return "live";
   if (item.kind === "vod") return "replay";
   if (item.platform === "tiktok") return "tiktok";
   if (item.platform === "instagram" && item.format === "photo") return "photo";
@@ -545,7 +547,7 @@ const ACTIVITY_LABEL: Record<ChannelActivityKind, string> = {
 /** Precise, compact source label shared by Guide and direct channel cards. */
 export function mediaTypeLabel(item: WatchItem): string {
   if (item.platform === "twitch") {
-    if (item.kind === "live" || item.format === "live") return "Twitch Live";
+    if (item.kind === "live") return "Twitch Live";
     if (item.kind === "vod") return "Twitch Broadcast";
     return "Twitch";
   }
@@ -612,7 +614,7 @@ export function buildNetworkChannelHub(
   };
 
   for (const item of all) {
-    if (item.kind === "live" || item.format === "live") {
+    if (item.kind === "live") {
       hub.live.push(item);
     } else if (item.kind === "vod") {
       hub.broadcasts.push(item);

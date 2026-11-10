@@ -14,6 +14,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
+import { tiktokPostThumbnailSource } from "@/lib/watch/thumbs";
 import { clampPreviewPosition, isPreviewPlayerReady, previewPlaybackSample } from "@/lib/watch/preview-progress";
 import { listenToYouTube } from "@/lib/watch/youtube-player";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
@@ -95,6 +96,7 @@ export type HoverPreviewProps = {
   preloadOnly?: boolean;
   onPreviewEnter?: () => void;
   onPreviewLeave?: () => void;
+  onPlayOverride?: (item: WatchItem, context: readonly WatchItem[]) => void;
   hoverAutoplay?: boolean;
   feedback?: WatchFeedbackValue | null;
   onFeedback?: (item: WatchItem, value: WatchFeedbackValue | null) => void;
@@ -136,6 +138,7 @@ function MediaHoverPreview({
   preloadOnly = false,
   onPreviewEnter,
   onPreviewLeave,
+  onPlayOverride,
   feedback,
   onFeedback,
   hoverAutoplay = true,
@@ -416,7 +419,7 @@ function MediaHoverPreview({
     return () => window.removeEventListener("message", onMessage);
   }, [iframeSrc, initialSeekSeconds, knownDuration, requestProviderPlayback, syncPlaybackSeconds]);
 
-  const live = item.kind === "live" || item.format === "live";
+  const live = item.kind === "live";
   const supportsSyncedSeek = Boolean(
     videoSrc ||
     (iframeSrc && (previewPlayable?.youtubeId || previewPlayable?.platform === "tiktok")),
@@ -456,6 +459,7 @@ function MediaHoverPreview({
     if (!playable) return;
     setHandedOff(true);
     onPreviewLeave?.();
+    if (onPlayOverride) { onPlayOverride(item, context ?? [item]); return; }
     const startAtSeconds = seekable || (twitchSource && motionReady && !live) ? boundedScrubSeconds : moment?.seconds;
     if (player.current?.key === playable.key) {
       if (typeof startAtSeconds === "number") player.requestSeek(startAtSeconds);
@@ -463,7 +467,7 @@ function MediaHoverPreview({
       return;
     }
     player.play(item, context, typeof startAtSeconds === "number" ? { startAtSeconds } : undefined);
-  }, [boundedScrubSeconds, context, item, live, moment?.seconds, motionReady, onPreviewLeave, playable, player, seekable, twitchSource]);
+  }, [boundedScrubSeconds, context, item, live, moment?.seconds, motionReady, onPlayOverride, onPreviewLeave, playable, player, seekable, twitchSource]);
 
   const copyPhotoLink = useCallback(async () => {
     if (!isInstagramPhoto || !navigator.clipboard?.writeText) return;
@@ -557,6 +561,8 @@ function MediaHoverPreview({
           <WatchThumb
             youtubeId={youtubeId}
             src={item.backdrop || item.poster}
+            tiktokSourceUrl={tiktokPostThumbnailSource(item)}
+            preferTikTokSource={Boolean(tiktokPostThumbnailSource(item))}
             className={`watch-preview-still ${motionReady ? "is-hidden" : ""}`}
             focalPoint={item.focalPoint}
             loading="eager"

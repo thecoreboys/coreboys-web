@@ -20,6 +20,7 @@ import { isLiveWatchItem } from "./is-live-item";
 import { compactWatchCatalog, expandWatchCatalog, isCompactWatchCatalog } from "./catalog-cache";
 import { projectHomeCatalog } from "./home-catalog";
 import { mergeFreshWatchCatalog } from "./catalog-freshness";
+import { reconcileCatalogLive } from "./catalog-live-status";
 import {
   groupWatchItemsByPlatform,
   normalizeWatchItems,
@@ -203,7 +204,7 @@ async function enrichYouTubeItems(items: FeedItem[]): Promise<FeedItem[]> {
     if (item.platform !== "youtube") return item;
     const id = ytId(item);
     const meta = id ? metadata[id] : undefined;
-    if (!meta) return item;
+    if (!meta) return { ...item, isLive: false };
     if (!meta.available) return { ...item, embeddable: false };
     const isLive = meta.liveBroadcastContent === "live";
     const short = meta.isShort || item.format === "short";
@@ -298,7 +299,8 @@ export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => {
     }),
     getHomeWatchCatalog(),
   ]);
-  const catalog = mergeFreshWatchCatalog(expandWatchCatalog(snapshot), recent);
+  const history = reconcileCatalogLive(expandWatchCatalog(snapshot), recent.live);
+  const catalog = reconcileCatalogLive(mergeFreshWatchCatalog(history, recent));
   // The shared catalog may predate a provider deletion. Check the durable
   // registry after cache retrieval so stale Redis/Next entries cannot revive it.
   return filterUnavailableCatalog(catalog);
@@ -318,7 +320,7 @@ export const getHomeWatchCatalog = cache(async (): Promise<WatchCatalog> => {
       shouldCache: (value) => value.all.length > 0,
     },
   ));
-  return filterUnavailableCatalog(catalog);
+  return filterUnavailableCatalog(reconcileCatalogLive(catalog));
 });
 
 async function filterUnavailableCatalog(catalog: WatchCatalog): Promise<WatchCatalog> {

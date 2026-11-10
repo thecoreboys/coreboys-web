@@ -88,7 +88,7 @@ export type NetworkLiveTakeoverCandidate = {
 
 /** A live session must never be inferred from a title or a browser timestamp. */
 export function isLiveMedia(item: MediaIdentity | null | undefined): boolean {
-  return item?.kind === "live" || item?.format === "live";
+  return item?.kind === "live";
 }
 
 /**

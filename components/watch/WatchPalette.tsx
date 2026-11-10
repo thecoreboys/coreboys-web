@@ -26,7 +26,7 @@ import {
   X,
 } from "lucide-react";
 import type { WatchCatalog, WatchItem, WatchPlatform } from "@/lib/watch/types";
-import { MEMBERS } from "@/lib/members";
+import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { searchWatchItems, type WatchSearchResult } from "@/lib/watch/discovery";
@@ -39,6 +39,7 @@ import { SocialIcon } from "@/components/ui/SocialIcon";
 import { hasAnalyticsConsent } from "@/lib/consent";
 import { WatchThumb } from "./WatchThumb";
 import { readableTitle } from "@/lib/watch/presentation";
+import { tiktokPostThumbnailSource } from "@/lib/watch/thumbs";
 
 type SearchFilter = "all" | "live" | "videos" | "broadcasts" | "shorts" | "photos" | "posts";
 type SearchPlatformFilter = "all" | WatchPlatform;
@@ -1204,8 +1205,12 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
 
     const item = row.result.item;
     const shape = contentShape(item);
-    const youtubeId = item.platform === "youtube" ? youtubeIdFromHref(item.href) : null;
-    const isLive = item.kind === "live" || item.format === "live";
+    const playable = itemToPlayable(item);
+    const youtubeId = item.platform === "youtube" ? playable?.youtubeId ?? youtubeIdFromHref(item.href) : null;
+    const tiktokSourceUrl = tiktokPostThumbnailSource(item);
+    const memberPortrait = item.memberSlug ? MEMBERS_BY_SLUG[item.memberSlug]?.portrait : undefined;
+    const preferTikTokSource = Boolean(tiktokSourceUrl && (!item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png" || /\.hei[cf](?:[?#]|$)/i.test(item.poster)));
+    const isLive = item.kind === "live";
     const watched = progressFor(item, watchProgress);
     const detail = resultDetail(item);
     const action = resultAction(item, watched);
@@ -1225,7 +1230,7 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
           onClick={() => chooseRow(row)}
         >
           <span className={`watch-search-result-thumb is-${shape}`}>
-            <WatchThumb youtubeId={youtubeId} src={item.poster} alt="" focalPoint={item.focalPoint} />
+            <WatchThumb youtubeId={youtubeId} src={preferTikTokSource ? "" : item.poster} tiktokSourceUrl={tiktokSourceUrl} preferTikTokSource={preferTikTokSource} alt="" focalPoint={item.focalPoint} />
             {item.format !== "photo" && item.kind !== "post" ? <Play aria-hidden fill="currentColor" /> : item.kind === "post" ? <MessageSquareText aria-hidden /> : <ImageIcon aria-hidden />}
             {isLive ? <em>Live</em> : null}
             {!isLive && item.duration ? <b>{item.duration}</b> : null}

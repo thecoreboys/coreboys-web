@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { MEMBERS } from "@/lib/members";
 import { useDragScroll } from "@/hooks/useDragScroll";
 import { useStreamSessions } from "@/hooks/useStreamSessions";
@@ -66,6 +67,51 @@ function sourceLabel(source: AirtimeDaySource): string {
   return "public Twitch broadcast history";
 }
 
+/** One shared tooltip keeps a year of cells lightweight. */
+function AirtimeTooltip({ targetRef, id }: { targetRef: RefObject<HTMLDivElement | null>; id: string }) {
+  const [tip, setTip] = useState<{ title: string; description: string; x: number; y: number; below: boolean } | null>(null);
+
+  useEffect(() => {
+    const container = targetRef.current;
+    if (!container) return;
+    const show = (event: Event) => {
+      const cell = (event.target as Element | null)?.closest<HTMLElement>("[data-airtime-day]");
+      if (!cell || !container.contains(cell)) return;
+      const rect = cell.getBoundingClientRect();
+      const below = rect.top < 155;
+      setTip({ title: cell.dataset.airtimeDay!, description: cell.dataset.airtimeDetail ?? "", x: Math.max(140, Math.min(window.innerWidth - 140, rect.left + rect.width / 2)), y: below ? rect.bottom + 10 : rect.top - 10, below });
+    };
+    const hide = (event: Event) => {
+      const related = (event as FocusEvent | PointerEvent).relatedTarget;
+      if (related instanceof Node && (event.target as Node).contains(related)) return;
+      setTip(null);
+    };
+    const dismiss = () => setTip(null);
+    container.addEventListener("pointerover", show);
+    container.addEventListener("pointerout", hide);
+    container.addEventListener("focusin", show);
+    container.addEventListener("focusout", hide);
+    container.addEventListener("scroll", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", dismiss);
+    return () => {
+      container.removeEventListener("pointerover", show);
+      container.removeEventListener("pointerout", hide);
+      container.removeEventListener("focusin", show);
+      container.removeEventListener("focusout", hide);
+      container.removeEventListener("scroll", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", dismiss);
+    };
+  }, [targetRef]);
+
+  return tip ? createPortal(
+    <div id={id} role="tooltip" className="guide-history-day-tooltip" style={{ left: tip.x, top: tip.y, transform: tip.below ? "translateX(-50%)" : "translate(-50%, -100%)" }}>
+      <strong>{tip.title}</strong><span>{tip.description}</span>
+    </div>, document.body,
+  ) : null;
+}
+
 function parseMinutes(session: AirtimeHistorySession): number {
   const declared = Number(session.totalMinutes);
   if (Number.isFinite(declared) && declared > 0) return declared;
@@ -115,6 +161,7 @@ export function GuideHistory({
   className?: string;
 }) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const tooltipId = useId();
   const {
     sessions: recordedSessions,
     daily: clientDaily,
@@ -266,7 +313,7 @@ export function GuideHistory({
           <h2 id="airtime-history-heading">Airtime history</h2>
         </div>
         <div className="guide-history-header-meta">
-          <span>Recorded broadcasts · select a day for details</span>
+          <span>Recorded broadcasts · hover or select a day</span>
           <span className="guide-history-legend" aria-label="Less to more airtime">
             <i aria-hidden />
             <i aria-hidden />
@@ -329,14 +376,22 @@ export function GuideHistory({
                   <div
                     className="guide-history-contribution-grid"
                     role="grid"
-                    aria-label={`${member.comm.name} airtime over the last 12 months`}
+                    aria-label={`${member.comm.name} airtime over the last 12 months. Use arrow keys to explore days.`}
+                    onKeyDown={(event) => {
+                      const offset = event.key === "ArrowLeft" ? -7 : event.key === "ArrowRight" ? 7 : event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+                      if (!offset) return;
+                      const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button[data-airtime-day]"));
+                      const index = buttons.indexOf(event.target as HTMLButtonElement);
+                      if (index < 0) return;
+                      event.preventDefault();
+                      buttons[Math.max(0, Math.min(buttons.length - 1, index + offset))]?.focus();
+                    }}
                   >
                     {calendar.cells.map((day, index) => {
                       if (!day) return <span className="guide-history-cell-empty" key={`blank-${index}`} aria-hidden />;
                       const detail = airtimeDays.get(`${member.slug}:${day}`);
                       const minutes = detail?.minutes ?? 0;
                       const heat = Math.min(1, minutes / 240);
-                      if (!detail || minutes <= 0) return <span className="guide-history-cell" key={day} aria-hidden />;
                       const dateLabel = formatLongDay(day, timePreferences);
                       const description = detail && minutes > 0
                         ? `${formatAirtime(minutes)} of airtime · ${detail.broadcasts > 0 ? plural(detail.broadcasts, "broadcast") : "broadcast count pending"} · ${sourceLabel(detail.source)}${detail.peakViewers > 0 ? ` · peak ${detail.peakViewers.toLocaleString("en-US")}` : ""}`
@@ -345,7 +400,10 @@ export function GuideHistory({
                           <button
                             type="button"
                             key={day}
-                            title={`${member.comm.name} · ${dateLabel}: ${description}`}
+                            data-airtime-day={`${member.comm.name} · ${dateLabel}`}
+                            data-airtime-detail={description}
+                            aria-describedby={tooltipId}
+                            tabIndex={day === days[0] ? 0 : -1}
                             onClick={() => setSelectedDay(`${member.comm.name} · ${dateLabel}: ${description}`)}
                             aria-label={`${member.comm.name} · ${dateLabel}: ${description}`}
                             className={[
@@ -366,6 +424,7 @@ export function GuideHistory({
           </div>
         </div>
         ) : null}
+        {hasHistory ? <AirtimeTooltip targetRef={scroller} id={tooltipId} /> : null}
       </div>
     </section>
   );

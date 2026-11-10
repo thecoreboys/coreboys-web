@@ -9,6 +9,7 @@ import type { MediaSearchFacets, MediaSearchHit, SearchContentType, SearchFilter
 import { entitlementDecision, getAccountSubscriptionState } from "@/lib/subscriptions/entitlements";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { canonicalWatchKey, rankWatchCatalog, watchContentType } from "@/lib/watch/discovery";
+import { paginateWatchSearch } from "@/lib/watch/search-pagination";
 import { listProgress } from "@/lib/watch/progress";
 import type { WatchItem, WatchPlatform } from "@/lib/watch/types";
 
@@ -134,15 +135,16 @@ function catalogHits(items: readonly WatchItem[], query: string, filters: Search
 function buildResponse(input: {
   query: string; mode: "basic" | "enhanced"; catalogCount: number; indexed: number;
   stats?: { assets: number; revisions: number; segments: number; embeddings: number };
-  provider: string; model: string; startedAt: number; allResults: MediaSearchHit[]; limit: number;
+  provider: string; model: string; startedAt: number; allResults: MediaSearchHit[]; limit: number; offset: number;
   total?: number;
   facets?: MediaSearchFacets; creators: ReturnType<typeof creatorResults>; filters: SearchFilters;
   access: SearchAccess; watchProgressAvailable: boolean; enhancementUnavailable?: boolean;
 }) {
   const stats = input.stats;
-  const results = input.allResults.slice(0, input.limit);
+  const { results, nextOffset } = paginateWatchSearch(input.allResults, input.offset, input.limit);
   return {
     query: input.query, mode: input.mode, total: input.total ?? input.allResults.length, returned: results.length,
+    offset: input.offset, nextOffset,
     indexed: input.indexed, provider: input.provider, model: input.model,
     tookMs: Math.round((performance.now() - input.startedAt) * 10) / 10,
     results, creators: input.creators, facets: input.facets ?? facetsFor(input.allResults),
@@ -167,6 +169,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const query = (params.get("q") ?? "").trim().slice(0, 240);
   const limit = Math.max(1, Math.min(Number(params.get("limit")) || 24, 60));
+  const offset = Math.max(0, Math.min(100_000, Math.trunc(Number(params.get("offset")) || 0)));
   const liveFirst = params.get("liveFirst") !== "false";
   const requestedMode = params.get("mode") === "enhanced" ? "enhanced" : "basic";
   const contentTypes = csv(params.get("contentType"), CONTENT_TYPES) ?? scopes(params.get("scope"));
@@ -209,7 +212,7 @@ export async function GET(request: NextRequest) {
     const allResults = catalogHits(catalog.all, query, filters, liveFirst);
     return privateJson(buildResponse({
       query, mode: "basic", catalogCount, indexed: 0, provider: "catalog", model: "catalog-hybrid-v2",
-      startedAt, allResults, limit, creators, filters, access: context.access, watchProgressAvailable,
+      startedAt, allResults, limit, offset, creators, filters, access: context.access, watchProgressAvailable,
     }));
   }
 
@@ -223,14 +226,14 @@ export async function GET(request: NextRequest) {
     }));
     return privateJson(buildResponse({
       query, mode: "enhanced", catalogCount, indexed: stats.assets, stats,
-      provider: search.provider, model: search.model, startedAt, allResults, limit,
+      provider: search.provider, model: search.model, startedAt, allResults, limit, offset,
       total: search.total, facets: search.facets, creators, filters, access: context.access, watchProgressAvailable,
     }));
   } catch {
     const allResults = catalogHits(catalog.all, query, filters, liveFirst);
     return privateJson(buildResponse({
       query, mode: "basic", catalogCount, indexed: 0, provider: "catalog", model: "catalog-hybrid-v2",
-      startedAt, allResults, limit, creators, filters, access: context.access,
+      startedAt, allResults, limit, offset, creators, filters, access: context.access,
       watchProgressAvailable, enhancementUnavailable: true,
     }));
   }

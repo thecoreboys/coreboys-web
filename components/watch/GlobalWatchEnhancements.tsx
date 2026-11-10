@@ -113,18 +113,18 @@ export function GlobalWatchEnhancements() {
   const player = usePlayer();
   const ready = useWatchEnhancementReadiness(pathname);
 
-  if (!ready) return null;
-
   return (
     <>
-      {player.current || isRoomSurface(pathname) || pathname.startsWith("/shorts") ? <PersistentPlayer /> : null}
       <RadioAudioSystem />
+      {ready ? <>
+      {player.current || isRoomSurface(pathname) || pathname.startsWith("/shorts") ? <PersistentPlayer /> : null}
       {isRoomSurface(pathname) ? <WatchTogetherBridge /> : null}
       <CinematicRouteTransition />
       <WatchPalette />
       {user ? <PassportPresenceBridge key={user.id} /> : null}
       {player.current ? <PlayerChatCompanion /> : null}
       <WatchAlertsBridge />
+      </> : null}
       {/* Routine creator updates live in NotificationBell and the inbox. */}
     </>
   );

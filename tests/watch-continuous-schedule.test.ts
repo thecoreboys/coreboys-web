@@ -57,6 +57,14 @@ function fixture(items: WatchItem[]): { group: GuideNetworkGroup; row: GuideNetw
   };
 }
 
+test("a replay with a stale live format stays in the rotation", () => {
+  const replay: WatchItem = { ...item("archive", "2026-08-18T00:00:00.000Z", 3600), kind: "vod", format: "live" };
+  const { group, row } = fixture([replay]);
+  const blocks = buildContinuousGuideSchedule({ group, row, rangeStart: NOW, rangeEnd: NOW + 2 * HOUR, nowMs: NOW });
+  assert.ok(blocks.length > 0);
+  assert.ok(blocks.every((block) => block.item.id === replay.id && block.item.kind === "vod"));
+});
+
 test("uses real durations and never airs an item before publication", () => {
   const first = item("first", "2026-08-18T00:00:00.000Z", 45 * 60);
   const fresh = item("fresh", "2026-08-18T01:10:00.000Z", 20 * 60);
@@ -152,6 +160,13 @@ test("an active live stream interrupts the rotation at its actual start", () => 
   assert.equal(liveBlock.startMs, Date.parse("2026-08-20T11:20:00.000Z"));
   assert.ok(liveBlock.current);
   assert.ok(blocks.every((block) => block === liveBlock || block.endMs <= liveBlock.startMs || block.startMs >= liveBlock.endMs));
+});
+
+test("a 24/7 station with only a live stream still shows it on air", () => {
+  const live = item("live-only", "2026-08-20T11:20:00.000Z", 3600, true);
+  const { group, row } = fixture([live]);
+  const blocks = buildContinuousGuideSchedule({ group, row, rangeStart: NOW - HOUR, rangeEnd: NOW + HOUR, nowMs: NOW });
+  assert.ok(blocks.some((entry) => entry.item.id === live.id && entry.source === "live" && entry.current));
 });
 
 test("a live stream defers the interrupted program and the following rotation", () => {

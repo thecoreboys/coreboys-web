@@ -28,7 +28,7 @@ export function networkChannelSchedule(
     return items.slice(0, outputCount).map((item, index) => {
       const reported = Date.parse(item.live?.startedAt ?? item.publishedAt ?? "");
       const startsAt = Number.isFinite(reported) ? reported : now - index * 24 * 60 * 60 * 1000;
-      const isCurrent = item.kind === "live" || item.format === "live";
+      const isCurrent = item.kind === "live";
       return {
         key: `${item.platform}:${item.id}:${index}`,
         item,
@@ -41,7 +41,7 @@ export function networkChannelSchedule(
     });
   }
 
-  const liveIndex = items.findIndex((item) => item.kind === "live" || item.format === "live");
+  const liveIndex = items.findIndex((item) => item.kind === "live");
   let currentIndex = 0;
   let currentStart = Math.floor(now / 1000) * 1000;
 
@@ -74,7 +74,7 @@ export function networkChannelSchedule(
     const item = items[index];
     if (!item) continue;
     let duration = itemDurationSeconds(item) * 1000;
-    if (offset === 0 && (item.kind === "live" || item.format === "live")) {
+    if (offset === 0 && item.kind === "live") {
       duration = projectedLiveEndMs(startsAt, duration, now) - startsAt;
     }
     const endsAt = startsAt + duration;
@@ -91,7 +91,7 @@ export function networkChannelSchedule(
 }
 
 export function channelProgramElapsedSeconds(entry: ChannelScheduleEntry, now: number): number {
-  if (!Number.isFinite(now) || entry.item.kind === "live" || entry.item.format === "live") return 0;
+  if (!Number.isFinite(now) || entry.item.kind === "live") return 0;
   const duration = Math.max(1, Math.floor((entry.endsAt - entry.startsAt) / 1000));
   return Math.min(duration - 1, Math.max(0, Math.floor((now - entry.startsAt) / 1000)));
 }

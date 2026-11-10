@@ -105,9 +105,9 @@ function mountDirector() {
     audio: AudioStub.created,
     toggle() { findToggle(tree)!.props.onClick!(); render(); },
     autoCollapse(value: boolean) { props = { autoCollapse: value }; render(); },
-    async request(id: string) {
+    async request(id: string, kind: client.RadioCueKind = "network_tune_in", queueIfBusy = false) {
       const result = await new Promise<client.RadioCueOutcome>((complete) => browser.dispatchEvent(new CustomEvent(client.RADIO_CUE_REQUEST_EVENT, {
-        detail: { id, kind: "network_tune_in", audioUrl: "/audio/network-tunes/core-247.mp3", allowRepeat: true, resolve: complete },
+        detail: { id, kind, queueIfBusy, audioUrl: "/audio/network-tunes/core-247.mp3", allowRepeat: true, resolve: complete },
       })));
       render();
       return result;
@@ -127,6 +127,34 @@ test("collapsed DJ suppresses transition audio without creating or replaying it"
     assert.equal((await director.request("expanded-route")).status, "started");
     assert.equal(director.audio.length, 1);
     assert.equal(director.audio[0]!.paused, false);
+  } finally { director.unmount(); }
+});
+
+test("all announcement types stay silent when minimized and active speech stops immediately", async () => {
+  const director = mountDirector();
+  try {
+    assert.equal((await director.request("station-open", "station_id")).status, "started");
+    director.toggle();
+    assert.equal(director.audio[0]!.paused, true);
+    for (const kind of ["station_id", "intermission", "outro", "live_takeover"] as const) {
+      assert.equal((await director.request(`closed-${kind}`, kind)).reason, "widget_collapsed");
+    }
+    assert.equal(director.audio.length, 1);
+    director.toggle();
+    assert.equal((await director.request("open-outro", "outro")).status, "started");
+  } finally { director.unmount(); }
+});
+
+test("minimizing discards queued speech instead of replaying it on reopen", async () => {
+  const director = mountDirector();
+  try {
+    await director.request("playing", "live_takeover");
+    assert.equal((await director.request("queued", "outro", true)).status, "queued");
+    director.toggle();
+    assert.equal(director.audio[0]!.paused, true);
+    director.toggle();
+    await Promise.resolve();
+    assert.equal(director.audio.length, 1);
   } finally { director.unmount(); }
 });
 

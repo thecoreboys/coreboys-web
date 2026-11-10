@@ -46,6 +46,16 @@ test("the right-side hero preview starts muted and honors viewing preferences an
   assert.match(previewPlayer, /instance\?\.destroy\?\.\(\)/);
 });
 
+test("Twitch hero waits for real playback and keeps recovery copy out of the player footer", () => {
+  const playingHandler = previewPlayer.slice(previewPlayer.indexOf("instance.addEventListener(api.Player.PLAYING"), previewPlayer.indexOf("instance.addEventListener(api.Player.OFFLINE"));
+  assert.match(playingHandler, /providerPlaying = true/);
+  assert.doesNotMatch(playingHandler, /playbackStarted = true|setTwitchPlaying\(true\)/);
+  assert.match(previewPlayer, /observedTwitchLivePlayback\(providerPlaying, paused/);
+  assert.match(previewPlayer, /advancingTwitchPlayback\(lastObservedPosition, position, paused\)/);
+  assert.doesNotMatch(previewPlayer, /Press Play in the Twitch player to start/);
+  assert.match(previewPlayer, /twitchLoadError \? <div className="watch-billboard-provider-error"/);
+});
+
 test("active hover previews honor motion preferences and hand playback off to the shared player", () => {
   assert.match(hover, /const wantsMotion =[\s\S]{0,160}!player\.dataSaver[\s\S]{0,40}!reducedMotion/);
   assert.match(hover, /resolveHoverPreviewMedia\(item\)/);

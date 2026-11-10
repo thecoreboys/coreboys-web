@@ -1,3 +1,5 @@
+import { extractPublicTikTokPosts } from "@/lib/tiktok-public";
+
 const VIDEO_PATH = /^\/@([a-zA-Z0-9._]{1,50})\/video\/(\d{12,24})\/?$/;
 
 function safeTikTokVideoUrl(value: string | null): string | null {
@@ -43,11 +45,27 @@ export async function GET(request: Request) {
       headers: { accept: "application/json" },
       signal: AbortSignal.timeout(4_000),
       next: { revalidate: 300 },
-    });
-    if (!response.ok) return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
-    const data = await response.json() as { thumbnail_url?: unknown };
-    const thumbnailUrl = safeTikTokImageUrl(data.thumbnail_url);
-    if (!thumbnailUrl) return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
+    }).catch(() => null);
+    const data = response?.ok ? await response.json().catch(() => null) as { thumbnail_url?: unknown } | null : null;
+    let thumbnailUrl = safeTikTokImageUrl(data?.thumbnail_url);
+    if (thumbnailUrl && /\.hei[cf](?:[?#]|$)/i.test(thumbnailUrl)) thumbnailUrl = null;
+    if (!thumbnailUrl) {
+      // TikTok's current oEmbed response can omit the cover. Its public post
+      // document may still contain a fresh image for this exact video.
+      const match = VIDEO_PATH.exec(new URL(shareUrl).pathname)!;
+      const page = await fetch(shareUrl, {
+        headers: { "user-agent": "Mozilla/5.0 (compatible; COREMediaBot/1.0; +https://thecoreboys.com)", accept: "text/html", "accept-language": "en-US,en;q=0.9" },
+        signal: AbortSignal.timeout(4_000),
+        next: { revalidate: 300 },
+      });
+      if (page.ok && Number(page.headers.get("content-length") ?? 0) <= 2_000_000) {
+        const html = await page.text();
+        const posts = html.length <= 2_000_000 ? extractPublicTikTokPosts(html, match[1]!, 64) : [];
+        thumbnailUrl = safeTikTokImageUrl(posts.find((post) => post.id === match[2])?.thumbnailUrl);
+        if (thumbnailUrl && /\.hei[cf](?:[?#]|$)/i.test(thumbnailUrl)) thumbnailUrl = null;
+      }
+    }
+    if (!thumbnailUrl) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 
     return new Response(null, {
       status: 302,
@@ -58,6 +76,6 @@ export async function GET(request: Request) {
       },
     });
   } catch {
-    return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
+    return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
   }
 }

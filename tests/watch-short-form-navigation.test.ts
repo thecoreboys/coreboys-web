@@ -118,8 +118,8 @@ test("the Shorts route sends refreshed items through channel-aware refill", () =
   const stage = readFileSync(resolve(process.cwd(), "components/watch/ShortsStage.tsx"), "utf8");
   const provider = readFileSync(resolve(process.cwd(), "components/providers/PlayerProvider.tsx"), "utf8");
 
-  assert.match(stage, /channel\?\.id === SHORTS_CHANNEL\.id/);
-  assert.match(stage, /refill\(playables, \{ channelId: SHORTS_CHANNEL\.id \}\)/);
+  assert.match(stage, /channel\?\.id === scopedChannel\.id/);
+  assert.match(stage, /refill\(playables, \{ channelId: scopedChannel\.id \}\)/);
   assert.match(provider, /mergeRefreshedChannelItems\(previousItems, refreshedItems, activeItem\.key\)/);
   assert.match(provider, /setChannelItems\(merged\)/);
   assert.match(provider, /commitQueue\(channelOrder\(merged, activeItem\.key\)\)/);

@@ -100,6 +100,7 @@ test("routes every connected video type to the intended network row", () => {
     new Set(buildNetworkChannelLineup(input, network, "continuous").map((entry) => entry.id)),
     new Set(["live-adapt", "vod-1", "yt-vod", "yt-long", "yt-short", "tt-1", "ig-reel"]),
   );
+  assert.equal(buildNetworkChannelLineup(input, network, "continuous")[0]?.id, twitchLive.id);
 
   // Photos intentionally stay out of video rows, but remain in catalog.all;
   // the Guide's chronological timeline consumes that complete collection.

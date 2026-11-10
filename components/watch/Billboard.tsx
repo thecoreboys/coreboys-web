@@ -23,6 +23,8 @@ import {
   CONTINUE_WATCHING_MIN_SECONDS,
 } from "@/lib/watch/continue-watching";
 import { WatchThumb } from "./WatchThumb";
+import { advancingTwitchPlayback, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
+import { heroLiveIdentity, newlyLiveHero } from "@/lib/watch/hero-live-priority";
 
 type BillboardTwitchInstance = {
   addEventListener: (name: string, callback: () => void) => void;
@@ -34,6 +36,7 @@ type BillboardTwitchInstance = {
   /** Some Twitch builds never emit PLAYING while an ad/interstitial settles. */
   isPaused?: () => boolean;
   getCurrentTime?: () => number;
+  getPlaybackStats?: () => { fps?: number; playbackRate?: number; bufferSize?: number } | undefined;
 };
 
 type BillboardTwitchApi = {
@@ -137,15 +140,27 @@ export function BillboardCarousel({ items, headingLevel = "h1" }: { items: Watch
   const [soundPaused, setSoundPaused] = useState(false);
   const reducedMotion = useReducedMotion();
   const interactionPaused = focusPaused || hoverPaused || soundPaused;
+  const seenLive = useRef(new Set(slides.map(heroLiveIdentity).filter((key): key is string => Boolean(key))));
+  const pendingLive = useRef<string | null>(null);
 
   useEffect(() => {
     setIndex((current) => (slides.length ? current % slides.length : 0));
   }, [slides.length]);
 
   useEffect(() => {
+    const next = newlyLiveHero(seenLive.current, slides);
+    if (next) pendingLive.current = next;
+    seenLive.current = new Set(slides.map(heroLiveIdentity).filter((key): key is string => Boolean(key)));
+    if (interactionPaused || !pendingLive.current) return;
+    const target = slides.findIndex((item) => heroLiveIdentity(item) === pendingLive.current);
+    pendingLive.current = null;
+    if (target >= 0) setIndex(target);
+  }, [slides, interactionPaused]);
+
+  useEffect(() => {
     if (slides.length < 2 || interactionPaused || reducedMotion) return;
     const active = slides[index] ?? slides[0];
-    const delay = active?.kind === "live" || active?.format === "live" ? 30_000 : 12_000;
+    const delay = active?.kind === "live" ? 30_000 : 12_000;
     const timer = window.setTimeout(() => {
       setIndex((current) => (current + 1) % slides.length);
     }, delay);
@@ -517,12 +532,12 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
     let instance: BillboardTwitchInstance | null = null;
     let providerReady = false;
     let playbackStarted = false;
+    let providerPlaying = false;
     let playbackAttempts = 0;
     const maxPlaybackAttempts = 14;
     const retryTimers = new Set<number>();
     let playbackWatchdog = 0;
     let readinessWatchdog = 0;
-    let watchdogPasses = 0;
     let lastObservedPosition = -1;
     let gestureRecoveryArmed = false;
     const clearPlaybackRetries = () => {
@@ -619,13 +634,16 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
           // leaving the CORE hero permanently in “warming”.
           playbackWatchdog = window.setInterval(() => {
             if (disposed || playbackStarted) return;
-            watchdogPasses += 1;
             try {
               const position = instance?.getCurrentTime?.() ?? 0;
-              const advanced = lastObservedPosition >= 0 && position > lastObservedPosition + 0.25;
+              const paused = instance?.isPaused?.();
+              const advanced = twitchChannel
+                ? observedTwitchLivePlayback(providerPlaying, paused, instance?.getPlaybackStats?.()) || advancingTwitchPlayback(lastObservedPosition, position, paused)
+                : advancingTwitchPlayback(lastObservedPosition, position, paused);
               lastObservedPosition = position;
-              if (advanced && instance?.isPaused?.() === false) {
+              if (advanced) {
                 playbackStarted = true;
+                window.clearInterval(playbackWatchdog);
                 clearPlaybackRetries();
                 removeGestureRecovery();
                 setTwitchMounted(true);
@@ -637,27 +655,24 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
               // The player can reject state reads during an interstitial.
             }
             setTwitchRecovering(true);
-            // Preserve a finite retry budget per pass, but allow a current
-            // stream a few fresh attempts while the provider is transitioning.
-            if (playbackAttempts >= maxPlaybackAttempts) playbackAttempts = Math.max(0, maxPlaybackAttempts - 4);
+            // Keep attempts bounded while the provider initializes.
             requestPlayback();
-            schedulePlaybackRetries([300, 850, 1_800]);
-            if (watchdogPasses >= 4) window.clearInterval(playbackWatchdog);
-          }, 4_000);
+            if (playbackAttempts >= maxPlaybackAttempts) {
+              armGestureRecovery();
+            }
+          }, 1_000);
         });
         instance.addEventListener(api.Player.PLAYING, () => {
           if (disposed) return;
-          playbackStarted = true;
-          clearPlaybackRetries();
-          removeGestureRecovery();
-          instance?.setMuted?.(mutedRef.current);
+          // Twitch can emit PLAYING before an ad or the first frame advances.
+          // The watchdog confirms playback before ending startup recovery.
+          providerPlaying = true;
           setTwitchMounted(true);
-          setTwitchPlaying(true);
-          setTwitchRecovering(false);
         });
         instance.addEventListener(api.Player.OFFLINE, () => {
           if (disposed) return;
           playbackStarted = false;
+          providerPlaying = false;
           providerReady = false;
           clearPlaybackRetries();
           removeGestureRecovery();
@@ -672,6 +687,7 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
         instance.addEventListener(api.Player.PLAYBACK_BLOCKED, () => {
           if (disposed) return;
           playbackStarted = false;
+          providerPlaying = false;
           // Keep Twitch's approved player visible so its native Play control
           // can recover when the browser requires a user gesture.
           clearPlaybackRetries();
@@ -682,10 +698,6 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
           // This signal can arrive while Twitch is still resolving a stream,
           // an ad, or a mature-content interstitial. Keep trying muted
           // playback rather than abandoning the preview after one response.
-          // A provider block can be transient. Re-open a little retry budget
-          // so an earlier failed attempt does not permanently strand the
-          // currently selected live hero.
-          playbackAttempts = Math.max(0, playbackAttempts - 3);
           schedulePlaybackRetries([350, 900, 1_800, 3_000]);
         });
         readinessWatchdog = window.setTimeout(() => {
@@ -785,12 +797,12 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
           onError={() => setLoadedSrc(null)}
         />
       ) : null}
-      <div className="watch-billboard-provider-status">
-      {isTwitch && (twitchRecovering || twitchLoadError) && !twitchPlaying ? <div role="status">
-        <span>{twitchLoadError ? "Twitch couldn't load." : "Press Play in the Twitch player to start."}</span>
+      {isTwitch && twitchLoadError ? <div className="watch-billboard-provider-error" role="status">
+        <span>Couldn’t load Twitch</span>
         <button type="button" onClick={() => setRetryToken((value) => value + 1)}>Try again</button>
         <a href={twitchChannel ? `https://www.twitch.tv/${encodeURIComponent(twitchChannel)}` : `https://www.twitch.tv/videos/${encodeURIComponent(twitchVideo ?? "")}`} target="_blank" rel="noopener noreferrer">Open on Twitch</a>
       </div> : null}
+      <div className="watch-billboard-provider-status">
       {soundControlReady ? (
         <button
           type="button"

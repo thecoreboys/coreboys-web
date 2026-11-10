@@ -236,9 +236,8 @@ test("the channel leaves Twitch native controls uncovered and interactive", () =
   assert.match(channelPage, /setHeroMuted, twitchChannel, twitchMountId, twitchVideo, usesTwitchSdk\]/);
   assert.match(channelPage, /data-inline-channel-player=\{autoStart && mediaMounted/);
   const radio = readFileSync("components/watch/RadioAudioSystem.tsx", "utf8");
-  assert.match(radio, /Boolean\(player\.current\) \|\| inlineChannelVisible/);
-  assert.match(radio, /visibility\?\.observe\(observed\)/);
-  assert.match(radio, /mounts\.disconnect\(\); visibility\?\.disconnect\(\)/);
+  assert.doesNotMatch(radio, /autoCollapse=\{compactDockPage\}/);
+  assert.match(radio, /enabled=\{settings\.enabled && !player\.audioDescription && !player\.current\}/);
 });
 
 test("the home carousel guarantees live Twitch and recent Twitch broadcasts", () => {

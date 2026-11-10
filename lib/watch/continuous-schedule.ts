@@ -83,7 +83,7 @@ function finiteTimestamp(value?: string): number | null {
 function itemAvailability(item: WatchItem): number | null {
   const published = finiteTimestamp(item.publishedAt);
   const liveStart = finiteTimestamp(item.live?.startedAt);
-  if (item.kind === "live" || item.format === "live") {
+  if (item.kind === "live") {
     return liveStart ?? published;
   }
   return published ?? liveStart;
@@ -172,7 +172,7 @@ function buildRotation(
   futureLimit: number,
   nowMs: number,
 ): ContinuousGuideScheduleBlock[] {
-  const nonLive = items.filter((item) => item.kind !== "live" && item.format !== "live");
+  const nonLive = items.filter((item) => item.kind !== "live");
   if (nonLive.length === 0) return [];
 
   const knownAvailability = nonLive
@@ -262,7 +262,7 @@ function buildRotation(
 
 function currentLive(items: readonly WatchItem[], nowMs: number, seed: string): Candidate | null {
   return items
-    .filter((item) => item.kind === "live" || item.format === "live")
+    .filter((item) => item.kind === "live")
     .map((item): Candidate => ({
       item,
       availableAt: itemAvailability(item) ?? nowMs,

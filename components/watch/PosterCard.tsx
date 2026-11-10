@@ -20,6 +20,7 @@ import { SocialIcon } from "@/components/ui/SocialIcon";
 import { MEMBERS_BY_SLUG } from "@/lib/members";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
+import { tiktokPostThumbnailSource } from "@/lib/watch/thumbs";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { shortFormPlatformLabel } from "@/lib/watch/short-form";
 import type { WatchFeedbackValue } from "@/lib/watch/discovery-state";
@@ -147,6 +148,7 @@ export function PosterCard({
   hoverAutoplay = true,
   inlinePreview = false,
   preloadOnApproach = false,
+  previewUsesOnPlay = false,
   onPlay,
 }: {
   item: WatchItem;
@@ -163,6 +165,7 @@ export function PosterCard({
   inlinePreview?: boolean;
   /** Warm the next short's still/provider connection as it nears a home rail. */
   preloadOnApproach?: boolean;
+  previewUsesOnPlay?: boolean;
   onPlay?: (item: WatchItem, context: readonly WatchItem[]) => void;
 }) {
   const [saved, setSaved] = useState(false);
@@ -191,7 +194,8 @@ export function PosterCard({
   const dvrAllowed = subscription.hasFeature("dvr.extended_retention");
   const dvrLocked = Boolean(user && !dvrLoading && !dvrAllowed);
   const dvrSaved = dvrAllowed && saved;
-  const youtubeId = item.platform === "youtube" ? youtubeIdFromHref(item.href) : null;
+  const playable = item.format === "photo" ? null : itemToPlayable(item);
+  const youtubeId = item.platform === "youtube" ? playable?.youtubeId ?? youtubeIdFromHref(item.href) : null;
   const { progress, done, durationSeconds, positionSeconds } = cardPlaybackProgress(item, map);
   const shape = contentShape(item);
   const isPhoto = item.format === "photo";
@@ -202,15 +206,17 @@ export function PosterCard({
   const live = item.kind === "live";
   const shortSourceLabel = shortFormPlatformLabel(item);
   const memberPortrait = item.memberSlug ? MEMBERS_BY_SLUG[item.memberSlug]?.portrait : undefined;
-  const isXPost = item.platform === "x" && item.kind === "post" && !item.poster;
-  const preferTikTokThumbnail = item.platform === "tiktok"
-    && Boolean(item.sourceUrl)
+  const preferYouTubeThumbnail = item.platform === "youtube" && Boolean(youtubeId)
     && (!item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png");
+  const isXPost = item.platform === "x" && item.kind === "post" && !item.poster;
+  const tiktokSourceUrl = tiktokPostThumbnailSource(item);
+  const preferTikTokThumbnail = Boolean(tiktokSourceUrl)
+    && (!item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png" || /\.hei[cf](?:[?#]|$)/i.test(item.poster));
   const hasInstagramSource = item.platform === "instagram" && Boolean(item.sourceUrl);
   const preferInstagramThumbnail = hasInstagramSource
     && Boolean(item.sourceUrl)
     && (!item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png");
-  const posterFallback = item.platform === "x" ? <XPostPoster item={item} portrait={memberPortrait} /> : ["instagram", "tiktok", "youtube"].includes(item.platform) ? (
+  const posterFallback = item.platform === "tiktok" || item.platform === "youtube" ? undefined : item.platform === "x" ? <XPostPoster item={item} portrait={memberPortrait} /> : item.platform === "instagram" ? (
     <span className={`watch-poster-art-fallback is-${item.platform}${memberPortrait ? " has-member-art" : ""}`} aria-hidden="true">
       {memberPortrait ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -218,13 +224,12 @@ export function PosterCard({
       ) : null}
       <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
       <span className="watch-poster-art-mark">
-        {item.platform === "tiktok" || item.platform === "instagram" || item.platform === "youtube"
-          ? <SocialIcon platform={item.platform} size={24} brand={item.platform === "tiktok"} />
+        {item.platform === "instagram" || item.platform === "youtube"
+          ? <SocialIcon platform={item.platform} size={24} />
           : null}
       </span>
     </span>
   ) : undefined;
-  const playable = isPhoto ? null : itemToPlayable(item);
   const fallbackHref = item.sourceUrl || item.href;
   const actionLabel = playable ? live ? "Watch live" : "Watch video" : isPhoto ? "View photo" : item.platform === "x" ? item.kind === "post" ? "Read post" : "View video on X" : "Open post";
   const cardAffordance = !isXPost ? <span className="watch-poster-affordance" aria-hidden>{playable ? <Play size={14} fill="currentColor" /> : <ArrowUpRight size={16} />}{actionLabel}</span> : null;
@@ -550,11 +555,11 @@ export function PosterCard({
           aria-label={`${live ? "Watch live" : "Play"} ${item.title}`}
           onClick={openPlayer}
         >
-          {item.poster || item.platform === "tiktok" || hasInstagramSource ? (
+          {item.poster || item.platform === "youtube" || item.platform === "tiktok" || hasInstagramSource ? (
             <WatchThumb
               youtubeId={youtubeId}
-              src={preferTikTokThumbnail || preferInstagramThumbnail ? "" : item.poster ?? ""}
-              tiktokSourceUrl={item.platform === "tiktok" ? item.sourceUrl : undefined}
+              src={preferYouTubeThumbnail || preferTikTokThumbnail || preferInstagramThumbnail ? "" : item.poster ?? ""}
+              tiktokSourceUrl={tiktokSourceUrl}
               preferTikTokSource={preferTikTokThumbnail}
               instagramSourceUrl={hasInstagramSource ? item.sourceUrl : undefined}
               preferInstagramSource={preferInstagramThumbnail}
@@ -577,11 +582,11 @@ export function PosterCard({
             ? `View ${item.title} on ${isExternalPost ? "X" : "Instagram"} (opens in a new tab)`
             : `Open ${item.title}`}
         >
-          {item.poster || item.platform === "tiktok" || hasInstagramSource ? (
+          {item.poster || item.platform === "youtube" || item.platform === "tiktok" || hasInstagramSource ? (
             <WatchThumb
               youtubeId={youtubeId}
-              src={preferTikTokThumbnail || preferInstagramThumbnail ? "" : item.poster ?? ""}
-              tiktokSourceUrl={item.platform === "tiktok" ? item.sourceUrl : undefined}
+              src={preferYouTubeThumbnail || preferTikTokThumbnail || preferInstagramThumbnail ? "" : item.poster ?? ""}
+              tiktokSourceUrl={tiktokSourceUrl}
               preferTikTokSource={preferTikTokThumbnail}
               instagramSourceUrl={hasInstagramSource ? item.sourceUrl : undefined}
               preferInstagramSource={preferInstagramThumbnail}
@@ -762,6 +767,7 @@ export function PosterCard({
           preloadOnly={!previewVisible && !previewClosing}
           onPreviewEnter={cancelClose}
           onPreviewLeave={hidePreview}
+          onPlayOverride={previewUsesOnPlay ? onPlay : undefined}
           feedback={feedback}
           onFeedback={onFeedback}
           moment={moment}

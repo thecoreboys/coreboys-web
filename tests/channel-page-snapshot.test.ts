@@ -61,6 +61,19 @@ test("archive pagination reaches every item from its exact source without duplic
   assert.equal(channelArchivePage(hub, "unknown-source", null), null);
 });
 
+test("a selected Short opens a bounded window in its own source and paginates forward", () => {
+  const hub = buildNetworkChannelHub(fixture(180), channel);
+  const rails = buildCuratedChannelRails(hub.all);
+  const rail = rails[0]!;
+  const selected = rail.items[50]!;
+  const page = channelArchivePage(hub, rail.id, null, `${selected.platform}:${selected.id}`)!;
+  assert.equal(page.items[6]?.id, selected.id);
+  assert.ok(page.items.every((entry) => entry.accountLabel === selected.accountLabel));
+  const next = channelArchivePage(hub, rail.id, page.nextCursor)!;
+  assert.equal(next.items[0]?.id, rail.items[68]?.id);
+  assert.equal(channelArchivePage(hub, rail.id, null, "tiktok:missing"), null);
+});
+
 test("bounded channel snapshots preserve the exact resumed airing after a live interruption", () => {
   const catalog = fixture(200);
   const items = buildNetworkChannelLineup(catalog, channel, "continuous");

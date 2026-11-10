@@ -74,7 +74,9 @@ function tiktokCdnUrl(value: unknown): string | null {
     const tikTokCdn = host === "tiktokcdn.com"
       || host.endsWith(".tiktokcdn.com")
       || host === "tiktokcdn-us.com"
-      || host.endsWith(".tiktokcdn-us.com");
+      || host.endsWith(".tiktokcdn-us.com")
+      || host === "tiktokcdn-eu.com"
+      || host.endsWith(".tiktokcdn-eu.com");
     return tikTokCdn ? url.toString() : null;
   } catch {
     return null;
@@ -111,18 +113,13 @@ function postFromRecord(value: JsonRecord, expectedHandle: string): PublicTikTok
   const authorHandle = firstString(author?.uniqueId, author?.unique_id, author?.secUidName)?.replace(/^@/, "").toLowerCase();
   if (authorHandle && authorHandle !== expectedHandle) return null;
 
+  const covers = [video.cover, video.coverUrl, video.originCover, video.dynamicCover, value.cover, value.coverUrl]
+    .map(tiktokCdnUrl).filter((url): url is string => Boolean(url));
   return {
     id,
     title: firstString(value.desc, value.description, value.title) ?? "TikTok video",
     createdAt,
-    thumbnailUrl: [
-      video.cover,
-      video.coverUrl,
-      video.originCover,
-      video.dynamicCover,
-      value.cover,
-      value.coverUrl,
-    ].map(tiktokCdnUrl).find((url): url is string => Boolean(url)),
+    thumbnailUrl: covers.find((url) => !/\.hei[cf](?:[?#]|$)/i.test(url)) ?? covers[0],
     width: firstNumber(video.width, value.width),
     height: firstNumber(video.height, value.height),
   };

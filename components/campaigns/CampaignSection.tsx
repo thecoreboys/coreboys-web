@@ -52,21 +52,16 @@ export function CampaignShowcase({ campaigns, preview = false }: { campaigns: Pu
   }, [campaigns.length]);
   useEffect(() => { if (!manual && rail.current) rail.current.scrollLeft = 0; }, [manual]);
   if (!campaigns.length) return null;
-  const browse = () => {
-    setManual(true);
-    window.requestAnimationFrame(() => {
-      const element = rail.current;
-      (element?.querySelector<HTMLAnchorElement>("a") ?? element)?.focus({ preventScroll: true });
-      element?.scrollTo({ left: 0, behavior: "instant" });
-    });
-  };
   return <section className={`watch-campaign-section ${styles.section}`} aria-labelledby={headingId}>
     <div className={styles.surface}>
       <div className={styles.intro}>
         <h2 id={headingId}><span className={styles.headline}>Your clips.<br /> Your coin.</span></h2>
-        <p>Find a campaign. Make your clip.<br />Submit it to the organizer.</p>
+        <div className={styles.introDetail}>
+          <p>Find a campaign. Make your clip.<br />Submit it to the organizer.</p>
+          <img className={styles.illustration} src="/brand/campaign-clips-coins-v1.webp" alt="" width={600} height={400} loading="lazy" decoding="async" />
+        </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.explore} aria-controls={railId} onClick={browse}>Explore campaigns <ArrowRight size={18} aria-hidden /></button>
+          <a href="https://contentrewards.com/c/discover" target="_blank" rel="noopener noreferrer" className={styles.explore}>Explore campaigns <ArrowRight size={18} aria-hidden /></a>
         </div>
         <p className={styles.terms}>Campaigns run on Content Rewards. Eligibility, approval and payouts follow each organizer’s terms.</p>
       </div>

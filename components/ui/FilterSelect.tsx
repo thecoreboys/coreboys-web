@@ -1,9 +1,10 @@
 "use client";
 
 import { Select } from "@/components/base/select/select";
+import type { ReactNode } from "react";
 import styles from "./BrowseControls.module.css";
 
-export type FilterSelectOption = { value: string; label: string; count?: number; avatarUrl?: string; disabled?: boolean };
+export type FilterSelectOption = { value: string; label: string; count?: number; avatarUrl?: string; icon?: ReactNode; disabled?: boolean };
 
 /** Shared browse picker: consistent label, trigger, portal, and keyboard behavior. */
 export function FilterSelect({ label, ariaLabel, value, options, onChange, className = "", disabled = false }: {
@@ -20,6 +21,7 @@ export function FilterSelect({ label, ariaLabel, value, options, onChange, class
     id: `filter:${option.value}`,
     label: `${option.label}${option.count !== undefined ? ` (${option.count})` : ""}`,
     avatarUrl: option.avatarUrl,
+    icon: option.icon,
     isDisabled: option.disabled,
   }));
   return <Select

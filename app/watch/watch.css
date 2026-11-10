@@ -3014,6 +3014,34 @@
   }
   .watch-billboard-provider-status > div { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; }
   .watch-billboard-provider-status button, .watch-billboard-provider-status a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .watch-billboard-provider-error {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    gap: .75rem;
+    padding: 1.5rem;
+    background: #101014;
+    color: #fff;
+    font-size: .95rem;
+  }
+  .watch-billboard-provider-error span { flex-basis: 100%; text-align: center; }
+  .watch-billboard-provider-error button, .watch-billboard-provider-error a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: .6rem 1rem;
+    border: 1px solid #ffffff42;
+    border-radius: .6rem;
+    color: #fff;
+    background: #242428;
+    text-decoration: none;
+  }
+  .watch-billboard-provider-error :is(button, a):hover { background: #38383e; }
+  .watch-billboard-provider-error :is(button, a):focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
   .watch-billboard-live-player.is-preview .watch-billboard-live-fallback {
     z-index: 0;

@@ -33,7 +33,9 @@
 }
 .surface:is(:hover, :focus-within) .headline { animation: campaignHeadlineSheen 1.8s ease both; }
 @keyframes campaignHeadlineSheen { from { background-position: 100% 0; } to { background-position: 0% 0; } }
-.intro > p:not(.terms) { margin: 0; color: var(--ink-dim); font-size: 1rem; line-height: 1.65; }
+.introDetail { display: flex; align-items: center; gap: .5rem; }
+.introDetail p { flex: 1 1 12rem; min-width: 0; margin: 0; color: var(--ink-dim); font-size: 1rem; line-height: 1.65; }
+.illustration { display: block; flex: 0 1 12rem; width: min(42%, 12rem); height: auto; object-fit: contain; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; margin-top: 1.75rem; }
 .explore { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: .8rem; padding: .75rem 1.1rem; border: 1px solid #ffe6a8b8; border-radius: .65rem; background: linear-gradient(115deg, #ffe8ac 0%, #edba66 58%, #e6a14a 100%); color: #241606; box-shadow: inset 0 1px 0 #fff6d766, 0 5px 20px #0003; font: inherit; font-size: .875rem; font-weight: 600; cursor: pointer; transition: transform 160ms ease, opacity 160ms ease; }
 .explore:hover { transform: translateY(-2px); opacity: .86; }
@@ -75,6 +77,8 @@
   .intro { padding-inline: var(--home-gutter, 1.25rem); }
   .intro h2 { font-size: clamp(2rem, 6vw, 2.75rem); }
   .intro h2 br { display: none; }
+  .introDetail { max-width: 32rem; }
+  .illustration { width: min(38%, 10rem); }
   .terms { max-width: 58ch; }
   .rail { --campaign-card-width: min(19rem, 78vw); }
 }

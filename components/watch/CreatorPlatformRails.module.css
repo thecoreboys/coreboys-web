@@ -69,11 +69,38 @@
 }
 
 .section .homeMediaRail :global(.watch-poster.is-portrait) {
+  --watch-card-height: clamp(11rem, 14vw, 13.5rem);
   width: calc(var(--watch-card-height) * .5625);
+  height: var(--watch-card-height);
 }
 
 .section .homeMediaRail :global(.watch-poster.is-square) {
   width: var(--watch-card-height);
+}
+
+/* Keep the rail compact while making each thumbnail identifiable. */
+.section .homeMediaRail :global(.watch-poster .watch-poster-copy) {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 20;
+  min-height: 0;
+  padding: 2rem .7rem .6rem;
+  pointer-events: none;
+  background: linear-gradient(transparent, rgba(0,0,0,.78));
+  transition: opacity .15s ease;
+}
+.section .homeMediaRail :global(.watch-poster .watch-poster-title) {
+  color: rgba(255,255,255,.82);
+  font-size: .8rem;
+  font-weight: 550;
+  line-height: 1.3;
+  text-shadow: 0 1px 5px #000;
+}
+.section .homeMediaRail :global(.watch-poster .watch-poster-member),
+.section .homeMediaRail :global(.watch-poster .watch-poster-footer-meta) { display: none; }
+.section .homeMediaRail :global(.watch-poster.is-preview-open .watch-poster-copy) { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .section .homeMediaRail :global(.watch-poster .watch-poster-copy) { transition: none; }
 }
 
 .archiveControls {

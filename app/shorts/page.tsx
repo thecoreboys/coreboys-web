@@ -18,7 +18,12 @@ export const metadata: Metadata = {
   alternates: { canonical: "/shorts" },
 };
 
-export default async function ShortsPage() {
+export default async function ShortsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = await searchParams;
+  const channel = typeof query.channel === "string" && /^[a-z0-9-]{1,40}$/.test(query.channel) ? query.channel : null;
+  const rail = typeof query.rail === "string" && query.rail.length <= 300 ? query.rail : null;
+  const selected = typeof query.item === "string" && query.item.length <= 300 ? query.item : null;
+  const scope = channel && rail && selected ? { channel, rail, selected } : null;
   const catalog = await getHomeWatchCatalog();
   // The queue endpoint replenishes this creator-balanced batch as the viewer
   // approaches its end. Only the first portion needs to cross the RSC boundary.
@@ -26,7 +31,7 @@ export default async function ShortsPage() {
 
   return (
     <WatchChrome catalog={catalog}>
-      <ShortsStage items={items} />
+      <ShortsStage key={scope ? `${scope.channel}:${scope.rail}:${scope.selected}` : "all"} items={scope ? [] : items} scope={scope} />
     </WatchChrome>
   );
 }

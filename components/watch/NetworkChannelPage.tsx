@@ -310,12 +310,6 @@ function dateLabel(value: string | undefined, locale: string, timeZone: string):
   });
 }
 
-function zoneLabel(locale: string, timeZone: string, value: number): string {
-  return new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: "short" })
-    .formatToParts(value)
-    .find((part) => part.type === "timeZoneName")?.value ?? timeZone;
-}
-
 function supportedModes(channel: NetworkChannel): NetworkChannelMode[] {
   return channel.memberSlug === null
     ? ["videos", "shorts", "continuous"]
@@ -386,6 +380,7 @@ function ChannelOnNowPreview({
   initialStartSeconds,
   progress,
   autoStart,
+  rewind,
   onActivate,
   onProgramBoundary,
 }: {
@@ -394,6 +389,7 @@ function ChannelOnNowPreview({
   initialStartSeconds: number;
   progress: number;
   autoStart: boolean;
+  rewind: boolean;
   onActivate: () => void;
   /** Lets the linear channel advance on an actual media end without a timer gap. */
   onProgramBoundary?: () => void;
@@ -876,7 +872,7 @@ function ChannelOnNowPreview({
     return () => window.removeEventListener("message", onMessage);
   }, [frameSrc, markPlaying, onProgramBoundary]);
 
-  const live = entry.item.kind === "live" || entry.item.format === "live";
+  const live = entry.item.kind === "live";
   const actionLabel = `Watch ${entry.item.title}, now on ${channel.name} 24/7, in the media player`;
   const soundControl = advisoryReady && playable ? (
     <button type="button" className={styles.heroPreviewSound} aria-pressed={!muted}
@@ -951,8 +947,10 @@ function ChannelOnNowPreview({
 
       <div className={styles.heroPreviewTop} aria-hidden="true">
         <span className={styles.heroPreviewLiveDot} />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className={styles.heroPreviewNetworkLogo} src={channel.artwork} alt="" />
+        {channel.slug === "core" ? <CoreWordmark className={`${styles.heroPreviewNetworkLogo} ${styles.heroPreviewCoreLogo}`} /> : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={styles.heroPreviewNetworkLogo} src={channel.artwork} alt="" />
+        )}
         <span>24/7</span>
       </div>
       {!usesTwitchSdk ? soundControl : null}
@@ -967,9 +965,11 @@ function ChannelOnNowPreview({
       ) : null}
       <div className={styles.heroPreviewCopy} aria-hidden="true">
         <span className={styles.heroPreviewKicker}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={channel.artwork} alt="" />
-          <b>{live ? "Live" : "On air"}</b>
+          {channel.slug === "core" ? <CoreWordmark className={styles.heroPreviewCoreLogo} /> : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={channel.artwork} alt="" />
+          )}
+          <b>{live ? "Live" : rewind ? "Rewind" : "On demand"}</b>
           <em>{channel.name} 24/7</em>
         </span>
         <strong>{entry.item.title}</strong>
@@ -1237,7 +1237,7 @@ export function NetworkChannelPage({
       : MEMBERS.map((entry) => entry.twitchLogin);
     const scoped = new Set(scopeLogins.map((login) => login.toLowerCase()).filter(Boolean));
     const active = hub.live.flatMap((item) => {
-      if (item.kind !== "live" && item.format !== "live") return [];
+      if (item.kind !== "live") return [];
       const login = (item.live?.login ?? MEMBERS_BY_SLUG[item.memberSlug ?? ""]?.twitchLogin ?? "").toLowerCase();
       return login && scoped.has(login) ? [{
         login,
@@ -1398,12 +1398,10 @@ export function NetworkChannelPage({
   const continuousProgress = previewEntry
     ? Math.min(1, Math.max(0, (now - previewEntry.startsAt) / (previewEntry.endsAt - previewEntry.startsAt)))
     : 0;
-  const onAirEntry = mode === "continuous" ? continuousEntry : currentEntry;
   // A current provider live stream has no authoritative end. The 24/7
   // scheduler keeps an internal forecast only to preserve the interrupted
   // rotation; never expose that forecast as a duration, progress meter, or
   // countdown to viewers.
-  const hasOpenEndedLiveOnAir = onAirEntry?.current === true && isLiveMedia(onAirEntry.item);
   const hasContinuousLiveInterruption = mode === "continuous"
     && Boolean(continuousEntry && isLiveMedia(continuousEntry.item));
   const tuneLabel = tuned
@@ -1451,9 +1449,8 @@ export function NetworkChannelPage({
       || !continuousEntry
       || activeChannel?.id !== continuousContext.id
       || !activePlayback
-      || (activePlayback.kind !== "live" && activePlayback.format !== "live")
+      || activePlayback.kind !== "live"
       || continuousEntry.item.kind === "live"
-      || continuousEntry.item.format === "live"
     ) return;
     // The provider just reported the stream offline. Retune the shared player
     // to the exact resumed block rather than falling back to the beginning of
@@ -1559,7 +1556,7 @@ export function NetworkChannelPage({
 
           {displayedCurrent ? (
             <div className={styles.nowTitle}>
-              <span>{displayedCurrent.kind === "live" ? "Live now" : mode === "live" ? "Latest broadcast" : mode === "continuous" ? "Now airing" : "Start here"}</span>
+              <span>{displayedCurrent.kind === "live" ? "Live now" : mode === "live" ? "Latest broadcast" : mode === "continuous" ? "Rewind" : "Start here"}</span>
               <strong>{displayedCurrent.title}</strong>
               <small>{watchAttributionLabel(displayedCurrent)} · {mediaTypeLabel(displayedCurrent)}</small>
             </div>
@@ -1583,6 +1580,7 @@ export function NetworkChannelPage({
             key={`${heroPreviewEntry.key}:${heroPreviewEntry.startsAt}`}
             channel={channel}
             entry={heroPreviewEntry}
+            rewind={mode === "continuous"}
             initialStartSeconds={channelProgramElapsedSeconds(heroPreviewEntry, now)}
             progress={mode === "continuous" ? continuousProgress : progress}
             autoStart
@@ -1597,25 +1595,13 @@ export function NetworkChannelPage({
         <button type="button" className="min-h-11 underline underline-offset-4" onClick={onRefreshSchedule}>Try again</button>
       </div> : null}
 
-      {hasOpenEndedLiveOnAir && onAirEntry ? (
-        <div className={styles.onAirBar}>
-          <div>
-            <strong>LIVE</strong>
-            <span>
-              {viewer.ready
-                ? `Live since ${timeLabel(onAirEntry.startsAt, viewer.locale, viewer.timeZone)} ${zoneLabel(viewer.locale, viewer.timeZone, onAirEntry.startsAt)}`
-                : "Live now"}
-            </span>
-          </div>
-        </div>
-      ) : null}
-
       <nav className="creator-section-nav" aria-label="Creator sections">
         {[["watch", "Latest"], ["schedule", "Guide & history"], ["photos", "Photos"], ["posts", "Posts"], ["about", "About & fan mail"]].map(([id, label]) => <button key={id} type="button" aria-pressed={activeSection === id} onClick={() => { setActiveSection(id!); window.history.replaceState(null, "", `#${id}`); }}>{label}</button>)}
       </nav>
       {activeSection === "watch" ? <div className="py-6">
       <CreatorPlatformRails
         channelName={channel.memberSlug === null ? GROUP.name : channel.host}
+        channelSlug={channel.slug}
         items={nonXHubItems}
         initialItemsPerSource={6}
         archiveEndpoint={`/api/watch/channels/${channel.slug}/archive`}
@@ -1684,7 +1670,7 @@ export function NetworkChannelPage({
                       ) : null}
                       {continuousSchedule.map((entry) => {
                         const guideUnits = guideScaleUnits((entry.endsAt - entry.startsAt) / 60_000);
-                        const isLive = entry.item.kind === "live" || entry.item.format === "live";
+                        const isLive = entry.item.kind === "live";
                         return (
                           <button
                             key={entry.key}
@@ -1701,9 +1687,9 @@ export function NetworkChannelPage({
                             <span className={styles.continuousGuideCopy}>
                               <small>
                                 {entry.current
-                                  ? isLive ? "Live now · rotation paused" : "Now airing"
+                                  ? isLive ? "Live now · rotation paused" : "Rewind · playing now"
                                   : viewer.ready ? timeLabel(entry.startsAt, viewer.locale, viewer.timeZone) : "Up next"}
-                                {!entry.current && isLive ? " · Live" : ""}
+                                {!entry.current && !isLive ? " · Rewind" : ""}
                               </small>
                               <strong>{entry.item.title}</strong>
                               <span>{watchAttributionLabel(entry.item)} · {mediaTypeLabel(entry.item)}</span>
@@ -1737,7 +1723,7 @@ export function NetworkChannelPage({
                     </time>
                     <span className={styles.queueThumb}>
                       <WatchThumb src={entry.item.poster} youtubeId={entry.item.platform === "youtube" ? entry.item.id.replace(/^yt-/, "") : null} />
-                      {entry.current && (entry.item.kind === "live" || entry.item.format === "live") ? <i>Live</i> : null}
+                      {entry.current && entry.item.kind === "live" ? <i>Live</i> : mode === "continuous" && entry.item.kind !== "live" ? <i>Rewind</i> : null}
                     </span>
                     <span className={styles.queueCopy}>
                       <strong>{entry.item.title}</strong>
@@ -1747,7 +1733,7 @@ export function NetworkChannelPage({
                       </small>
                     </span>
                     <span className={styles.queueAction}>
-                      {entry.current && (entry.item.kind === "live" || entry.item.format === "live") ? "Tune in" : index === 0 ? "Play" : "Play here"}
+                      {entry.current && entry.item.kind === "live" ? "Tune in" : index === 0 ? "Play" : "Play here"}
                     </span>
                   </button>
                 </li>
@@ -1808,11 +1794,7 @@ export function NetworkChannelPage({
       {activeSection === "about" ? <>
       <section id="crew" className={styles.teamSection} aria-labelledby="channel-team-heading">
         <div className={styles.teamSectionHeading}>
-          <div>
-            <span className={styles.eyebrow}>Behind the camera</span>
-            <h2 id="channel-team-heading">{member ? `${member.stageName}'s crew.` : "The CORE crew."}</h2>
-          </div>
-          <p>The people behind the stream. Meet the crew.</p>
+          <h2 id="channel-team-heading">{member ? `${member.stageName}'s crew` : "CORE crew"}</h2>
         </div>
         {team.length > 0 ? (
           <ul className={styles.teamGrid}>
@@ -1828,10 +1810,10 @@ export function NetworkChannelPage({
                     )}
                   </span>
                   <span className={styles.teamCardCopy}>
-                    <small>{crew.roleLabel}</small>
                     <strong>{crew.name}</strong>
-                    <span>View profile <ChevronRight size={13} aria-hidden /></span>
+                    <small>{crew.roleLabel}</small>
                   </span>
+                  <ChevronRight className={styles.teamCardArrow} size={17} aria-hidden />
                 </Link>
               </li>
             ))}
@@ -1852,7 +1834,7 @@ export function NetworkChannelPage({
             ? mailingAddress ? `Mailing details for ${member.stageName}.` : "No public mailing address listed."
             : "Mailing addresses and instructions for each creator."}</p>
         </div>
-        <Link prefetch={false} href={member ? `/fan-mail/${member.slug}` as Route : "/fan-mail"} className={styles.mailAction}>
+        <Link href={member ? `/fan-mail/${member.slug}` as Route : "/fan-mail"} className={styles.mailAction}>
           {member ? "View mailing details" : "View addresses"}
           <ChevronRight size={16} aria-hidden />
         </Link>

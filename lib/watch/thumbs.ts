@@ -1,3 +1,23 @@
+/** Resolve a real TikTok post permalink, including links stored inside player URLs. */
+export function tiktokPostThumbnailSource(item: { platform: string; sourceUrl?: string | null; href?: string | null }): string | undefined {
+  if (item.platform !== "tiktok") return undefined;
+  const candidates = [item.sourceUrl, item.href];
+  try {
+    const url = new URL(item.href ?? "", "https://core.local");
+    candidates.push(url.searchParams.get("url"));
+  } catch { /* Ignore malformed stored player links. */ }
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      const url = new URL(candidate);
+      if (url.protocol !== "https:" || url.username || url.password || !["tiktok.com", "www.tiktok.com"].includes(url.hostname.toLowerCase())) continue;
+      const match = /^\/@([a-zA-Z0-9._]{1,50})\/video\/(\d{12,24})\/?$/.exec(url.pathname);
+      if (match) return `https://www.tiktok.com/@${match[1]}/video/${match[2]}`;
+    } catch { /* Try the next stored source. */ }
+  }
+  return undefined;
+}
+
 /** Highest-quality YouTube stills first. maxres/sd 404 as a 120×90 stub. */
 export function youtubeThumbCandidates(id: string, quality: "card" | "hero" = "hero"): string[] {
   if (quality === "card") return [

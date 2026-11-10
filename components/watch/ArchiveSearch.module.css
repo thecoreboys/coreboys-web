@@ -1,0 +1,14 @@
+.queryWrap { position: relative; min-width: 0; }
+.searchLabel { margin-bottom: .5rem; }
+.suggestions { position: absolute; z-index: 50; inset: calc(100% + .45rem) 0 auto; max-height: 19rem; overflow-y: auto; padding: .35rem; border: 1px solid var(--rule-strong); border-radius: .8rem; background: var(--bg-elev); box-shadow: 0 14px 35px #0008; }
+.suggestion { display: flex; width: 100%; align-items: center; gap: .75rem; padding: .55rem .65rem; border-radius: .55rem; cursor: pointer; }
+.suggestion[data-active="true"], .suggestion:hover { background: var(--ui-hover); }
+.suggestion img { width: 2.3rem; height: 2.3rem; flex: none; border-radius: 50%; object-fit: cover; }
+.suggestion strong, .suggestion small { display: block; }
+.suggestion strong { color: var(--ink); font-size: .9rem; font-weight: 600; }
+.suggestion small { margin-top: .1rem; color: var(--ink-dim); font-size: .75rem; }
+.pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .75rem; margin-top: 2rem; }
+.pagination button { min-height: 44px; padding: .6rem 1rem; border: 1px solid var(--ui-line); border-radius: .65rem; background: var(--ui-surface); color: var(--ink); font-size: .875rem; }
+.pagination button:hover:not(:disabled) { border-color: var(--rule-strong); background: var(--ui-hover); }
+.pagination button:disabled { opacity: .4; cursor: not-allowed; }
+.pagination span { color: var(--ink-dim); font-size: .875rem; }

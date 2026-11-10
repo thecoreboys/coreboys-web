@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mergeFreshWatchCatalog } from "../lib/watch/catalog-freshness";
+import { reconcileCatalogLive } from "../lib/watch/catalog-live-status";
 import type { WatchCatalog, WatchItem } from "../lib/watch/types";
 
 function item(id: string, kind: WatchItem["kind"] = "youtube"): WatchItem {
@@ -32,6 +33,24 @@ test("an old cached archive cannot keep an ended stream live", () => {
   assert.ok(merged.all.includes(older));
   assert.ok(merged.videos.some((item) => item.id === "new-upload"));
   assert.equal(archive.live[0], oldLive);
+});
+
+test("ended YouTube broadcasts remain playable without live badges in every catalog view", () => {
+  const ended: WatchItem = { ...item("yt-ended", "live"), platform: "youtube", href: "/theater?kind=live&src=youtube&id=ended&format=live" };
+  const active: WatchItem = { ...item("yt-active", "live"), platform: "youtube" };
+  const archive = catalog([ended, active]);
+  archive.heroFeatured = [ended];
+  const reconciled = reconcileCatalogLive(archive, [active]);
+  for (const list of [reconciled.all, reconciled.byMember[0]!.items, reconciled.byPlatform.youtube, reconciled.heroFeatured!]) {
+    const video = list.find((entry) => entry.id === ended.id)!;
+    assert.equal(video.kind, "vod");
+    assert.equal(video.format, "long");
+    assert.match(video.href, /kind=youtube/);
+    assert.doesNotMatch(video.href, /format=live/);
+  }
+  assert.deepEqual(reconciled.live.map((entry) => entry.id), [active.id]);
+  assert.equal(reconciled.all.find((entry) => entry.id === active.id)?.kind, "live");
+  assert.equal(ended.kind, "live");
 });
 
 test("recent metadata replaces signed artwork and DVR capability without duplicating archive items", () => {

@@ -456,24 +456,6 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
           <SupporterCta placement="watch" />
         </div>
 
-        <section className="watch-library-disclosure px-5 md:px-10" aria-labelledby="watch-library-title">
-          <div className="watch-library-disclosure__copy">
-            <p className="watch-library-disclosure__eyebrow">CORE library</p>
-            <h2 id="watch-library-title">More from every channel</h2>
-            <p>Full streams, shorts, clips, and photos. Find your next watch.</p>
-          </div>
-          <button
-            type="button"
-            className="watch-library-disclosure__button"
-            aria-expanded={showFullLibrary}
-            aria-controls="watch-full-library"
-            onClick={() => setShowFullLibrary((visible) => !visible)}
-          >
-            <span>{showFullLibrary ? "Show less" : "Explore more"}</span>
-            {showFullLibrary ? <ChevronUp size={18} aria-hidden /> : <ArrowRight size={18} aria-hidden />}
-          </button>
-        </section>
-
         {!showFullLibrary ? (
           libraryPreview.length ? (
             <Shelf title="From the library" items={libraryPreview} {...sharedShelfProps} />
@@ -481,6 +463,19 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
             <p className="watch-library-empty px-5 md:px-10">New videos, clips, and Shorts will show up here as they’re added.</p>
           )
         ) : null}
+
+        <div className="px-5 md:px-10">
+          <button
+            type="button"
+            className="watch-library-disclosure__button inline-flex items-center gap-2"
+            aria-expanded={showFullLibrary}
+            aria-controls="watch-full-library"
+            onClick={() => setShowFullLibrary((visible) => !visible)}
+          >
+            <span>{showFullLibrary ? "Show less" : "Show more videos"}</span>
+            {showFullLibrary ? <ChevronUp size={18} aria-hidden /> : <ArrowRight size={18} aria-hidden />}
+          </button>
+        </div>
 
         <div id="watch-full-library" className="watch-full-library" hidden={!showFullLibrary}>{showFullLibrary ? <>
           {(catalog.programmingSections ?? []).map((section) => {

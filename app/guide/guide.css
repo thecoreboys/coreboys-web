@@ -3509,14 +3509,16 @@
 }
 
 .guide-history-year {
-  min-width: 62rem;
+  --guide-history-cell-size: clamp(10px, 0.85vw, 14px);
+  min-width: max-content;
+  width: 100%;
   padding: 0.15rem 0 0.35rem;
 }
 
 .guide-history-month-row,
 .guide-history-year-row {
   display: grid;
-  grid-template-columns: minmax(11rem, 0.8fr) minmax(30rem, 3.4fr);
+  grid-template-columns: 11rem max-content;
   gap: clamp(0.75rem, 1.5vw, 1.25rem);
 }
 
@@ -3536,7 +3538,7 @@
 
 .guide-history-months {
   display: grid;
-  grid-template-columns: repeat(var(--guide-history-weeks), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--guide-history-weeks), var(--guide-history-cell-size));
   gap: 3px;
   align-items: end;
 }
@@ -3637,11 +3639,11 @@
 
 .guide-history-contribution-grid {
   display: grid;
-  width: 100%;
-  height: 6.1rem;
+  width: max-content;
+  height: auto;
   grid-auto-flow: column;
-  grid-template-columns: repeat(var(--guide-history-weeks), minmax(0, 1fr));
-  grid-template-rows: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--guide-history-weeks), var(--guide-history-cell-size));
+  grid-template-rows: repeat(7, var(--guide-history-cell-size));
   gap: 3px;
 }
 
@@ -3664,6 +3666,24 @@
   outline: none;
   transition: transform 130ms cubic-bezier(.16, 1, .3, 1), border-color 130ms ease, box-shadow 130ms ease, filter 130ms ease;
 }
+
+.guide-history-day-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: min(260px, calc(100vw - 24px));
+  padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 10px;
+  background: #1a191e;
+  color: #f7f6f8;
+  box-shadow: 0 12px 32px rgba(0,0,0,.48);
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.guide-history-day-tooltip strong,
+.guide-history-day-tooltip span { display: block; }
+.guide-history-day-tooltip span { margin-top: 5px; color: #c8c5cc; }
 
 .guide-history-cell.has-airtime {
   border-color: color-mix(in srgb, var(--core) 46%, rgba(255, 255, 255, 0.08));
@@ -3708,12 +3728,12 @@
   }
 
   .guide-history-year {
-    min-width: 39rem;
+    min-width: max-content;
   }
 
   .guide-history-month-row,
   .guide-history-year-row {
-    grid-template-columns: 10.2rem minmax(27.5rem, 1fr);
+    grid-template-columns: 10.2rem max-content;
     gap: 0.72rem;
   }
 }

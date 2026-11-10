@@ -362,9 +362,9 @@ export function itemToPlayable(item: WatchItem): Playable | null {
   // YouTube catalog links used `kind=youtube`, which otherwise downgraded a
   // live broadcast back to a regular video in multiview and Theater.
   const requestedKind = search.get("kind") as WatchItem["kind"] | null;
-  const kind = item.kind === "live" || item.format === "live"
+  const kind = item.kind === "live"
     ? "live"
-    : requestedKind ?? item.kind;
+    : requestedKind === "live" ? item.kind : requestedKind ?? item.kind;
   const liveLogin = /\/watch\/live\/([^/?#]+)/.exec(item.href)?.[1] ?? search.get("login");
   // Catalog entries normally carry a canonical YouTube href, but imported
   // programming can instead expose the official player URL in `embedUrl` or
@@ -372,9 +372,10 @@ export function itemToPlayable(item: WatchItem): Playable | null {
   // so every surface (hero, channel, Theater, and multiview) gets the same
   // muted autoplay-capable YouTube embed rather than falling back to an
   // opaque provider iframe that cannot be controlled by CORE.
+  const catalogYoutubeId = item.platform === "youtube" ? /^yt-([A-Za-z0-9_-]{11})$/.exec(item.id)?.[1] ?? null : null;
   const yt = [item.sourceUrl, item.embedUrl, item.mediaUrl, item.href]
     .map((candidate) => youtubeIdFromHref(candidate ?? ""))
-    .find((candidate): candidate is string => Boolean(candidate)) ?? null;
+    .find((candidate): candidate is string => Boolean(candidate)) ?? catalogYoutubeId;
   const id = search.get("id");
   if (item.kind === "tour" && item.format !== "photo" && !yt && !id) return null;
   const photoMedia = item.format === "photo"
@@ -503,7 +504,8 @@ export function embedFor(
   if (item.kind === "clip" && item.clipSrc === "twitch" && item.clipId && parent) {
     return `https://clips.twitch.tv/embed?clip=${encodeURIComponent(item.clipId)}&parent=${parent}&autoplay=${autoplay ? "true" : "false"}&muted=${muted ? "true" : "false"}`;
   }
-  const tiktok = tiktokIdFromUrl(item.sourceUrl ?? item.url);
+  const tiktok = [item.sourceUrl, item.embedUrl, item.url, item.mediaUrl]
+    .map(tiktokIdFromUrl).find((id): id is string => Boolean(id)) ?? null;
   if (tiktok) {
     const qs = new URLSearchParams({
       autoplay: autoplay ? "1" : "0",

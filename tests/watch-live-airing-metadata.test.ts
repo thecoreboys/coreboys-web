@@ -7,8 +7,7 @@ const channelPage = readFileSync(resolve(process.cwd(), "components/watch/Networ
 const persistentPlayer = readFileSync(resolve(process.cwd(), "components/watch/PersistentPlayer.tsx"), "utf8");
 
 test("a current 24/7 live broadcast has open-ended hero metadata", () => {
-  assert.match(channelPage, /const hasOpenEndedLiveOnAir = onAirEntry\?\.current === true && isLiveMedia\(onAirEntry\.item\)/);
-  assert.match(channelPage, /Live since \$\{timeLabel\(onAirEntry\.startsAt/);
+  assert.doesNotMatch(channelPage, /Live since \$\{timeLabel\(onAirEntry\.startsAt/);
   assert.match(channelPage, /selectedLive \? \{\} : \{ endsAt: new Date\(selectedEntry\.endsAt\)\.toISOString\(\) \}/);
   assert.doesNotMatch(channelPage, /min remaining/);
   assert.doesNotMatch(channelPage, /rotation resumes/);

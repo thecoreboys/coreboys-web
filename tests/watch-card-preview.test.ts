@@ -30,6 +30,20 @@ test("expanded previews resolve videos, Shorts, Twitch streams, VODs, clips, and
   }
 });
 
+test("YouTube archive cards recover the video ID even without a provider URL", () => {
+  const entry = item({ id: "yt-shortVideo1", kind: "youtube", platform: "youtube", href: "/watch", format: "short" });
+  const preview = resolveHoverPreviewMedia(entry);
+  assert.equal(preview.playable?.youtubeId, "shortVideo1");
+  assert.equal(preview.platform, "youtube");
+});
+
+test("TikTok playback uses its official player when only its embed URL is present", () => {
+  const entry = item({ platform: "tiktok", sourceUrl: "https://example.com/unavailable", embedUrl: "https://www.tiktok.com/player/v1/1234567890123456", format: "short" });
+  const preview = resolveHoverPreviewMedia(entry);
+  assert.ok(preview.playable);
+  assert.match(embedFor(preview.playable, { parent: "core.test", origin: "https://core.test", muted: true })!, /^https:\/\/www\.tiktok\.com\/player\/v1\/1234567890123456\?/);
+});
+
 test("Reels and X videos use supplied native media or a matching playable cross-post", () => {
   assert.equal(resolveHoverPreviewMedia(item({ platform: "instagram", mediaUrl: "https://media.example/reel.mp4" })).nativeUrl, "https://media.example/reel.mp4");
   assert.equal(resolveHoverPreviewMedia(item({ platform: "x", kind: "post", mediaUrl: "https://video.twimg.com/post.mp4" })).nativeUrl, "https://video.twimg.com/post.mp4");
