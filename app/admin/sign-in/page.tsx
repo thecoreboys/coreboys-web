@@ -4,8 +4,9 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Copy01, Lock01 } from "@untitledui/icons";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { AlertCircle, Copy01 } from "@untitledui/icons";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { OTPInput, REGEXP_ONLY_DIGITS } from "input-otp";
 import { Input } from "@/components/base/input/input";
 import { Button } from "@/components/base/buttons/button";
 
@@ -14,35 +15,25 @@ type Setup = { manualKey: string; accountName: string; issuer: string };
 
 function AdminAuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="relative flex min-h-[var(--page-min-height)] items-center justify-center overflow-hidden bg-[#09090b] px-0 pb-0 sm:px-5 sm:pb-5 sm:pt-24">
-      <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(225,29,72,.12),transparent_32%),radial-gradient(circle_at_82%_85%,rgba(147,51,234,.08),transparent_30%)]" />
-      <section className="relative grid min-h-[calc(100dvh-5rem)] w-full overflow-hidden border border-white/12 bg-[#151518] shadow-[0_34px_140px_rgba(0,0,0,.76)] sm:min-h-0 sm:max-w-5xl sm:grid-cols-[minmax(0,1.05fr)_minmax(25rem,.95fr)] sm:rounded-3xl">
-        <aside className="relative isolate hidden min-h-[38rem] overflow-hidden p-7 sm:flex sm:flex-col sm:justify-between">
-          <span className="absolute inset-0 -z-30 bg-[url('/brand/supporter/signal-room-v1.png')] bg-cover bg-center" />
-          <span className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(7,7,9,.18),rgba(7,7,9,.42)_44%,rgba(7,7,9,.97))]" />
-          <span className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_62%_26%,rgba(244,63,94,.24),transparent_36%)]" />
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/12 bg-black/35 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[.16em] text-white/75 backdrop-blur-md">
-            <ShieldCheck className="size-3.5 text-rose-300" aria-hidden="true" />
-            CORE administration
+    <div className="flex min-h-[var(--page-min-height)] items-center justify-center bg-[#09090b] px-4 py-8 sm:px-5 sm:py-14">
+      <section className="grid w-full overflow-hidden rounded-[22px] border border-white/10 bg-[#121214] shadow-[0_24px_90px_rgba(0,0,0,.4)] sm:max-w-5xl sm:grid-cols-[minmax(0,1fr)_minmax(25rem,1fr)]">
+        <aside className="relative hidden min-h-[37rem] overflow-hidden border-r border-white/10 bg-[#181719] p-10 sm:flex sm:flex-col sm:justify-between">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-44 -top-44 size-[33rem] rounded-full border border-white/[.06] shadow-[0_0_0_65px_rgba(255,255,255,.018),0_0_0_130px_rgba(255,255,255,.012)]" />
+          <div className="relative text-xl font-black italic tracking-[-.08em] text-white">CORE<span className="sr-only"> administration</span></div>
+          <div className="relative max-w-sm">
+            <p className="text-sm font-medium text-white/55">CORE administration</p>
+            <h2 className="mt-4 text-4xl font-semibold leading-[1.08] tracking-[-.045em] text-white">Your space to manage CORE.</h2>
+            <p className="mt-4 text-base leading-7 text-white/60">Sign in to manage content, communities, and the site.</p>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[.2em] text-rose-300">Secure control room</p>
-            <h2 className="mt-3 max-w-md text-4xl font-semibold leading-[.95] tracking-[-.055em] text-white">Everything behind CORE, in one place.</h2>
-            <p className="mt-4 max-w-md text-sm leading-6 text-white/65">Manage programming, communities, originals, and network operations from the administration desk.</p>
-            <div className="mt-7 flex flex-wrap gap-2" aria-label="Administration areas">
-              {["Programming", "Moderation", "Operations"].map((label) => (
-                <span key={label} className="rounded-full border border-white/12 bg-black/30 px-3 py-1.5 text-xs font-medium text-white/72 backdrop-blur-md">{label}</span>
-              ))}
-            </div>
-          </div>
+          <p className="relative border-t border-white/10 pt-5 text-sm text-white/45">CORE · Administration</p>
         </aside>
 
-        <div className="relative flex min-h-[34rem] flex-col px-5 py-6 sm:min-h-0 sm:px-10 sm:py-9">
-          <Link href="/" className="absolute right-4 top-4 inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-white/45 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+        <div className="relative flex min-h-[32rem] flex-col px-6 pb-9 pt-20 sm:min-h-0 sm:px-12 sm:py-12">
+          <Link href="/" className="absolute right-4 top-4 inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-white/65 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
             <ArrowLeft className="size-4" aria-hidden="true" />
             Back to CORE
           </Link>
-          <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pt-12 sm:pt-0">
+          <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
             {children}
           </div>
         </div>
@@ -138,30 +129,36 @@ export default function AdminSignIn() {
     return (
       <AdminAuthShell>
         <form onSubmit={onTotpSubmit} noValidate>
-          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-rose-500/12 text-rose-300 ring-1 ring-inset ring-rose-400/20"><Lock01 className="size-5" /></span>
-          <p className="mt-5 text-xs font-semibold uppercase tracking-[.18em] text-rose-300">Administrator security</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-[-.045em] text-white">
-            {enrolling ? "Set up your authenticator." : "Enter your security code."}
+          <p className="text-sm font-medium text-white/55">CORE administration</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-white sm:text-4xl">
+            {enrolling ? "Set up your authenticator" : "Enter your security code"}
           </h1>
-          <p className="mt-2 text-sm leading-5 text-white/48">
+          <p className="mt-3 text-base leading-6 text-white/60">
             {enrolling
-              ? "Admin access requires a time-based one-time password. Add this account to an authenticator app, then enter the current six-digit code."
-              : "Use the current six-digit code from your authenticator app to open the admin desk."}
+              ? "Add this account to your authenticator app, then enter the six-digit code."
+              : "Enter the six-digit code from your authenticator app."}
           </p>
           {enrolling ? (
             <div className="mt-5 rounded-xl border border-white/10 bg-white/[.04] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/45">Manual setup key</p>
+              <p className="text-sm font-medium text-white/65">Manual setup key</p>
               <p className="mt-2 break-all font-mono text-base font-semibold tracking-[0.12em] text-white">{setup?.manualKey ?? "Loading secure key…"}</p>
               {setup ? <button type="button" onClick={() => void navigator.clipboard?.writeText(setup.manualKey)} className="mt-3 inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-rose-300 transition hover:text-rose-200"><Copy01 className="size-4" /> Copy key</button> : null}
-              <p className="mt-3 text-xs leading-relaxed text-white/45">Issuer: {setup?.issuer ?? "CORE Staff"}. Account: {setup?.accountName ?? email}. This key is only shown during setup.</p>
+              <p className="mt-3 text-sm leading-relaxed text-white/60">Issuer: {setup?.issuer ?? "CORE Staff"}. Account: {setup?.accountName ?? email}. This key is only shown during setup.</p>
             </div>
           ) : null}
           <div className="mt-6">
-            <Input label="Authenticator code" type="text" inputMode="numeric" autoComplete="one-time-code" isRequired value={otp} onChange={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" />
+            <label htmlFor="admin-security-code" className="mb-3 block text-sm font-medium text-white/85">Authenticator code</label>
+            <OTPInput id="admin-security-code" name="code" maxLength={6} pattern={REGEXP_ONLY_DIGITS} inputMode="numeric" autoComplete="one-time-code" required value={otp} onChange={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))} pasteTransformer={(value) => value.replace(/\D/g, "")} aria-invalid={Boolean(error)} containerClassName="w-full" render={({ slots, isFocused }) => (
+              <div aria-hidden="true" className="grid w-full grid-cols-6 gap-2">
+                {slots.map((slot, index) => <div key={index} className={`flex aspect-[.82] min-w-0 items-center justify-center rounded-xl border bg-[#0b0b0d] text-center text-2xl font-medium tabular-nums text-white transition-colors ${isFocused && slot.isActive ? "border-rose-400 ring-2 ring-rose-400/25" : "border-white/15"}`}>
+                  {slot.char ?? (slot.hasFakeCaret ? <span className="h-7 w-0.5 animate-pulse bg-white" /> : <span className="text-white/20">·</span>)}
+                </div>)}
+              </div>
+            )} />
           </div>
           {alert}
-          <Button type="submit" size="lg" color="primary" isLoading={submitting || (enrolling && !setup)} className="mt-6 w-full">Verify and continue</Button>
-          <button type="button" onClick={() => { setMode(null); setSetup(null); setOtp(""); setError(null); }} className="mt-4 w-full text-sm font-semibold text-white/48 transition hover:text-white">Use a different account</button>
+          <Button type="submit" size="lg" color="primary" isDisabled={otp.length !== 6 || (enrolling && !setup)} isLoading={submitting} className="mt-6 w-full">Verify and continue</Button>
+          <button type="button" onClick={() => { setMode(null); setSetup(null); setOtp(""); setError(null); }} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium text-white/60 transition hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Use a different account <ArrowUpRight className="size-4" aria-hidden="true" /></button>
         </form>
       </AdminAuthShell>
     );
@@ -170,7 +167,7 @@ export default function AdminSignIn() {
   return (
     <AdminAuthShell>
       <form onSubmit={onPasswordSubmit} noValidate>
-        <p className="text-xs font-semibold uppercase tracking-[.18em] text-rose-300">CORE administration</p>
+        <p className="text-sm font-medium text-white/55">CORE administration</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-[-.045em] text-white">Administrator sign in.</h1>
         <div className="mt-7 flex flex-col gap-4">
           <Input size="md" label="Email" type="email" name="email" autoComplete="username" isRequired value={email} onChange={(value) => setEmail(value)} placeholder="you@email.com" />

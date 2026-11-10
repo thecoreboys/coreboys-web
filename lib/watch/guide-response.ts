@@ -40,6 +40,7 @@ export type GuidePayload = {
     twitchSchedule?: "ok" | "empty" | "unconfigured" | "error";
     youtubeUpcoming?: "ok" | "empty" | "unconfigured" | "error";
     socialTimeline?: "ok" | "empty" | "unconfigured" | "error";
+    recordedSessions?: "ok" | "error";
   };
 };
 

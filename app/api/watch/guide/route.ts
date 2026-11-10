@@ -7,6 +7,7 @@ import { fetchUsersByLogin } from "@/lib/twitch";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { buildGuideNetworkRows } from "@/lib/watch/channels";
 import { guideLiveCatalog } from "@/lib/watch/guide-live-catalog";
+import { guideSourceWithDeadline } from "@/lib/watch/guide-source-deadline";
 import { removeActiveTwitchArchiveDuplicates } from "@/lib/watch/guide-programs";
 import type { WatchCatalog, WatchItem, WatchPlatform } from "@/lib/watch/types";
 import type { GuidePayload } from "@/lib/watch/guide-response";
@@ -46,6 +47,7 @@ const REPLAY_DAYS = 14;
 const SCHEDULE_DAYS = 7;
 const TWITCH_SCHEDULE_TTL = 5 * 60;
 const YOUTUBE_SCHEDULE_TTL = 4 * 60 * 60;
+const OPTIONAL_SOURCE_TIMEOUT_MS = 6_000;
 
 let twitchTokenCache: { value: string; expiresAt: number } | null = null;
 
@@ -368,8 +370,8 @@ async function loadRecordedSessions(): Promise<GuideProgram[]> {
         sourceUrl: `https://www.twitch.tv/${row.twitch_login}/videos`,
       };
     });
-  } catch {
-    return [];
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -497,9 +499,9 @@ export async function GET(request: Request) {
     .then((users) => loadTwitchSchedules(users, serverNow));
 
   const [twitchSchedule, youtubeUpcoming, sessions, catalog] = await Promise.all([
-    twitchSchedulePromise,
-    loadYoutubeUpcoming(serverNow),
-    loadRecordedSessions(),
+    guideSourceWithDeadline(twitchSchedulePromise, { items: [], state: "error" as SourceState }, OPTIONAL_SOURCE_TIMEOUT_MS),
+    guideSourceWithDeadline(loadYoutubeUpcoming(serverNow), { items: [], state: "error" as SourceState }, OPTIONAL_SOURCE_TIMEOUT_MS),
+    guideSourceWithDeadline<{ items: GuideProgram[]; state: "ok" | "error" }>(loadRecordedSessions().then((items) => ({ items, state: "ok" })), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS),
     // getWatchCatalog already coalesces and caches public data. Another
     // five-minute cache here hid live changes and cached failures as null.
     getWatchCatalog().catch(() => null),
@@ -511,7 +513,7 @@ export async function GET(request: Request) {
   const guideCatalog = guideLiveCatalog(catalog);
   const timeline = loadCatalogTimeline(guideCatalog);
   const networks = buildGuideNetworkRows(guideCatalog);
-  const replays = mergeReplays(sessions, timeline.filter((program) => program.status === "replay"));
+  const replays = mergeReplays(sessions.items, timeline.filter((program) => program.status === "replay"));
   const nonReplayTimeline = timeline.filter((program) => program.status !== "replay");
   const scheduledYoutubeIds = new Set(youtubeUpcoming.items.flatMap((item) => item.youtubeId ? [item.youtubeId] : []));
   const programs = removeActiveTwitchArchiveDuplicates(
@@ -527,6 +529,7 @@ export async function GET(request: Request) {
       sources: {
         twitchSchedule: twitchSchedule.state,
         youtubeUpcoming: youtubeUpcoming.state,
+        recordedSessions: sessions.state,
         socialTimeline: timeline.length ? "ok" : "empty",
       },
     };
@@ -535,7 +538,9 @@ export async function GET(request: Request) {
     request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(snapshot) : snapshot,
     {
       headers: {
-        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=180",
+        "Cache-Control": Object.values(payload.sources ?? {}).includes("error")
+          ? "no-store"
+          : "public, s-maxage=60, stale-while-revalidate=180",
         "Vary": "X-CORE-Guide-Format",
       },
     },

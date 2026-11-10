@@ -587,6 +587,9 @@ export function GuideGrid({
   const [requestedWindow, setRequestedWindow] = useState(initialGuide?.window);
   const { data, error, isLoading, isValidating, mutate } = useWatchGuide({ window: requestedWindow, initialData: initialGuide });
   const networkGroups = data?.networks?.length ? data.networks : networks;
+  const scheduleLoading = Boolean(data?.partial && isValidating && !error);
+  const scheduleNeedsRetry = Boolean(error || (data?.partial && !isValidating));
+  const sourcesIncomplete = Boolean(data && !data.partial && Object.values(data.sources ?? {}).includes("error"));
 
   useEffect(() => {
     const syncScheduleClock = () => setClockMs(Date.now());
@@ -1343,8 +1346,8 @@ export function GuideGrid({
       {queueLoadError ? <p role="status" className="guide-inline-note">Playback is ready, but the rest of the queue could not load. <button type="button" onClick={() => void hydratePlaybackQueue(queueLoadError)} className="underline">Try again</button></p> : null}
       {guideView === "now" ? <section className="guide-now-next" aria-labelledby="guide-now-next-title">
         <div className="guide-section-heading"><div><h2 id="guide-now-next-title">On now. Up next.</h2><p className="guide-inline-note">Live creators and always-on replay channels · {formatTimeZoneLabel(liveNowMs, timePreferences)}</p></div></div>
-        {data?.partial && !error ? <p role="status" className="guide-inline-note">Loading the full schedule…</p> : null}
-        {error ? <p role="status" className="guide-inline-note">Schedules could not refresh. Showing the latest available lineup.</p> : null}
+        {scheduleLoading ? <p role="status" className="guide-inline-note">Loading the full schedule…</p> : null}
+        {scheduleNeedsRetry || sourcesIncomplete ? <p role="status" className="guide-inline-note">{data?.partial ? "The full schedule isn’t available yet." : "Some schedule updates aren’t available."} <button type="button" className="underline" onClick={() => void mutate()}>Try again</button></p> : null}
         <div className="guide-now-next-grid">
           {nowNextRows.map(({ group, row, current, next }) => <article key={row.id} className="guide-now-next-card">
             <div className="guide-now-next-network"><ChannelMark channel={channelFor(row.timelineSlug)} /><div><strong>{group.network.name}</strong><span>{row.kind === "continuous" ? "24/7 · Replay channel" : "Live channel"}</span></div></div>
@@ -1409,9 +1412,9 @@ export function GuideGrid({
         </div>
 
         {isLoading && !data ? <GuideLoading /> : null}
-        {data?.partial && !error ? <p role="status" className="guide-inline-note">Loading the full schedule…</p> : null}
+        {scheduleLoading ? <p role="status" className="guide-inline-note">Loading the full schedule…</p> : null}
         {isValidating && data?.window && (range.start < data.window.start || range.end > data.window.end) ? <p role="status" className="guide-inline-note">Loading dates…</p> : null}
-        {error ? <p role="status" className="guide-inline-note">Couldn’t update the guide. <button type="button" className="underline" onClick={() => void mutate()}>Try again</button></p> : null}
+        {scheduleNeedsRetry || sourcesIncomplete ? <p role="status" className="guide-inline-note">{data?.partial ? "The full schedule isn’t available yet." : "Some schedule updates aren’t available."} <button type="button" className="underline" onClick={() => void mutate()}>Try again</button></p> : null}
 
         {!isLoading && lanes.length === 0 ? (
           <div className="guide-schedule-empty">
@@ -1476,7 +1479,7 @@ export function GuideGrid({
                           onPlay={playProgram}
                         />
                       ))}
-                      {lane.events.length === 0 ? <span className="guide-timeline-lane-empty">{data?.partial ? (error ? "Schedule unavailable" : "Loading schedule…") : emptyLaneLabel(lane.row)}</span> : null}
+                      {lane.events.length === 0 ? <span className="guide-timeline-lane-empty">{data?.partial ? (scheduleNeedsRetry ? "Schedule unavailable" : "Loading schedule…") : emptyLaneLabel(lane.row)}</span> : null}
                       {liveNowMs >= range.start && liveNowMs <= range.end ? (
                         <span className="guide-timeline-now" style={{ left: timelineOffsetPx(liveNowMs, range.start, range.pxPerMinute) }} aria-hidden />
                       ) : null}

@@ -8,6 +8,7 @@ export function useWatchGuide(options?: { window?: { start: number; end: number 
   const key = options?.window ? `${WATCH_GUIDE_KEY}?start=${options.window.start}&end=${options.window.end}${options.linear === false ? "&linear=0" : ""}` : WATCH_GUIDE_KEY;
   return useSWR(key, fetchWatchGuide, {
     fallbackData: options?.initialData,
+    revalidateOnMount: options?.initialData?.partial ? true : undefined,
     keepPreviousData: true,
     // Revisiting a surface immediately renders the same cached snapshot.
     // Concurrent mounts and quick navigation share a single network request.

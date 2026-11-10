@@ -201,3 +201,25 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
   assert.equal((await third.json()).programs[0].id, "catalog-recovered_3");
   assert.equal(catalogReads, 3, "Guide must follow the shared catalog freshness instead of holding another five-minute snapshot");
 });
+
+test("Guide returns its available schedule when an optional provider stalls", async (context) => {
+  const previousKey = process.env.YOUTUBE_API_KEY;
+  process.env.YOUTUBE_API_KEY = "test-key";
+  context.after(() => {
+    if (previousKey === undefined) delete process.env.YOUTUBE_API_KEY;
+    else process.env.YOUTUBE_API_KEY = previousKey;
+  });
+  const handlers = route<{ GET: (request: Request) => Promise<Response> }>("./app/api/watch/guide/route", {
+    "./lib/twitch": { fetchUsersByLogin: async () => ({}) },
+    "./lib/social-feed": { resolveYouTubeChannelId: () => new Promise(() => {}) },
+    "./lib/db": { query: async () => ({ rows: [] }) },
+    "./lib/watch/channels": { buildGuideNetworkRows: () => [] },
+    "./lib/watch/catalog": { getWatchCatalog: async () => ({ live: [], all: [{ ...video("available", "ron"), publishedAt: new Date().toISOString() }] }) },
+  });
+  const response = await handlers.GET(new Request("https://example.test/api/watch/guide"));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.sources.youtubeUpcoming, "error");
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(body.programs[0].id, "catalog-available");
+});

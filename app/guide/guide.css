@@ -64,7 +64,7 @@
 .guide-v2 .guide-page-header .watch-title { margin: 0; font-size: clamp(2rem, 3vw, 2.75rem) !important; line-height: 1.1; letter-spacing: -.04em; }
 .guide-v2 .guide-page-header > div:first-child > p { margin-top: .5rem; color: #aaaab4; font-size: .9375rem; }
 .guide-v2 .guide-page-header .guide-view-switch { margin: 0; padding: .25rem; border: 1px solid #ffffff1a; border-radius: .75rem; background: #111114; }
-.guide-v2 .guide-page-header .guide-view-switch button { border-color: transparent; background: transparent; cursor: pointer; transition: background 150ms, color 150ms; }
+.guide-v2 .guide-page-header .guide-view-switch button { border-color: transparent; border-radius: .5rem; background: transparent; cursor: pointer; transition: background 150ms, color 150ms; }
 .guide-v2 .guide-page-header .guide-view-switch button:hover { background: #ffffff10; color: #fff; }
 .guide-v2 .guide-page-header .guide-view-switch button[aria-pressed="true"] { background: #f4f4f6; color: #111; }
 .guide-v2 .guide-controls { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(12rem, 1.5fr); align-items: center; }
