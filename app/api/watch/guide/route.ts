@@ -6,6 +6,7 @@ import { resolveYouTubeChannelId } from "@/lib/social-feed";
 import { fetchUsersByLogin } from "@/lib/twitch";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { buildGuideNetworkRows } from "@/lib/watch/channels";
+import { guideLiveCatalog } from "@/lib/watch/guide-live-catalog";
 import { removeActiveTwitchArchiveDuplicates } from "@/lib/watch/guide-programs";
 import type { WatchCatalog, WatchItem, WatchPlatform } from "@/lib/watch/types";
 import type { GuidePayload } from "@/lib/watch/guide-response";
@@ -507,8 +508,9 @@ export async function GET(request: Request) {
   if (!catalog) {
     return NextResponse.json({ error: "Guide temporarily unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
-  const timeline = loadCatalogTimeline(catalog);
-  const networks = buildGuideNetworkRows(catalog);
+  const guideCatalog = guideLiveCatalog(catalog);
+  const timeline = loadCatalogTimeline(guideCatalog);
+  const networks = buildGuideNetworkRows(guideCatalog);
   const replays = mergeReplays(sessions, timeline.filter((program) => program.status === "replay"));
   const nonReplayTimeline = timeline.filter((program) => program.status !== "replay");
   const scheduledYoutubeIds = new Set(youtubeUpcoming.items.flatMap((item) => item.youtubeId ? [item.youtubeId] : []));

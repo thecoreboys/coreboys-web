@@ -30,6 +30,7 @@ export type GuideProgram = {
 };
 
 export type GuidePayload = {
+  partial?: boolean;
   window?: { start: number; end: number; earliest: number };
   serverNow: string;
   horizonEnd: string;

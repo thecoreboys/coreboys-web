@@ -529,11 +529,13 @@ export function GuideGrid({
   initialLive,
   networks,
   initialGuide,
+  partial: _partial,
 }: {
   serverNow: string;
   initialLive: WatchItem[];
   networks: GuideNetworkGroup[];
   initialGuide?: GuidePayload;
+  partial?: boolean;
 }) {
   const initialNowMs = safeTime(serverNow, Date.now());
   const timePreferences = useBrowserTimeZone();
@@ -734,7 +736,7 @@ export function GuideGrid({
     const vodSources = new Set(
       (data?.programs ?? []).filter((program) => program.status === "replay").map((program) => program.sourceUrl),
     );
-    const mergedPrograms = [...livePrograms, ...(data?.programs ?? []).filter((program) => !program.continuous)].filter((program) => {
+    const mergedPrograms = [...livePrograms, ...(data?.programs ?? []).filter((program) => !program.continuous && program.status !== "live")].filter((program) => {
       if (program.status === "published" && program.youtubeId && youtubeScheduled.has(program.youtubeId)) return false;
       if (program.status === "published" && program.watchItem?.kind === "vod" && vodSources.has(program.sourceUrl)) return false;
       if (program.status === "live") {
@@ -1341,6 +1343,7 @@ export function GuideGrid({
       {queueLoadError ? <p role="status" className="guide-inline-note">Playback is ready, but the rest of the queue could not load. <button type="button" onClick={() => void hydratePlaybackQueue(queueLoadError)} className="underline">Try again</button></p> : null}
       {guideView === "now" ? <section className="guide-now-next" aria-labelledby="guide-now-next-title">
         <div className="guide-section-heading"><div><h2 id="guide-now-next-title">On now. Up next.</h2><p className="guide-inline-note">Live creators and always-on replay channels · {formatTimeZoneLabel(liveNowMs, timePreferences)}</p></div></div>
+        {data?.partial && !error ? <p role="status" className="guide-inline-note">Loading the full schedule…</p> : null}
         {error ? <p role="status" className="guide-inline-note">Schedules could not refresh. Showing the latest available lineup.</p> : null}
         <div className="guide-now-next-grid">
           {nowNextRows.map(({ group, row, current, next }) => <article key={row.id} className="guide-now-next-card">
@@ -1349,7 +1352,7 @@ export function GuideGrid({
             {next ? <div className="guide-now-next-upcoming"><span>Next · {formatClock(next.startsAt, timePreferences)}</span><p>{next.title}</p></div> : <p className="guide-inline-note">{row.kind === "live" ? "Next stream not scheduled yet." : "More from this channel follows."}</p>}
           </article>)}
         </div>
-        {!nowNextRows.length ? <div className="guide-schedule-empty"><strong>No current channels match these filters.</strong><span>Clear a filter or open the full timeline for past broadcasts and posts.</span></div> : null}
+        {!nowNextRows.length && !data?.partial ? <div className="guide-schedule-empty"><strong>No current channels match these filters.</strong><span>Clear a filter or open the full timeline for past broadcasts and posts.</span></div> : null}
       </section> : null}
 
       {guideView === "timeline" ? <section className="guide-schedule guide-timeline-section" aria-labelledby="guide-timeline-title">
@@ -1406,6 +1409,7 @@ export function GuideGrid({
         </div>
 
         {isLoading && !data ? <GuideLoading /> : null}
+        {data?.partial && !error ? <p role="status" className="guide-inline-note">Loading the full schedule…</p> : null}
         {isValidating && data?.window && (range.start < data.window.start || range.end > data.window.end) ? <p role="status" className="guide-inline-note">Loading dates…</p> : null}
         {error ? <p role="status" className="guide-inline-note">Couldn’t update the guide. <button type="button" className="underline" onClick={() => void mutate()}>Try again</button></p> : null}
 

@@ -4,6 +4,7 @@ import { buildGuideNetworkRows } from "../lib/watch/channels";
 import { buildContinuousGuideSchedule } from "../lib/watch/continuous-schedule";
 import { guideProgramFromItem, GUIDE_MAX_WINDOW_MS, projectGuideWindow } from "../lib/watch/guide-window";
 import { packGuidePayload, unpackGuidePayload } from "../lib/watch/guide-transport";
+import { guideLiveCatalog } from "../lib/watch/guide-live-catalog";
 import type { WatchCatalog, WatchItem } from "../lib/watch/types";
 
 const now = Date.parse("2026-11-09T12:00:00Z");
@@ -56,6 +57,22 @@ test("a completed broadcast with an old live format is a replay, not live", () =
   assert.equal(program?.status, "replay");
   assert.equal(program?.contentType, "broadcast");
   assert.ok(program?.endsAt);
+});
+
+test("only currently observed broadcasts interrupt Guide rotations or appear live", () => {
+  const old = { ...items[0]!, id: "yt-old", kind: "live", format: "live", memberSlug: "lacy", href: "/theater?kind=live&src=youtube&id=old&format=live" } as WatchItem;
+  const current = { ...old, id: "yt-current", href: "/theater?kind=live&src=youtube&id=current&format=live", publishedAt: new Date(now).toISOString() };
+  const normalized = guideLiveCatalog({ ...catalog, all: [old, current], live: [current] });
+  assert.equal(normalized.all[0]!.kind, "vod");
+  assert.equal(normalized.all[0]!.format, "long");
+  assert.match(normalized.all[0]!.href, /kind=youtube/);
+  assert.equal(normalized.all[1]!.kind, "live");
+  assert.equal(old.kind, "live", "cached source data is not mutated");
+  const groups = buildGuideNetworkRows(normalized);
+  const programs = normalized.all.map((item) => guideProgramFromItem(item)!);
+  const projected = projectGuideWindow({ serverNow: new Date(now).toISOString(), horizonEnd: new Date(now + 86400000).toISOString(), networks: groups, programs }, now - 3600000, now + 3600000);
+  assert.ok(projected.programs.every((program) => program.watchItem?.id !== "yt-old" || program.status !== "live"));
+  assert.ok(projected.programs.some((program) => program.watchItem?.id === "yt-current" && program.status === "live"));
 });
 
 test("invalid or unbounded date windows cannot request the complete archive", () => {

@@ -181,7 +181,7 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
       events.push("catalog");
       catalogReads++;
       if (catalogReads === 1) throw new Error("temporary catalog failure");
-      return { all: [{ ...video(`recovered_${catalogReads}`, "ron"), format: "live", publishedAt: new Date().toISOString() }] };
+      return { live: [], all: [{ ...video(`recovered_${catalogReads}`, "ron"), format: "live", publishedAt: new Date().toISOString() }] };
     } },
   });
   const request = new Request("https://example.test/api/watch/guide");
