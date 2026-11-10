@@ -228,8 +228,8 @@ test("network hero starts muted and keeps the scheduled item through provider re
 });
 
 test("the channel leaves Twitch native controls uncovered and interactive", () => {
-  assert.match(channelPage, /usesTwitchSdk \? <div className=\{styles\.heroPreviewControls\}/);
-  assert.match(channelPage, /!usesTwitchSdk \? soundControl/);
+  assert.match(channelPage, /usesTwitchSdk \|\| \(mediaMounted && playable\?\.youtubeId && !directVideoUrl\) \? <div className=\{styles\.heroPreviewControls\}/);
+  assert.match(channelPage, /!usesTwitchSdk && !playable\?\.youtubeId \? soundControl/);
   assert.match(channelCss, /\.heroPreviewControls\s*\{[\s\S]{0,90}top: calc\(100% \+ \.5rem\)/);
   assert.match(channelCss, /\.heroPreviewProviderAutoplay \.heroPreviewTwitchMount iframe\s*\{\s*pointer-events: auto/);
   assert.match(channelCss, /\.heroPreviewProviderAutoplay:hover\s*\{[\s\S]{0,260}overflow: visible;\s*transform: none/);

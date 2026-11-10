@@ -2859,6 +2859,59 @@
   display: none;
 }
 
+/* First-party video can be the mobile artwork. Provider embeds stay visible
+   and unobstructed; YouTube does not permit a player behind hero copy. */
+@media (max-width: 899px) {
+  .watch-billboard-live-player.is-preview.is-native {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: block;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .watch-billboard-live-player.is-preview.is-native :is(.watch-billboard-live-frame, .watch-billboard-live-fallback) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .watch-billboard-live-player.is-preview.is-native .watch-billboard-live-frame { opacity: 0; }
+  .watch-billboard-live-player.is-preview.is-native.is-ready .watch-billboard-live-frame { opacity: 1; }
+  .watch-billboard-live-player.is-preview.is-native .watch-billboard-provider-status { display: none; }
+
+  .watch-billboard.has-live-player:has(.watch-billboard-live-player.is-youtube) {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+  .watch-billboard:has(.watch-billboard-live-player.is-youtube) .watch-billboard-copy {
+    order: 1;
+    padding-bottom: 1rem;
+  }
+  .watch-billboard-live-player.is-preview.is-youtube {
+    position: relative;
+    z-index: 3;
+    order: 2;
+    display: block;
+    width: calc(100% - 2.5rem);
+    min-height: 200px;
+    aspect-ratio: 16 / 9;
+    margin: 0 1.25rem 5rem;
+    background: #050506;
+  }
+  .watch-billboard-live-player.is-preview.is-youtube :is(.watch-billboard-live-frame, .watch-billboard-live-fallback) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .watch-billboard-live-player.is-preview.is-youtube .watch-billboard-live-frame { z-index: 1; }
+  .watch-billboard-live-player.is-preview.is-youtube .watch-billboard-provider-status { display: none; }
+}
+
 /* The provider preview lives in a cross-origin iframe, so its pointer events
    cannot bubble back into React. A separate sibling button provides the hero
    handoff without wrapping or covering the billboard's explicit controls. */
@@ -2995,6 +3048,10 @@
     width: 100%;
     height: 100%;
     border-radius: inherit;
+  }
+
+  .watch-billboard-live-player.is-preview.is-youtube .watch-billboard-live-frame {
+    pointer-events: auto;
   }
 
   /* Rounded clipping and shadows cause Twitch's visibility check to reject

@@ -457,7 +457,7 @@ function ChannelOnNowPreview({
     const updateFit = () => {
       const { width, height } = slot.getBoundingClientRect();
       const needsTwitchMinimum = entry.item.platform === "twitch";
-      setProviderFits(needsTwitchMinimum ? width >= 400 && height >= 300 : width >= 240 && height >= 135);
+      setProviderFits(needsTwitchMinimum ? width >= 400 && height >= 300 : width >= 200 && height >= 200);
     };
     updateFit();
     if (typeof ResizeObserver === "undefined") {
@@ -476,8 +476,8 @@ function ChannelOnNowPreview({
       return;
     }
     const observer = new IntersectionObserver(
-      ([result]) => setMostlyVisible(Boolean(result?.isIntersecting && result.intersectionRatio >= 0.45)),
-      { threshold: [0, 0.45, 1] },
+      ([result]) => setMostlyVisible(Boolean(result?.isIntersecting && result.intersectionRatio > 0.5)),
+      { threshold: [0, 0.51, 1] },
     );
     observer.observe(slot);
     return () => observer.disconnect();
@@ -583,7 +583,7 @@ function ChannelOnNowPreview({
       muted: true,
       autoplay: true,
       loop: false,
-      controls: false,
+      controls: true,
       startSeconds: previewStartSeconds,
     });
   }, [directVideoUrl, host, mediaMounted, playable, previewStartSeconds, usesTwitchSdk]);
@@ -894,14 +894,14 @@ function ChannelOnNowPreview({
       // Keep the Twitch iframe above decorative copy from its first paint. The
       // copy is useful for posters and non-Twitch embeds, but it can obscure a
       // muted autoplay attempt while the provider is still initializing.
-      className={`${styles.heroPreview} ${loaded ? styles.heroPreviewLoaded : ""} ${usesTwitchSdk ? styles.heroPreviewProviderAutoplay : ""}`.trim()}
+      className={`${styles.heroPreview} ${loaded ? styles.heroPreviewLoaded : ""} ${usesTwitchSdk || (mediaMounted && Boolean(playable?.youtubeId) && !directVideoUrl) ? styles.heroPreviewProviderAutoplay : ""}`.trim()}
       aria-label={`${channel.name} 24/7 on now`}
       data-autoplay={autoStart ? (playing ? "playing" : autoplayBlocked ? "blocked" : "pending") : "preference"}
       data-provider-playing={providerAutoplayPlaying ? "true" : undefined}
       data-provider={entry.item.platform}
       data-inline-channel-player={autoStart && mediaMounted ? "true" : undefined}
     >
-      <div className={styles.heroPreviewMedia} data-cursor-native={usesTwitchSdk ? "" : undefined} aria-hidden={usesTwitchSdk ? undefined : "true"}>
+      <div className={styles.heroPreviewMedia} data-cursor-native={usesTwitchSdk || playable?.youtubeId ? "" : undefined} aria-hidden={usesTwitchSdk || playable?.youtubeId ? undefined : "true"}>
         <WatchThumb
           src={entry.item.backdrop || entry.item.poster}
           youtubeId={entry.item.platform === "youtube" ? entry.item.id.replace(/^yt-/, "") : null}
@@ -953,8 +953,8 @@ function ChannelOnNowPreview({
         )}
         <span>24/7</span>
       </div>
-      {!usesTwitchSdk ? soundControl : null}
-      {!playing && !usesTwitchSdk ? (
+      {!usesTwitchSdk && !playable?.youtubeId ? soundControl : null}
+      {!playing && !usesTwitchSdk && !playable?.youtubeId ? (
         autoplayBlocked ? (
           retryControl
         ) : (
@@ -988,7 +988,7 @@ function ChannelOnNowPreview({
           <NetworkAdvisoryArtwork />
         </div>
       ) : null}
-      {usesTwitchSdk ? <div className={styles.heroPreviewControls}>
+      {usesTwitchSdk || (mediaMounted && playable?.youtubeId && !directVideoUrl) ? <div className={styles.heroPreviewControls}>
         {soundControl}
         {retryControl}
         {entry.item.sourceUrl ? <a href={entry.item.sourceUrl} target="_blank" rel="noopener noreferrer">

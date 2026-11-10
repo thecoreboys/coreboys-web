@@ -470,7 +470,7 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
       parent: host.parent,
       origin: host.origin,
       muted: true,
-      controls: false,
+      controls: true,
       autoplay: true,
       loop: false,
     });

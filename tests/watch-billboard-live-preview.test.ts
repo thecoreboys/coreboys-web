@@ -41,7 +41,7 @@ test("the right-side hero preview starts muted and honors viewing preferences an
   assert.match(previewPlayer, /width >= 400 && height >= 300/);
   assert.match(previewPlayer, /\(visibleWidth \* visibleHeight\) \/ \(rect\.width \* rect\.height\) >= 0\.5/);
   assert.doesNotMatch(previewPlayer, /className="watch-billboard-live-core-overlay"/);
-  assert.match(previewPlayer, /muted: true,[\s\S]{0,100}controls: false,[\s\S]{0,100}autoplay: true/);
+  assert.match(previewPlayer, /muted: true,[\s\S]{0,100}controls: true,[\s\S]{0,100}autoplay: true/);
   assert.match(previewPlayer, /nativeVideoUrl && wantsAutoplay \? \(/);
   assert.match(previewPlayer, /instance\?\.destroy\?\.\(\)/);
 });

@@ -330,6 +330,10 @@
 .heroPreviewProviderAutoplay .heroPreviewTwitchMount iframe {
   pointer-events: auto;
 }
+.heroPreviewProviderAutoplay .heroPreviewMedia > iframe {
+  opacity: 1;
+  pointer-events: auto;
+}
 .heroPreviewControls {
   position: absolute;
   top: calc(100% + .5rem);
