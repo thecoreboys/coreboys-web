@@ -2,7 +2,7 @@
   position: fixed;
   z-index: 94;
   right: max(1rem, env(safe-area-inset-right));
-  bottom: max(calc(var(--now-playing-h, 0px) + 1rem), env(safe-area-inset-bottom));
+  bottom: calc(max(calc(var(--now-playing-h, 0px) + 1rem), env(safe-area-inset-bottom)) + var(--mobile-nav-space, 0px));
   display: grid;
   grid-template-columns: 5.5rem minmax(13rem, 1fr) auto;
   grid-template-rows: auto 1fr;
@@ -24,7 +24,7 @@
 .isDragging { cursor: grabbing; transition: none; box-shadow: 0 24px 55px rgba(0,0,0,.46); }
 .isHidden { visibility: hidden; pointer-events: none; }
 .isMobileCollapsed { visibility: hidden; pointer-events: none; }
-.mobileToggle { position: fixed; z-index: 95; right: max(.75rem, env(safe-area-inset-right)); bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px)); display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #45464c; border-radius: .8rem; color: #f5f5f5; background: #202126; font: 700 .75rem/1 inherit; }
+.mobileToggle { position: fixed; z-index: 95; right: max(.75rem, env(safe-area-inset-right)); bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px)); display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #45464c; border-radius: .8rem; color: #f5f5f5; background: #202126; font: 700 .75rem/1 inherit; }
 .mobileToggle:focus-visible { outline: 2px solid #f39a87; outline-offset: 3px; }
 :global(body[data-cookie-consent-open="true"]) .root,
 :global(body[data-cookie-consent-open="true"]) .edgeRestore,
@@ -104,7 +104,8 @@
 :global(html[data-theme="light"]) .mobileToggle,
 :global(html[data-theme="light"]) .edgeRestore { color: #263c2f; background: #e9ede6; border-color: #b8c3b9; }
 @media (max-width: 560px) {
-  .root { grid-template-columns: minmax(0, 1fr) auto; min-height: 4.9rem; width: calc(100vw - 1.5rem); left: .75rem !important; right: .75rem !important; top: auto !important; bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + 3.5rem) !important; cursor: auto; touch-action: pan-y; }
+  .root { grid-template-columns: minmax(0, 1fr) auto; min-height: 4.9rem; width: calc(100vw - 1.5rem); left: .75rem !important; right: .75rem !important; top: auto !important; bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + 3.5rem + var(--mobile-nav-space, 0px)) !important; cursor: auto; touch-action: pan-y; }
+  .mobileToggle { bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px)); }
   .signal { display: none; }
   .signal { min-height: 4.9rem; }
   .tuner { gap: .4rem; min-height: 2.1rem; padding-inline: .45rem; }

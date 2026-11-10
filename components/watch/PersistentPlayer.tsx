@@ -2933,6 +2933,7 @@ export function PersistentPlayer() {
         aria-label="Now playing"
         role={modalTheater ? "dialog" : "region"}
         aria-modal={modalTheater ? true : undefined}
+        data-player-fullscreen={isFullscreen ? "true" : undefined}
         data-page-pointer-inside={playerScreen ? pagePointerInside : undefined}
         className={
           playerScreen

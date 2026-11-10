@@ -13,6 +13,7 @@ import { GlobalWatchEnhancements } from "@/components/watch/GlobalWatchEnhanceme
 import { TopNav } from "@/components/chrome/TopNav";
 import { LiveRibbon } from "@/components/live/LiveRibbon";
 import { GlobalSiteFooter } from "@/components/chrome/GlobalSiteFooter";
+import { MobileBottomNav } from "@/components/chrome/MobileBottomNav";
 
 import { ConsoleEgg } from "@/components/editorial/ConsoleEgg";
 import { CursorLoader } from "@/components/editorial/CursorLoader";
@@ -33,6 +34,7 @@ import "./cta-polish.css";
 import "./site-polish.css";
 import "./text-polish.css";
 import "./watch-search.css";
+import "./mobile-bottom-nav.css";
 
 // One typeface across the entire product. Inter's variable font covers every
 // weight used by the streaming UI without introducing mismatched display,
@@ -164,6 +166,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 {children}
               </main>
               <GlobalSiteFooter />
+              <Suspense fallback={null}><MobileBottomNav /></Suspense>
               </div>
                <GlobalWatchEnhancements />
               <Suspense fallback={null}>
