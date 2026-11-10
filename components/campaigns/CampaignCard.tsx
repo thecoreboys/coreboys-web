@@ -40,5 +40,5 @@ export function CampaignCard({ campaign, preview = false, duplicate = false }: {
       <span className={styles.cardCta}>View campaign <span aria-hidden="true">↗</span></span>
     </div>
   </>;
-  return preview ? <article className={styles.card}>{contents}</article> : <a className={styles.card} href={campaign.campaignUrl} target="_blank" rel="noopener noreferrer" tabIndex={duplicate ? -1 : undefined} aria-label={`${campaign.title} — view campaign on Content Rewards (opens in a new tab)`}>{contents}</a>;
+  return preview ? <article className={styles.card}>{contents}</article> : <a className={styles.card} href={campaign.campaignUrl} target="_blank" rel="noopener noreferrer" tabIndex={duplicate ? -1 : undefined} aria-label={`${campaign.title} — view campaign on Content Rewards (opens in your browser)`}>{contents}</a>;
 }

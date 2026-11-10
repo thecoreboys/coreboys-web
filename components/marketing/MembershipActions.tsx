@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { navigateToUrl } from "@/lib/external-navigation";
 import { AlertCircle, CheckCircle, ChevronDown, ChevronUp, CreditCard, ExternalLink, LoaderCircle } from "lucide-react";
 import styles from "./PricingExperience.module.css";
 
@@ -87,7 +88,7 @@ export function MembershipActions({ active, configured }: { active: boolean; con
       const response = await fetch("/api/account/billing/portal", { method: "POST", credentials: "same-origin" });
       const data = await response.json() as { url?: string; error?: string };
       if (!response.ok || !data.url) { setError(messageFor(data.error, bounds)); return; }
-      window.location.assign(data.url);
+      navigateToUrl(data.url, { fallback: "same-tab" });
     } catch { setError("Billing is temporarily unavailable. Please try again."); }
     finally { setPending(null); }
   }
@@ -109,7 +110,7 @@ export function MembershipActions({ active, configured }: { active: boolean; con
       if (!response.ok) { setError(messageFor(data.error, bounds)); return; }
       if (kind === "checkout") {
         if (!data.url) { setError("Billing is temporarily unavailable. Please try again."); return; }
-        window.location.assign(data.url);
+        navigateToUrl(data.url, { fallback: "same-tab" });
         return;
       }
       setNotice(`Your next renewal is now ${dollars(amountCents)}. No immediate charge or proration was created.`);

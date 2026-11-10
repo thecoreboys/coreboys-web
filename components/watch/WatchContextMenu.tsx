@@ -35,6 +35,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { navigateToUrl } from "@/lib/external-navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
@@ -252,7 +253,7 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
           } else copy(canonicalHref);
         },
       },
-      { id: "source", label: `Open on ${item.platform === "x" ? "X" : item.platform}`, icon: ExternalLink, onSelect: () => window.open(sourceHref, "_blank", "noopener,noreferrer") },
+      { id: "source", label: `Open on ${item.platform === "x" ? "X" : item.platform}`, icon: ExternalLink, onSelect: () => navigateToUrl(sourceHref) },
     ];
     if (item.memberSlug) shareActions.push({ id: "creator", label: `View ${item.memberLabel}`, icon: Info, onSelect: () => router.push(`/members/${item.memberSlug}` as never) });
 
@@ -273,7 +274,7 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
           window.dispatchEvent(new CustomEvent("core-watch-search", { detail: { query: text } }));
           announce("Search opened");
         } },
-        { id: "search-web", label: "Search the web", icon: ExternalLink, onSelect: () => window.open(`https://www.google.com/search?q=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer") },
+        { id: "search-web", label: "Search the web", icon: ExternalLink, onSelect: () => navigateToUrl(`https://www.google.com/search?q=${encodeURIComponent(text)}`) },
       ],
     }];
   }, [copy, menu, announce]);
@@ -284,8 +285,8 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
     return [
       {
         actions: [
-          { id: "open-link", label: "Open link", icon: ExternalLink, onSelect: () => window.location.assign(href), hint: "Enter" },
-          { id: "open-new-tab", label: "Open in new tab", icon: ExternalLink, onSelect: () => window.open(href, "_blank", "noopener,noreferrer") },
+          { id: "open-link", label: "Open link", icon: ExternalLink, onSelect: () => navigateToUrl(href, { fallback: "same-tab" }), hint: "Enter" },
+          { id: "open-new-tab", label: "Open in new tab", icon: ExternalLink, onSelect: () => navigateToUrl(href) },
           { id: "copy-link", label: "Copy link", icon: Copy, onSelect: () => copy(href) },
           { id: "share-link", label: "Share…", icon: Share2, onSelect: () => {
             if (navigator.share) void navigator.share({ title: label, url: href }).catch(() => undefined);

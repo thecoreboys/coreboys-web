@@ -6,6 +6,7 @@
 output
 *.tsbuildinfo
 node_modules
+native
 coverage
 dist
 out

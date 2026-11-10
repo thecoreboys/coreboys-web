@@ -3,6 +3,10 @@ node_modules
 .next-*
 out
 dist
+native/expo/.expo/
+native/expo/dist-check/
+native/expo/android/
+native/expo/ios/
 # The web app vendors the built shared package so private-repository cloud
 # builds do not need a second GitHub checkout or a long-lived GitHub token.
 !vendor/

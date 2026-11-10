@@ -1,0 +1,27 @@
+{
+  "name": "coreboys-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "typecheck": "node scripts/verify-webview-patch.mjs && tsc --noEmit",
+    "export:ios": "expo export --platform ios --output-dir dist-check"
+  },
+  "dependencies": {
+    "expo": "58.0.23",
+    "expo-crypto": "58.0.7",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "5.11.1",
+    "react-native-webview": "14.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "typescript": "6.0.3"
+  },
+  "engines": { "node": "^22.13.0 || ^24.3.0 || >=26.0.0" },
+  "packageManager": "pnpm@10.33.0"
+}

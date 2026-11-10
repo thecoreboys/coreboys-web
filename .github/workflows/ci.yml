@@ -31,6 +31,27 @@ jobs:
       - run: pnpm test
       - name: Verify guest enrollment metadata against isolated PostgreSQL
         run: node scripts/test-face-people-sql.mjs
+  expo-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: native/expo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: native/expo/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm export:ios
+        env:
+          CI: "1"
   face-worker-tests:
     runs-on: ubuntu-latest
     steps:
