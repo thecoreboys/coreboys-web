@@ -47,6 +47,17 @@ const toolkit = [
   },
 ] as const;
 
+const videoIdeas = [
+  { image: "science-fair", title: "CORE SCIENCE FAIR: Whose Experiment Will Win?" },
+  { image: "kart-challenges", title: "CORE GO KARTS: Soccer, Bowling & Pure Chaos" },
+  { image: "world-records", title: "DUDE IMPERFECT: We Tried Breaking the Dumbest World Records" },
+  { image: "blanket-fort", title: "We Built the World’s Biggest Blanket Fort at the CORE House" },
+  { image: "ninja", title: "CORE Attempts an American Ninja Warrior Course" },
+  { image: "single", title: "CORE Plays Odd One Out: Who Is Single?" },
+  { image: "gay", title: "CORE Plays Odd One Out: Who Is Gay?" },
+  { image: "millionaire", title: "CORE Plays Odd One Out: Who Is a Millionaire?" },
+] as const;
+
 export default function SpecialMessagePage() {
   return (
     <>
@@ -59,20 +70,20 @@ export default function SpecialMessagePage() {
           </div>
           <header className={styles.frontPage}>
             <div className={styles.headlineCopy}>
-                <p className={styles.eyebrow}>A note from the person who built this</p>
-                <h1>CORE gave me <span>something to look forward to.</span></h1>
+                <p className={styles.eyebrow}>A personal message from Michael</p>
+                <h1>CORE, I&apos;d love to <span>work with you.</span></h1>
                 <p className={styles.dek}>
-                  Hi. CORE&apos;s streams and videos gave me an easy way to laugh when life felt
-                  heavy. I made this site to say thank you, and to tell you a little about the
-                  person behind it.
+                  I built this site because your streams helped me through some hard days.
+                  I&apos;d love to help with the website and whatever else CORE wants to build,
+                  from software and infrastructure to cameras, audio, and live production.
                 </p>
                 <div className={styles.heroActions}>
-                  <a href="#beginning">Follow the timeline <ArrowDown size={17} aria-hidden="true" /></a>
-                  <a href="#receipts">Explore my work <ArrowUpRight size={17} aria-hidden="true" /></a>
+                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">Get in touch <ArrowUpRight size={17} aria-hidden="true" /></a>
+                  <a href="#beginning">My story <ArrowDown size={17} aria-hidden="true" /></a>
                 </div>
                 <div className={styles.heroByline}>
                   <span className={styles.bylineMark} aria-hidden="true">mc_</span>
-                  <p><strong>Michael Cran</strong><span>Software engineer. Maker. CORE fan.</span></p>
+                  <p><strong>Michael</strong><span>Software, production and a lot of curiosity.</span></p>
                 </div>
             </div>
           <figure className={styles.heroFigure}>
@@ -86,7 +97,6 @@ export default function SpecialMessagePage() {
               sizes="(max-width: 900px) 100vw, 45vw"
               priority
             />
-            <figcaption><span>It started with a reason to smile.</span><span aria-hidden="true">↳</span></figcaption>
           </figure>
           </header>
 
@@ -344,7 +354,6 @@ export default function SpecialMessagePage() {
                 height={710}
                 sizes="(max-width: 900px) 100vw, 58vw"
               />
-              <p className={styles.imageIndex}>The site I built</p>
             </div>
 
             <div className={styles.toolkitIntro}>
@@ -354,6 +363,11 @@ export default function SpecialMessagePage() {
                 Most of my work happens where code, cameras, sound, and hardware meet. I like
                 learning how the pieces fit together, then getting my hands on the part that
                 needs fixing or building.
+              </p>
+              <p>
+                I&apos;m a recent computer science graduate trying to find my footing in a job
+                market being reshaped by AI. It&apos;s been difficult, but I still want to make
+                useful things and work with people who care about what they create.
               </p>
             </div>
 
@@ -366,6 +380,37 @@ export default function SpecialMessagePage() {
                 </section>
               ))}
             </div>
+
+            <div className={styles.productionWork}>
+              <div className={styles.productionIntro}>
+                <h3>Behind the camera, too.</h3>
+                <div>
+                  <p>I&apos;ve worked with DJI drones and wireless mics, RØDE mics, Shure microphones and headsets, Sony Alpha 7, FX3 and FX5 cameras, lighting and sound boards, studio lighting, and XLR cable management.</p>
+                  <p>I know how to stream drone footage live and manage video ingest. I&apos;ve also built my own ingest management server and toolkit. From planning and production through execution, I like taking an idea, building it, and making it work at scale.</p>
+                  <p className={styles.productionCredit}>Equipment images are illustrative.</p>
+                </div>
+              </div>
+              <div className={styles.productionGallery}>
+                <Image src="/special-message/production/drone.webp" alt="Illustration of a drone and controller on a production table" width={1200} height={800} sizes="(max-width: 700px) 100vw, 33vw" />
+                <Image src="/special-message/production/audio.webp" alt="Illustration of an audio console, microphones and cables" width={1200} height={800} sizes="(max-width: 700px) 100vw, 33vw" />
+                <Image src="/special-message/production/camera.webp" alt="Illustration of a camera and lighting setup" width={1200} height={800} sizes="(max-width: 700px) 100vw, 33vw" />
+              </div>
+            </div>
+
+            <section className={styles.ideasSection} aria-labelledby="ideas-title">
+              <div>
+                <h3 id="ideas-title">Ideas for CORE</h3>
+                <p>A few video concepts I&apos;d love to help bring to life. These are proposed ideas, with illustrative thumbnails.</p>
+              </div>
+              <div className={styles.ideasGrid}>
+                {videoIdeas.map((idea) => (
+                  <article className={styles.ideaCard} key={idea.image}>
+                    <Image src={`/special-message/ideas/${idea.image}.webp`} alt="" width={1200} height={675} sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw" />
+                    <h4>{idea.title}</h4>
+                  </article>
+                ))}
+              </div>
+            </section>
 
             <PanoramaViewer />
           </section>
@@ -398,7 +443,6 @@ export default function SpecialMessagePage() {
                   height={1298}
                   sizes="(max-width: 760px) 100vw, 66vw"
                 />
-                <figcaption>Loop under construction</figcaption>
               </figure>
 
               <figure className={styles.workbenchInset}>
@@ -409,7 +453,6 @@ export default function SpecialMessagePage() {
                   height={1000}
                   sizes="(max-width: 760px) 62vw, 28vw"
                 />
-                <figcaption>Lights on</figcaption>
               </figure>
 
               <div className={styles.workbenchCopy}>
@@ -678,22 +721,6 @@ export default function SpecialMessagePage() {
                 streams, clips, and old memories I kept going back to in one place. If it helps
                 someone else find something to watch, that would make me happy.
               </p>
-              <div className={styles.supportNote}>
-                <span>A practical note</span>
-                <p>
-                  Keeping this site running is expensive. Azure hosting, storage buckets,
-                  databases, Redis, social-fetch listeners waiting for new posts, API fees, and
-                  the station audio setup all add up. If you would like to
-                  help, please consider supporting the site for at least $3 a month, or whatever
-                  amount feels right to you. I am hoping it can at least pay for itself. If it can
-                  do more than that, it would mean the world to me.
-                </p>
-                <p>
-                  I am also in a difficult place personally. I am at risk of losing my housing,
-                  have no contact with my mother, and have been couch surfing. I do not want to
-                  put pressure on the people helping me, which is why I am asking here instead.
-                </p>
-              </div>
               <p className={styles.craftClosing}>
                 CORE&apos;s phrase, Create. Own. Run. Everything., has stuck with me. It sounds like
                 the kid I was at 11: take an idea seriously, learn what it takes, and build it
@@ -737,10 +764,9 @@ export default function SpecialMessagePage() {
           </section>
 
           <div className={styles.contactPanel}>
-            <div><p className={styles.eyebrow}>The next chapter</p><h2>Let&apos;s build something.</h2><p>Code, production, or a conversation about where this could go.</p></div>
+            <div><p className={styles.eyebrow}>To the CORE team</p><h2>CORE, I&apos;d love to work with you.</h2><p>On this site, on your next technical project, or behind the scenes in production. If you&apos;d like to talk, I&apos;d be glad to hear from you.</p></div>
             <div className={styles.contactLinks}>
               <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">Talk to me on X <ArrowUpRight size={18} aria-hidden="true" /></a>
-              <a href="https://mdcran.com" target="_blank" rel="noreferrer">Explore mdcran.com <ArrowUpRight size={18} aria-hidden="true" /></a>
             </div>
           </div>
           </div>
