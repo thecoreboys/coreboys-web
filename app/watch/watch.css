@@ -2322,14 +2322,6 @@
   padding: 2.6rem 0.78rem 0.7rem;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .watch-poster:hover .watch-poster-copy,
-  .watch-poster.is-preview-open .watch-poster-copy {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-
 .watch-poster-title {
   color: #fff;
   font-size: 0.82rem;

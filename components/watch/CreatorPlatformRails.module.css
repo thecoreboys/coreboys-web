@@ -99,6 +99,9 @@
 .section .homeMediaRail :global(.watch-poster .watch-poster-member),
 .section .homeMediaRail :global(.watch-poster .watch-poster-footer-meta) { display: none; }
 .section .homeMediaRail :global(.watch-poster.is-preview-open .watch-poster-copy) { opacity: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .section .homeMediaRail :global(.watch-poster:hover .watch-poster-copy) { opacity: 0; }
+}
 @media (prefers-reduced-motion: reduce) {
   .section .homeMediaRail :global(.watch-poster .watch-poster-copy) { transition: none; }
 }
