@@ -9014,3 +9014,11 @@ body:has(.watch-player-media[data-twitch-native-player]) .watch-together__trigge
 .watch-poster:focus-within > .watch-poster-link img {
   transform:scale(1.09);
 }
+/* Keep vertical swipes with the short-form player. Provider frames retain
+   their central controls; the edge strips carry gestures around cross-origin frames. */
+@media (pointer: coarse) {
+  .watch-player-media[data-short-swipe="true"] { touch-action: pan-x; }
+  .watch-short-swipe-edge { position: absolute; top: 12%; bottom: 15%; width: 18%; z-index: 20; touch-action: pan-x; }
+  .watch-short-swipe-edge--left { left: 0; }
+  .watch-short-swipe-edge--right { right: 0; }
+}

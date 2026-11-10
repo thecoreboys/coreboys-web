@@ -31,7 +31,6 @@ import { countLiveCreators } from "@/lib/watch/live-source-groups";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
-import { supporterPriceLabel, useSupporterBillingControls } from "@/hooks/useSupporterBillingControls";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import type { UnifiedLiveEntry, UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
 
@@ -109,17 +108,6 @@ export function TopNav() {
     0,
   ) + youtubeLiveEntries.reduce((sum, e) => sum + (e.viewerCount ?? 0), 0);
   const { user, loading: authLoading, logout } = useAuth();
-  const supporterControls = useSupporterBillingControls();
-  const supporterPrice = !supporterControls?.checkoutAvailable || supporterControls.renewalsDisabledAt
-    ? "Paused"
-    : supporterControls
-      ? `${supporterPriceLabel(supporterControls.minimumAmountCents)}+`
-      : "Monthly";
-  const supporterAriaLabel = !supporterControls?.checkoutAvailable || supporterControls.renewalsDisabledAt
-    ? "View CORE membership information; supporter plans are temporarily unavailable"
-    : supporterControls
-      ? `Support the CORE website from ${supporterPriceLabel(supporterControls.minimumAmountCents)} per month`
-      : "Explore CORE website membership";
 
   const prefetchOnIntent = (href: string) => {
     if (prefetchedRoutes.current.has(href)) return;
@@ -403,17 +391,6 @@ export function TopNav() {
             </button>
           ) : null}
 
-          <Link prefetch={false}
-            href="/upgrade"
-            data-cursor-hint="Explore member benefits"
-            aria-label={supporterAriaLabel}
-            className="nav-membership-cta relative hidden min-h-10 items-center gap-2 overflow-hidden rounded-xl px-3 text-xs font-medium text-[color:var(--ink)] transition-colors hover:bg-[color:var(--ui-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)] lg:inline-flex"
-          >
-            <Gem size={14} strokeWidth={1.5} aria-hidden />
-            <span className="whitespace-nowrap">Support the site</span>
-            <span className="hidden text-xs font-normal text-[color:var(--ink-dim)] xl:inline">{supporterPrice}</span>
-          </Link>
-
           <ThemeToggle />
 
           {/* Keep live status visible without an animated promotion. */}
@@ -587,8 +564,13 @@ export function TopNav() {
       </div>
 
       {open ? (
-        <div id="mobile-navigation" data-lenis-prevent className="core-topnav__mobile-menu absolute inset-x-0 top-full max-h-[calc(100dvh-var(--site-header-h,8rem))] overflow-y-auto overscroll-contain border-y border-[color:var(--rule)] bg-[color:var(--bg)] pb-[env(safe-area-inset-bottom)] shadow-xl lg:hidden">
+        <div id="mobile-navigation" data-lenis-prevent className="core-topnav__mobile-menu absolute inset-x-0 top-full overflow-y-auto overscroll-contain border-y border-[color:var(--rule)] bg-[color:var(--bg)] shadow-xl lg:hidden">
           <nav aria-label="Mobile navigation" className="mx-auto max-w-container px-4 py-4 sm:px-6">
+            {!authLoading && !user ? (
+              <Button color="secondary" size="lg" className="mb-5 w-full" onPress={() => { setOpen(false); openAuth(); }}>
+                Sign in
+              </Button>
+            ) : null}
             <p className="text-xs font-medium text-[color:var(--ink-dim)]">Networks</p>
             <ul className="mt-3 grid grid-cols-2 gap-2">
               {NETWORK_CHANNELS.map((network) => {
@@ -639,18 +621,9 @@ export function TopNav() {
               ))}
             </div>
 
-            <Link prefetch={false}
-              href="/upgrade"
-              onClick={() => setOpen(false)}
-              className="mt-5 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[color:var(--ui-line)] px-3.5 text-sm font-medium text-[color:var(--ink)] transition-colors hover:bg-[color:var(--ui-hover)]"
-            >
-              <span className="inline-flex items-center gap-2"><Gem size={16} aria-hidden /> Support the site</span>
-              <span className="text-xs font-normal text-[color:var(--ink-dim)]">{supporterPrice}</span>
-            </Link>
-
             {/* Account + theme controls — mirror the desktop right rail so
                 everything reachable on desktop is reachable here too. */}
-            <p className="mt-6 text-xs font-medium text-[color:var(--ink-dim)]">Account</p>
+            {authLoading || user ? <p className="mt-6 text-xs font-medium text-[color:var(--ink-dim)]">Account</p> : null}
             <div className="mt-3 flex items-center gap-2">
               {authLoading ? (
                 <span
@@ -694,11 +667,7 @@ export function TopNav() {
                     Billing
                   </Link>
                 </div>
-              ) : (
-                <Button color="secondary" size="lg" className="flex-1" onPress={() => { setOpen(false); openAuth(); }}>
-                  Sign in
-                </Button>
-              )}
+              ) : null}
             </div>
 
           </nav>

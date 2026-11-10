@@ -31,7 +31,6 @@ import { Shelf } from "./PosterCard";
 import { DragScrollRail } from "./DragScrollRail";
 import { LiveHomeXFeeds } from "./LiveHomeXFeeds";
 import type { LiveXFeedResponse } from "@/lib/watch/live-x-feed";
-import { SupporterCta } from "@/components/marketing/SupporterCta";
 import { CampaignSection } from "@/components/campaigns/CampaignSection";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import type { CoreOriginal } from "@/lib/core-originals";
@@ -442,10 +441,6 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
         </section>
 
         <LiveHomeXFeeds initialMembers={initialXFeed?.members ?? xPosts} initialCrew={initialXFeed?.crew ?? crewXPosts} spaces={xSpaces} />
-
-        <div className="w-full px-5 md:px-10">
-          <SupporterCta placement="watch" />
-        </div>
 
         <div id="watch-full-library" className="watch-full-library">
           {(catalog.programmingSections ?? []).map((section) => {

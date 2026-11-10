@@ -8,12 +8,14 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type TouchEvent as ReactTouchEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "@/components/ui/SiteImage";
 import { loadTwitchPlayer } from "@/lib/watch/twitch-player";
+import { shortSwipeDirection } from "@/lib/watch/short-swipe";
 import { advancingTwitchPlayback, createTwitchLivePlaybackClock, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import {
   Archive,
@@ -907,6 +909,8 @@ export function PersistentPlayer() {
   const shortWheelResetTimerRef = useRef<number | null>(null);
   const shortWheelLockUntilRef = useRef(0);
   const shortKeyLockUntilRef = useRef(0);
+  const shortTouchRef = useRef<{ id: number; x: number; y: number } | null>(null);
+  const shortSwipeSuppressClickUntilRef = useRef(0);
   const youtubeVolumeRef = useRef(1);
   const volumeItemKeyRef = useRef<string | null>(null);
   const previewDuckTimersRef = useRef<Set<number>>(new Set());
@@ -1925,6 +1929,30 @@ export function PersistentPlayer() {
       setTouchControlsVisible(true);
     }
   }, [navigateShortForm, playbackSettingsOpen, shortFormTheaterNavigation]);
+
+  const onShortTouchStart = useCallback((event: ReactTouchEvent<HTMLElement>) => {
+    shortTouchRef.current = null;
+    if (!shortFormTheaterNavigation || playbackSettingsOpen || event.touches.length !== 1) return;
+    const target = event.target as Element;
+    if (target.closest("button, a, input, select, textarea, [role='slider']") && !target.closest("[data-youtube-interaction-shield]")) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    shortTouchRef.current = { id: touch.identifier, x: touch.clientX, y: touch.clientY };
+  }, [playbackSettingsOpen, shortFormTheaterNavigation]);
+
+  const onShortTouchEnd = useCallback((event: ReactTouchEvent<HTMLElement>) => {
+    const start = shortTouchRef.current;
+    shortTouchRef.current = null;
+    if (!start || event.touches.length) return;
+    const touch = Array.from(event.changedTouches).find((point) => point.identifier === start.id);
+    if (!touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    const direction = shortSwipeDirection(dx, dy);
+    if (!direction) return;
+    shortSwipeSuppressClickUntilRef.current = Date.now() + 500;
+    if (navigateShortForm(direction)) setTouchControlsVisible(true);
+  }, [navigateShortForm]);
 
   const onMessage = useCallback(
     (event: MessageEvent) => {
@@ -3143,6 +3171,9 @@ export function PersistentPlayer() {
             <div className={playerScreen ? `watch-player-frame-shell relative isolate w-full overflow-visible ${isFullscreen ? "h-full" : ""} ${guideOverlayOpen ? "is-guide-open" : ""} ${inlineGuideVodDetails ? "is-guide-vod" : ""}` : "contents"}>
               <div
                 onPointerDown={revealTouchControls}
+                onTouchStart={onShortTouchStart}
+                onTouchEnd={onShortTouchEnd}
+                onTouchCancel={() => { shortTouchRef.current = null; }}
                 onPointerUp={(event) => {
                   if (event.button !== 2 || !contextMenu) return;
                   event.preventDefault();
@@ -3156,6 +3187,7 @@ export function PersistentPlayer() {
                 data-twitch-native-player={cleanTwitchFrame ? true : undefined}
                 data-cursor-native={twitchInteractive ? true : undefined}
                 data-core-twitch-controls={coreTwitchLiveControls ? true : undefined}
+                data-short-swipe={shortFormTheaterNavigation ? "true" : undefined}
                 className={
                   cleanTwitchFrame
                     ? `watch-player-media relative z-10 w-full bg-black ${isFullscreen ? "h-full" : aspect}`
@@ -3502,7 +3534,7 @@ export function PersistentPlayer() {
                 <button
                   type="button"
                   data-youtube-interaction-shield
-                  onClick={togglePlayback}
+                  onClick={() => { if (Date.now() >= shortSwipeSuppressClickUntilRef.current) togglePlayback(); }}
                   aria-label={isPlaying ? "Pause video" : "Play video"}
                   aria-pressed={isPlaying}
                   className="absolute inset-0 z-[12] cursor-pointer border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/85"
@@ -3548,6 +3580,12 @@ export function PersistentPlayer() {
                     </button>
                   </Tooltip>
                 </div>
+              ) : null}
+              {shortFormTheaterNavigation && !current.youtubeId && !nativeMedia && src ? (
+                <>
+                  <div aria-hidden="true" data-short-swipe-edge className="watch-short-swipe-edge watch-short-swipe-edge--left" />
+                  <div aria-hidden="true" data-short-swipe-edge className="watch-short-swipe-edge watch-short-swipe-edge--right" />
+                </>
               ) : null}
               {!twitchInteractive && !shortsPage ? <PlayerNetworkWatermark channel={channel} compact={!playerScreen} /> : null}
               {!twitchInteractive && channel ? (
