@@ -42,3 +42,9 @@ One decorative background was generated for this refresh: `public/design/core-at
 Use gradients for the opening and occasional callouts, keep ordinary content cards neutral, use one main action per decision, and keep service/status explanations in the relevant controls. Retain the accurate independent fan-site notice: a polished appearance must not imply affiliation.
 
 The ambient finishing pass adds one soft rose/champagne wash around the homepage creator section and a bottom-lit gradient on the shared footer. Both fade into the surrounding canvas, use theme-specific low-opacity colors, and keep the existing spacing and controls. The mid-page glow narrows its vertical spread on phones; forced-color mode removes decorative layers. These accents are static CSS and add no image downloads or animation.
+
+## The builder's log
+
+The November 10 special-message redesign is a dedicated dark reading experience: graphite surfaces, lime accents, small monospace chapter labels, and a connected vertical timeline. A desktop chapter index tracks the current section and reading progress; smaller screens get a wrapping chapter grid and a single reading column. Chapter offsets work with the shared header's existing scroll padding. All 83 original text blocks and all original photos, clips, posters, screenshots, and the interactive panorama are retained. The previously hidden platform screenshots now form a visible chapter. Build videos retain lazy loading, offer native pause/play controls, and honor reduced-motion preferences.
+
+The creator name, Michael Cran, is supported by the indexed mdcran.com portfolio listing reviewed November 10, 2026. The live portfolio returned a Deployment Paused page, so no new career dates or project claims were inferred from it. Links to the portfolio and the existing @berryeyu contact remain available. The shared banner explicitly identifies the site as unofficial and links to the creator's message.

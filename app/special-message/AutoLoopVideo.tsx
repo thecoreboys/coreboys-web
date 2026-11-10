@@ -5,17 +5,26 @@ import { useEffect, useRef, useState } from "react";
 type AutoLoopVideoProps = {
   src: string;
   poster: string;
+  label: string;
   className?: string;
 };
 
-export function AutoLoopVideo({ src, poster, className }: AutoLoopVideoProps) {
+export function AutoLoopVideo({ src, poster, label, className }: AutoLoopVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
+  const [allowAutoplay, setAllowAutoplay] = useState(false);
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setAllowAutoplay(!preference.matches);
+    update();
+    preference.addEventListener("change", update);
+    return () => preference.removeEventListener("change", update);
+  }, []);
 
   // The film rail sits well below the initial viewport. Keep its still
   // poster immediately available, but defer each MP4 request until the rail
-  // is approaching the screen. Once mounted, the existing autoplay loop
-  // behavior stays exactly the same.
+  // is approaching the screen.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -44,54 +53,30 @@ export function AutoLoopVideo({ src, poster, className }: AutoLoopVideoProps) {
       return;
     }
 
-    let resumeTimer: number | undefined;
-
     // The <source> is introduced after the video element has mounted. Force
     // a fresh resource selection before the first play attempt so this works
     // consistently in Safari as well as Chromium.
     video.load();
-
-    const keepPlaying = () => {
-      video.muted = true;
-      video.defaultMuted = true;
-      video.volume = 0;
-
-      const attempt = video.play();
-      void attempt?.catch(() => {
-        // Muted playback can still be delayed while a browser is restoring a page.
-        // The next ready/playable event retries without surfacing a broken control.
-      });
-    };
-
-    const resumeAfterPause = () => {
-      window.clearTimeout(resumeTimer);
-      resumeTimer = window.setTimeout(keepPlaying, 40);
-    };
-
-    keepPlaying();
-    video.addEventListener("canplay", keepPlaying);
-    video.addEventListener("pause", resumeAfterPause);
-    video.addEventListener("ended", keepPlaying);
-
-    return () => {
-      window.clearTimeout(resumeTimer);
-      video.removeEventListener("canplay", keepPlaying);
-      video.removeEventListener("pause", resumeAfterPause);
-      video.removeEventListener("ended", keepPlaying);
-    };
   }, [shouldLoad, src]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !shouldLoad) return;
+    if (allowAutoplay) void video.play().catch(() => { /* Native controls remain available. */ });
+    else video.pause();
+  }, [allowAutoplay, shouldLoad, src]);
 
   return (
     <video
       ref={videoRef}
       className={className}
-      autoPlay
+      autoPlay={allowAutoplay}
       loop
       muted
       playsInline
       preload={shouldLoad ? "metadata" : "none"}
-      tabIndex={-1}
-      aria-hidden="true"
+      controls
+      aria-label={label}
       poster={poster}
     >
       {shouldLoad ? <source src={src} type="video/mp4" /> : null}

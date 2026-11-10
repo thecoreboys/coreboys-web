@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
+import { ArrowDown, ArrowLeft, ArrowUpRight, Code2, Cpu, Radio } from "lucide-react";
 import { AutoLoopVideo } from "./AutoLoopVideo";
 import { PanoramaViewer } from "./PanoramaViewer";
 import { StoryProgress } from "./StoryProgress";
@@ -50,44 +51,66 @@ export default function SpecialMessagePage() {
   return (
     <>
       <article id="special-message-top" className={styles.page}>
-        <StoryProgress />
         <div className={styles.paper}>
+          <div className={styles.systemBar}>
+            <Link href="/"><ArrowLeft size={14} aria-hidden="true" /> Back to CORE</Link>
+            <span>The builder&apos;s log <span aria-hidden="true">/</span> A personal message</span>
+            <span className={styles.independentBadge}><i aria-hidden="true" /> Independent project</span>
+          </div>
           <header className={styles.frontPage}>
-            <div className={styles.headlineGrid}>
-              <div className={styles.headlineCopy}>
+            <div className={styles.headlineCopy}>
                 <p className={styles.eyebrow}>A note from the person who built this</p>
-                <h1>CORE gave me something to look forward to.</h1>
+                <h1>CORE gave me <span>something to look forward to.</span></h1>
                 <p className={styles.dek}>
                   Hi. CORE&apos;s streams and videos gave me an easy way to laugh when life felt
                   heavy. I made this site to say thank you, and to tell you a little about the
                   person behind it.
                 </p>
-              </div>
+                <div className={styles.heroActions}>
+                  <a href="#beginning">Follow the timeline <ArrowDown size={17} aria-hidden="true" /></a>
+                  <a href="#receipts">Explore my work <ArrowUpRight size={17} aria-hidden="true" /></a>
+                </div>
+                <div className={styles.heroByline}>
+                  <span className={styles.bylineMark} aria-hidden="true">mc_</span>
+                  <p><strong>Michael Cran</strong><span>Software engineer. Maker. CORE fan.</span></p>
+                </div>
             </div>
-          </header>
-
           <figure className={styles.heroFigure}>
+            <div className={styles.mediaBar}><span>THE PEOPLE WHO INSPIRED IT</span><span>CORE / COMMUNITY</span></div>
             <Image
               className={styles.heroImage}
               src="/special-message/core-huddle.webp"
               alt="A real group photo of CORE members and friends looking down toward the camera."
               width={1600}
               height={2400}
-              sizes="100vw"
+              sizes="(max-width: 900px) 100vw, 45vw"
               priority
             />
+            <figcaption><span>It started with a reason to smile.</span><span aria-hidden="true">↳</span></figcaption>
           </figure>
+          </header>
 
-          <section id="beginning" className={styles.chapter}>
+          <div className={styles.disciplineBar} aria-label="Where my work comes together">
+            <span>Curiosity, connected.</span>
+            <span><Code2 size={16} aria-hidden="true" /> Software &amp; engineering</span>
+            <span><Radio size={16} aria-hidden="true" /> Production &amp; A/V</span>
+            <span><Cpu size={16} aria-hidden="true" /> Hardware &amp; IT</span>
+          </div>
+
+          <div id="story-timeline" className={styles.readingLayout}>
+          <StoryProgress />
+          <div className={styles.timelineMain}>
+
+          <section id="beginning" data-step="01" className={styles.chapter}>
             <div className={styles.chapterLabel}>
-              <span>When I was 11</span>
+              <span><b>01</b> When I was 11</span>
               <p>My first big idea</p>
             </div>
 
             <div className={styles.storyCopy}>
               <p className={styles.previously}>A Miami Heat game, a soccer field, and Minecraft</p>
               <h2>I was always the kid behind the scenes.</h2>
-              <p className={styles.dropCap}>
+              <p>
                 I was 11 when I first got into programming. One of my earliest site ideas came
                 from a Miami Heat game. My dad bought the tickets as a Christmas and birthday
                 gift, then realized the seller had scammed him. Somehow, the night still turned
@@ -124,9 +147,9 @@ export default function SpecialMessagePage() {
             </aside>
           </section>
 
-          <section id="creator-work" className={`${styles.chapter} ${styles.creatorChapter}`}>
+          <section id="creator-work" data-step="02" className={styles.chapter}>
             <div className={styles.chapterLabel}>
-              <span>2018 to 2021</span>
+              <span><b>02</b> 2018 to 2021</span>
               <p>Building for creators</p>
             </div>
 
@@ -233,9 +256,9 @@ export default function SpecialMessagePage() {
             </aside>
           </section>
 
-          <section id="hard-years" className={`${styles.chapter} ${styles.chapterDark}`}>
+          <section id="hard-years" data-step="03" className={styles.chapter}>
             <div className={styles.chapterLabel}>
-              <span>A difficult stretch</span>
+              <span><b>03</b> A difficult stretch</span>
               <p>High school through college</p>
             </div>
 
@@ -272,16 +295,16 @@ export default function SpecialMessagePage() {
             <strong>That is where CORE enters this story.</strong>
           </div>
 
-          <section id="why-core" className={styles.chapter}>
+          <section id="why-core" data-step="04" className={styles.chapter}>
             <div className={styles.chapterLabel}>
-              <span>Why I started again</span>
+              <span><b>04</b> Why I started again</span>
               <p>College to now</p>
             </div>
 
             <div className={styles.storyCopy}>
               <p className={styles.previously}>The reason I made this site</p>
               <h2>CORE gave me something to come back to on hard days.</h2>
-              <p className={styles.dropCap}>
+              <p>
                 There were days when I woke up already exhausted, went through the motions,
                 and did not really feel like myself. During that time, I would put on a stream,
                 watch a clip, or find some ridiculous joke and let it give me a break. It did not
@@ -308,7 +331,10 @@ export default function SpecialMessagePage() {
             </aside>
           </section>
 
-          <section id="what-i-built" className={styles.toolkitSection}>
+          <section id="what-i-built" data-step="05" className={styles.toolkitSection}>
+            <div className={styles.chapterLabel}>
+              <span><b>05</b> Code meets production</span><p>The toolkit</p>
+            </div>
             <div className={styles.toolkitImageWrap}>
               <Image
                 className={styles.toolkitImage}
@@ -318,7 +344,6 @@ export default function SpecialMessagePage() {
                 height={710}
                 sizes="(max-width: 900px) 100vw, 58vw"
               />
-              <span className={styles.imageTape} aria-hidden="true" />
               <p className={styles.imageIndex}>The site I built</p>
             </div>
 
@@ -345,7 +370,10 @@ export default function SpecialMessagePage() {
             <PanoramaViewer />
           </section>
 
-          <section id="receipts" className={styles.receiptsSection}>
+          <section id="receipts" data-step="06" className={styles.receiptsSection}>
+            <div className={styles.chapterLabel}>
+              <span><b>06</b> The work, up close</span><p>Projects + proof</p>
+            </div>
             <header className={styles.receiptsHeader}>
               <div>
                 <p className={styles.eyebrow}>A few things I have made</p>
@@ -374,7 +402,6 @@ export default function SpecialMessagePage() {
               </figure>
 
               <figure className={styles.workbenchInset}>
-                <span className={styles.imageTape} aria-hidden="true" />
                 <Image
                   src="/special-message/evidence/pc-build-lit.webp"
                   alt="The completed custom water-cooled computer glowing through its glass side panel."
@@ -399,24 +426,30 @@ export default function SpecialMessagePage() {
 
                 </div>
 
-                <div className={styles.filmRail} aria-label="Computer build film clips">
+                <div className={styles.filmRail} role="region" tabIndex={0} aria-label="Computer build film clips">
               <figure>
                 <AutoLoopVideo
                   src="/special-message/evidence/pc-build-macro.mp4"
                   poster="/special-message/evidence/pc-build-open.webp"
+                  label="Water-cooled computer build detail"
                 />
+                <figcaption>01 / The details</figcaption>
               </figure>
               <figure>
                 <AutoLoopVideo
                   src="/special-message/evidence/pc-build-tour.mp4"
                   poster="/special-message/evidence/pc-build-lit.webp"
+                  label="A tour of the finished computer build"
                 />
+                <figcaption>02 / The finished build</figcaption>
               </figure>
               <figure>
                 <AutoLoopVideo
                   src="/special-message/evidence/pc-build-red.mp4"
                   poster="/special-message/evidence/pc-build-red-poster.webp"
+                  label="Computer build with red lighting"
                 />
+                <figcaption>03 / Lights on</figcaption>
               </figure>
                 </div>
 
@@ -500,6 +533,7 @@ export default function SpecialMessagePage() {
               </div>
               <figure>
                 <video
+                  aria-label="Spanish-language CORE backyard video demo"
                   controls
                   playsInline
                   preload="metadata"
@@ -518,80 +552,10 @@ export default function SpecialMessagePage() {
             </div>
           </section>
 
-          <p className={styles.continuedNote}>One last thing</p>
-
-          <section id="thank-you" className={`${styles.chapter} ${styles.chapterProof}`}>
+          <section id="platform-story" data-step="07" className={styles.platformStory} aria-labelledby="platform-story-title">
             <div className={styles.chapterLabel}>
-              <span>To the CORE team and community</span>
-              <p>Thank you</p>
+              <span><b>07</b> Inside the platform</span><p>CORE Watch</p>
             </div>
-
-            <div className={styles.storyCopy}>
-              <h2>I wanted to say thank you.</h2>
-              <p>
-                I built this because CORE and its community have meant a lot to me. I wanted the
-                streams, clips, and old memories I kept going back to in one place. If it helps
-                someone else find something to watch, that would make me happy.
-              </p>
-              <div className={styles.supportNote}>
-                <span>A practical note</span>
-                <p>
-                  Keeping this site running is expensive. Azure hosting, storage buckets,
-                  databases, Redis, social-fetch listeners waiting for new posts, API fees, and
-                  the station audio setup all add up. If you would like to
-                  help, please consider supporting the site for at least $3 a month, or whatever
-                  amount feels right to you. I am hoping it can at least pay for itself. If it can
-                  do more than that, it would mean the world to me.
-                </p>
-                <p>
-                  I am also in a difficult place personally. I am at risk of losing my housing,
-                  have no contact with my mother, and have been couch surfing. I do not want to
-                  put pressure on the people helping me, which is why I am asking here instead.
-                </p>
-              </div>
-              <p className={styles.craftClosing}>
-                CORE&apos;s phrase, Create. Own. Run. Everything., has stuck with me. It sounds like
-                the kid I was at 11: take an idea seriously, learn what it takes, and build it
-                with your own hands.
-              </p>
-            </div>
-
-            <div className={styles.proofNotes}>
-              <div className={styles.clippedNote}>
-                <small>CORE means</small>
-                <span>Create.</span>
-                <span>Own.</span>
-                <span>Run.</span>
-                <strong>Everything.</strong>
-              </div>
-
-              <aside className={styles.disclaimerCard}>
-                <span>Disclaimer</span>
-                <p>
-                  This is an independent, community-created project and is not affiliated with,
-                  endorsed by, or officially associated with CORE or its members.
-                </p>
-                <p>
-                  The project is publicly shared as a portfolio piece to showcase my web
-                  development, design, and software engineering work.
-                </p>
-                <p>
-                  I&apos;m a big believer in the potential of CORE as a brand, platform, and
-                  community, and I&apos;d love the opportunity to connect with Adapt, Woj, Bepsy,
-                  or anyone on the technical, marketing, or digital team to discuss the project,
-                  future ideas, or ways I could potentially contribute.
-                </p>
-                <p>
-                  Feel free to reach out to me on X: {" "}
-                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">
-                    @berryeyu
-                  </a>
-                </p>
-              </aside>
-            </div>
-          </section>
-
-          {false ? <section className={styles.platformStory} aria-labelledby="platform-story-title">
             <header className={styles.platformStoryHeader}>
               <div>
                 <p className={styles.platformStoryKicker}>The platform / built to last</p>
@@ -697,11 +661,94 @@ export default function SpecialMessagePage() {
               </p>
               <strong>Create. Own. Run. Everything. Own the platform.</strong>
             </div>
-          </section> : null}
+          </section>
+
+          <p className={styles.continuedNote}>One last thing</p>
+
+          <section id="thank-you" data-step="08" className={`${styles.chapter} ${styles.chapterProof}`}>
+            <div className={styles.chapterLabel}>
+              <span><b>08</b> To the CORE team and community</span>
+              <p>Thank you</p>
+            </div>
+
+            <div className={styles.storyCopy}>
+              <h2>I wanted to say thank you.</h2>
+              <p>
+                I built this because CORE and its community have meant a lot to me. I wanted the
+                streams, clips, and old memories I kept going back to in one place. If it helps
+                someone else find something to watch, that would make me happy.
+              </p>
+              <div className={styles.supportNote}>
+                <span>A practical note</span>
+                <p>
+                  Keeping this site running is expensive. Azure hosting, storage buckets,
+                  databases, Redis, social-fetch listeners waiting for new posts, API fees, and
+                  the station audio setup all add up. If you would like to
+                  help, please consider supporting the site for at least $3 a month, or whatever
+                  amount feels right to you. I am hoping it can at least pay for itself. If it can
+                  do more than that, it would mean the world to me.
+                </p>
+                <p>
+                  I am also in a difficult place personally. I am at risk of losing my housing,
+                  have no contact with my mother, and have been couch surfing. I do not want to
+                  put pressure on the people helping me, which is why I am asking here instead.
+                </p>
+              </div>
+              <p className={styles.craftClosing}>
+                CORE&apos;s phrase, Create. Own. Run. Everything., has stuck with me. It sounds like
+                the kid I was at 11: take an idea seriously, learn what it takes, and build it
+                with your own hands.
+              </p>
+            </div>
+
+            <div className={styles.proofNotes}>
+              <div className={styles.clippedNote}>
+                <small>CORE means</small>
+                <span>Create.</span>
+                <span>Own.</span>
+                <span>Run.</span>
+                <strong>Everything.</strong>
+              </div>
+
+              <aside className={styles.disclaimerCard}>
+                <span>Disclaimer</span>
+                <p>
+                  This is an independent, community-created project and is not affiliated with,
+                  endorsed by, or officially associated with CORE or its members.
+                </p>
+                <p>
+                  The project is publicly shared as a portfolio piece to showcase my web
+                  development, design, and software engineering work.
+                </p>
+                <p>
+                  I&apos;m a big believer in the potential of CORE as a brand, platform, and
+                  community, and I&apos;d love the opportunity to connect with Adapt, Woj, Bepsy,
+                  or anyone on the technical, marketing, or digital team to discuss the project,
+                  future ideas, or ways I could potentially contribute.
+                </p>
+                <p>
+                  Feel free to reach out to me on X: {" "}
+                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">
+                    @berryeyu
+                  </a>
+                </p>
+              </aside>
+            </div>
+          </section>
+
+          <div className={styles.contactPanel}>
+            <div><p className={styles.eyebrow}>The next chapter</p><h2>Let&apos;s build something.</h2><p>Code, production, or a conversation about where this could go.</p></div>
+            <div className={styles.contactLinks}>
+              <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">Talk to me on X <ArrowUpRight size={18} aria-hidden="true" /></a>
+              <a href="https://mdcran.com" target="_blank" rel="noreferrer">Explore mdcran.com <ArrowUpRight size={18} aria-hidden="true" /></a>
+            </div>
+          </div>
+          </div>
+          </div>
 
           <div className={styles.endBar}>
             <Link href="/">Explore what I built</Link>
-            <span aria-hidden="true">◆</span>
+            <span>Made with purpose. Built independently.</span>
             <a href="#special-message-top">Back to the top</a>
           </div>
         </div>
