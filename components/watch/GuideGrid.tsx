@@ -1476,7 +1476,7 @@ export function GuideGrid({
                           onPlay={playProgram}
                         />
                       ))}
-                      {lane.events.length === 0 ? <span className="guide-timeline-lane-empty">{emptyLaneLabel(lane.row)}</span> : null}
+                      {lane.events.length === 0 ? <span className="guide-timeline-lane-empty">{data?.partial ? (error ? "Schedule unavailable" : "Loading schedule…") : emptyLaneLabel(lane.row)}</span> : null}
                       {liveNowMs >= range.start && liveNowMs <= range.end ? (
                         <span className="guide-timeline-now" style={{ left: timelineOffsetPx(liveNowMs, range.start, range.pxPerMinute) }} aria-hidden />
                       ) : null}
