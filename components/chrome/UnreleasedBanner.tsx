@@ -12,7 +12,7 @@ export function UnreleasedBanner() {
         Unofficial fan site - not affiliated with CORE.{" "}
         </span>
         <Link href="/special-message" className="rounded-sm font-semibold underline underline-offset-4 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
-          <span className="sm:hidden">Read message</span>
+          <span className="sm:hidden">Read note</span>
           <span className="hidden sm:inline">Read a message from the site creator.</span>
         </Link>
       </p>
