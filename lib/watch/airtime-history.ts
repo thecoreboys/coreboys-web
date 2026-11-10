@@ -98,6 +98,21 @@ export function dateKeyInTimeZone(valueMs: number, timeZone: string): string {
   ].join("-");
 }
 
+/** The most recent local calendar year, ending today, including leap days. */
+export function recentAirtimeDateKeys(nowMs: number, timeZone: string): string[] {
+  const today = dateKeyInTimeZone(nowMs, timeZone);
+  const [year, month, day] = today.split("-").map(Number);
+  const end = Date.UTC(year!, month! - 1, day!);
+  const start = new Date(end);
+  start.setUTCFullYear(start.getUTCFullYear() - 1);
+  start.setUTCDate(start.getUTCDate() + 1);
+  const days: string[] = [];
+  for (let cursor = start.getTime(); cursor <= end; cursor += DAY_MS) {
+    days.push(new Date(cursor).toISOString().slice(0, 10));
+  }
+  return days;
+}
+
 /**
  * Build honest Guide-history rows from public Twitch broadcasts. These are
  * provider start times and durations, not locally observed viewer samples.

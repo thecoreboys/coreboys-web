@@ -1565,10 +1565,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       // and play immediately without a provider-side Play click.
       ...additions.map((item, index) => makeTile(item, previous.length + index, true)),
     ];
-    // A newly populated room is always Theater-first. Subsequent live fills
+    // Two live streams start equal. Subsequent live fills
     // preserve a viewer's selected preset or freeform canvas instead of
     // snapping their room back to a generic grid.
-    const preset: WorkspacePreset = previous.length ? presetRef.current : "theater-first";
+    const preset: WorkspacePreset = previous.length ? presetRef.current : combined.length === 2 ? "split" : "theater-first";
     const next = positionTiles(combined, preset, columnsRef.current);
     tilesRef.current = next;
     setTiles(next);

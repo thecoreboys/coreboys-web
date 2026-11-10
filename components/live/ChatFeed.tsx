@@ -427,7 +427,7 @@ export function ChatFeed({
             <MessageChatCircle className="size-4 shrink-0 text-brand-secondary" aria-hidden />
           )}
           <span className="truncate text-sm font-semibold text-primary">
-            {title ?? (merged ? "One room" : channels[0]?.displayName ?? "Chat")}
+            {title ?? (merged ? "Twitch chat" : channels[0]?.displayName ?? "Chat")}
           </span>
           <BadgeWithDot type="pill-color" size="sm" color={statusColor}>
             {statusLabel}

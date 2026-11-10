@@ -115,6 +115,18 @@ test("non-live catalog entries do not consume live-room capacity", () => {
   assert.equal(room.totalLive, 3);
 });
 
+test("simulcasts use one live-room slot and keep both sources switchable", () => {
+  const twitch = item("alpha-twitch");
+  const youtube = { ...item("alpha-youtube"), platform: "youtube" as const, memberSlug: twitch.memberSlug };
+  const other = item("bravo");
+  const locked = item("charlie");
+  const source = catalog([twitch, youtube, other, locked]);
+  const room = buildMultiviewLiveRoom(source.live, false);
+  assert.deepEqual(room.playableItems.map((entry) => entry.id), [twitch.id, other.id]);
+  assert.equal(room.lockedSlots.length, 1);
+  assert.deepEqual(restrictCatalogForLiveRoom(source, room).live.map((entry) => entry.id), [twitch.id, youtube.id, other.id]);
+});
+
 test("restricted live-room catalogs remove denied transports from every nested surface", () => {
   const entries = [item("alpha"), item("bravo"), item("charlie"), item("video", "youtube")];
   const source = catalog(entries);

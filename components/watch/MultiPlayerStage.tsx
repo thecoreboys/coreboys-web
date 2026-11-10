@@ -36,6 +36,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { ChatDock, ChatSessionProvider } from "@/components/live/chat";
+import { YouTubeLiveChat } from "@/components/live/YouTubeLiveChat";
 import { usePlayer, type PlayerContextValue } from "@/components/providers/PlayerProvider";
 import { MEMBERS } from "@/lib/members";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
@@ -261,6 +262,7 @@ export function MultiPlayerStage({
   const [setupOpen, setSetupOpen] = useState(false);
   const [audioPickerOpen, setAudioPickerOpen] = useState(false);
   const [chatGuestLogin, setChatGuestLogin] = useState("");
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const importedRef = useRef(false);
   const autoLiveRoomRef = useRef(false);
   const offlineHandledRef = useRef(new Set<string>());
@@ -435,7 +437,7 @@ export function MultiPlayerStage({
       for (const tile of player.tiles) player.removeTile(tile.id);
     }
     player.fillWithLive(roomLive, { limit: tileLimit });
-    player.setChatChannels(currentLive.flatMap((item) => item.twitchLogin ? [item.twitchLogin] : []));
+    player.setChatChannels(currentLive.flatMap((item) => item.platform === "twitch" && item.twitchLogin ? [item.twitchLogin] : []));
     player.setChatMode("combined");
     if (player.chatDock === "closed") player.setChatDock("right");
     // The Theater panel opens on Details. Chat stays connected and one click
@@ -446,7 +448,6 @@ export function MultiPlayerStage({
   }, [authoritativeLiveRoom, autoFillLive, currentLive, liveStatus, player, roomLive, subscription.loading, tileLimit]);
 
   const focused = player.focusedTile ?? player.tiles[0] ?? null;
-  const audioLead = player.tiles.find((tile) => !tile.muted && !tile.standby) ?? null;
   const focusedMember = useMemo(() => {
     if (!focused) return null;
     return MEMBERS.find((entry) =>
@@ -505,12 +506,26 @@ export function MultiPlayerStage({
   }, [focused, player, visibleTiles]);
 
   const chatLogins = useMemo(() => Array.from(new Set([
-    focused?.item.twitchLogin ?? focusedMember?.twitchLogin,
+    focused?.item.platform === "twitch" ? focused.item.twitchLogin ?? focusedMember?.twitchLogin : null,
     ...player.chatChannels,
-    ...player.tiles.map((tile) => tile.item.twitchLogin
-      ?? MEMBERS.find((member) => member.slug === tile.item.memberSlug)?.twitchLogin),
+    ...player.tiles.map((tile) => tile.item.platform === "twitch" && tile.item.kind === "live" ? tile.item.twitchLogin
+      ?? MEMBERS.find((member) => member.slug === tile.item.memberSlug)?.twitchLogin : null),
   ].filter((login): login is string => Boolean(login)))).slice(0, 8), [focused, focusedMember, player.chatChannels, player.tiles]);
   const chatChannels = useMemo(() => chatLogins.map(channelFor), [chatLogins]);
+  const youtubeChats = useMemo(() => {
+    const seen = new Set<string>();
+    return player.tiles.flatMap(({ item }) => {
+      const id = item.kind === "live" && item.platform === "youtube" ? item.youtubeId : null;
+      if (!id || seen.has(id)) return [];
+      seen.add(id);
+      return [{ id, label: item.memberLabel || "YouTube", title: item.title }];
+    });
+  }, [player.tiles]);
+  const hasRoomChat = chatChannels.length > 0 || youtubeChats.length > 0;
+  const activeChat = selectedChat === "twitch" && chatChannels.length ? "twitch"
+    : selectedChat && youtubeChats.some((entry) => entry.id === selectedChat) ? selectedChat
+    : focused?.item.platform === "youtube" && focused.item.kind === "live" && youtubeChats.some((entry) => entry.id === focused.item.youtubeId)
+      ? focused.item.youtubeId : chatChannels.length ? "twitch" : youtubeChats[0]?.id;
   // This provider intentionally outlives the visual ChatDock. Changing from
   // side → bottom → floating only remounts the presentation, not the IRC
   // session or its buffered history.
@@ -694,7 +709,7 @@ export function MultiPlayerStage({
     const remaining = Math.max(0, tileLimit - player.tiles.length);
     if (remaining > 0) player.fillWithLive(available.slice(0, remaining), { limit: tileLimit });
     if (currentLive.length) {
-      player.setChatChannels(currentLive.flatMap((item) => item.twitchLogin ? [item.twitchLogin] : []));
+      player.setChatChannels(currentLive.flatMap((item) => item.platform === "twitch" && item.twitchLogin ? [item.twitchLogin] : []));
       setAudioPickerOpen(true);
     }
     if (available.length > remaining && !expandedMultiview) {
@@ -719,10 +734,17 @@ export function MultiPlayerStage({
     });
   }, [sourceOpen]);
 
-  const chat = chatChannels.length ? (
+  const chat = hasRoomChat ? (
     <div className="flex h-full min-h-0 flex-col gap-2">
+      {chatChannels.length + youtubeChats.length > 1 ? <div className="flex shrink-0 gap-2 overflow-x-auto pb-1" aria-label="Live chat sources">
+        {chatChannels.length ? <button type="button" onClick={() => setSelectedChat("twitch")} aria-pressed={activeChat === "twitch"} className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${activeChat === "twitch" ? "bg-white text-black" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"}`}>Twitch</button> : null}
+        {youtubeChats.map((entry) => <button key={entry.id} type="button" onClick={() => setSelectedChat(entry.id)} aria-pressed={activeChat === entry.id} className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${activeChat === entry.id ? "bg-white text-black" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"}`}>YouTube · {entry.label}</button>)}
+      </div> : null}
+      {activeChat !== "twitch" && youtubeChats.find((entry) => entry.id === activeChat) ? <YouTubeLiveChat videoId={activeChat!} title={youtubeChats.find((entry) => entry.id === activeChat)!.title} /> : activeChat === "twitch" ? <>
+      <details className="shrink-0 rounded-xl border border-white/10 bg-white/[0.025] px-3 text-xs text-white/70">
+      <summary className="cursor-pointer py-3 font-semibold hover:text-white">Chat settings</summary>
       <form
-        className="flex shrink-0 items-center gap-2 rounded-xl bg-white/[0.035] p-2 ring-1 ring-white/8"
+        className="flex flex-wrap items-center gap-2 pb-3"
         onSubmit={(event) => {
           event.preventDefault();
           const login = chatGuestLogin.trim().replace(/^@/, "").toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -731,13 +753,14 @@ export function MultiPlayerStage({
           setChatGuestLogin("");
         }}
       >
-        <label className="flex min-w-0 flex-1 items-center gap-2 text-[10px] text-white/48">
-          <span className="shrink-0">Text</span>
+        <label className="flex w-full items-center gap-2 text-xs text-white/60">
+          <span className="shrink-0">Text size</span>
         <input aria-label="Chat text size" type="range" min="0.7" max="1.8" step="0.1" value={player.chatTextScale} onChange={(event) => player.setChatTextScale(Number(event.target.value))} className="min-w-0 flex-1 cursor-pointer accent-white" />
         </label>
-        <input value={chatGuestLogin} onChange={(event) => setChatGuestLogin(event.target.value)} placeholder="Add chat" className="min-h-9 w-20 rounded-lg bg-black/30 px-2 text-[10px] text-white outline-none ring-1 ring-white/10 placeholder:text-white/30 focus:ring-white/25" />
-        <button type="submit" className="min-h-9 rounded-lg bg-white px-2.5 text-[10px] font-semibold text-black">Add</button>
+        <input aria-label="Twitch channel name" value={chatGuestLogin} onChange={(event) => setChatGuestLogin(event.target.value)} placeholder="Twitch channel" className="min-h-10 min-w-0 flex-1 rounded-lg bg-black/30 px-3 text-xs text-white outline-none ring-1 ring-white/10 placeholder:text-white/40 focus:ring-white/25" />
+        <button type="submit" className="min-h-10 rounded-lg bg-white px-3 text-xs font-semibold text-black">Add chat</button>
       </form>
+      </details>
       <ChatDock
         channels={chatChannels}
         mode={player.chatMode}
@@ -750,8 +773,10 @@ export function MultiPlayerStage({
         showTimestamps={player.showChatTimestamps}
         maxConnected={chatConnectionLimit}
         dataSaver={player.dataSaver}
+        showToolbar={chatChannels.length > 1}
         className="min-h-0 flex-1"
       />
+      </> : null}
     </div>
   ) : (
     <EmptyChat onAdd={() => openSources()} />
@@ -765,7 +790,7 @@ export function MultiPlayerStage({
       forceCompactDesktop={Boolean(
         !mobile
         && !player.maximizedTileId
-        && player.layoutPreset === "theater-first"
+        && (player.layoutPreset === "theater-first" || player.layoutPreset === "split")
         && visibleTiles.length === 2
         && visibleTiles.some((tile) => tile.item.platform === "twitch"),
       )}
@@ -781,7 +806,7 @@ export function MultiPlayerStage({
   const theaterTwitchPair = Boolean(
     !mobile
     && !player.maximizedTileId
-    && player.layoutPreset === "theater-first"
+    && (player.layoutPreset === "theater-first" || player.layoutPreset === "split")
     && visibleTiles.length === 2
     && visibleTiles.some((tile) => tile.item.platform === "twitch"),
   );
@@ -804,31 +829,11 @@ export function MultiPlayerStage({
     <section aria-label="Multiview room" className="min-h-[calc(100dvh-4rem)] bg-[#050506] text-white">
       <div className="mx-auto max-w-[1880px] px-3 py-4 sm:px-5 lg:px-7">
         <header className="mb-3 flex min-h-12 flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,.22),transparent_40%),linear-gradient(145deg,rgba(232,0,105,.9),rgba(104,42,184,.72))] shadow-[0_12px_30px_rgba(232,0,105,.22)] ring-1 ring-white/20">
-              <LayoutGrid className="size-4 text-white/70" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <p className="hidden text-[9px] font-bold uppercase tracking-[.16em] text-white/38 sm:block">Multiview desk</p>
-                <p className="truncate text-sm font-semibold tracking-tight text-white">{liveRoom || authoritativeLiveRoom ? "CORE Live Room" : "Your screening room"}</p>
-                <span className="shrink-0 whitespace-nowrap rounded-full bg-white/7 px-2 py-0.5 text-[11px] tabular-nums text-white/60">
-                  {authoritativeLiveRoom
-                    ? `${player.tiles.length} playable${lockedLiveSlots.length ? ` · ${lockedLiveSlots.length} locked` : ""}`
-                    : `${player.tiles.length} / ${tileLimit}`}
-                </span>
-                {!expandedMultiview && !subscription.loading ? (
-                  <Link
-                    href={subscription.featureHref("multiview.expanded") as never}
-                    className="hidden shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white/7 px-2 py-0.5 text-[9px] font-semibold text-white/55 ring-1 ring-inset ring-white/10 transition hover:bg-white/12 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 lg:inline-flex"
-                  >
-                    <LockKeyhole className="size-2.5" aria-hidden />
-                    12-player rooms
-                  </Link>
-                ) : null}
-              </div>
-              <p className="hidden truncate text-[10px] text-white/42 sm:block">{liveRoom || authoritativeLiveRoom ? "Every available CORE live stream and its chat, in one room." : `${player.layoutPreset === "freeform" ? "Custom layout" : WORKSPACE_PRESETS.find((entry) => entry.id === player.layoutPreset)?.description ?? "A cinematic room"} · ${audioLead ? `Audio lead: ${audioLead.item.memberLabel}` : player.tiles.length ? "Choose an audio lead" : "Add a stream to begin"}`}</p>
-            </div>
+          <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-xl font-semibold tracking-tight text-white">{liveRoom || authoritativeLiveRoom ? "Live multiview" : "Multiview"}</h1>
+            <p className="text-xs tabular-nums text-white/55">
+              {player.tiles.length} {player.tiles.length === 1 ? "player" : "players"}{authoritativeLiveRoom && lockedLiveSlots.length ? ` · ${lockedLiveSlots.length} locked` : ""}
+            </p>
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2">
             <button
@@ -948,14 +953,14 @@ export function MultiPlayerStage({
 
           {player.chatDock !== "left" ? workspaceSidebar : null}
         </div>
-        {player.chatDock === "bottom" && chatChannels.length ? (
+        {player.chatDock === "bottom" && hasRoomChat ? (
           <section style={{ height: `min(${player.chatDockSize.bottom}px, 48dvh)` }} className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-[#0e0e11] p-2 shadow-[0_24px_80px_rgba(0,0,0,.28)]" aria-label="Chat below the player grid">
             {chat}
           </section>
         ) : null}
       </div>
 
-      {player.chatDock === "floating" && chatChannels.length ? (
+      {player.chatDock === "floating" && hasRoomChat ? (
         <section style={floatingChatViewportStyle(player.chatFloatingRect)} className="fixed z-50 overflow-hidden rounded-2xl border border-white/14 bg-[#101014]/95 p-2 shadow-[0_28px_110px_rgba(0,0,0,.72)] backdrop-blur-xl" aria-label="Floating chat">
           <div className="mb-2 flex items-center justify-between px-1">
             <span className="text-[10px] font-semibold text-white/70">Floating chat</span>
@@ -1186,10 +1191,10 @@ function WorkspaceSidebar({
       aria-label="Details, Up next, and chat panel"
       className={`${mobileOpen ? "fixed inset-x-3 bottom-3 z-[80] flex h-[min(72dvh,38rem)]" : "hidden"} min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(160deg,rgba(28,28,34,.98),rgba(12,12,16,.98)_46%,rgba(9,9,12,.98))] shadow-[0_28px_100px_rgba(0,0,0,.72)] ${desktopClasses}`}
     >
-      <div className="hidden shrink-0 items-center justify-between border-b border-white/8 px-3 py-2.5 xl:flex">
+      <div className="hidden shrink-0 items-center justify-between border-b border-white/8 px-4 py-4 xl:flex">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[.15em] text-white/38">Room companion</p>
-          <p className="mt-0.5 text-[10px] text-white/62">Details, queue, and separate chats.</p>
+          <p className="text-sm font-semibold tracking-tight text-white">Your room</p>
+          <p className="mt-1 text-xs text-white/50">Manage what you’re watching</p>
         </div>
         <span className="grid size-7 place-items-center rounded-lg bg-white/6 text-white/50 ring-1 ring-white/10"><PanelRight className="size-3.5" aria-hidden /></span>
       </div>
@@ -1215,7 +1220,7 @@ function WorkspaceSidebar({
                   tabIndex={selected ? 0 : -1}
                   onClick={() => selectTab(tab.id)}
                   onKeyDown={(event) => onTabKeyDown(event, index)}
-                  className={`group inline-flex min-h-11 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-1.5 text-[10px] font-semibold transition duration-150 xl:min-h-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${selected ? "bg-white text-black shadow-sm" : "text-white/48 hover:-translate-y-px hover:bg-white/8 hover:text-white active:translate-y-0"}`}
+                  className={`group inline-flex min-h-11 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-1.5 text-xs font-semibold transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${selected ? "bg-white text-black shadow-sm" : "text-white/55 hover:-translate-y-px hover:bg-white/8 hover:text-white active:translate-y-0"}`}
                 >
                   <Icon className="size-3.5 shrink-0" aria-hidden />
                   <span className="hidden truncate min-[300px]:inline">{tab.label}</span>
@@ -1381,39 +1386,36 @@ function DetailsPanel({
       ? formatPlaybackTime(focused.item.durationSeconds)
       : "—";
   return (
-    <div className="h-full overflow-y-auto overscroll-contain p-2.5 [scrollbar-gutter:stable]">
-      <section className="rounded-xl bg-white/[0.035] p-2.5 ring-1 ring-white/8" aria-label="Focused player details">
-        <div className="flex min-w-0 gap-2.5">
-          <span className="relative block aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-black ring-1 ring-white/10">
+    <div className="h-full overflow-y-auto overscroll-contain p-3 [scrollbar-gutter:stable]">
+      <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-3" aria-label="Focused player details">
+        <div className="flex min-w-0 gap-3">
+          <span className="relative block aspect-video w-24 shrink-0 overflow-hidden rounded-xl bg-black ring-1 ring-white/10">
             {focused.item.poster ? <img src={focused.item.poster} alt="" className="h-full w-full object-cover" /> : null}
             {focused.item.kind === "live" ? <span className="absolute left-1.5 top-1.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white">Live</span> : null}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-white/38">{mediaTypeLabel(focused.item)} · {platformLabel(focused.item)}</p>
-            <h2 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{readableTitle(focused.item.title)}</h2>
-            <p className="mt-1 truncate text-[10px] text-white/48">{focused.item.memberLabel}</p>
-            <dl className="mt-2 grid grid-cols-2 gap-x-2 text-[9px]">
-              <div className="min-w-0"><dt className="uppercase tracking-[0.1em] text-white/30">Length</dt><dd className="mt-0.5 truncate font-semibold text-white/68">{duration}</dd></div>
-              <div className="min-w-0"><dt className="uppercase tracking-[0.1em] text-white/30">Audio</dt><dd className="mt-0.5 truncate font-semibold text-white/68">{focused.muted ? "Muted" : "On"}</dd></div>
-            </dl>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/50">{mediaTypeLabel(focused.item)} · {platformLabel(focused.item)}</p>
+            <h2 className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-white" title={readableTitle(focused.item.title)}>{readableTitle(focused.item.title)}</h2>
+            <p className="mt-1 truncate text-xs text-white/55">{focused.item.memberLabel}{duration !== "—" ? ` · ${duration}` : ""}</p>
           </div>
         </div>
-        <div className="mt-2.5 grid grid-cols-2 gap-2" aria-label="Focused player actions">
-          <button type="button" onClick={makeFocusedMain} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-white px-2 text-[10px] font-semibold text-black transition hover:bg-white/88 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Radio className="size-3.5" aria-hidden /> Make main</button>
-          <button type="button" onClick={(event) => onReplace(focused.id, event.currentTarget)} className="min-h-10 rounded-lg px-2 text-[10px] font-semibold text-white/68 ring-1 ring-white/12 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Replace</button>
-          <button type="button" onClick={() => player.updateTile(focused.id, { fit: focused.fit === "cover" ? "contain" : "cover" })} className="min-h-9 rounded-lg px-2 text-[10px] font-medium text-white/52 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white">{focused.fit === "cover" ? "Fit video" : "Fill tile"}</button>
-          {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-2 text-[10px] font-medium text-white/52 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white">Open source <ExternalLink className="size-3" aria-hidden /></a> : <span />}
+        <div className="mt-4 grid grid-cols-2 gap-2" aria-label="Focused player actions">
+          <button type="button" onClick={makeFocusedMain} className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-2 text-xs font-semibold text-black transition hover:bg-white/85 active:scale-[.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Radio className="size-4" aria-hidden /> Make main</button>
+          <button type="button" onClick={() => focused.muted ? player.focusTile(focused.id, { takeAudio: true }) : player.updateTile(focused.id, { muted: true })} aria-pressed={!focused.muted} className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/15 px-2 text-xs font-semibold text-white/80 transition hover:border-white/35 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{focused.muted ? <VolumeX className="size-4" aria-hidden /> : <Volume2 className="size-4" aria-hidden />}{focused.muted ? "Turn sound on" : "Mute sound"}</button>
+          <button type="button" onClick={(event) => onReplace(focused.id, event.currentTarget)} className="min-h-11 cursor-pointer rounded-xl border border-white/10 px-2 text-xs font-medium text-white/70 transition hover:border-white/30 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Replace stream</button>
+          <button type="button" onClick={() => player.updateTile(focused.id, { fit: focused.fit === "cover" ? "contain" : "cover" })} className="min-h-11 cursor-pointer rounded-xl border border-white/10 px-2 text-xs font-medium text-white/70 transition hover:border-white/30 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{focused.fit === "cover" ? "Fit whole video" : "Fill player"}</button>
         </div>
+        {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-white/55 transition hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Open on {platformLabel(focused.item)} <ExternalLink className="size-3" aria-hidden /></a> : null}
       </section>
 
       {member ? (
         <section className="mt-2 flex min-w-0 items-center gap-2.5 rounded-xl bg-white/[0.025] p-2.5 ring-1 ring-white/8" aria-label={`${member.stageName} details`}>
           <img src={member.portrait} alt="" className="size-8 shrink-0 rounded-lg object-cover ring-1 ring-white/12" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[10px] font-semibold text-white/86">{member.stageName}</p>
-            <p className="mt-0.5 truncate text-[9px] text-white/36">{member.roles?.join(" · ") || "CORE creator"}</p>
+            <p className="truncate text-xs font-semibold text-white/86">{member.stageName}</p>
+            <p className="mt-0.5 truncate text-xs text-white/50">{member.roles?.join(" · ") || "CORE creator"}</p>
           </div>
-          <Link href={`/channels/${member.slug}` as never} className="shrink-0 rounded-lg px-2 py-1.5 text-[9px] font-semibold text-white/60 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white">Channel</Link>
+          <Link href={`/channels/${member.slug}` as never} className="shrink-0 rounded-lg px-2.5 py-2 text-xs font-semibold text-white/70 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white">Channel</Link>
         </section>
       ) : null}
 
@@ -1443,7 +1445,7 @@ function DetailsPanel({
         </section>
       ) : null}
 
-      <button type="button" onClick={() => player.removeTile(focused.id)} className="mt-2 flex min-h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-[9px] font-medium text-white/38 ring-1 ring-white/8 transition hover:bg-red-500/10 hover:text-red-200 hover:ring-red-400/20">Remove player <Trash2 className="size-3" aria-hidden /></button>
+      <button type="button" onClick={() => player.removeTile(focused.id)} className="mt-3 flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl px-3 text-left text-xs font-medium text-white/55 ring-1 ring-white/10 transition hover:bg-red-500/10 hover:text-red-200 hover:ring-red-400/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Remove player <Trash2 className="size-4" aria-hidden /></button>
     </div>
   );
 }
@@ -1542,13 +1544,11 @@ function TheaterRoomSurface({
     observer.observe(room);
     return () => observer.disconnect();
   }, []);
-  const companions = tiles.filter((tile) => tile.id !== main?.id);
   const mainMember = main
     ? MEMBERS.find((entry) => entry.slug === main.item.memberSlug || entry.twitchLogin.toLowerCase() === main.item.twitchLogin?.toLowerCase())
     : null;
   const pairView = tiles.length === 2 && lockedSlots.length === 0 && !maximizedTileId;
   const pairContainsTwitch = pairView && tiles.some((tile) => tile.item.platform === "twitch");
-  const hasCompanions = companions.length + lockedSlots.length > 0;
   const studioDensity = Math.max(4, Math.min(24, Math.round(player.snapDensity || player.gridColumns || 12)));
   const sourceGeometry = useMemo(
     () => tiles.map((tile) => ({ id: tile.id, rect: roomTileRect(tile, studioDensity, studioDensity) })),
@@ -1594,6 +1594,7 @@ function TheaterRoomSurface({
 
   const tileStyle = (tile: WorkspaceTile): React.CSSProperties => {
     if (stacked) return { gridColumn: "1 / -1", gridRow: "auto" };
+    if (lockedSlots.length) return roomRectStyle(lockedGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity), studioDensity);
     if (hasCustomGeometry) return roomTileStyle(tile, studioDensity);
     return roomRectStyle(presetGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity), studioDensity);
   };
@@ -1652,11 +1653,6 @@ function TheaterRoomSurface({
           />
         ))}
       </div>
-      {hasCompanions ? (
-        <div className="pointer-events-none absolute left-5 top-5 z-30 hidden rounded-full bg-black/55 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.13em] text-white/65 ring-1 ring-white/10 backdrop-blur-sm md:block">
-          Theater view · {tiles.length} sources
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -4048,24 +4044,24 @@ function AudioLeadPicker({
   const hasAlternates = groups.some((group) => group.sources.length > 1);
   return (
     <div className="fixed inset-0 z-[95] grid place-items-end bg-black/72 p-3 backdrop-blur-sm md:place-items-center md:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="audio-lead-title" className={`w-full overflow-hidden rounded-3xl border border-white/14 bg-[#111116] shadow-[0_32px_120px_rgba(0,0,0,.78)] ${mobile ? "max-w-none" : "max-w-md"}`}>
-        <header className="flex items-start justify-between gap-4 border-b border-white/8 px-4 py-4 sm:px-5">
-          <div><p id="audio-lead-title" className="text-sm font-semibold text-white">{hasAlternates ? "Choose where to watch" : "Choose the room audio"}</p><p className="mt-1 text-[11px] leading-4 text-white/45">{hasAlternates ? "Same creator on YouTube and Twitch? Pick a source. We’ll keep one tile and switch smoothly." : "Every live stream is playing muted. Pick the one you want to hear."}</p></div>
-          <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-xl text-white/55 transition hover:bg-white/8 hover:text-white" aria-label="Keep every stream muted"><X className="size-4" aria-hidden /></button>
+      <section role="dialog" aria-modal="true" aria-labelledby="audio-lead-title" className={`w-full overflow-hidden rounded-3xl border border-white/15 bg-[#111115] shadow-[0_32px_120px_rgba(0,0,0,.78)] ${mobile ? "max-w-none" : "max-w-md"}`}>
+        <header className="flex items-center justify-between gap-4 px-5 pb-2 pt-5 sm:px-6 sm:pt-6">
+          <div><p id="audio-lead-title" className="text-base font-semibold tracking-tight text-white">{hasAlternates ? "Choose where to watch" : "Choose room audio"}</p>{!hasAlternates ? <p className="mt-1 text-xs text-white/55">Select a stream to hear.</p> : null}</div>
+          <button type="button" onClick={onClose} className="grid size-10 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition hover:border-white/30 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label="Close and keep streams muted"><X className="size-4" aria-hidden /></button>
         </header>
         <div className="max-h-[55dvh] space-y-2 overflow-y-auto p-3">
           {groups.map((group) => (
-            <div key={group.key} className="overflow-hidden rounded-2xl bg-white/[0.035] p-2 ring-1 ring-white/8">
+            <div key={group.key} className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-3">
               <div className="flex items-center gap-3">
                 <span className="relative block aspect-video w-20 shrink-0 overflow-hidden rounded-xl bg-black ring-1 ring-white/8">{group.sources[0]?.item.poster ? <img src={group.sources[0].item.poster} alt="" className="h-full w-full object-cover" /> : null}<span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span></span>
-                <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-white">{group.memberLabel}</span><span className="mt-0.5 block truncate text-[10px] text-white/45">{group.sources.length > 1 ? "Live on more than one platform" : group.sources[0]?.item.title}</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-white">{group.memberLabel}</span>{group.sources.length === 1 ? <span className="mt-0.5 block truncate text-xs text-white/50">{group.sources[0]?.item.title}</span> : null}</span>
               </div>
               {group.sources.length > 1 ? (
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {group.sources.map(({ item, tileId }) => (
-                    <button key={item.key} type="button" onClick={() => onChoose(item)} aria-label={`Watch ${group.memberLabel} on ${platformLabel(item)}`} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white/8 px-2 text-[10px] font-semibold text-white/75 ring-1 ring-inset ring-white/10 transition hover:bg-white hover:text-black hover:ring-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                      <Volume2 className="size-3.5" aria-hidden />
-                      <span>{tileId ? `Hear ${platformLabel(item)}` : `Switch to ${platformLabel(item)}`}</span>
+                <div className="mt-3 grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
+                  {group.sources.map(({ item }) => (
+                    <button key={item.key} type="button" onClick={() => onChoose(item)} aria-label={`Watch ${group.memberLabel} on ${platformLabel(item)}`} className="group flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.07] px-3 text-xs font-semibold text-white transition duration-150 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white hover:text-black active:translate-y-0 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                      <Play className="size-3.5 fill-current" aria-hidden />
+                      <span>Watch on {platformLabel(item)}</span>
                     </button>
                   ))}
                 </div>
@@ -4076,7 +4072,7 @@ function AudioLeadPicker({
           ))}
           {!groups.length ? <p className="p-4 text-center text-xs text-white/45">No live streams are available to use as room audio.</p> : null}
         </div>
-        <div className="border-t border-white/8 p-3"><button type="button" onClick={onClose} className="min-h-11 w-full cursor-pointer rounded-xl bg-white/6 px-3 text-xs font-semibold text-white/70 transition hover:bg-white/10 hover:text-white active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Keep all muted</button></div>
+        <div className="px-3 pb-4"><button type="button" onClick={onClose} className="min-h-11 w-full cursor-pointer rounded-xl px-3 text-xs font-medium text-white/55 transition hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Keep all muted</button></div>
       </section>
     </div>
   );

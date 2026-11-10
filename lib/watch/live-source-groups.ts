@@ -6,6 +6,13 @@ type LiveSource = {
   memberLabel: string;
 };
 
+/** Count creators rather than transports, retaining unassigned sources separately. */
+export function countLiveCreators(sources: readonly Pick<LiveSource, "key" | "kind" | "memberSlug">[]): number {
+  return new Set(sources.filter((source) => source.kind === "live").map((source) =>
+    source.memberSlug ? `member:${source.memberSlug.toLowerCase()}` : `source:${source.key}`,
+  )).size;
+}
+
 export type LiveSourceGroup<T extends LiveSource = LiveSource> = {
   key: string;
   memberSlug: string | null;

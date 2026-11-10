@@ -9,6 +9,11 @@ const DISPLAY_ACRONYMS: Record<string, string> = {
   vod: "VOD",
   vods: "VODs",
   x: "X",
+  youtube: "YouTube",
+  tiktok: "TikTok",
+  twitch: "Twitch",
+  instagram: "Instagram",
+  house: "CORE",
 };
 
 /** Presentation only. Raw handles must still be used for URLs and API calls. */

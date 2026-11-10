@@ -6,7 +6,7 @@ import { listAccountMatches } from "../lib/watch/list-account";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
-test("account settings and legacy My List routes converge on the saved library", () => {
+test("account settings and legacy My List routes converge on the DVR", () => {
   const settings = read("components/account/AccountSettingsHub.tsx");
   const dvr = read("app/dvr/page.tsx");
   const legacy = read("app/my-list/page.tsx");
@@ -15,7 +15,7 @@ test("account settings and legacy My List routes converge on the saved library",
   const poster = read("components/watch/PosterCard.tsx");
   const player = read("components/watch/PersistentPlayer.tsx");
 
-  assert.match(settings, /label="Manage saved library"[^>]+href="\/dvr"/);
+  assert.match(settings, /label="Manage DVR"[^>]+href="\/dvr"/);
   assert.doesNotMatch(settings, /\/watch\/my-list/);
   assert.match(dvr, /getCurrentFanUserId\(\)/);
   assert.match(dvr, /redirect\("\/login\?next=\/dvr"\)/);

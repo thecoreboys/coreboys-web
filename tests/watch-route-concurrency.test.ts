@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import test from "node:test";
 import type { WatchCatalog, WatchItem } from "../lib/watch/types";
+import { unpackWatchItemLists } from "../lib/watch/item-payload";
 
 const requireModule = createRequire(resolve(process.cwd(), "package.json"));
 
@@ -42,6 +43,22 @@ function video(id: string, memberSlug: string): WatchItem {
     format: "long", durationSeconds: 600,
   };
 }
+
+test("Guide hydrates the complete chosen playback queue only on demand", async () => {
+  let reads = 0;
+  const items = Array.from({ length: 40 }, (_, index) => ({ ...video(`episode${index}`, "house"), memberSlug: null }));
+  const handlers = route<{ GET: (request: Request, context: { params: Promise<{ slug: string }> }) => Promise<Response> }>("./app/api/watch/channels/[slug]/lineup/route", {
+    "./lib/watch/catalog": { getWatchCatalog: async () => { reads++; return { all: items, house: items, byMember: [], live: [] } as unknown as WatchCatalog; } },
+  });
+  const context = { params: Promise.resolve({ slug: "core" }) };
+  const invalid = await handlers.GET(new Request("https://example.test/api/watch/channels/core/lineup?mode=unknown"), context);
+  assert.equal(invalid.status, 400);
+  assert.equal(reads, 0);
+  const response = await handlers.GET(new Request("https://example.test/api/watch/channels/core/lineup?mode=videos"), context);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+  assert.deepEqual(new Set(unpackWatchItemLists(await response.json()).items!.map((item) => item.id)), new Set(items.map((item) => item.id)));
+});
 
 test("live polling shares the bounded home snapshot, coalesces reads, and preserves provider identities", async () => {
   let reads = 0;
@@ -173,7 +190,8 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
   assert.deepEqual(events, ["directory", "sessions", "catalog"]);
   directory.resolve({});
   const first = await firstPending;
-  assert.deepEqual((await first.json()).programs, []);
+  assert.equal(first.status, 503);
+  assert.equal(first.headers.get("Cache-Control"), "no-store");
 
   const second = await handlers.GET(request);
   assert.equal((await second.json()).programs[0].id, "catalog-recovered_2");

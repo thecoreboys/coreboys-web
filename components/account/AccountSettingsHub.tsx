@@ -56,6 +56,8 @@ const AUTOPLAY_OPTIONS: ReadonlyArray<{ value: AutoplayMode; label: string }> = 
   { value: "live-first", label: "Live first" },
   { value: "queue", label: "Queue" },
   { value: "same-creator", label: "Same creator" },
+  { value: "similar", label: "Similar videos" },
+  { value: "keep-grid-full", label: "Keep multiview full" },
 ];
 
 const QUALITY_OPTIONS: ReadonlyArray<{ value: QualityPreference; label: string }> = [
@@ -127,7 +129,7 @@ function isCompanionView(value: unknown): value is PlayerCompanionView {
   return value === "details" || value === "up-next" || value === "chat";
 }
 
-export function AccountSettingsHub({ section }: { section?: string } = {}) {
+export function AccountSettingsHub({ section, accountId }: { section?: string; accountId: string }) {
   const player = usePlayer();
   const playerRef = useRef(player);
   playerRef.current = player;
@@ -135,6 +137,9 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
   const initialAppearance = useRef({ theme, accent });
   const [settings, setSettings] = useState<AccountSettings>(() => defaultSettings(theme, accent));
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const saveRevision = useRef({ experience: 0, player: 0, radio: 0 });
   const [saveStates, setSaveStates] = useState({
     experience: "idle" as "idle" | "saving" | "saved" | "error",
     player: "idle" as "idle" | "saving" | "saved" | "error",
@@ -146,19 +151,20 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
   const playerSettingsRef = useRef<PlayerSettings | null>(null);
 
   const experienceSaveQueue = useMemo(() => createDebouncedWorkspaceSave(async (payload: AccountSettings) => {
+    const revision = saveRevision.current.experience;
     try {
       const response = await fetch("/api/account/workspaces", {
         method: "PUT",
         credentials: "same-origin",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-core-account-id": accountId },
         body: JSON.stringify({ kind: "account-settings", name: "experience", payload }),
       });
       if (!response.ok) throw new Error(String(response.status));
-      setSaveStates((current) => ({ ...current, experience: "saved" }));
+      if (revision === saveRevision.current.experience) setSaveStates((current) => ({ ...current, experience: "saved" }));
     } catch {
-      setSaveStates((current) => ({ ...current, experience: "error" }));
+      if (revision === saveRevision.current.experience) setSaveStates((current) => ({ ...current, experience: "error" }));
     }
-  }, 300), []);
+  }, 300), [accountId]);
 
   const playerSettings = useCallback((): PlayerSettings => ({
     autoplayMode: player.autoplayMode,
@@ -180,6 +186,7 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
   // Keep range controls responsive locally while batching remote writes. The
   // queue also preserves order if an earlier request is still in flight.
   const playerSaveQueue = useMemo(() => createDebouncedWorkspaceSave(async (payload: PlayerSettings) => {
+    const revision = saveRevision.current.player;
     try {
       // Accessibility presets can update several provider fields at once. Use
       // the latest committed provider snapshot when the debounce expires.
@@ -188,30 +195,31 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
       const response = await fetch("/api/account/workspaces", {
         method: "PUT",
         credentials: "same-origin",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-core-account-id": accountId },
         body: JSON.stringify({ kind: "account-settings", name: "player", payload: currentPayload }),
       });
       if (!response.ok) throw new Error(`player_settings_${response.status}`);
-      setSaveStates((current) => ({ ...current, player: "saved" }));
+      if (revision === saveRevision.current.player) setSaveStates((current) => ({ ...current, player: "saved" }));
     } catch {
-      setSaveStates((current) => ({ ...current, player: "error" }));
+      if (revision === saveRevision.current.player) setSaveStates((current) => ({ ...current, player: "error" }));
     }
-  }, 350), []);
+  }, 350), [accountId]);
 
   const radioSaveQueue = useMemo(() => createDebouncedWorkspaceSave(async (payload: RadioAudioSettings) => {
+    const revision = saveRevision.current.radio;
     try {
       const response = await fetch("/api/account/workspaces", {
         method: "PUT",
         credentials: "same-origin",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-core-account-id": accountId },
         body: JSON.stringify({ kind: "account-settings", name: "radio", payload }),
       });
       if (!response.ok) throw new Error(`radio_settings_${response.status}`);
-      setSaveStates((current) => ({ ...current, radio: "saved" }));
+      if (revision === saveRevision.current.radio) setSaveStates((current) => ({ ...current, radio: "saved" }));
     } catch {
-      setSaveStates((current) => ({ ...current, radio: "error" }));
+      if (revision === saveRevision.current.radio) setSaveStates((current) => ({ ...current, radio: "error" }));
     }
-  }, 350), []);
+  }, 350), [accountId]);
 
   const updatePlayer = useCallback((patch: Partial<PlayerSettings>) => {
     if (patch.autoplayMode !== undefined) player.setAutoplayMode(patch.autoplayMode);
@@ -230,6 +238,7 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
     if (patch.maxActivePlayers !== undefined) player.setMaxActivePlayers(patch.maxActivePlayers);
     const next = { ...(playerSettingsRef.current ?? playerSettings()), ...patch };
     playerSettingsRef.current = next;
+    saveRevision.current.player += 1;
     setSaveStates((current) => ({ ...current, player: "saving" }));
     playerSaveQueue.schedule(next);
   }, [player, playerSaveQueue, playerSettings]);
@@ -238,18 +247,22 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
     const next = writeRadioAudioSettings({ ...radioSettingsRef.current, ...patch });
     radioSettingsRef.current = next;
     setRadioSettings(next);
+    saveRevision.current.radio += 1;
     setSaveStates((current) => ({ ...current, radio: "saving" }));
     radioSaveQueue.schedule(next);
   }, [radioSaveQueue]);
 
   useEffect(() => {
     const controller = new AbortController();
+    setReady(false);
+    setLoadError(false);
     const { theme, accent } = initialAppearance.current;
     void (async () => {
       try {
-        const preferencesResponse = await fetch("/api/account/workspaces?kind=account-settings", { credentials: "same-origin", signal: controller.signal });
+        const preferencesResponse = await fetch("/api/account/workspaces?kind=account-settings", { credentials: "same-origin", signal: controller.signal, headers: { "x-core-account-id": accountId } });
         if (preferencesResponse.ok) {
           const data = await preferencesResponse.json() as { items?: Array<{ name: string; payload: unknown }> };
+          if (!Array.isArray(data.items)) throw new Error("settings_incomplete");
           const stored = data.items?.find((item) => item.name === "experience")?.payload;
           const next = restoreSettings(stored, defaultSettings(theme, accent));
           setSettings(next);
@@ -263,6 +276,7 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
             // it or reapply older saved preferences while the viewer edits.
             const player = playerRef.current;
             const saved = playerStored as Partial<PlayerSettings>;
+            if (isAccessibilityPreset(saved.accessibilityPreset)) player.applyAccessibilityPreset(saved.accessibilityPreset);
             if (isAutoplayMode(saved.autoplayMode)) player.setAutoplayMode(saved.autoplayMode);
             if (typeof saved.previewAutoplay === "boolean") player.setPreviewAutoplay(saved.previewAutoplay);
             if (typeof saved.previewSoundEnabled === "boolean") player.setPreviewSoundEnabled(saved.previewSoundEnabled);
@@ -273,7 +287,6 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
             if (typeof saved.playbackRate === "number") player.setPlaybackRate(saved.playbackRate);
             if (isQualityPreference(saved.qualityPreference)) player.setQualityPreference(saved.qualityPreference);
             if (typeof saved.audioDescription === "boolean") player.setAudioDescription(saved.audioDescription);
-            if (isAccessibilityPreset(saved.accessibilityPreset)) player.applyAccessibilityPreset(saved.accessibilityPreset);
             if (isCompanionView(saved.companionView)) player.setCompanionView(saved.companionView);
             if (typeof saved.mixAudio === "boolean") player.setMixAudio(saved.mixAudio);
             if (typeof saved.maxActivePlayers === "number") player.setMaxActivePlayers(saved.maxActivePlayers);
@@ -285,17 +298,15 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
             radioSettingsRef.current = nextRadioSettings;
             writeRadioAudioSettings(nextRadioSettings);
           }
-        } else {
-          applyExperience(defaultSettings(theme, accent));
-        }
+        } else throw new Error("settings_unavailable");
       } catch (error) {
-        if ((error as { name?: string }).name !== "AbortError") applyExperience(defaultSettings(theme, accent));
+        if ((error as { name?: string }).name !== "AbortError") setLoadError(true);
       } finally {
         if (!controller.signal.aborted) setReady(true);
       }
     })();
     return () => controller.abort();
-  }, [setAccent, setTheme]);
+  }, [accountId, setAccent, setTheme, loadAttempt]);
 
   const update = useCallback((patch: Partial<AccountSettings>) => {
     const next = { ...settingsRef.current, ...patch };
@@ -304,6 +315,7 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
     if (patch.theme) setTheme(patch.theme);
     if (patch.accent) setAccent(patch.accent);
     applyExperience(next);
+    saveRevision.current.experience += 1;
     setSaveStates((current) => ({ ...current, experience: "saving" }));
     experienceSaveQueue.schedule(next);
   }, [experienceSaveQueue, setAccent, setTheme]);
@@ -316,13 +328,17 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
     if (!ready) return "Loading preferences…";
     if (state === "saving") return "Saving…";
     if (state === "error") return "Couldn’t save";
-    return state === "saved" ? "Saved" : "Saved to your account";
+    return state === "saved" ? "Saved" : "Changes save automatically";
   };
+
+  const usesPreferences = !section || ["experience", "playback", "station-audio", "accessibility"].includes(section);
+  if (usesPreferences && !ready) return <div className="rounded-xl border border-secondary bg-primary p-6 text-sm text-tertiary" role="status">Loading settings…</div>;
+  if (usesPreferences && loadError) return <section className="rounded-xl border border-secondary bg-primary p-6"><h2 className="text-lg font-semibold text-primary">Couldn’t load settings</h2><p className="mt-2 text-sm text-tertiary">Try again to load your saved choices.</p><button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)} className="mt-4 min-h-11 rounded-lg bg-secondary px-4 text-sm font-semibold text-primary ring-1 ring-secondary hover:bg-primary_hover">Try again</button></section>;
 
   return (
     <div className="space-y-6">
       {(!section || section === "experience") ? <section id="experience" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
-        <SectionHeader icon={Palette} eyebrow="Appearance" title="Theme and layout" detail="Changes apply immediately and sync to your signed-in account." status={saveLabel(saveStates.experience)} error={saveStates.experience === "error"} />
+        <SectionHeader icon={Palette} eyebrow="Appearance" title="Theme and layout" detail="Changes apply immediately and sync to your account." status={saveLabel(saveStates.experience)} error={saveStates.experience === "error"} onRetry={() => update({})} />
         <div className="grid gap-6 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ChoiceGroup label="Theme" value={settings.theme} onChange={(value) => update({ theme: value as Theme })} options={[
             { value: "dark", label: "Dark" }, { value: "light", label: "Light" }, { value: "system", label: "System" },
@@ -337,12 +353,13 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
       </section> : null}
 
       {(!section || section === "playback") ? <section id="playback" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
-        <SectionHeader icon={Play} eyebrow="Playback" title="Your player defaults" detail="These controls use the same preferences as the theater player, previews, live streams, and multiview." status={saveLabel(saveStates.player)} error={saveStates.player === "error"} />
+        <SectionHeader icon={Play} eyebrow="Playback" title="Player settings" detail="Choose how videos, previews, and multiview play." status={saveLabel(saveStates.player)} error={saveStates.player === "error"} onRetry={() => updatePlayer({})} />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <SelectRow label="Autoplay" value={player.autoplayMode} onChange={(value) => updatePlayer({ autoplayMode: value as AutoplayMode })} options={AUTOPLAY_OPTIONS} />
           <SelectRow label="Quality" value={player.qualityPreference} onChange={(value) => updatePlayer({ qualityPreference: value as QualityPreference })} options={QUALITY_OPTIONS} />
           <SelectRow label="Playback speed" value={String(player.playbackRate)} onChange={(value) => updatePlayer({ playbackRate: Number(value) })} options={[
             { value: "0.75", label: "0.75×" }, { value: "1", label: "1×" }, { value: "1.25", label: "1.25×" }, { value: "1.5", label: "1.5×" }, { value: "2", label: "2×" },
+            ...(![0.75, 1, 1.25, 1.5, 2].includes(player.playbackRate) ? [{ value: String(player.playbackRate), label: `${player.playbackRate}×` }] : []),
           ]} />
           <SelectRow label="Theater side panel" value={player.companionView} onChange={(value) => updatePlayer({ companionView: value as PlayerCompanionView })} options={COMPANION_OPTIONS} />
           <ToggleRow label="Autoplay previews" detail="Muted previews start as you browse." value={player.previewAutoplay} onChange={(previewAutoplay) => updatePlayer({ previewAutoplay })} />
@@ -351,16 +368,16 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
           <ToggleRow label="Ambient lighting" detail="Shows the color bloom around the theater frame." value={player.ambientLighting} onChange={(ambientLighting) => updatePlayer({ ambientLighting })} />
           <ToggleRow label="Captions" detail="Requests captions on supported providers." value={player.captionsEnabled} onChange={(captionsEnabled) => updatePlayer({ captionsEnabled })} />
           <ToggleRow label="Audio description" detail="Uses described audio where a provider offers it." value={player.audioDescription} onChange={(audioDescription) => updatePlayer({ audioDescription })} />
-          <ToggleRow label="Mix multiview audio" detail="Keep one stream audible unless you deliberately enable mixing." value={player.mixAudio} onChange={(mixAudio) => updatePlayer({ mixAudio })} />
+          <ToggleRow label="Mix multiview audio" detail="Allow more than one stream to play sound at once." value={player.mixAudio} onChange={(mixAudio) => updatePlayer({ mixAudio })} />
           <RangeRow label="Preview volume" value={player.previewVolume} min={0} max={1} step={0.05} format={(value) => `${Math.round(value * 100)}%`} onChange={(previewVolume) => updatePlayer({ previewVolume })} />
           <RangeRow label="Multiview screens" value={player.maxActivePlayers} min={1} max={8} step={1} format={(value) => String(value)} onChange={(maxActivePlayers) => updatePlayer({ maxActivePlayers })} />
         </div>
       </section> : null}
 
       {(!section || section === "station-audio") ? <section id="station-audio" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
-        <SectionHeader icon={Radio} eyebrow="Station audio" title="DJ Cora settings" detail="Adjust station announcements, captions, and volume." status={saveLabel(saveStates.radio)} error={saveStates.radio === "error"} />
+        <SectionHeader icon={Radio} eyebrow="Station audio" title="DJ Cora settings" detail="Adjust station announcements, captions, and volume." status={saveLabel(saveStates.radio)} error={saveStates.radio === "error"} onRetry={() => updateRadio({})} />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
-          <ToggleRow label="Station audio" detail="Play short DJ Cora IDs and 24/7 handoff cues when your browser allows it." value={radioSettings.enabled} onChange={(enabled) => updateRadio({ enabled })} />
+          <ToggleRow label="Station announcements" detail="Let DJ Cora introduce stations and content." value={radioSettings.enabled} onChange={(enabled) => updateRadio({ enabled })} />
           <ChoiceGroup label="DJ Cora captions" value={radioSettings.captions} onChange={(captions) => updateRadio({ captions: captions as RadioCaptionPreference })} options={RADIO_CAPTION_OPTIONS} />
           <RangeRow label="DJ Cora volume" value={radioSettings.volume} min={0} max={1} step={0.05} format={(value) => `${Math.round(value * 100)}%`} onChange={(volume) => updateRadio({ volume })} />
           <ToggleRow label="Station data saver" detail="Load station audio only when it is needed." value={radioSettings.dataSaver} onChange={(dataSaver) => updateRadio({ dataSaver })} />
@@ -370,7 +387,7 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
       {(!section || section === "personalization") ? <section id="personalization" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={Eye} eyebrow="Personalization" title="Control what shapes your feed" detail="Favorites, follows, saves, likes, and Not interested feedback remain available from every content card." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
-          <LinkRow label="Manage saved library" detail="Review saved videos, folders, and your watch history." href="/dvr" />
+          <LinkRow label="Manage DVR" detail="Review saved videos, folders, and your watch history." href="/dvr" />
           <LinkRow label="Manage follows" detail="Review synced platform follows and connected creator accounts." href="/account/settings#connected-accounts" />
           <div className="rounded-lg bg-secondary px-4 py-3 text-xs leading-5 text-tertiary">Your saved videos, follows, likes, and feedback are available in their respective sections. CORE does not currently offer a separate recommendation or mature-content filter.</div>
         </div>
@@ -387,7 +404,7 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
       </section> : null}
 
       {(!section || section === "accessibility") ? <section id="accessibility" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
-        <SectionHeader icon={Accessibility} eyebrow="Accessibility" title="Playback that works for you" detail="Your preset applies to captions, described audio, speed, and preview behavior immediately." status={saveLabel(saveStates.player)} error={saveStates.player === "error"} />
+        <SectionHeader icon={Accessibility} eyebrow="Accessibility" title="Accessible playback" detail="Choose a preset for captions, audio description, and motion." status={saveLabel(saveStates.player)} error={saveStates.player === "error"} onRetry={() => updatePlayer({})} />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ChoiceGroup label="Player preset" value={player.accessibilityPreset} onChange={(value) => updatePlayer({ accessibilityPreset: value as AccessibilityPreset })} options={[
             { value: "standard", label: "Standard" }, { value: "captions", label: "Captions" }, { value: "audio-description", label: "Described" }, { value: "calm", label: "Calm" },
@@ -400,8 +417,8 @@ export function AccountSettingsHub({ section }: { section?: string } = {}) {
   );
 }
 
-function SectionHeader({ icon: Icon, eyebrow, title, detail, status, error }: { icon: typeof Palette; eyebrow: string; title: string; detail: string; status?: string; error?: boolean }) {
-  return <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6"><div className="flex min-w-0 items-start gap-3"><span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-brand-secondary ring-1 ring-inset ring-secondary"><Icon className="size-5" aria-hidden /></span><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">{eyebrow}</p><h2 className="mt-1 text-lg font-semibold text-primary">{title}</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-tertiary">{detail}</p></div></div>{status ? <span aria-live="polite" className={cx("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", error ? "bg-error-primary text-error-primary ring-error_subtle" : "bg-primary text-tertiary ring-secondary")}>{status}</span> : null}</div>;
+function SectionHeader({ icon: Icon, eyebrow, title, detail, status, error, onRetry }: { icon: typeof Palette; eyebrow: string; title: string; detail: string; status?: string; error?: boolean; onRetry?: () => void }) {
+  return <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6"><div className="flex min-w-0 items-start gap-3"><span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-brand-secondary ring-1 ring-inset ring-secondary"><Icon className="size-5" aria-hidden /></span><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">{eyebrow}</p><h2 className="mt-1 text-lg font-semibold text-primary">{title}</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-tertiary">{detail}</p></div></div>{status ? <div className="flex items-center gap-2"><span aria-live="polite" className={cx("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", error ? "bg-error-primary text-error-primary ring-error_subtle" : "bg-primary text-tertiary ring-secondary")}>{status}</span>{error && onRetry ? <button type="button" onClick={onRetry} className="min-h-10 rounded-lg px-3 text-xs font-semibold text-primary ring-1 ring-secondary hover:bg-secondary">Try again</button> : null}</div> : null}</div>;
 }
 
 function ToggleRow({ label, detail, value, onChange }: { label: string; detail: string; value: boolean; onChange: (value: boolean) => void }) {

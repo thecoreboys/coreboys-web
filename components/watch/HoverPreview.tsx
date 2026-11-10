@@ -775,16 +775,16 @@ function MediaHoverPreview({
         </div>
       </Link>
       <Tooltip
-        title={dvrLoading ? "Loading saved library" : dvrLocked ? "Saved library with CORE Membership" : user && dvrSaved ? "Remove from library" : "Save"}
+        title={dvrLoading ? "Loading DVR" : dvrLocked ? "DVR with CORE Membership" : user && dvrSaved ? "Remove from DVR" : "Save"}
         description={dvrLoading
           ? "Checking your saved titles."
           : user
             ? dvrLocked
-              ? "Your saved library is included with CORE Membership."
+              ? "Your DVR is included with CORE Membership."
               : dvrSaved
-              ? "Remove this title from your saved library."
-              : "Add this title to your saved library so you can quickly find it later."
-            : "Sign in to add this title to your saved library across your devices."}
+              ? "Remove this title from your DVR."
+              : "Add this title to your DVR so you can quickly find it later."
+            : "Sign in to add this title to your DVR across your devices."}
         placement="top"
         isDisabled={dvrLoading}
       >
@@ -794,7 +794,7 @@ function MediaHoverPreview({
           className="watch-preview-save"
           aria-pressed={Boolean(user && dvrSaved)}
           aria-label={dvrLoading
-            ? "Loading saved library"
+            ? "Loading DVR"
             : user
               ? dvrLocked
                 ? `Save with membership to save ${item.title}`

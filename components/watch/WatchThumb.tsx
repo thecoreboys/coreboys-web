@@ -39,7 +39,35 @@ function isYoutubePlaceholder(img: HTMLImageElement) {
 export function WatchThumb(props: Parameters<typeof WatchThumbImage>[0]) {
   // Reset synchronously when a card is reused for a different post or quality.
   // An effect reset allowed the previous post's failed/loaded state to flash.
-  return <WatchThumbImage key={JSON.stringify([props.src, props.youtubeId, props.tiktokSourceUrl, props.instagramSourceUrl, props.preferTikTokSource, props.preferInstagramSource, props.loading])} {...props} />;
+  return <ViewportWatchThumb key={JSON.stringify([props.src, props.youtubeId, props.tiktokSourceUrl, props.instagramSourceUrl, props.preferTikTokSource, props.preferInstagramSource, props.loading])} {...props} />;
+}
+
+function ViewportWatchThumb(props: Parameters<typeof WatchThumbImage>[0]) {
+  const [nearViewport, setNearViewport] = useState(props.loading === "eager");
+  const placeholderRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (nearViewport) return;
+    const element = placeholderRef.current;
+    if (!element || typeof IntersectionObserver === "undefined") {
+      setNearViewport(true);
+      return;
+    }
+    // Native lazy loading can start thousands of pixels ahead. In long feeds,
+    // expired covers then launch dozens of provider-recovery requests at once.
+    // Keep those requests off the page's critical path until a card approaches.
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setNearViewport(true);
+      observer.disconnect();
+    }, { rootMargin: "200px 0px", threshold: 0 });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [nearViewport]);
+  if (nearViewport) return <WatchThumbImage {...props} />;
+  return <span ref={placeholderRef} className={props.className} role={props.alt ? "img" : undefined}
+    aria-label={props.alt || undefined} style={{ ...props.style, display: "block", width: "100%", height: "100%" }}>
+    {props.placeholder}
+  </span>;
 }
 
 function WatchThumbImage({

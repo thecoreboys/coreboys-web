@@ -31,6 +31,9 @@ type Payload = {
   detail?: string;
 };
 
+const EMPTY_SESSIONS: StreamSession[] = [];
+const EMPTY_DAILY: StreamDaily[] = [];
+
 const fetcher = async (url: string): Promise<Payload> => {
   const res = await fetch(url, { credentials: "same-origin" });
   if (!res.ok) return { sessions: [], daily: [] };
@@ -44,8 +47,8 @@ export function useStreamSessions(range: "1d" | "7d" | "31d" | "all" = "7d") {
     dedupingInterval: 20_000,
     shouldRetryOnError: false,
   });
-  const sessions = data?.sessions ?? [];
-  const daily = data?.daily ?? [];
+  const sessions = data?.sessions ?? EMPTY_SESSIONS;
+  const daily = data?.daily ?? EMPTY_DAILY;
   const latestBySlug = (slug: string) => sessions.find((s) => s.slug === slug) ?? null;
   return {
     sessions,

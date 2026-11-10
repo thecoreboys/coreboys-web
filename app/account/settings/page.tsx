@@ -14,6 +14,7 @@ import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { CREW, MEMBERS } from "@/lib/members";
 import { crewXAuthorSlug } from "@/lib/x/crew-roster";
+import { settingsSectionFromLocation } from "@/lib/account/settings-navigation";
 
 export default function AccountSettingsPage() {
   const { user, loading } = useAuth();
@@ -28,12 +29,18 @@ export default function AccountSettingsPage() {
   useEffect(() => {
     const sync = () => {
       const hash = window.location.hash.slice(1);
-      const id = hash === "connections" || (!hash && new URLSearchParams(window.location.search).has("oauth")) ? "connected-accounts" : hash || "profile";
+      const id = settingsSectionFromLocation(hash, new URLSearchParams(window.location.search).has("oauth"));
       if (ACCOUNT_SETTINGS_NAV.some((item) => item.id === id && item.id !== "billing")) setActiveSection(id);
     };
     sync(); window.addEventListener("hashchange", sync); window.addEventListener("popstate", sync);
     return () => { window.removeEventListener("hashchange", sync); window.removeEventListener("popstate", sync); };
   }, []);
+  useEffect(() => {
+    if (user && activeSection === "privacy" && window.location.hash === "#account-deletion") {
+      const frame = window.requestAnimationFrame(() => document.getElementById("account-deletion")?.scrollIntoView({ block: "start" }));
+      return () => window.cancelAnimationFrame(frame);
+    }
+  }, [activeSection, user]);
   const selectSection = (id: string) => { setActiveSection(id); window.history.pushState(null, "", `#${id}`); };
 
   if (loading || !user) {
@@ -54,7 +61,7 @@ export default function AccountSettingsPage() {
                 />
               </Suspense>
             </section> : null}
-            <AccountSettingsHub section={activeSection} />
+            <AccountSettingsHub key={user.id} accountId={user.id} section={activeSection} />
             {activeSection === "notifications" ? <section id="notifications" className="scroll-mt-24">
               <SocialNotificationSettings members={[
                 { slug: "core", stageName: "CORE" },

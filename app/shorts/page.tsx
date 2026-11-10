@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "../watch/watch.css";
 import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { ShortsStage } from "@/components/watch/ShortsStage";
-import { getWatchCatalog } from "@/lib/watch/catalog";
+import { getHomeWatchCatalog } from "@/lib/watch/catalog";
 import { selectShortFormRailItems } from "@/lib/watch/short-form";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ShortsPage() {
-  const catalog = await getWatchCatalog();
+  const catalog = await getHomeWatchCatalog();
   // The queue endpoint replenishes this creator-balanced batch as the viewer
   // approaches its end. Only the first portion needs to cross the RSC boundary.
   const items = selectShortFormRailItems(catalog.all, INITIAL_SHORTS_BATCH);

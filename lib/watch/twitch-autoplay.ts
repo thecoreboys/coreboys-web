@@ -5,6 +5,18 @@ export function exposedTwitchPreview(entry: {
   return entry.isIntersecting && entry.intersectionRatio >= 0.99;
 }
 
+/** Twitch must see an unobscured frame at its supported size before startup. */
+export function exposedTwitchPlayer(entry: {
+  isIntersecting: boolean; intersectionRatio: number;
+  boundingClientRect: { width: number; height: number };
+  isVisible?: boolean;
+}, tracksVisibility = false) {
+  return exposedTwitchPreview(entry)
+    && entry.boundingClientRect.width >= 400
+    && entry.boundingClientRect.height >= 300
+    && (!tracksVisibility || entry.isVisible === true);
+}
+
 /** A provider's unpaused flag can arrive before any media actually starts. */
 export function advancingTwitchPlayback(previous: number, position: number, paused: boolean | undefined) {
   return Number.isFinite(position) && previous >= 0 && position > previous + 0.05 && paused === false;
@@ -41,6 +53,7 @@ export function createTwitchAutoplayBudget(limit = 12) {
   return {
     get started() { return started; },
     get visible() { return visible; },
+    get manuallyPaused() { return manualPause; },
     get exhausted() { return !started && attempts >= limit; },
     setVisible(next: boolean) {
       if (next && !visible && !started) attempts = 0;

@@ -26,7 +26,8 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { openAuthModal } from "@/lib/auth/modal";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { ThemeToggle } from "@/components/chrome/ThemeToggle";
-import { MEMBERS_BY_SLUG } from "@/lib/members";
+import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
+import { countLiveCreators } from "@/lib/watch/live-source-groups";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
@@ -96,7 +97,13 @@ export function TopNav() {
     },
   );
   const youtubeLiveEntries = (unifiedLive?.live ?? []).filter(isYouTubeLiveEntry);
-  const liveCount = liveEntries.length + youtubeLiveEntries.length;
+  const liveCount = countLiveCreators([
+    ...liveEntries.flatMap((entry) => {
+      const member = MEMBERS.find((candidate) => candidate.twitchLogin.toLowerCase() === entry.login.toLowerCase());
+      return member ? [{ key: `twitch:${entry.login.toLowerCase()}`, kind: "live", memberSlug: member.slug }] : [];
+    }),
+    ...youtubeLiveEntries.map((entry) => ({ key: `youtube:${entry.id}`, kind: "live", memberSlug: entry.memberSlug })),
+  ]);
   const combinedViewers = liveEntries.reduce(
     (sum, e) => sum + (e.viewerCount ?? 0),
     0,
@@ -226,7 +233,7 @@ export function TopNav() {
       )}
     >
       <div className="core-topnav__inner mx-auto grid h-14 max-w-container grid-cols-[auto_1fr_auto] items-center gap-2 px-4 sm:gap-4 sm:px-6 md:h-16 md:px-8">
-        <Link
+        <Link prefetch={false}
           href="/"
           aria-label="CORE — watch"
           className="group inline-flex w-fit min-w-0 shrink-0 items-center gap-2 cursor-pointer"
@@ -299,7 +306,7 @@ export function TopNav() {
                   <span className="text-xs font-semibold tracking-tight text-primary">
                     Networks · 7 communities
                   </span>
-                  <Link href="/guide" onClick={() => setMembersOpen(false)} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-secondary hover:text-brand-secondary_hover">
+                  <Link prefetch={false} href="/guide" onClick={() => setMembersOpen(false)} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-secondary hover:text-brand-secondary_hover">
                     Open guide →
                   </Link>
                 </div>
@@ -309,7 +316,7 @@ export function TopNav() {
                     const username = member ? `@${member.twitchLogin}` : "All CORE";
                     return (
                       <li key={network.slug}>
-                        <Link
+                        <Link prefetch={false}
                           href={`/channels/${network.slug}` as `/channels/${string}`}
                           onPointerEnter={() => prefetchOnIntent(`/channels/${network.slug}`)}
                           onFocus={() => prefetchOnIntent(`/channels/${network.slug}`)}
@@ -396,7 +403,7 @@ export function TopNav() {
             </button>
           ) : null}
 
-          <Link
+          <Link prefetch={false}
             href="/upgrade"
             data-cursor-hint="Explore member benefits"
             aria-label={supporterAriaLabel}
@@ -502,7 +509,7 @@ export function TopNav() {
                       <AccountMenuLink
                         href="/dvr"
                         icon={Bookmark}
-                        label="Saved library"
+                        label="DVR"
                         active={pathname.startsWith("/dvr") || pathname.startsWith("/my-list")}
                         onSelect={() => setAccountOpen(false)}
                       />
@@ -588,7 +595,7 @@ export function TopNav() {
                 const member = network.memberSlug ? MEMBERS_BY_SLUG[network.memberSlug] : null;
                 return (
                   <li key={network.slug}>
-                    <Link
+                    <Link prefetch={false}
                       href={`/channels/${network.slug}` as `/channels/${string}`}
                       onPointerEnter={() => prefetchOnIntent(`/channels/${network.slug}`)}
                       onFocus={() => prefetchOnIntent(`/channels/${network.slug}`)}
@@ -619,7 +626,7 @@ export function TopNav() {
                   ["/guide", "Guide"],
                 ] as Array<[string, string]>
               ).map(([href, label]) => (
-                <Link
+                <Link prefetch={false}
                   key={href}
                   href={href as never}
                   onPointerEnter={() => prefetchOnIntent(href)}
@@ -632,7 +639,7 @@ export function TopNav() {
               ))}
             </div>
 
-            <Link
+            <Link prefetch={false}
               href="/upgrade"
               onClick={() => setOpen(false)}
               className="mt-5 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[color:var(--ui-line)] px-3.5 text-sm font-medium text-[color:var(--ink)] transition-colors hover:bg-[color:var(--ui-hover)]"
@@ -654,7 +661,7 @@ export function TopNav() {
                 </span>
               ) : user ? (
                 <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Link
+                  <Link prefetch={false}
                     href={"/passport" as Route}
                     onClick={() => setOpen(false)}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
@@ -662,7 +669,7 @@ export function TopNav() {
                     <Award size={16} aria-hidden />
                     CORE Passport
                   </Link>
-                  <Link
+                  <Link prefetch={false}
                     href={"/dvr" as never}
                     onClick={() => setOpen(false)}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
@@ -670,7 +677,7 @@ export function TopNav() {
                     <Bookmark size={16} aria-hidden />
                     DVR
                   </Link>
-                  <Link
+                  <Link prefetch={false}
                     href="/account/settings"
                     onClick={() => setOpen(false)}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
@@ -678,7 +685,7 @@ export function TopNav() {
                     <UserRound size={16} aria-hidden />
                     Account settings
                   </Link>
-                  <Link
+                  <Link prefetch={false}
                     href="/account/settings/billing"
                     onClick={() => setOpen(false)}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
@@ -731,9 +738,8 @@ function NavLink({
   active?: boolean;
 }) {
   return (
-    <Link
+    <Link prefetch={false}
       href={href as never}
-      prefetch={false}
       onPointerEnter={onIntent}
       onFocus={onIntent}
       aria-current={active ? "page" : undefined}
@@ -765,7 +771,7 @@ function AccountMenuLink({
   onSelect: () => void;
 }) {
   return (
-    <Link
+    <Link prefetch={false}
       href={href as never}
       role="menuitem"
       onClick={onSelect}

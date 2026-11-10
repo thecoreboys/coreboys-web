@@ -58,6 +58,25 @@
   gap: 2rem;
 }
 
+/* A compact page heading leaves the schedule, rather than a banner, in view. */
+.guide-v2 .guide-page-header { align-items: end; padding: 0 0 1.5rem; border-bottom: 1px solid rgba(255,255,255,.1); border-radius: 0; }
+.guide-v2 .guide-page-header + .guide-secondary { margin-top: 1.5rem; border-top: 0; }
+.guide-v2 .guide-page-header .watch-title { margin: 0; font-size: clamp(2rem, 3vw, 2.75rem) !important; line-height: 1.1; letter-spacing: -.04em; }
+.guide-v2 .guide-page-header > div:first-child > p { margin-top: .5rem; color: #aaaab4; font-size: .9375rem; }
+.guide-v2 .guide-page-header .guide-view-switch { margin: 0; padding: .25rem; border: 1px solid #ffffff1a; border-radius: .75rem; background: #111114; }
+.guide-v2 .guide-page-header .guide-view-switch button { border-color: transparent; background: transparent; cursor: pointer; transition: background 150ms, color 150ms; }
+.guide-v2 .guide-page-header .guide-view-switch button:hover { background: #ffffff10; color: #fff; }
+.guide-v2 .guide-page-header .guide-view-switch button[aria-pressed="true"] { background: #f4f4f6; color: #111; }
+.guide-v2 .guide-controls { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(12rem, 1.5fr); align-items: center; }
+.guide-v2 .guide-timeline-card.is-compact .guide-timeline-card-copy { display: none; }
+@media (max-width: 640px) {
+  .guide-v2 .guide-page-header { align-items: flex-start; flex-direction: column; gap: 1.25rem; }
+  .guide-v2 .guide-page-header .guide-view-switch { width: 100%; }
+  .guide-v2 .guide-page-header .guide-view-switch button { flex: 1; }
+  .guide-v2 .guide-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .guide-v2 .guide-controls .guide-search-wrap { grid-column: 1 / -1; }
+}
+
 .guide-v2-status {
   display: inline-flex;
   flex: 0 0 auto;

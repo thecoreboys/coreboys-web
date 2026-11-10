@@ -21,7 +21,7 @@ const SLIDE_DURATION_MS = 5_000;
 
 const SLIDES = [
   { label: "WATCH HISTORY", title: "Continue on any device.", copy: "Sign in and CORE remembers where you stopped.", art: "/brand/supporter/signal-room-v1.png" },
-  { label: "Saved library", title: "Keep a private watch list.", copy: "Save programs in folders and add notes or tags for later.", art: "/brand/supporter/cloud-dvr-v1.png" },
+  { label: "DVR", title: "Keep a private watch list.", copy: "Save programs in folders and add notes or tags for later.", art: "/brand/supporter/cloud-dvr-v1.png" },
   { label: "LIVE ALERTS", title: "Choose which alerts you get.", copy: "Follow the channels you care about and set quiet hours when you do not want notifications.", art: "/brand/supporter/signal-room-v1.png" },
   { label: "MULTIVIEW", title: "Save your screen layout.", copy: "Return to the same streams, chats, and arrangement the next time you open multiview.", art: "/brand/supporter/cloud-dvr-v1.png" },
 ] as const;

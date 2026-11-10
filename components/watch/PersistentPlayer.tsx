@@ -107,7 +107,7 @@ import {
   shouldUpgradeTwitchLiveAutoplay,
   withTwitchAutoplayPermissions,
 } from "@/lib/watch/player-autoplay";
-import { twitchLiveSnapshotUrl } from "@/lib/watch/twitch-snapshot";
+import companionStyles from "./PlayerCompanion.module.css";
 import {
   clampLiveDvrPosition,
   liveDvrBehindSeconds,
@@ -844,7 +844,7 @@ export function PersistentPlayer() {
   const [origin, setOrigin] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [playbackError, setPlaybackError] = useState(false);
-  const [creatorDetailsOpen, setCreatorDetailsOpen] = useState(false);
+  const [queueVisibleCount, setQueueVisibleCount] = useState(12);
   const [twitchStartRequired, setTwitchStartRequired] = useState(false);
   const [playbackSettingsOpen, setPlaybackSettingsOpen] = useState(false);
   const [uiPosition, setUiPosition] = useState(0);
@@ -2666,8 +2666,6 @@ export function PersistentPlayer() {
   const currentTwitchLive = current.kind === "live" && current.platform === "twitch"
     ? live?.live.find((entry) => entry.isLive && entry.login.toLowerCase() === current.twitchLogin?.toLowerCase())
     : undefined;
-  const detailSnapshot = twitchLiveSnapshotUrl(currentTwitchLive?.thumbnailUrl);
-  const detailPoster = detailSnapshot ?? current.poster;
   const detailTitle = currentTwitchLive?.title?.trim() || current.title;
 
   const activeAiring = channel?.airing?.itemKey === current.key ? channel.airing : null;
@@ -3060,8 +3058,8 @@ export function PersistentPlayer() {
                   </div>
                 )}
                 <Tooltip
-                  title={dvrLocked ? "Saved library with CORE Membership" : dvrUser && savedToDvr ? "Remove from library" : "Save"}
-                  description={dvrLocked ? "Your saved library is included with CORE Membership." : dvrUser ? savedToDvr ? "Remove this broadcast from your saved library." : "Add this broadcast to your saved library for later." : "Sign in to add this broadcast to your saved library."}
+                  title={dvrLocked ? "DVR with CORE Membership" : dvrUser && savedToDvr ? "Remove from DVR" : "Save"}
+                  description={dvrLocked ? "Your DVR is included with CORE Membership." : dvrUser ? savedToDvr ? "Remove this broadcast from your DVR." : "Add this broadcast to your DVR for later." : "Sign in to add this broadcast to your DVR."}
                   placement="bottom"
                 >
                   <button
@@ -4175,12 +4173,6 @@ export function PersistentPlayer() {
                 </Tooltip>
               </div>
             ) : null}
-            {!currentIsLive
-              && !imageMedia
-              && (nativeMedia || !usesVisibleTimeProxy(current))
-              && !(nativeMedia && current.platform === "house") ? (
-              shortFormTheaterNavigation ? <details className="border-t border-white/10 bg-[#09090b] px-3 text-sm text-white/75" onToggle={(event) => setCreatorDetailsOpen(event.currentTarget.open)}><summary className="min-h-11 cursor-pointer py-3">Creator details</summary>{creatorDetailsOpen ? <OnScreenIdentityOverlay contentId={current.key} mode="vod" variant="rail" getMediaTimeMs={readPresenceTimeMs} /> : null}</details> : <OnScreenIdentityOverlay contentId={current.key} mode="vod" variant="rail" getMediaTimeMs={readPresenceTimeMs} />
-            ) : null}
             {!playerScreen ? (
             <div
               data-player-details
@@ -4456,7 +4448,7 @@ export function PersistentPlayer() {
               aria-label="Player sidebar"
               data-player-companion-ready={playerStageShellHeight ? true : undefined}
               style={playerStageShellHeight ? { ["--watch-player-companion-height" as string]: `${playerStageShellHeight}px` } : undefined}
-              className="watch-player-companion fixed inset-x-2 bottom-2 top-16 z-40 flex min-h-0 flex-col overflow-hidden rounded-2xl bg-[#101014]/90 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl lg:static lg:shadow-none"
+              className={`watch-player-companion ${companionStyles.panel} fixed inset-x-2 bottom-2 top-16 z-40 flex min-h-0 flex-col overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15 lg:static lg:shadow-none`}
             >
               <div className="flex shrink-0 items-center gap-2 border-b border-white/10 p-2">
                 <div
@@ -4484,7 +4476,7 @@ export function PersistentPlayer() {
                           tabIndex={selected ? 0 : -1}
                           onClick={() => setCompanionView(view)}
                           onKeyDown={onCompanionTabKeyDown}
-                          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 text-[10px] font-semibold shadow-sm ring-1 ring-transparent transition-[transform,background-color,color,box-shadow] duration-150 ease-out hover:-translate-y-px hover:shadow-md active:translate-y-0 active:scale-[.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/75 ${selected ? "bg-white text-black ring-white/80 shadow-white/10 hover:bg-white/90" : "text-white/60 hover:bg-white/12 hover:text-white hover:ring-white/12"}`}
+                          className={`${companionStyles.tab} inline-flex min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 font-semibold ring-1 ring-transparent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/75 ${selected ? "bg-white text-black ring-white/80 hover:bg-white/90" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
                         >
                           <Icon className="size-3.5 shrink-0" aria-hidden />
                           <span className="truncate">{label}</span>
@@ -4514,18 +4506,15 @@ export function PersistentPlayer() {
               >
                 {activeCompanionView === "up-next" ? (
                   <>
-                    <div className="mb-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
-                        {channel ? `Up next on ${channel.title}` : "Up next"}
-                      </p>
-                      <p className="mt-0.5 line-clamp-1 text-xs text-white/60">
-                        {channel
-                          ? channel.subtitle ?? "This channel keeps its lineup in order and loops continuously."
-                          : "Live moves to the front. Your choice keeps playing."}
-                      </p>
+                    <div className={companionStyles.queueHeader}>
+                      <div>
+                        <h2>Up next</h2>
+                        <p>{channel?.title ?? "Your queue"}</p>
+                      </div>
+                      <span>{queue.length} {queue.length === 1 ? "video" : "videos"}</span>
                     </div>
                     {!shortsPage ? (
-                      <div className="mb-2 grid grid-cols-3 gap-1.5">
+                      <div className={companionStyles.queueSettings}>
                         <div className="relative">
                           <WatchSelect
                             ariaLabel="Autoplay mode"
@@ -4552,46 +4541,48 @@ export function PersistentPlayer() {
                         </button>
                       </div>
                     ) : null}
-                    <div className="space-y-2">
-                      {queue.slice(0, 3).map((item, index) => (
-                        <article key={item.key} className="group relative isolate min-h-[4.5rem] overflow-hidden rounded-xl bg-[#17171c] ring-1 ring-white/10 transition hover:ring-white/25">
-                          {item.poster || item.platform === "tiktok" ? (
-                            <WatchThumb
-                              src={item.poster}
-                              alt=""
-                              className="absolute inset-0 -z-20 h-full w-full object-cover opacity-90 saturate-[1.04] transition duration-300 group-hover:scale-[1.025] group-hover:opacity-100 motion-reduce:transition-none"
-                              fallback={<span className="absolute inset-0 -z-20 grid place-items-center bg-[radial-gradient(ellipse_at_50%_20%,rgba(254,44,85,.22),transparent_55%),linear-gradient(145deg,#21161c,#101014)]"><SocialIcon platform={item.platform === "house" ? "youtube" : item.platform} size={24} /></span>}
-                            />
-                          ) : null}
-                          <span className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-black/55 via-black/15 to-transparent" aria-hidden />
+                    <div className={companionStyles.queueList}>
+                      {queue.slice(0, queueVisibleCount).map((item, index) => (
+                        <article key={item.key} className={companionStyles.queueItem}>
                           <button
                             type="button"
                             onClick={() => playFromQueue(item.key)}
-                            className={`flex min-h-[4.5rem] w-full min-w-0 flex-col justify-end px-3 py-2 pr-12 text-left ${CONTROL_FEEDBACK}`}
+                            aria-label={`Play ${readableTitle(item.title)}`}
+                            className={companionStyles.queuePlay}
                           >
-                            <span className="mb-1.5 flex items-center gap-1.5">
-                              <PlatformMark item={item} />
-                              {index === 0 ? <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/80">Next</span> : null}
-                              {item.kind === "live" ? <span className="rounded-full bg-[#ef233c] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-white">Live</span> : null}
+                            <span className={companionStyles.thumbnail} data-shape={contentShape(item)}>
+                              <WatchThumb
+                                src={item.poster}
+                                youtubeId={item.youtubeId}
+                                alt=""
+                                fallback={<span className={companionStyles.thumbnailFallback}><SocialIcon platform={item.platform === "house" ? "youtube" : item.platform} size={22} /></span>}
+                              />
+                              <span className={companionStyles.playIcon} aria-hidden><PlayIcon size={22} fill="currentColor" /></span>
                             </span>
-                            <span className="block line-clamp-2 text-sm font-semibold leading-5 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]">{readableTitle(item.title)}</span>
-                            {item.recommendationReason ? <span className="mt-0.5 block truncate text-[10px] text-white/55">{item.recommendationReason}</span> : null}
+                            <span className={companionStyles.queueCopy}>
+                              {index === 0 ? <span className={companionStyles.nextLabel}>Plays next</span> : null}
+                              <span className={companionStyles.queueTitle}>{readableTitle(item.title)}</span>
+                              <span className={companionStyles.queueAuthor}>{item.memberLabel}</span>
+                              <span className={companionStyles.queueMeta}>
+                                <SocialIcon platform={item.platform === "house" ? "youtube" : item.platform} size={12} />
+                                {formatDisplayLabel(item.platform)}
+                                {item.kind === "live" ? <span className={companionStyles.live}>Live</span> : item.durationSeconds && item.durationSeconds > 0 ? <span>· {playbackClock(item.durationSeconds)}</span> : null}
+                              </span>
+                            </span>
                           </button>
-                          <Tooltip title="Remove from queue" description="Remove this video from Up next." placement="left">
-                            <button
-                              type="button"
-                              onClick={() => removeFromQueue(item.key)}
-                              className={`absolute right-2 top-2 grid size-9 place-items-center rounded-full bg-black/55 text-white/60 ring-1 ring-white/10 backdrop-blur-sm ${CONTROL_FEEDBACK} ${CONTROL_HOVER}`}
-                              aria-label={`Remove ${item.title} from queue`}
-                            >
-                              ×
-                            </button>
-                          </Tooltip>
+                          <button
+                            type="button"
+                            onClick={() => removeFromQueue(item.key)}
+                            className={companionStyles.queueRemove}
+                            aria-label={`Remove ${readableTitle(item.title)} from queue`}
+                            title="Remove from queue"
+                          ><X size={15} aria-hidden /></button>
                         </article>
                       ))}
+                      {queue.length > queueVisibleCount ? <button type="button" className={companionStyles.showMore} onClick={() => setQueueVisibleCount((count) => count + 12)}>Show more</button> : null}
                       {queue.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-white/15 p-5 text-center text-xs text-white/40">
-                          The next fresh title will be found automatically.
+                        <p className={companionStyles.empty}>
+                          Your queue is empty. Add a video to choose what plays next.
                         </p>
                       ) : null}
                     </div>
@@ -4618,60 +4609,42 @@ export function PersistentPlayer() {
                     />
                   </div>
                 ) : (
-                  <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(ellipse_at_top_right,rgba(230,0,112,0.12),transparent_48%),linear-gradient(155deg,#17171b,#0b0b0e)] px-5 py-5 sm:px-6 sm:py-6">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="inline-flex min-h-8 items-center gap-2 rounded-full bg-white/[0.07] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-white/70 ring-1 ring-white/10">
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-black tracking-wide text-white ${currentIsLive ? "bg-[#ef233c]" : "bg-[#e60070]"}`}>{currentIsLive ? "Live" : "VOD"}</span>
-                        {currentIsLive ? "Live stream" : "Video on demand"}
-                      </p>
-                      <PlatformMark item={current} />
+                  <div className={companionStyles.details}>
+                    <div className={companionStyles.type}>
+                      <SocialIcon platform={current.platform === "house" ? "youtube" : current.platform} size={15} />
+                      <span>{currentIsLive ? "Live stream" : isShortFormNavigationItem(current) ? "Short video" : current.kind === "vod" ? "Replay" : "Video"}</span>
+                      {currentIsLive ? <span className={companionStyles.live}>Live</span> : null}
                     </div>
-                    <div className="mt-6">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#ff5364]">Now playing</p>
-                      <h2 className="mt-2 line-clamp-4 text-[clamp(1.65rem,3.2vw,2.45rem)] font-bold leading-[1.02] tracking-[-0.045em] text-white" title={detailTitle}>{readableTitle(detailTitle)}</h2>
-                      <p className="mt-3 truncate text-sm font-semibold text-white/55">
-                        {channel?.title || current.accountLabel || current.memberLabel} · {currentIsLive ? "Live" : formatDisplayLabel(current.platform)}
-                      </p>
+                    <h2 className={companionStyles.title}>{readableTitle(detailTitle)}</h2>
+                    <p className={companionStyles.author}>{current.accountLabel || current.memberLabel}</p>
+                    <div className={companionStyles.metadata}>
+                      <span>{formatDisplayLabel(current.platform)}</span>
+                      {(!currentIsLive || twitchDvrActive) && scrubberDuration > 0 ? <span>· {playbackClock(scrubberDuration)}</span> : null}
+                      {current.publishedAt && Number.isFinite(Date.parse(current.publishedAt)) ? <span>· {new Date(current.publishedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span> : null}
                     </div>
-                    {detailPoster ? (
-                      <div className="mt-6 h-24 shrink-0 overflow-hidden rounded-xl opacity-60 ring-1 ring-white/10">
-                        <WatchThumb src={detailPoster} alt="" className="h-full w-full object-cover" />
-                      </div>
-                    ) : null}
-                    <dl className="mt-auto pt-8">
-                      <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3 border-t border-white/10 py-3">
-                        <dt className="text-[10px] font-bold uppercase tracking-wide text-white/35">Airtime</dt>
-                        <dd className="min-w-0 text-xs font-medium leading-5 text-white/75">{activeAiringLabel ?? (currentIsLive ? "Live now" : "Available to watch now")}</dd>
-                      </div>
-                      <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3 border-t border-white/10 py-3">
-                        <dt className="text-[10px] font-bold uppercase tracking-wide text-white/35">Creator</dt>
-                        <dd className="min-w-0 truncate text-xs font-semibold text-white/80">{current.memberLabel} · {formatDisplayLabel(current.platform)}</dd>
-                      </div>
-                      <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3 border-y border-white/10 py-3">
-                        <dt className="text-[10px] font-bold uppercase tracking-wide text-white/35">Length</dt>
-                        <dd className="text-xs font-semibold text-white/80">{currentIsLive && !twitchDvrActive ? "Live now" : playbackClock(scrubberDuration)}</dd>
-                      </div>
-                    </dl>
-                    <div className="mt-5 grid grid-cols-2 gap-2">
-                      <Tooltip title={dvrLocked ? "Saved library with CORE Membership" : dvrUser && savedToDvr ? "Remove from library" : "Save"} description={dvrLocked ? "Your saved library is included with CORE Membership." : dvrUser ? "Keep this in your saved library for later." : "Sign in to save this to your saved library."} placement="top">
-                        <button type="button" onClick={toggleDvrSave} disabled={dvrActionLoading} aria-pressed={Boolean(dvrUser && savedToDvr)} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold ring-1 ${savedToDvr ? "bg-white text-black ring-white" : `bg-white text-black ring-white ${PRIMARY_CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><Archive className="size-3.5" aria-hidden />{dvrLocked ? "Save with membership" : savedToDvr ? "Saved" : "Save"}</button>
+                    {activeAiringLabel ? <dl className={companionStyles.schedule}><dt>On {channel?.title ?? "this channel"}</dt><dd>{activeAiringLabel}</dd></dl> : null}
+                    <div className={companionStyles.actions}>
+                      <Tooltip title={dvrLocked ? "DVR with CORE Membership" : dvrUser && savedToDvr ? "Remove from DVR" : "Save"} description={dvrLocked ? "Your DVR is included with CORE Membership." : dvrUser ? "Keep this in your DVR for later." : "Sign in to save this to your DVR."} placement="top">
+                        <button type="button" onClick={toggleDvrSave} disabled={dvrActionLoading} aria-pressed={Boolean(dvrUser && savedToDvr)}><Archive size={16} aria-hidden />{dvrActionLoading ? "Loading…" : savedToDvr ? "Saved to DVR" : "Save to DVR"}</button>
                       </Tooltip>
-                      {(current.sourceUrl ?? current.url) ? <a href={(current.sourceUrl ?? current.url)!} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-11 items-center justify-center truncate rounded-xl px-3 text-xs font-semibold text-white/70 ring-1 ring-white/15 ${CONTROL_FEEDBACK} ${CONTROL_HOVER}`}>Open on {formatDisplayLabel(current.platform)}</a> : null}
+                      {(current.sourceUrl ?? current.url) ? <a href={(current.sourceUrl ?? current.url)!} target="_blank" rel="noopener noreferrer">Open on {formatDisplayLabel(current.platform)} <span aria-hidden>↗</span></a> : null}
                     </div>
-                    <details className="mt-4 border-t border-white/10 pt-3">
-                      <summary className="cursor-pointer text-[10px] font-semibold text-white/45">More options</summary>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                    <section className={companionStyles.activity} aria-label="Your activity">
+                      <h3>Your activity</h3>
+                      <div className={companionStyles.activityActions}>
+                        {!currentIsLive ? (
                         <Tooltip title={activeMark?.completed ? "Marked watched" : "Mark as watched"} description="Complete this title in your watch history." placement="top">
-                          <button type="button" onClick={() => markWatched(progressRef(current), current.kind, current.memberSlug, uiDuration || current.durationSeconds)} disabled={Boolean(activeMark?.completed)} className={`min-h-10 rounded-xl px-2 text-[11px] font-semibold text-white/75 ring-1 ring-white/12 ${CONTROL_FEEDBACK} ${CONTROL_HOVER} disabled:cursor-default disabled:opacity-45`}>{activeMark?.completed ? "Watched" : "Mark watched"}</button>
+                          <button type="button" className={companionStyles.markWatched} onClick={() => markWatched(progressRef(current), current.kind, current.memberSlug, uiDuration || current.durationSeconds)} disabled={Boolean(activeMark?.completed)}>{activeMark?.completed ? "Marked watched" : "Mark as watched"}</button>
                         </Tooltip>
+                        ) : null}
                         <Tooltip title="More like this" description="Use this to tune future recommendations." placement="top">
-                          <button type="button" onClick={() => setCurrentFeedback("like")} aria-pressed={currentFeedback === "like"} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-2 text-[11px] font-semibold ring-1 ${currentFeedback === "like" ? "bg-white text-black ring-white" : `text-white/75 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><ThumbsUp className="size-3.5" aria-hidden />Like</button>
+                          <button type="button" onClick={() => setCurrentFeedback("like")} aria-pressed={currentFeedback === "like"}><ThumbsUp size={15} aria-hidden />Like</button>
                         </Tooltip>
                         <Tooltip title="Less interested" description="Show fewer recommendations like this title." placement="top">
-                          <button type="button" onClick={() => setCurrentFeedback("not_interested")} aria-pressed={currentFeedback === "not_interested"} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-2 text-[11px] font-semibold ring-1 ${currentFeedback === "not_interested" ? "bg-white text-black ring-white" : `text-white/75 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><ThumbsDown className="size-3.5" aria-hidden />Less interested</button>
+                          <button type="button" onClick={() => setCurrentFeedback("not_interested")} aria-pressed={currentFeedback === "not_interested"}><ThumbsDown size={15} aria-hidden />Less like this</button>
                         </Tooltip>
                       </div>
-                    </details>
+                    </section>
                     {activeChapter && !playerScreen ? (
                       <div className="rounded-xl bg-white/[0.04] p-3 ring-1 ring-white/10">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">Current chapter</p>

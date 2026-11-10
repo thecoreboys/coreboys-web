@@ -61,7 +61,7 @@ export function PassportDashboard() {
   if (!passport.passport) {
     return (
       <div className="passport-shell">
-        <div className="passport-load-error"><AlertCircle aria-hidden="true" /><h1>Passport is temporarily unavailable.</h1><p>{passport.loadError ?? "Your identity and inventory are safe. Try loading them again."}</p><button type="button" className="passport-button passport-button--primary" onClick={() => void passport.refresh()}><RefreshCw aria-hidden="true" /> Try again</button></div>
+        <div className="passport-load-error"><AlertCircle aria-hidden="true" /><h1>Passport is temporarily unavailable.</h1><p>{passport.loadError ?? "We couldn’t load your Passport. Please try again."}</p><button type="button" className="passport-button passport-button--primary" onClick={() => void passport.refresh()}><RefreshCw aria-hidden="true" /> Try again</button></div>
       </div>
     );
   }
@@ -73,8 +73,9 @@ export function PassportDashboard() {
   return (
     <div className="passport-shell">
       <header className="passport-hero">
+        <div className="passport-cover" aria-hidden="true"><span>CORE</span><span className="passport-cover__seal">C</span><span>Passport</span></div>
         <div className="passport-hero__identity">
-          <div><span className="passport-kicker">{displayName} · Level {data.profile.level}</span><h1>CORE Passport</h1><p>Your watch activity, collected moments, and milestones.</p></div>
+          <div><span className="passport-hero__eyebrow">The CORE collection</span><h1>My Passport</h1><p>{displayName} <span aria-hidden="true">·</span> Level {data.profile.level}</p><p className="passport-hero__description">Your moments, milestones and time spent watching.</p></div>
         </div>
         <Link href="/account/settings#connections" className="passport-button"><Settings aria-hidden="true" /> Connected accounts</Link>
       </header>

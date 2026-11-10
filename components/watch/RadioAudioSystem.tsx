@@ -58,6 +58,31 @@ export function RadioAudioSystem() {
   const router = useRouter();
   const [settings, setSettings] = useState<RadioAudioSettings>(() => readRadioAudioSettings());
   const [catalog, setCatalog] = useState<RadioCue[]>([]);
+  const [inlineChannelVisible, setInlineChannelVisible] = useState(false);
+
+  useEffect(() => {
+    setInlineChannelVisible(false);
+    if (!pathname.startsWith("/channels/")) return;
+    const main = document.getElementById("main");
+    if (!main) return;
+    let observed: Element | null = null;
+    const visibility = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(([entry]) => {
+      setInlineChannelVisible(Boolean(entry?.isIntersecting));
+    });
+    const connect = () => {
+      if (observed?.isConnected && observed.matches('[data-inline-channel-player="true"]')) return;
+      visibility?.disconnect();
+      observed = main.querySelector('[data-inline-channel-player="true"]');
+      setInlineChannelVisible(Boolean(observed && !visibility));
+      if (observed) visibility?.observe(observed);
+    };
+    // The channel streams in after the site shell. Reuse one observer while
+    // that player remains mounted; archive thumbnails do not trigger scans.
+    const mounts = new MutationObserver(connect);
+    mounts.observe(main, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-inline-channel-player"] });
+    connect();
+    return () => { mounts.disconnect(); visibility?.disconnect(); };
+  }, [pathname]);
 
   useEffect(() => {
     const onSettings = (event: Event) => {
@@ -169,7 +194,7 @@ export function RadioAudioSystem() {
   // Keep the floating dial tucked away on dense surfaces such as the Guide.
   // A hidden dock also keeps network transition announcements silent.
   const compactDockPage = pathname.startsWith("/theater") || pathname.startsWith("/multiview")
-    || pathname.startsWith("/account") || pathname.startsWith("/guide") || pathname === "/upgrade" || Boolean(player.current);
+    || pathname.startsWith("/account") || pathname.startsWith("/guide") || pathname === "/upgrade" || Boolean(player.current) || inlineChannelVisible;
 
   return (
     <RadioAudioDirector

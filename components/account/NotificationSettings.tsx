@@ -18,6 +18,7 @@ import { Toggle } from "@/components/base/toggle/toggle";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { cx } from "@/utils/cx";
 import { useSubscription } from "@/hooks/useSubscription";
+import { mergeSavedNotificationChannel } from "@/lib/account/notification-settings";
 
 type NotificationCategory =
   | "live"
@@ -159,7 +160,7 @@ export function NotificationSettings({
       if (data.preference) {
         setPreferences((current) =>
           current.map((preference) =>
-            preference.category === category ? data.preference! : preference,
+            preference.category === category ? mergeSavedNotificationChannel(preference, data.preference!, field) : preference,
           ),
         );
       }
@@ -220,8 +221,7 @@ export function NotificationSettings({
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-primary">Notification preferences</h2>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-tertiary">
-                Choose what reaches you and where. Everything starts off, and saving a
-                preference never sends a message by itself.
+                Choose which updates you receive by email or text.
               </p>
             </div>
           </div>

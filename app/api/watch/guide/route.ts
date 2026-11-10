@@ -10,6 +10,7 @@ import { removeActiveTwitchArchiveDuplicates } from "@/lib/watch/guide-programs"
 import type { WatchCatalog, WatchItem, WatchPlatform } from "@/lib/watch/types";
 import type { GuidePayload } from "@/lib/watch/guide-response";
 import { packGuidePayload } from "@/lib/watch/guide-transport";
+import { GUIDE_MAX_WINDOW_MS, projectGuideWindow } from "@/lib/watch/guide-window";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -480,6 +481,13 @@ function loadCatalogTimeline(catalog: WatchCatalog): GuideProgram[] {
 }
 
 export async function GET(request: Request) {
+  const params = new URL(request.url).searchParams;
+  const windowStart = params.has("start") ? Number(params.get("start")) : null;
+  const windowEnd = params.has("end") ? Number(params.get("end")) : null;
+  if ((windowStart !== null || windowEnd !== null) && (windowStart === null || windowEnd === null
+    || !Number.isFinite(windowStart) || !Number.isFinite(windowEnd) || windowEnd <= windowStart || windowEnd - windowStart > GUIDE_MAX_WINDOW_MS)) {
+    return NextResponse.json({ error: "Invalid guide window" }, { status: 400 });
+  }
   const serverNow = new Date();
   // Only Twitch schedules depend on its directory. Other providers, recorded
   // history and the shared catalog can start immediately.
@@ -496,8 +504,11 @@ export async function GET(request: Request) {
     getWatchCatalog().catch(() => null),
   ]);
 
-  const timeline = catalog ? loadCatalogTimeline(catalog) : [];
-  const networks = catalog ? buildGuideNetworkRows(catalog) : [];
+  if (!catalog) {
+    return NextResponse.json({ error: "Guide temporarily unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
+  const timeline = loadCatalogTimeline(catalog);
+  const networks = buildGuideNetworkRows(catalog);
   const replays = mergeReplays(sessions, timeline.filter((program) => program.status === "replay"));
   const nonReplayTimeline = timeline.filter((program) => program.status !== "replay");
   const scheduledYoutubeIds = new Set(youtubeUpcoming.items.flatMap((item) => item.youtubeId ? [item.youtubeId] : []));
@@ -517,8 +528,9 @@ export async function GET(request: Request) {
         socialTimeline: timeline.length ? "ok" : "empty",
       },
     };
+  const snapshot = windowStart !== null && windowEnd !== null ? projectGuideWindow(payload, windowStart, windowEnd, params.get("linear") !== "0") : payload;
   return NextResponse.json(
-    request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(payload) : payload,
+    request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(snapshot) : snapshot,
     {
       headers: {
         "Cache-Control": "public, s-maxage=60, stale-while-revalidate=180",

@@ -35,6 +35,8 @@ export type CreatorPlatformRailsProps = {
   sources?: readonly CuratedChannelSourceDescriptor[];
   sourceLinks?: readonly CreatorPlatformSourceLink[];
   className?: string;
+  archiveEndpoint?: string;
+  railTotals?: Readonly<Record<string, number>>;
 };
 
 const PLATFORM_LABEL: Record<CuratedChannelPlatform, string> = {
@@ -106,15 +108,59 @@ function MediaSourceRail({
   rail,
   onPlay,
   initialCount,
+  archiveEndpoint,
+  total,
 }: {
   rail: CuratedChannelRail;
   onPlay: (item: WatchItem, sourceQueue: readonly WatchItem[]) => void;
   initialCount: number;
+  archiveEndpoint?: string;
+  total?: number;
 }) {
   const [visibleCount, setVisibleCount] = useState(initialCount);
-  const visibleItems = rail.items.slice(0, visibleCount);
-  const remaining = rail.items.length - visibleItems.length;
+  const [loadedItems, setLoadedItems] = useState<WatchItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [loadedTotal, setLoadedTotal] = useState<number | null>(null);
+  const [exhausted, setExhausted] = useState(false);
+  const [paginationCursor, setPaginationCursor] = useState<string | undefined>(undefined);
+  const availableItems = useMemo(() => {
+    const seen = new Set<string>();
+    return [...rail.items, ...loadedItems].filter((item) => {
+      const key = `${item.platform}:${item.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [rail.items, loadedItems]);
+  const visibleItems = availableItems.slice(0, visibleCount);
+  const availableTotal = loadedTotal ?? total ?? rail.items.length;
+  const remaining = exhausted ? Math.max(0, availableItems.length - visibleItems.length) : Math.max(0, availableTotal - visibleItems.length);
   const revealCount = Math.min(MEDIA_ITEMS_STEP, remaining);
+  const showMore = async () => {
+    if (loading) return;
+    if (!archiveEndpoint || availableItems.length > visibleCount) {
+      setVisibleCount((count) => count + MEDIA_ITEMS_STEP);
+      return;
+    }
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const last = availableItems.at(-1);
+      const params = new URLSearchParams({ rail: rail.id });
+      if (paginationCursor !== undefined) params.set("after", paginationCursor);
+      else if (last) params.set("after", `${last.platform}:${last.id}`);
+      const response = await fetch(`${archiveEndpoint}?${params}`);
+      if (!response.ok) throw new Error("Archive unavailable");
+      const page = await response.json() as { items: WatchItem[]; total: number; nextCursor: string | null };
+      setLoadedItems((items) => [...items, ...page.items]);
+      setLoadedTotal(page.total);
+      setExhausted(page.nextCursor === null);
+      if (page.nextCursor !== null) setPaginationCursor(page.nextCursor);
+      setVisibleCount((count) => count + MEDIA_ITEMS_STEP);
+    } catch { setLoadError(true); }
+    finally { setLoading(false); }
+  };
 
   return (
     <>
@@ -128,7 +174,7 @@ function MediaSourceRail({
           <PosterCard
             key={`${item.platform}:${item.id}`}
             item={item}
-            context={rail.items}
+            context={availableItems}
             onPlay={onPlay}
             hoverAutoplay
           />
@@ -136,9 +182,9 @@ function MediaSourceRail({
       </DragScrollRail>
       {remaining > 0 ? (
         <div className={styles.archiveControls}>
-          <span>{visibleItems.length.toLocaleString()} of {rail.items.length.toLocaleString()} available</span>
-          <button type="button" onClick={() => setVisibleCount((count) => count + MEDIA_ITEMS_STEP)}>
-            Show {revealCount.toLocaleString()} more
+          <span role={loadError ? "status" : undefined}>{loadError ? "Couldn’t load more. Please try again." : `${visibleItems.length.toLocaleString()} of ${availableTotal.toLocaleString()} available`}</span>
+          <button type="button" disabled={loading} onClick={() => void showMore()}>
+            {loading ? "Loading…" : loadError ? "Try again" : `Show ${revealCount.toLocaleString()} more`}
           </button>
         </div>
       ) : null}
@@ -160,6 +206,8 @@ export const CreatorPlatformRails = memo(function CreatorPlatformRails({
   sources = [],
   sourceLinks = [],
   className = "",
+  archiveEndpoint,
+  railTotals,
 }: CreatorPlatformRailsProps) {
   const rails = useMemo(
     () => buildCuratedChannelRails(items, { maxItemsPerSource, sources }),
@@ -234,7 +282,7 @@ export const CreatorPlatformRails = memo(function CreatorPlatformRails({
                   <strong id={`creator-source-${rail.id}`}>{rail.sourceLabel}</strong>
                   <small>
                     {!usesOfficialEmbedFallback && rail.items.length
-                      ? `${PLATFORM_LABEL[rail.platform]} · ${RAIL_KIND_LABEL[rail.kind]} · ${rail.items.length.toLocaleString()} available`
+                      ? `${PLATFORM_LABEL[rail.platform]} · ${RAIL_KIND_LABEL[rail.kind]} · ${(railTotals?.[rail.id] ?? rail.items.length).toLocaleString()} available`
                       : `${PLATFORM_LABEL[rail.platform]} · ${emptySourceStatus(rail)}`}
                   </small>
                 </span>
@@ -251,7 +299,7 @@ export const CreatorPlatformRails = memo(function CreatorPlatformRails({
               ) : usesOfficialEmbedFallback ? (
                 <OfficialSocialEmbedFallback rail={rail} />
               ) : (
-                <MediaSourceRail rail={rail} onPlay={onPlay} initialCount={initialItemsPerSource} />
+                <MediaSourceRail rail={rail} onPlay={onPlay} initialCount={initialItemsPerSource} archiveEndpoint={archiveEndpoint} total={railTotals?.[rail.id]} />
               )}
             </section>
           );

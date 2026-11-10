@@ -12,14 +12,14 @@ export function DvrMembershipGate({ planName }: { planName: string }) {
         <div className="watch-dvr-gate__intro">
           <span className="watch-dvr-gate__icon" aria-hidden><Archive /></span>
           <p className="watch-dvr-gate__eyebrow"><LockKeyhole aria-hidden /> {planName}</p>
-          <h1 id="dvr-gate-title">Your saved library is included with membership.</h1>
+          <h1 id="dvr-gate-title">Your DVR is included with membership.</h1>
           <p className="watch-dvr-gate__copy">
             Save links to streams, videos, Shorts, and posts in your private library. Saving does not record or download the video.
           </p>
         </div>
 
         <div className="watch-dvr-gate__actions">
-          <ul aria-label="Saved library membership benefits">
+          <ul aria-label="DVR membership benefits">
             <li><Check aria-hidden /> Pick up where you left off</li>
             <li><Check aria-hidden /> Keep saved titles in one place</li>
             <li><Check aria-hidden /> Build custom watch queues</li>

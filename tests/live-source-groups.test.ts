@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 // Node's type-stripping test runner requires the explicit suffix.
 // @ts-expect-error App TypeScript does not enable allowImportingTsExtensions.
-import { groupCrossPlatformLiveSources, uniqueCrossPlatformLiveSources } from "../lib/watch/live-source-groups.ts";
+import { countLiveCreators, groupCrossPlatformLiveSources, uniqueCrossPlatformLiveSources } from "../lib/watch/live-source-groups.ts";
 
 function source(key: string, memberSlug: string, platform: string, kind = "live") {
   return { key, memberSlug, memberLabel: "Lacy", platform, kind };
@@ -18,6 +18,13 @@ test("same-creator YouTube and Twitch lives group as one switchable source", () 
   assert.equal(groups.length, 1);
   assert.deepEqual(groups[0]?.sources, [youtube, twitch]);
   assert.deepEqual(uniqueCrossPlatformLiveSources([youtube, twitch]), [youtube]);
+});
+
+test("the live count counts each member once across platforms and keeps unknown sources separate", () => {
+  const sources = [source("lacy-youtube", "lacy", "youtube"), source("lacy-twitch", "lacy", "twitch"), source("jason-twitch", "jason", "twitch")];
+  assert.equal(countLiveCreators(sources), 2);
+  assert.equal(countLiveCreators([...sources, { ...source("house", "", "youtube"), memberSlug: null }]), 3);
+  assert.equal(countLiveCreators([...sources, source("old", "adapt", "youtube", "vod")]), 2);
 });
 
 test("Live Now renders one card per creator group with source toggles", () => {

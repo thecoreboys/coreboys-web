@@ -976,7 +976,7 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
             type="button"
             aria-pressed={Boolean(user && dvrSaved)}
             aria-label={dvrLoading
-              ? "Loading saved library"
+              ? "Loading DVR"
               : user
                 ? dvrSaved ? `Remove ${item.title} from DVR` : `Save ${item.title} to DVR`
                 : `Save ${item.title} to DVR`}

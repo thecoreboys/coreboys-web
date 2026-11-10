@@ -141,7 +141,8 @@ export function TonightPage({
   const viewer = useBrowserTimeZone();
   const initialNow = Date.parse(serverNow);
   const [now, setNow] = useState(Number.isFinite(initialNow) ? initialNow : 0);
-  const { data: guide, isLoading: guideLoading } = useWatchGuide();
+  const [guideWindow] = useState(() => ({ start: initialNow - 86_400_000, end: initialNow + 7 * 86_400_000 }));
+  const { data: guide, isLoading: guideLoading } = useWatchGuide({ window: guideWindow, linear: false });
   const programs = useMemo(() => guide?.programs ?? [], [guide?.programs]);
   const guideReady = !guideLoading;
 

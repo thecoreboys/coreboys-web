@@ -251,5 +251,5 @@ test("YouTube archive history is source-specific and returned to the public cata
   assert.match(catalog, /archivedHouseItems/);
   assert.match(catalog, /archivedMemberItems/);
   assert.match(rails, /FULL_HISTORY_SOURCE_LIMIT = 20_000/);
-  assert.match(railUi, /Show \{revealCount\.toLocaleString\(\)\} more/);
+  assert.match(railUi, /Show \$\{revealCount\.toLocaleString\(\)\} more/);
 });

@@ -62,7 +62,7 @@ function youtubeLiveHref(entry: YouTubeLiveEntry): string {
   return `/theater?${params.toString()}`;
 }
 
-function LiveNowCard({ sources, onClose }: { sources: ModalLiveSource[]; onClose: () => void }) {
+function LiveNowCard({ sources, onClose, reserveSourceSpace }: { sources: ModalLiveSource[]; onClose: () => void; reserveSourceSpace: boolean }) {
   const [selectedKey, setSelectedKey] = useState(sources[0]?.key ?? "");
   const source = sources.find((item) => item.key === selectedKey) ?? sources[0]!;
   const isYoutube = source.platform === "youtube";
@@ -109,14 +109,14 @@ function LiveNowCard({ sources, onClose }: { sources: ModalLiveSource[]; onClose
           <ArrowRight size={17} aria-hidden />
         </span>
       </Link>
-      {sources.length > 1 ? <div className={styles.sources} aria-label="Choose a live source">
+      {sources.length > 1 ? <div className={styles.sources} role="group" aria-label="Choose a live source">
         {sources.map((item) => {
           const active = item.key === source.key;
           return <button key={item.key} type="button" aria-pressed={active} onClick={() => setSelectedKey(item.key)} className={styles.sourceButton}>
-            {item.platform === "youtube" ? "YouTube" : "Twitch"}{item.entry.viewerCount != null ? ` · ${formatCount(item.entry.viewerCount)}` : ""}
+            <span>{item.platform === "youtube" ? "YouTube" : "Twitch"}</span>{item.entry.viewerCount != null ? <span className={styles.sourceViewers} aria-label={`${item.entry.viewerCount.toLocaleString("en-US")} viewers`}><Eye aria-hidden size={12} />{formatCount(item.entry.viewerCount)}</span> : null}
           </button>;
         })}
-      </div> : null}
+      </div> : reserveSourceSpace ? <div className={cn(styles.sources, styles.sourcesPlaceholder)} aria-hidden /> : null}
     </li>
   );
 }
@@ -144,6 +144,7 @@ export function LiveNowModal({
     }),
   ];
   const groups = groupCrossPlatformLiveSources(sources);
+  const reserveSourceSpace = groups.some((group) => group.sources.length > 1);
   const count = groups.length;
   const wide = count >= 2;
   const many = count >= 3;
@@ -181,7 +182,7 @@ export function LiveNowModal({
                   : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
           )}
         >
-          {groups.map((group) => <LiveNowCard key={group.key} sources={group.sources} onClose={onClose} />)}
+          {groups.map((group) => <LiveNowCard key={group.key} sources={group.sources} onClose={onClose} reserveSourceSpace={reserveSourceSpace} />)}
         </ul>
 
         <footer className={styles.footer}>

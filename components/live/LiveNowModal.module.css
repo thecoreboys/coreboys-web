@@ -87,8 +87,9 @@
 .card:focus-within .playOverlay { opacity: 1; }
 .card:focus-within .playCircle { transform: none; }
 .card:focus-within .watchAction { color: var(--ink); }
-.sources { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 14px; }
-.sourceButton { min-height: 36px; padding: 6px 10px; border: 1px solid var(--picker-line); border-radius: 7px; background: transparent; color: var(--picker-muted); font-size: 11px; font-weight: 500; cursor: pointer; transition: color 160ms, background 160ms, border-color 160ms; }
+.sources { display: flex; min-height: 50px; gap: 6px; overflow-x: auto; padding: 0 16px 14px; }
+.sourceButton { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; min-height: 36px; padding: 6px 10px; border: 1px solid var(--picker-line); border-radius: 7px; background: transparent; color: var(--picker-muted); font-size: 11px; font-weight: 500; cursor: pointer; transition: color 160ms, background 160ms, border-color 160ms; }
+.sourceViewers { display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
 .sourceButton:hover, .sourceButton[aria-pressed="true"] { border-color: color-mix(in srgb, var(--ink) 28%, transparent); background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
 
 .footer { display: grid; flex-shrink: 0; grid-template-columns: 1fr 1fr; gap: 12px; border-top: 1px solid var(--picker-line); padding: 16px 26px 20px; }
@@ -130,6 +131,7 @@
   .streamTitle { min-height: 0; }
   .watchAction { min-height: 48px; font-size: 13px; }
   .duration { font-size: 12px; }
+  .sourcesPlaceholder { display: none; }
   .footer { gap: 8px; padding: 13px 16px max(16px, env(safe-area-inset-bottom)); }
   .footerLink { min-height: 56px; gap: 9px; padding: 10px 12px; }
   .footerIcon { width: auto; height: auto; border: 0; }
@@ -141,6 +143,7 @@
   .playOverlay { opacity: 1; }
   .playCircle { width: 44px; height: 44px; transform: none; }
   .sourceButton { min-height: 44px; }
+  .sources { min-height: 58px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

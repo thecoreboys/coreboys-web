@@ -204,17 +204,20 @@ test("network hero retries only after its provider iframe has loaded", () => {
 });
 
 test("network 24/7 Twitch preview verifies and recovers actual paused playback", () => {
-  assert.match(channelPage, /isPaused\?: \(\) => boolean/);
-  assert.match(channelPage, /return typeof paused === "boolean" \? paused : null/);
+  assert.match(channelPage, /loadTwitchPlayer\(\)/);
+  assert.match(channelPage, /observedTwitchLivePlayback\(providerPlaying, paused, instance\.getPlaybackStats\?\.\(\)\)/);
+  assert.match(channelPage, /advancingTwitchPlayback\(previousPosition, position, paused\)/);
   assert.match(channelPage, /instance\.addEventListener\(api\.Player\.PAUSE/);
-  assert.match(channelPage, /scheduleRetries\(\[120, 700, 1_800, 3_200, 5_200, 7_500\], true\)/);
-  assert.match(channelPage, /document\.addEventListener\("visibilitychange", resumeWhenVisible\)/);
+  assert.match(channelPage, /exposedTwitchPlayer\(entry, tracksVisibility\)/);
+  assert.match(channelPage, /document\.addEventListener\("visibilitychange", updateVisibility\)/);
+  assert.match(channelPage, /if \(!budget\.started && !budget\.manuallyPaused\)/);
+  assert.doesNotMatch(channelPage, /loadChannelTwitch/);
 });
 
 test("network hero starts muted and keeps the scheduled item through provider recovery", () => {
   assert.match(channelPage, /muted:\s*true,[\s\S]{0,220}autoplay:\s*true/);
-  assert.match(channelPage, /const maxPlaybackAttempts = 16/);
-  assert.match(channelPage, /PLAYBACK_BLOCKED[\s\S]{0,800}scheduleRetries\(\[250, 800, 1_800, 3_200, 5_200, 7_500\], true\)/);
+  assert.match(channelPage, /createTwitchAutoplayBudget\(16\)/);
+  assert.match(channelPage, /if \(budget\.exhausted\) markAutoplayBlocked\(\)/);
   assert.doesNotMatch(channelPage, /const mutedFallbackTimer = window\.setTimeout/);
   assert.match(channelPage, /className=\{styles\.heroPreviewSound\}/);
   assert.match(channelPage, /className=\{styles\.heroPreviewRetry\}/);
@@ -222,6 +225,20 @@ test("network hero starts muted and keeps the scheduled item through provider re
   assert.match(channelCss, /\.heroPreviewSound\s*\{[\s\S]{0,160}z-index:\s*8/);
   assert.doesNotMatch(channelPage, /autoplayFallbackEntry/);
   assert.doesNotMatch(channelPage, /opening next program/);
+});
+
+test("the channel leaves Twitch native controls uncovered and interactive", () => {
+  assert.match(channelPage, /usesTwitchSdk \? <div className=\{styles\.heroPreviewControls\}/);
+  assert.match(channelPage, /!usesTwitchSdk \? soundControl/);
+  assert.match(channelCss, /\.heroPreviewControls\s*\{[\s\S]{0,90}top: calc\(100% \+ \.5rem\)/);
+  assert.match(channelCss, /\.heroPreviewProviderAutoplay \.heroPreviewTwitchMount iframe\s*\{\s*pointer-events: auto/);
+  assert.match(channelCss, /\.heroPreviewProviderAutoplay:hover\s*\{[\s\S]{0,260}overflow: visible;\s*transform: none/);
+  assert.match(channelPage, /setHeroMuted, twitchChannel, twitchMountId, twitchVideo, usesTwitchSdk\]/);
+  assert.match(channelPage, /data-inline-channel-player=\{autoStart && mediaMounted/);
+  const radio = readFileSync("components/watch/RadioAudioSystem.tsx", "utf8");
+  assert.match(radio, /Boolean\(player\.current\) \|\| inlineChannelVisible/);
+  assert.match(radio, /visibility\?\.observe\(observed\)/);
+  assert.match(radio, /mounts\.disconnect\(\); visibility\?\.disconnect\(\)/);
 });
 
 test("the home carousel guarantees live Twitch and recent Twitch broadcasts", () => {

@@ -407,10 +407,10 @@ export function ChatComposer({
     const reconnect = Boolean(me.twitch?.needsReconnect);
     return (
       <ChatAccessBar
-        title={reconnect ? "Twitch permission needed" : "Send as yourself on Twitch"}
+        title={reconnect ? "Reconnect Twitch" : "Chat on Twitch"}
         description={reconnect
-          ? "Reconnect once to approve live-chat sending."
-          : "Connect Twitch once to chat without leaving the hub."}
+          ? "Reconnect to send messages."
+          : "Connect Twitch to send messages."}
         actionLabel={reconnect ? "Reconnect Twitch" : "Connect Twitch"}
         actionHref="/account/settings#connections"
       />

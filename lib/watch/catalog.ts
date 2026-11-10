@@ -19,6 +19,7 @@ import type { WatchCatalog, WatchItem } from "./types";
 import { isLiveWatchItem } from "./is-live-item";
 import { compactWatchCatalog, expandWatchCatalog, isCompactWatchCatalog } from "./catalog-cache";
 import { projectHomeCatalog } from "./home-catalog";
+import { mergeFreshWatchCatalog } from "./catalog-freshness";
 import {
   groupWatchItemsByPlatform,
   normalizeWatchItems,
@@ -285,19 +286,19 @@ async function getTwitchBroadcasts(
 }
 
 export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => {
-  const catalog = expandWatchCatalog(await cachedPublicData(
-  "watch-catalog:v4",
-  async () => compactWatchCatalog(await buildWatchCatalog()),
-  {
-    freshSeconds: 20,
-    // Keep the last usable snapshot available while a refresh runs (and during
-    // brief upstream/DB stalls) instead of making the next visitor wait for
-    // the entire Twitch + social + YouTube catalog rebuild.
-    staleSeconds: 180,
-    validate: isCompactWatchCatalog,
-    shouldCache: (catalog) => catalog.all.length > 0,
-  },
-  ));
+  const [snapshot, recent] = await Promise.all([
+    cachedPublicData("watch-catalog:v4", async () => compactWatchCatalog(await buildWatchCatalog()), {
+      freshSeconds: 300,
+      // Keep history through quiet periods and refresh it after the response.
+      // The separate recent snapshot owns live status and new uploads, so a
+      // longer archive fallback never extends an old stream's live flag.
+      staleSeconds: 21_600,
+      validate: isCompactWatchCatalog,
+      shouldCache: (catalog) => catalog.all.length > 0,
+    }),
+    getHomeWatchCatalog(),
+  ]);
+  const catalog = mergeFreshWatchCatalog(expandWatchCatalog(snapshot), recent);
   // The shared catalog may predate a provider deletion. Check the durable
   // registry after cache retrieval so stale Redis/Next entries cannot revive it.
   return filterUnavailableCatalog(catalog);

@@ -368,9 +368,9 @@ function ChatDockContent({
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
           <div data-cursor-context="chat view" className="inline-flex rounded-lg bg-secondary p-0.5 ring-1 ring-inset ring-secondary" aria-label="Chat view">
             {([
-              ["combined", "One room"],
-              ["columns", "Separate"],
-              ["focused", "Focus"],
+              ["combined", "All Twitch"],
+              ["columns", "By channel"],
+              ["focused", "Focused"],
             ] as const).map(([value, label]) => (
               <button
                 key={value}

@@ -635,16 +635,16 @@ export function PosterCard({
       ) : null}
 
       <Tooltip
-        title={dvrLoading ? "Loading saved library" : dvrLocked ? "Saved library with CORE Membership" : user && dvrSaved ? "Remove from library" : "Save"}
+        title={dvrLoading ? "Loading DVR" : dvrLocked ? "DVR with CORE Membership" : user && dvrSaved ? "Remove from DVR" : "Save"}
         description={dvrLoading
           ? "Checking your saved titles."
           : user
             ? dvrLocked
-              ? "Your saved library is included with CORE Membership."
+              ? "Your DVR is included with CORE Membership."
               : dvrSaved
-              ? "Remove this title from your saved library."
-              : "Add this title to your saved library so you can quickly find it later."
-            : "Sign in to add this title to your saved library across your devices."}
+              ? "Remove this title from your DVR."
+              : "Add this title to your DVR so you can quickly find it later."
+            : "Sign in to add this title to your DVR across your devices."}
         placement="top"
         isDisabled={dvrLoading}
       >
@@ -652,7 +652,7 @@ export function PosterCard({
           type="button"
           data-no-drag
           aria-label={dvrLoading
-            ? "Loading saved library"
+            ? "Loading DVR"
             : user
               ? dvrLocked ? `Save with membership to save ${item.title}` : dvrSaved ? `Remove ${item.title} from your library` : `Add ${item.title} to your library`
               : `Add ${item.title} to your library`}
@@ -815,15 +815,15 @@ export function MyListShelf({
           <div>
             <p className="watch-my-list-eyebrow">Saved to your account</p>
             <div className="watch-my-list-title-row">
-              <Heading id="my-list-title">Saved library</Heading>
+              <Heading id="my-list-title">DVR</Heading>
               {hasSavedItems ? <span>{totalCount}</span> : null}
             </div>
             <p>
               {loading
-                ? "Loading your saved library…"
+                ? "Loading your DVR…"
                 : signedIn
                 ? "Your saved titles and watch progress. Playback depends on the original source remaining available."
-                : "Sign in to keep your saved library with your CORE account."}
+                : "Sign in to keep your DVR with your CORE account."}
             </p>
           </div>
           {hasSavedItems ? (
@@ -875,7 +875,7 @@ export function MyListShelf({
               <MyListGlyph saved={false} />
             </span>
             <div>
-              <h3>{loading ? "Loading your saved library" : hasSavedItems ? "No matching titles" : "No saved titles yet"}</h3>
+              <h3>{loading ? "Loading your DVR" : hasSavedItems ? "No matching titles" : "No saved titles yet"}</h3>
               <p>
                 {loading
                   ? "Checking your CORE account for saved titles."

@@ -207,7 +207,7 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
     const personalActions: MenuAction[] = [
       {
         id: "dvr",
-        label: dvrLocked ? "Save with membership" : saved ? "Remove from library" : "Save",
+        label: dvrLocked ? "Save with membership" : saved ? "Remove from DVR" : "Save",
         icon: Bookmark,
         active: dvrAllowed && saved,
         onSelect: () => {

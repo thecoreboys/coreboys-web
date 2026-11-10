@@ -151,6 +151,7 @@ export async function fetchYouTubeChannelFeed(
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
   try {
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(2_000),
       next: { revalidate: SOCIAL_FEED_CACHE_SECONDS, tags: [SOCIAL_FEED_CACHE_TAG] },
     });
     if (!res.ok) return [];
@@ -336,9 +337,11 @@ export async function resolveYouTubeChannelId(
   if (!handle) return null;
 
   try {
+    const signal = AbortSignal.timeout(2_500);
     const resolveChannel = async (selector: "forHandle" | "forUsername") => {
       const params = new URLSearchParams({ part: "id", [selector]: handle, key });
       const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?${params}`, {
+        signal,
         next: { revalidate: 86_400, tags: [SOCIAL_FEED_CACHE_TAG] },
       });
       if (!res.ok) return null;
@@ -365,6 +368,7 @@ export async function resolveYouTubeChannelId(
       key,
     });
     const searchRes = await fetch(`https://www.googleapis.com/youtube/v3/search?${search}`, {
+      signal,
       next: { revalidate: 86_400, tags: [SOCIAL_FEED_CACHE_TAG] },
     });
     if (!searchRes.ok) return null;
@@ -1179,12 +1183,13 @@ function balancedFeedItems(items: readonly FeedItem[], limit: number): FeedItem[
 }
 
 /**
- * HOUSE feed — the latest across every member's socials, merged and
- * sorted newest-first. YouTube items are real (resolved from each
- * member's linked YouTube social via RSS. Other platforms use their
- * official credential-gated APIs. Never throws.
+ * HOUSE feed — public renders merge cached YouTube RSS with saved social
+ * records and X snapshots. Provider/credential lookups run during scheduled
+ * reconciliation instead of delaying a visitor's page.
  */
 type ScheduledPublicFallbacks = {
+  /** Public renders read saved Instagram/TikTok rows instead of credentials or provider APIs. */
+  youtubeOnly?: boolean;
   profileMedia?: boolean;
   instagramReels?: boolean;
   onDiagnostic?: (diagnostic: PublicMediaDiagnostic) => void;
@@ -1210,6 +1215,7 @@ async function loadHouseFeed(options: ScheduledPublicFallbacks = {}): Promise<Fe
         ),
       );
     }
+    if (options.youtubeOnly) continue;
     for (const tk of m.socials.filter((s) => s.platform === "tiktok")) {
       if (tk.handle)
         tasks.push(fetchTikTokFeed(
@@ -1246,8 +1252,8 @@ async function loadHouseFeed(options: ScheduledPublicFallbacks = {}): Promise<Fe
 }
 
 const cachedHouseFeed = unstable_cache(
-  () => loadHouseFeed(),
-  ["coreboys", "social-feed", "house", "v1"],
+  () => loadHouseFeed({ youtubeOnly: true }),
+  ["coreboys", "social-feed", "house", "v2-youtube"],
   { revalidate: SOCIAL_FEED_CACHE_SECONDS, tags: [SOCIAL_FEED_CACHE_TAG] },
 );
 
@@ -1298,7 +1304,7 @@ async function loadCoreFeed(options: ScheduledPublicFallbacks = {}): Promise<Fee
     GROUP.socials.youtube.channelId || GROUP.socials.youtube.url || GROUP.socials.youtube.handle;
   if (ytRef) tasks.push(fetchYouTubeFeedByRef(ytRef, null, GROUP.name, 15));
 
-  if (GROUP.socials.tiktok?.handle)
+  if (!options.youtubeOnly && GROUP.socials.tiktok?.handle)
     tasks.push(
       fetchTikTokFeed(
         GROUP.socials.tiktok.handle,
@@ -1311,7 +1317,7 @@ async function loadCoreFeed(options: ScheduledPublicFallbacks = {}): Promise<Fee
         },
       ),
     );
-  if (GROUP.socials.instagram?.handle)
+  if (!options.youtubeOnly && GROUP.socials.instagram?.handle)
     tasks.push(
       fetchInstagramFeed(
         GROUP.socials.instagram.handle,
@@ -1333,8 +1339,8 @@ async function loadCoreFeed(options: ScheduledPublicFallbacks = {}): Promise<Fee
 }
 
 const cachedCoreFeed = unstable_cache(
-  () => loadCoreFeed(),
-  ["coreboys", "social-feed", "core", "v1"],
+  () => loadCoreFeed({ youtubeOnly: true }),
+  ["coreboys", "social-feed", "core", "v2-youtube"],
   { revalidate: SOCIAL_FEED_CACHE_SECONDS, tags: [SOCIAL_FEED_CACHE_TAG] },
 );
 

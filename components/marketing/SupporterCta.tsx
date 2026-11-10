@@ -28,8 +28,8 @@ const COPY = {
   guide: {
     eyebrow: "Guide alerts",
     title: "Set reminders for live channels.",
-    body: "Save a channel, choose your quiet hours, and keep broadcasts in your saved library with private notes.",
-    benefit: "Live reminders · quiet hours · saved library",
+    body: "Save a channel, choose your quiet hours, and keep broadcasts in your DVR with private notes.",
+    benefit: "Live reminders · quiet hours · DVR",
   },
   theater: {
     eyebrow: "Keep this in your orbit",
@@ -54,7 +54,7 @@ const COPY = {
 const DISCOVERY_FEATURES = [
   {
     key: "dvr",
-    title: "Saved library",
+    title: "DVR",
     detail: "Lists, folders, private notes, and tags",
     icon: Cloud,
   },

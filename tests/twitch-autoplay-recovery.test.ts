@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, exposedTwitchPreview, observedTwitchLivePlayback } from "../lib/watch/twitch-autoplay";
+import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, exposedTwitchPlayer, exposedTwitchPreview, observedTwitchLivePlayback } from "../lib/watch/twitch-autoplay";
+
+test("channel autoplay waits for a full-size unobscured Twitch frame", () => {
+  const entry = { isIntersecting: true, intersectionRatio: 1,
+    boundingClientRect: { width: 640, height: 360 }, isVisible: true };
+  assert.equal(exposedTwitchPlayer(entry, true), true);
+  assert.equal(exposedTwitchPlayer({ ...entry, intersectionRatio: 0.8 }, true), false);
+  assert.equal(exposedTwitchPlayer({ ...entry, boundingClientRect: { width: 399, height: 360 } }), false);
+  assert.equal(exposedTwitchPlayer({ ...entry, boundingClientRect: { width: 640, height: 299 } }), false);
+  assert.equal(exposedTwitchPlayer({ ...entry, isVisible: false }, true), false);
+  assert.equal(exposedTwitchPlayer({ ...entry, isVisible: undefined }, true), false);
+  assert.equal(exposedTwitchPlayer({ ...entry, isVisible: undefined }), true,
+    "browsers without occlusion tracking still use size and intersection");
+});
 
 test("a clipped hover popup preserves its autoplay budget until fully exposed", () => {
   const budget = createTwitchAutoplayBudget();
@@ -44,11 +57,13 @@ test("a native pause after confirmed playback stays paused across visibility cha
   budget.setVisible(true);
   budget.confirmPlayback();
   budget.pause();
+  assert.equal(budget.manuallyPaused, true);
   assert.equal(budget.takeAttempt(), false);
   budget.setVisible(false);
   budget.setVisible(true);
   assert.equal(budget.takeAttempt(), false);
   budget.restart();
+  assert.equal(budget.manuallyPaused, false);
   assert.equal(budget.takeAttempt(), true, "only an explicit Play request restarts recovery");
 });
 

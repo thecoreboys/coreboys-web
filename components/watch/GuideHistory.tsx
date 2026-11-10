@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { MEMBERS } from "@/lib/members";
 import { useDragScroll } from "@/hooks/useDragScroll";
 import { useStreamSessions } from "@/hooks/useStreamSessions";
@@ -12,6 +12,7 @@ import {
   bucketAirtimeMinutesByDay,
   dateKeyInTimeZone,
   mergeAirtimeHistorySessions,
+  recentAirtimeDateKeys,
   type AirtimeDailyRecord,
   type AirtimeHistorySession,
 } from "@/lib/watch/airtime-history";
@@ -30,42 +31,6 @@ type AirtimeDayDetail = {
   peakViewers: number;
   source: AirtimeDaySource;
 };
-
-function zonedDateParts(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
-}
-
-/**
- * Keep the contribution grid on a true Aug–Jul calendar year. Starting on
- * August 1 lets the leading blank cells place that date beneath its real
- * weekday, rather than making the graph look like an arbitrary rolling list.
- */
-function completedAugustYearDateKeys(serverNowMs: number, timeZone: string): string[] {
-  const values = zonedDateParts(new Date(serverNowMs), timeZone);
-  const currentYear = Number(values.year);
-  const currentMonth = Number(values.month);
-  const currentDay = Number(values.day);
-  const hasCompletedCurrentCycle = currentMonth > 7 || (currentMonth === 7 && currentDay === 31);
-  const endYear = hasCompletedCurrentCycle ? currentYear : currentYear - 1;
-  const start = new Date(Date.UTC(endYear - 1, 7, 1));
-  const end = new Date(Date.UTC(endYear, 6, 31));
-  const days: string[] = [];
-
-  for (let cursor = start; cursor <= end; cursor = new Date(cursor.getTime() + 86_400_000)) {
-    days.push([
-      cursor.getUTCFullYear(),
-      String(cursor.getUTCMonth() + 1).padStart(2, "0"),
-      String(cursor.getUTCDate()).padStart(2, "0"),
-    ].join("-"));
-  }
-  return days;
-}
 
 function dateFromKey(key: string): Date {
   const [year = 1970, month = 1, day = 1] = key.split("-").map(Number);
@@ -149,6 +114,7 @@ export function GuideHistory({
   memberSlug?: string | null;
   className?: string;
 }) {
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const {
     sessions: recordedSessions,
     daily: clientDaily,
@@ -159,7 +125,7 @@ export function GuideHistory({
   const parsedServerNow = Date.parse(serverNow);
   const serverNowMs = Number.isFinite(parsedServerNow) ? parsedServerNow : Date.now();
   const days = useMemo(
-    () => completedAugustYearDateKeys(serverNowMs, timePreferences.timeZone),
+    () => recentAirtimeDateKeys(serverNowMs, timePreferences.timeZone),
     [serverNowMs, timePreferences.timeZone],
   );
   const calendar = useMemo(() => {
@@ -290,16 +256,17 @@ export function GuideHistory({
     () => ({ "--guide-history-weeks": String(calendar.weeks) }) as CSSProperties,
     [calendar.weeks],
   );
+  const hasHistory = [...yearSummaries.values()].some((summary) => summary.activeDays > 0);
 
   return (
     <section className={`guide-history${className ? ` ${className}` : ""}`} aria-labelledby="airtime-history-heading">
       <header className="guide-history-header">
         <div className="guide-history-heading">
-          <span className="watch-kicker">August–July archive</span>
+          <span className="watch-kicker">Last 12 months</span>
           <h2 id="airtime-history-heading">Airtime history</h2>
         </div>
         <div className="guide-history-header-meta">
-          <span>Recorded coverage only · focus a day for details</span>
+          <span>Recorded broadcasts · select a day for details</span>
           <span className="guide-history-legend" aria-label="Less to more airtime">
             <i aria-hidden />
             <i aria-hidden />
@@ -310,6 +277,9 @@ export function GuideHistory({
       </header>
 
       <div className="guide-history-body">
+        {!hasHistory ? <p className="py-6 text-sm text-secondary" role="status">{observedLoading ? "Loading recorded airtime…" : "No recorded airtime is available for the last 12 months."}</p> : null}
+        {selectedDay ? <p className="pt-4 text-sm text-secondary" role="status">{selectedDay}</p> : null}
+        {hasHistory ? (
         <div ref={scroller} className="guide-history-year-scroll guide-drag" data-lenis-prevent>
           <div className="guide-history-year" style={gridStyle}>
             <div className="guide-history-month-row" aria-hidden>
@@ -359,27 +329,24 @@ export function GuideHistory({
                   <div
                     className="guide-history-contribution-grid"
                     role="grid"
-                    aria-label={`${member.comm.name} August–July airtime contribution grid`}
+                    aria-label={`${member.comm.name} airtime over the last 12 months`}
                   >
                     {calendar.cells.map((day, index) => {
                       if (!day) return <span className="guide-history-cell-empty" key={`blank-${index}`} aria-hidden />;
                       const detail = airtimeDays.get(`${member.slug}:${day}`);
                       const minutes = detail?.minutes ?? 0;
                       const heat = Math.min(1, minutes / 240);
+                      if (!detail || minutes <= 0) return <span className="guide-history-cell" key={day} aria-hidden />;
                       const dateLabel = formatLongDay(day, timePreferences);
                       const description = detail && minutes > 0
                         ? `${formatAirtime(minutes)} of airtime · ${detail.broadcasts > 0 ? plural(detail.broadcasts, "broadcast") : "broadcast count pending"} · ${sourceLabel(detail.source)}${detail.peakViewers > 0 ? ` · peak ${detail.peakViewers.toLocaleString("en-US")}` : ""}`
-                        : observedLoading
-                          ? "Checking the latest airtime archive."
-                          : "No coverage is available for this day. This does not mean the creator was offline.";
+                        : "No recorded coverage for this day.";
                       return (
-                        <Tooltip
-                          key={day}
-                          title={`${member.comm.name} · ${dateLabel}`}
-                          description={description}
-                          placement="top"
-                        >
-                          <TooltipTrigger
+                          <button
+                            type="button"
+                            key={day}
+                            title={`${member.comm.name} · ${dateLabel}: ${description}`}
+                            onClick={() => setSelectedDay(`${member.comm.name} · ${dateLabel}: ${description}`)}
                             aria-label={`${member.comm.name} · ${dateLabel}: ${description}`}
                             className={[
                               "guide-history-cell",
@@ -390,7 +357,6 @@ export function GuideHistory({
                               ? { "--guide-heat": String(0.18 + heat * 0.82) } as CSSProperties
                               : undefined}
                           />
-                        </Tooltip>
                       );
                     })}
                   </div>
@@ -399,6 +365,7 @@ export function GuideHistory({
             })}
           </div>
         </div>
+        ) : null}
       </div>
     </section>
   );

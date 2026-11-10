@@ -14,7 +14,7 @@ import "../watch/watch.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Saved library",
+  title: "DVR",
   description: "Your private saved titles, folders, notes, and watch progress. Saving a title does not record its video.",
   alternates: { canonical: "/dvr" },
   robots: { index: false, follow: false },

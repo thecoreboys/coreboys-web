@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
+import { accountRequestMatches, ACCOUNT_CHANGED_MESSAGE } from "@/lib/account-request";
 import { filterAvailableQueuePayload } from "@/lib/watch/available-references";
 import {
   deleteWorkspacePreference,
@@ -67,6 +68,7 @@ async function requireWorkspaceEntitlement(input: {
 export async function GET(request: Request) {
   const userId = await getCurrentFanUserId();
   if (!userId) return privateJson({ error: "unauthorized", items: [] }, { status: 401 });
+  if (!accountRequestMatches(request, userId)) return privateJson({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
   const parsed = Kind.safeParse(new URL(request.url).searchParams.get("kind"));
   if (!parsed.success) return privateJson({ error: "invalid_kind", items: [] }, { status: 400 });
   try {
@@ -88,6 +90,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const userId = await getCurrentFanUserId();
   if (!userId) return privateJson({ error: "unauthorized" }, { status: 401 });
+  if (!accountRequestMatches(request, userId)) return privateJson({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
   const parsed = PutBody.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return privateJson({ error: "invalid" }, { status: 400 });
   try {
@@ -115,6 +118,7 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   const userId = await getCurrentFanUserId();
   if (!userId) return privateJson({ error: "unauthorized" }, { status: 401 });
+  if (!accountRequestMatches(request, userId)) return privateJson({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
   const params = new URL(request.url).searchParams;
   const parsed = z.object({ kind: Kind, name: Name }).safeParse({
     kind: params.get("kind"),

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "../watch/watch.css";
 import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { TonightPage } from "@/components/watch/TonightPage";
-import { getWatchCatalog } from "@/lib/watch/catalog";
+import { getHomeWatchCatalog } from "@/lib/watch/catalog";
 import { buildNetworkLineup, resolveNetworkChannel } from "@/lib/watch/channels";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function TonightRoute() {
-  const catalog = await getWatchCatalog();
+  const catalog = await getHomeWatchCatalog();
   const coreChannel = resolveNetworkChannel("core");
   if (!coreChannel) return null;
   const lineup = buildNetworkLineup(catalog, coreChannel, "live");

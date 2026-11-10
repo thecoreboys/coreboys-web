@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { MultiviewEntry } from "@/components/watch/MultiviewEntry";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { entitlementDecision, getAccountSubscriptionState } from "@/lib/subscriptions/entitlements";
-import { getWatchCatalog } from "@/lib/watch/catalog";
+import { getHomeWatchCatalog, getWatchCatalog } from "@/lib/watch/catalog";
 import { buildMultiviewLiveRoom, restrictCatalogForLiveRoom } from "@/lib/watch/multiview-access";
 import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
 import { multiviewRequestedReferences, projectMultiviewCatalog } from "@/lib/watch/multiview-catalog";
@@ -42,11 +42,15 @@ export default async function MultiviewPage({ searchParams }: MultiviewPageProps
   const params = await searchParams;
   const liveParam = Array.isArray(params.live) ? params.live[0] : params.live;
   const openAllCurrentLive = liveParam === "all";
+  const references = openAllCurrentLive ? [] : multiviewRequestedReferences({
+    add: Array.isArray(params.add) ? params.add[0] : params.add,
+    layout: Array.isArray(params.layout) ? params.layout[0] : params.layout,
+  });
   // The paid-cap check is independent of the public catalog. Resolve both
   // together so opening the all-live room doesn't add an avoidable serial
   // account/database wait after the catalog is ready.
   const [catalog, canUseExpandedMultiview] = await Promise.all([
-    getWatchCatalog(),
+    references.length ? getWatchCatalog() : getHomeWatchCatalog(),
     openAllCurrentLive ? expandedMultiviewAllowed() : Promise.resolve(false),
   ]);
   const initialLiveRoom = openAllCurrentLive
@@ -55,10 +59,6 @@ export default async function MultiviewPage({ searchParams }: MultiviewPageProps
   const browserCatalog = initialLiveRoom
     ? restrictCatalogForLiveRoom(catalog, initialLiveRoom)
     : catalog;
-  const references = initialLiveRoom ? [] : multiviewRequestedReferences({
-    add: Array.isArray(params.add) ? params.add[0] : params.add,
-    layout: Array.isArray(params.layout) ? params.layout[0] : params.layout,
-  });
   return (
     <Suspense fallback={<div className="min-h-[calc(100dvh-4rem)] bg-[#070709]" />}>
       <MultiviewEntry

@@ -5,6 +5,7 @@ import {
   buildBroadcastHistoryFallback,
   computeAirtimeSummaries,
   mergeAirtimeHistorySessions,
+  recentAirtimeDateKeys,
   type AirtimeHistorySession,
 } from "../lib/watch/airtime-history";
 import { formatAirtime } from "../lib/watch/airtime";
@@ -93,4 +94,11 @@ test("computed summaries retain honest airtime and broadcast counts", () => {
 
   assert.deepEqual(summaries.get("adapt"), { minutesStreamed: 180, broadcasts: 2 });
   assert.equal(formatAirtime(0), "0m");
+});
+
+test("history includes the current local day rather than the last completed August–July year", () => {
+  const dates = recentAirtimeDateKeys(Date.parse("2026-11-09T01:00:00Z"), "America/New_York");
+  assert.equal(dates[0], "2025-11-09");
+  assert.equal(dates.at(-1), "2026-11-08");
+  assert.equal(dates.length, 365);
 });

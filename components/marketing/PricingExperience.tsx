@@ -18,7 +18,7 @@ const FEATURE_FOCUS: Record<string, { title: string; copy: string }> = {
   "multiview.saved_layouts": { title: "Saved layouts", copy: "Keep your preferred room setup ready." },
   "rooms.private": { title: "Private rooms", copy: "Bring your people into one shared watch room." },
   "notifications.advanced": { title: "Advanced alerts", copy: "Choose what matters and when CORE should notify you." },
-  "dvr.extended_retention": { title: "Saved library", copy: "Organize links, progress, and notes. Saving does not record videos." },
+  "dvr.extended_retention": { title: "DVR", copy: "Organize links, progress, and notes. Saving does not record videos." },
 };
 
 export function PricingExperience({ accountMode = false, account, accountLoading = false, accountUnavailable = false, focusFeature, children }: { accountMode?: boolean; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string; children?: ReactNode }) {

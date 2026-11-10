@@ -1,4 +1,5 @@
 import type { WatchCatalog, WatchItem } from "./types";
+import { groupCrossPlatformLiveSources } from "./live-source-groups";
 
 export const FREE_MULTIVIEW_TILE_LIMIT = 2;
 export const EXPANDED_MULTIVIEW_TILE_LIMIT = 12;
@@ -44,7 +45,8 @@ export function buildMultiviewLiveRoom(
   liveItems: readonly WatchItem[],
   expanded: boolean,
 ): MultiviewLiveRoom {
-  const current = liveItems.filter((item) => item.kind === "live");
+  const groups = groupCrossPlatformLiveSources(liveItems.map((item) => ({ ...item, key: item.id })));
+  const current = groups.map((group) => liveItems.find((item) => item.id === group.sources[0]!.id)!);
   const tileLimit = multiviewTileLimit(expanded);
   const playableItems = current.slice(0, tileLimit);
   return {
@@ -73,6 +75,15 @@ export function restrictCatalogForLiveRoom(
   room: MultiviewLiveRoom,
 ): WatchCatalog {
   const playableLiveIds = new Set(room.playableItems.map((item) => item.id));
+  // Both providers for an allowed creator share a single slot. Keep those
+  // alternate transports available for source switching, while still hiding
+  // every source belonging to a locked group.
+  const groups = groupCrossPlatformLiveSources(catalog.live.map((item) => ({ ...item, key: item.id })));
+  for (const group of groups) {
+    if (group.sources.some((source) => playableLiveIds.has(source.id))) {
+      for (const source of group.sources) playableLiveIds.add(source.id);
+    }
+  }
   const filter = (items: WatchItem[]) => items.filter((item) => allowedCatalogItem(item, playableLiveIds));
   const byPlatform = Object.fromEntries(
     Object.entries(catalog.byPlatform).map(([platform, items]) => [platform, filter(items)]),

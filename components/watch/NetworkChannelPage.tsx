@@ -1,7 +1,6 @@
 "use client";
 
 import type { Route } from "next";
-import type { CrewMember } from "@coreboys/shared";
 import Link from "next/link";
 import Image from "@/components/ui/SiteImage";
 import { useRouter } from "next/navigation";
@@ -17,14 +16,13 @@ import { GuideHistory } from "@/components/watch/GuideHistory";
 import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/lib/watch/content-advisory";
-import { PLATFORM_LABEL as SOCIAL_PLATFORM_LABEL, SocialIcon } from "@/components/ui/SocialIcon";
+import { SocialIcon } from "@/components/ui/SocialIcon";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { XTweetsRail } from "./XTweetsRail";
 import { GROUP } from "@/lib/group";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { ageFromIso } from "@/lib/utils";
 import { WatchThumb } from "./WatchThumb";
-import { FanMailPostcard } from "@/components/sections/FanMailPostcard";
 import { DragScrollRail } from "./DragScrollRail";
 import { CreatorPlatformRails } from "./CreatorPlatformRails";
 import { AutoScrollGallery } from "@/components/ui/AutoScrollGallery";
@@ -33,6 +31,9 @@ import type { WatchHomeXPost } from "@/lib/watch/x-posts";
 import type { TwitchTrackerChannelSnapshot } from "@/lib/twitchtracker-snapshots";
 import type { AirtimeDailyRecord, AirtimeHistorySession } from "@/lib/watch/airtime-history";
 import { embedFor, itemToPlayable } from "@/lib/watch/playable";
+import { loadTwitchPlayer, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
+import { advancingTwitchPlayback, createTwitchAutoplayBudget, exposedTwitchPlayer, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
+import { withTwitchAutoplayPermissions } from "@/lib/watch/player-autoplay";
 import type {
   CuratedChannelSourceDescriptor,
   CuratedChannelSourceDiagnostic,
@@ -41,12 +42,9 @@ import { normalizeCreatorSocialHandle } from "@/lib/watch/social-account-ref";
 import { configuredInstagramEmbedUrls } from "@/lib/watch/public-social-embeds";
 import {
   channelProgramElapsedSeconds,
-  networkChannelSchedule,
   type ChannelScheduleEntry,
 } from "@/lib/watch/channel-schedule";
 import {
-  buildContinuousGuideSchedule,
-  CONTINUOUS_GUIDE_FUTURE_HORIZON_MS,
   type CompletedLiveInterruption,
 } from "@/lib/watch/continuous-schedule";
 import {
@@ -63,8 +61,6 @@ import {
   type NetworkChannel,
   type NetworkChannelHub,
   type NetworkChannelMode,
-  type GuideNetworkGroup,
-  type GuideNetworkRow,
 } from "@/lib/watch/channels";
 import styles from "./NetworkChannelPage.module.css";
 
@@ -73,14 +69,8 @@ export type ChannelCrewMember = {
   name: string;
   roleLabel: string;
   portrait: string | null;
-  socials: CrewMember["socials"];
 };
 
-// The page needs one full prior cycle available to locate the real program
-// containing "now". The Guide itself remains the schedule authority; this
-// only bounds the client-side projection used by the hero and compact rail.
-const CHANNEL_CONTINUOUS_LOOKBACK_MS = 24 * 60 * 60 * 1_000;
-const CHANNEL_SCHEDULE_REFRESH_MS = 30 * 1_000;
 // The Guide builds an 18-hour deterministic projection, while the compact
 // channel-page rail exposes a useful, bounded part of it.  This keeps a
 // shorts-heavy network from rendering hundreds of tiny cards yet still gives
@@ -237,9 +227,9 @@ function ChannelSocialAvatar({ social }: { social: ChannelSocialLink }) {
           <SocialIcon platform={social.platform} size={18} />
         </span>
       )}
-      <span className={styles.connectedAccountPlatformMark}>
+      {imageSrc ? <span className={styles.connectedAccountPlatformMark}>
         <SocialIcon platform={social.platform} size={11} />
-      </span>
+      </span> : null}
     </span>
   );
 }
@@ -296,80 +286,6 @@ function curatedSources(
       ingestState: diagnostic?.state,
     };
   });
-}
-
-type ChannelTwitchInstance = {
-  addEventListener: (name: string, callback: () => void) => void;
-  destroy?: () => void;
-  isPaused?: () => boolean;
-  play?: () => void;
-  setMuted?: (muted: boolean) => void;
-};
-
-type ChannelTwitchApi = {
-  Player: {
-    new (id: string, options: Record<string, unknown>): ChannelTwitchInstance;
-    PAUSE: string;
-    READY: string;
-    PLAYING: string;
-    OFFLINE: string;
-    PLAYBACK_BLOCKED: string;
-    ENDED?: string;
-  };
-};
-
-let channelTwitchScript: Promise<ChannelTwitchApi> | null = null;
-
-function loadChannelTwitch(): Promise<ChannelTwitchApi> {
-  if (channelTwitchScript) return channelTwitchScript;
-  const pending = new Promise<ChannelTwitchApi>((resolve, reject) => {
-    const fromWindow = () => (window as typeof window & { Twitch?: ChannelTwitchApi }).Twitch;
-    const known = fromWindow();
-    if (known?.Player) {
-      resolve(known);
-      return;
-    }
-
-    const existing = document.querySelector<HTMLScriptElement>('script[src="https://player.twitch.tv/js/embed/v1.js"]');
-    const script = existing ?? document.createElement("script");
-    let settled = false;
-    let pollTimer: number | null = null;
-    let timeoutTimer: number | null = null;
-    const cleanup = () => {
-      script.removeEventListener("load", done);
-      script.removeEventListener("error", fail);
-      if (pollTimer !== null) window.clearInterval(pollTimer);
-      if (timeoutTimer !== null) window.clearTimeout(timeoutTimer);
-    };
-    const done = () => {
-      if (settled) return;
-      const api = fromWindow();
-      if (!api?.Player) return;
-      settled = true;
-      cleanup();
-      resolve(api);
-    };
-    const fail = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error("twitch_player_unavailable"));
-    };
-    script.addEventListener("load", done);
-    script.addEventListener("error", fail);
-    pollTimer = window.setInterval(done, 50);
-    timeoutTimer = window.setTimeout(fail, 10_000);
-    if (!existing) {
-      script.src = "https://player.twitch.tv/js/embed/v1.js";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  });
-  channelTwitchScript = pending;
-  void pending.catch(() => {
-    if (channelTwitchScript === pending) channelTwitchScript = null;
-  });
-  return pending;
 }
 
 function timeLabel(value: number, locale: string, timeZone: string): string {
@@ -486,7 +402,8 @@ function ChannelOnNowPreview({
   const frameRef = useRef<HTMLIFrameElement>(null);
   const twitchMountRef = useRef<HTMLDivElement>(null);
   const nativeVideoRef = useRef<HTMLVideoElement>(null);
-  const twitchPlayerRef = useRef<ChannelTwitchInstance | null>(null);
+  const twitchPlayerRef = useRef<TwitchPlayerInstance | null>(null);
+  const retryTwitchRef = useRef<(() => void) | null>(null);
   const advisoryAudioRef = useRef<HTMLAudioElement | null>(null);
   const reactId = useId();
   const twitchMountId = `channel-hero-twitch-${reactId.replace(/[^a-z0-9_-]/gi, "")}`;
@@ -496,7 +413,6 @@ function ChannelOnNowPreview({
   // Muted playback is the only cross-browser autoplay-safe starting state.
   // Viewers can restore sound with the owned control after the stream starts.
   const mutedRef = useRef(true);
-  const explicitMuteChoiceRef = useRef(false);
   const player = usePlayer();
   const reducedMotion = useReducedMotion();
   const playable = useMemo(() => itemToPlayable(entry.item), [entry.item]);
@@ -510,7 +426,7 @@ function ChannelOnNowPreview({
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const [advisoryReady, setAdvisoryReady] = useState(!autoStart);
+  const [advisoryReady, setAdvisoryReady] = useState(true);
   // This component is keyed to the program window, so the embed starts at the
   // live clock once and then plays naturally instead of reloading every tick.
   const [previewStartSeconds] = useState(initialStartSeconds);
@@ -601,7 +517,7 @@ function ChannelOnNowPreview({
     if (needsAdvisory) acknowledgeContentAdvisory();
     // Let returning viewers start the channel immediately. DJ Cora's audio
     // can finish over the live preview instead of blocking it with a poster.
-    setAdvisoryReady(!needsAdvisory);
+    setAdvisoryReady(true);
     if (!needsAdvisory) return;
 
     let disposed = false;
@@ -631,7 +547,7 @@ function ChannelOnNowPreview({
       advisoryReady &&
       player.ready &&
       !player.dataSaver &&
-      !reducedMotion &&
+      (autoStart || !reducedMotion) &&
       providerFits &&
       mostlyVisible &&
       pageVisible &&
@@ -657,6 +573,8 @@ function ChannelOnNowPreview({
       entry.item.platform === "twitch" &&
       ((playable.kind === "live" && playable.twitchLogin) || playable.vodId),
   );
+  const twitchChannel = playable?.kind === "live" ? playable.twitchLogin : null;
+  const twitchVideo = playable?.vodId ?? null;
   // Keep a single, observable state for the browser-safe autoplay path. This
   // is useful to styling/telemetry without confusing a mounted-but-paused
   // provider frame with actual playback.
@@ -682,7 +600,6 @@ function ChannelOnNowPreview({
     setAutoplayBlocked(false);
     playbackStartedRef.current = false;
     nativeAutoplayAttemptedRef.current = false;
-    explicitMuteChoiceRef.current = false;
   }, [directVideoUrl, frameSrc, setHeroMuted]);
 
   const markPlaying = useCallback(() => {
@@ -722,16 +639,15 @@ function ChannelOnNowPreview({
   }, [markAutoplayBlocked, markPlaying, postFrameMuted, setHeroMuted]);
 
   const toggleHeroMute = useCallback(() => {
-    explicitMuteChoiceRef.current = true;
     setProviderMuted(!mutedRef.current, true);
   }, [setProviderMuted]);
 
   const retryHeroPlayback = useCallback(() => {
     // This is a real viewer gesture, so retry the original program with
     // sound. It must not alter the 24/7 schedule or substitute another item.
-    explicitMuteChoiceRef.current = true;
     setAutoplayBlocked(false);
-    setProviderMuted(false, true);
+    setProviderMuted(false, !retryTwitchRef.current);
+    retryTwitchRef.current?.();
     if (retryBlockedTimerRef.current !== null) window.clearTimeout(retryBlockedTimerRef.current);
     retryBlockedTimerRef.current = window.setTimeout(() => {
       if (!playbackStartedRef.current) setAutoplayBlocked(true);
@@ -756,183 +672,143 @@ function ChannelOnNowPreview({
 
   useEffect(() => {
     const mount = twitchMountRef.current;
-    if (!usesTwitchSdk || !host || !playable || !mount) return;
-    const channel = playable.kind === "live" ? playable.twitchLogin : null;
-    const video = playable.vodId;
-    if (!channel && !video) return;
-
+    if (!usesTwitchSdk || !host || !mount || (!twitchChannel && !twitchVideo)) return;
     let disposed = false;
-    let instance: ChannelTwitchInstance | null = null;
-    let playbackAttempts = 0;
-    let playbackHealthTimer: number | null = null;
-    let recoveryBlockedTimer: number | null = null;
-    const maxPlaybackAttempts = 16;
-    const retryTimers = new Set<number>();
-    const clearRetries = () => {
-      for (const timer of retryTimers) window.clearTimeout(timer);
-      retryTimers.clear();
-    };
-    const prepareIframe = () => {
-      const iframe = mount.querySelector("iframe");
-      if (!iframe || disposed) return false;
-      iframe.setAttribute("allow", "autoplay; encrypted-media; fullscreen; picture-in-picture");
-      setLoaded(true);
-      return true;
-    };
-    const requestPlayback = (forceMuted = mutedRef.current) => {
-      if (disposed || !instance || playbackStartedRef.current || playbackAttempts >= maxPlaybackAttempts) return;
-      playbackAttempts += 1;
-      prepareIframe();
-      instance.setMuted?.(forceMuted || mutedRef.current);
-      instance.play?.();
-    };
-    const scheduleRetries = (delays: readonly number[], forceMuted = mutedRef.current) => {
-      const available = Math.max(0, maxPlaybackAttempts - playbackAttempts - retryTimers.size);
-      for (const delay of delays.slice(0, available)) {
-        const timer = window.setTimeout(() => {
-          retryTimers.delete(timer);
-          requestPlayback(forceMuted);
-        }, delay);
-        retryTimers.add(timer);
-      }
-    };
-    const playerIsPaused = () => {
+    let instance: TwitchPlayerInstance | null = null;
+    let ready = false;
+    let providerPlaying = false;
+    let inView = false;
+    let previousPosition = -1;
+    let observedFrame: HTMLIFrameElement | null = null;
+    const budget = createTwitchAutoplayBudget(16);
+    const tracksVisibility = typeof IntersectionObserverEntry !== "undefined"
+      && "isVisible" in IntersectionObserverEntry.prototype;
+    const requestPlayback = (forceMuted = true) => {
+      if (disposed || !ready || !instance || !budget.takeAttempt()) return;
       try {
-        const paused = instance?.isPaused?.();
-        return typeof paused === "boolean" ? paused : null;
-      } catch {
-        return null;
+        instance.setMuted?.(forceMuted);
+        if (forceMuted) setHeroMuted(true);
+        instance.play?.();
+      } catch { /* Retry after the SDK finishes settling, within this budget. */ }
+    };
+    const updateVisibility = () => {
+      const wasVisible = budget.visible;
+      budget.setVisible(inView && document.visibilityState === "visible");
+      if (!wasVisible && budget.visible && !budget.manuallyPaused) {
+        if (budget.started && instance?.isPaused?.() === true) budget.restart();
+        setAutoplayBlocked(false);
+        requestPlayback();
       }
     };
-    const slotIsVisible = () => {
-      const rect = slotRef.current?.getBoundingClientRect();
-      return Boolean(
-        rect &&
-          rect.width >= 400 &&
-          rect.height >= 300 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight,
-      );
-    };
-    const recoverPausedPlayback = () => {
-      if (disposed) return;
-      playbackStartedRef.current = false;
-      setPlaying(false);
-      if (!autoStart || document.visibilityState !== "visible" || !slotIsVisible()) return;
-      clearRetries();
-      playbackAttempts = 0;
-      // A provider-owned resume is not a new viewer gesture. Keep it
-      // browser-safe unless the viewer explicitly chose audible playback.
-      if (!explicitMuteChoiceRef.current) {
-        setHeroMuted(true);
+    // Track the iframe itself, including occlusion where the browser supports
+    // it. Do not spend retries underneath sticky navigation or route overlays.
+    const visibilityObserver = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver((entries) => {
+      inView = entries.some((entry) => exposedTwitchPlayer(entry, tracksVisibility));
+      updateVisibility();
+    }, { threshold: [0, 0.99, 1], ...(tracksVisibility ? { trackVisibility: true, delay: 150 } : {}) });
+    const prepareIframe = () => {
+      const frame = mount.querySelector("iframe");
+      if (!frame || disposed) return;
+      frame.setAttribute("allow", withTwitchAutoplayPermissions(frame.getAttribute("allow")));
+      frame.setAttribute("data-cursor-native", "");
+      if (frame !== observedFrame) {
+        visibilityObserver?.disconnect();
+        visibilityObserver?.observe(frame);
+        if (!visibilityObserver) {
+          inView = true;
+          updateVisibility();
+        }
+        observedFrame = frame;
       }
-      scheduleRetries([120, 700, 1_800, 3_200, 5_200, 7_500], true);
-      if (recoveryBlockedTimer !== null) window.clearTimeout(recoveryBlockedTimer);
-      recoveryBlockedTimer = window.setTimeout(() => {
-        if (!disposed && playerIsPaused() === true) markAutoplayBlocked();
-      }, 10_000);
+      setLoaded(true);
     };
-    const resumeWhenVisible = () => {
-      if (document.visibilityState === "visible" && playerIsPaused() === true) recoverPausedPlayback();
-    };
-
+    const frameObserver = new MutationObserver(prepareIframe);
     mount.replaceChildren();
-    const observer = new MutationObserver(prepareIframe);
-    observer.observe(mount, { childList: true, subtree: true });
-    const blockedTimer = window.setTimeout(() => {
-      if (disposed || playbackStartedRef.current) return;
-      const paused = playerIsPaused();
-      if (paused === false) {
-        markPlaying();
-        return;
-      }
-      if (paused === true) markAutoplayBlocked();
-    }, 15_000);
-
-    void loadChannelTwitch()
-      .then((api) => {
-        if (disposed) return;
-        const options: Record<string, unknown> = {
-          width: "100%",
-          height: "100%",
-          parent: [host.parent],
-          autoplay: true,
-          muted: true,
-        };
-        if (channel) options.channel = channel;
-        else if (video) options.video = video.startsWith("v") ? video : `v${video}`;
-        if (!channel && previewStartSeconds > 0) {
-          const hours = Math.floor(previewStartSeconds / 3_600);
-          const minutes = Math.floor((previewStartSeconds % 3_600) / 60);
-          const seconds = previewStartSeconds % 60;
-          options.time = `${hours}h${minutes}m${seconds}s`;
-        }
-        instance = new api.Player(twitchMountId, options);
-        twitchPlayerRef.current = instance;
-        prepareIframe();
-        scheduleRetries([250, 750, 1_500, 2_800, 4_400, 6_500, 9_000], true);
-        instance.addEventListener(api.Player.READY, () => {
-          if (!disposed) scheduleRetries([0, 600, 1_500, 2_800, 4_800], true);
-        });
-        instance.addEventListener(api.Player.PLAYING, () => {
-          if (disposed) return;
-          clearRetries();
-          window.clearTimeout(blockedTimer);
-          if (recoveryBlockedTimer !== null) window.clearTimeout(recoveryBlockedTimer);
-          instance?.setMuted?.(mutedRef.current);
-          markPlaying();
-          if (playbackHealthTimer !== null) window.clearTimeout(playbackHealthTimer);
-          playbackHealthTimer = window.setTimeout(() => {
-            if (!disposed && playerIsPaused() === true) recoverPausedPlayback();
-          }, 900);
-        });
-        instance.addEventListener(api.Player.PAUSE, () => {
-          if (!disposed) recoverPausedPlayback();
-        });
-        instance.addEventListener(api.Player.PLAYBACK_BLOCKED, () => {
-          if (disposed) return;
-          clearRetries();
-          prepareIframe();
-          // Twitch can emit this while its iframe or an ad is still settling.
-          // Keep the exact scheduled program mounted and retry in the
-          // browser-safe muted state instead of replacing it with a prompt.
-          if (!explicitMuteChoiceRef.current) setHeroMuted(true);
-          playbackAttempts = 0;
-          scheduleRetries([250, 800, 1_800, 3_200, 5_200, 7_500], true);
-        });
-        instance.addEventListener(api.Player.OFFLINE, () => {
-          if (disposed) return;
-          clearRetries();
-          markAutoplayBlocked();
-        });
-        if (video && api.Player.ENDED) {
-          instance.addEventListener(api.Player.ENDED, () => {
-            if (!disposed) onProgramBoundary?.();
-          });
-        }
-      })
-      .catch(() => {
-        if (!disposed) markAutoplayBlocked();
+    frameObserver.observe(mount, { childList: true, subtree: true });
+    // A provider can withhold READY when it rejects the embed. Keep its native
+    // controls available and offer recovery instead of leaving a pending UI.
+    const startupTimeout = window.setTimeout(markAutoplayBlocked, 20_000);
+    retryTwitchRef.current = () => {
+      budget.restart();
+      previousPosition = -1;
+      setAutoplayBlocked(false);
+      requestPlayback(mutedRef.current);
+    };
+    void loadTwitchPlayer().then((api) => {
+      if (disposed) return;
+      instance = new api.Player(twitchMountId, {
+        width: "100%", height: "100%", parent: [host.parent], autoplay: true, muted: true,
+        ...(twitchChannel ? { channel: twitchChannel } : { video: twitchVideo?.startsWith("v") ? twitchVideo : `v${twitchVideo}` }),
+        ...(!twitchChannel && previewStartSeconds > 0 ? { time: `${Math.floor(previewStartSeconds / 3600)}h${Math.floor((previewStartSeconds % 3600) / 60)}m${Math.floor(previewStartSeconds % 60)}s` } : {}),
       });
-
-    document.addEventListener("visibilitychange", resumeWhenVisible);
-    window.addEventListener("focus", resumeWhenVisible);
-
+      twitchPlayerRef.current = instance;
+      prepareIframe();
+      instance.addEventListener(api.Player.READY, () => {
+        if (disposed || !instance) return;
+        ready = true;
+        instance.setMuted?.(true);
+        requestPlayback();
+      });
+      instance.addEventListener(api.Player.PLAYING, () => {
+        if (!disposed) providerPlaying = true;
+        // This event alone can arrive while the player is still frozen.
+      });
+      instance.addEventListener(api.Player.PAUSE, () => {
+        if (disposed) return;
+        providerPlaying = false;
+        budget.pause();
+        setPlaying(false);
+      });
+      instance.addEventListener(api.Player.PLAYBACK_BLOCKED, () => {
+        if (disposed) return;
+        providerPlaying = false;
+        setPlaying(false);
+        // The visible polling loop retries; block events never reset the cap.
+      });
+      instance.addEventListener(api.Player.OFFLINE, () => {
+        if (!disposed) { providerPlaying = false; setPlaying(false); setAutoplayBlocked(true); }
+      });
+      instance.addEventListener(api.Player.ENDED, () => {
+        if (!disposed && twitchVideo) onProgramBoundary?.();
+      });
+    }).catch(() => { if (!disposed) markAutoplayBlocked(); });
+    const poll = window.setInterval(() => {
+      if (disposed || !ready || !instance || !budget.visible) return;
+      try {
+        const paused = instance.isPaused?.();
+        const position = twitchVideo ? instance.getCurrentTime() : 0;
+        const verified = twitchChannel
+          ? observedTwitchLivePlayback(providerPlaying, paused, instance.getPlaybackStats?.())
+          : advancingTwitchPlayback(previousPosition, position, paused);
+        if (verified) {
+          const firstFrame = !budget.started;
+          budget.confirmPlayback();
+          if (firstFrame) instance.setMuted?.(mutedRef.current);
+          markPlaying();
+        } else if (paused === true) setPlaying(false);
+        previousPosition = position;
+      } catch { /* Provider stats can be unavailable during startup and ads. */ }
+      if (!budget.started && !budget.manuallyPaused) {
+        if (budget.exhausted) markAutoplayBlocked();
+        else requestPlayback();
+      }
+    }, 750);
+    document.addEventListener("visibilitychange", updateVisibility);
     return () => {
       disposed = true;
-      clearRetries();
-      window.clearTimeout(blockedTimer);
-      if (playbackHealthTimer !== null) window.clearTimeout(playbackHealthTimer);
-      if (recoveryBlockedTimer !== null) window.clearTimeout(recoveryBlockedTimer);
-      document.removeEventListener("visibilitychange", resumeWhenVisible);
-      window.removeEventListener("focus", resumeWhenVisible);
-      observer.disconnect();
-      instance?.destroy?.();
+      retryTwitchRef.current = null;
+      window.clearTimeout(startupTimeout);
+      window.clearInterval(poll);
+      frameObserver.disconnect();
+      visibilityObserver?.disconnect();
+      document.removeEventListener("visibilitychange", updateVisibility);
+      try { instance?.pause?.(); instance?.destroy?.(); } catch { /* Already detached. */ }
       if (twitchPlayerRef.current === instance) twitchPlayerRef.current = null;
       mount.replaceChildren();
     };
-  }, [autoStart, host, markAutoplayBlocked, markPlaying, onProgramBoundary, playable, previewStartSeconds, setHeroMuted, twitchMountId, usesTwitchSdk]);
-
+  // Provider identity stays stable when fresh titles/artwork arrive. Polling
+  // must not destroy and recreate the same live stream every minute.
+  }, [host, markAutoplayBlocked, markPlaying, onProgramBoundary, previewStartSeconds, setHeroMuted, twitchChannel, twitchMountId, twitchVideo, usesTwitchSdk]);
   useEffect(() => {
     if (!frameSrc || frameReadyToken === 0) return;
     const requestProviderAutoplay = (forceMuted = mutedRef.current) => {
@@ -1002,6 +878,19 @@ function ChannelOnNowPreview({
 
   const live = entry.item.kind === "live" || entry.item.format === "live";
   const actionLabel = `Watch ${entry.item.title}, now on ${channel.name} 24/7, in the media player`;
+  const soundControl = advisoryReady && playable ? (
+    <button type="button" className={styles.heroPreviewSound} aria-pressed={!muted}
+      aria-label={`${muted ? "Turn sound on for" : "Mute"} ${entry.item.title}`}
+      title={muted ? "Turn sound on" : "Mute"} onClick={toggleHeroMute}>
+      {muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
+      <span>{muted ? "Sound off" : "Sound on"}</span>
+    </button>
+  ) : null;
+  const retryControl = autoplayBlocked ? (
+    <button type="button" className={styles.heroPreviewRetry} onClick={retryHeroPlayback}>
+      <Play size={16} fill="currentColor" aria-hidden="true" /> Try playback
+    </button>
+  ) : null;
 
   return (
     <section
@@ -1009,12 +898,14 @@ function ChannelOnNowPreview({
       // Keep the Twitch iframe above decorative copy from its first paint. The
       // copy is useful for posters and non-Twitch embeds, but it can obscure a
       // muted autoplay attempt while the provider is still initializing.
-      className={`${styles.heroPreview} ${loaded ? styles.heroPreviewLoaded : ""} ${autoStart && usesTwitchSdk ? styles.heroPreviewProviderAutoplay : ""}`.trim()}
+      className={`${styles.heroPreview} ${loaded ? styles.heroPreviewLoaded : ""} ${usesTwitchSdk ? styles.heroPreviewProviderAutoplay : ""}`.trim()}
       aria-label={`${channel.name} 24/7 on now`}
       data-autoplay={autoStart ? (playing ? "playing" : autoplayBlocked ? "blocked" : "pending") : "preference"}
       data-provider-playing={providerAutoplayPlaying ? "true" : undefined}
+      data-provider={entry.item.platform}
+      data-inline-channel-player={autoStart && mediaMounted ? "true" : undefined}
     >
-      <div className={styles.heroPreviewMedia} aria-hidden={autoStart && usesTwitchSdk ? undefined : "true"}>
+      <div className={styles.heroPreviewMedia} data-cursor-native={usesTwitchSdk ? "" : undefined} aria-hidden={usesTwitchSdk ? undefined : "true"}>
         <WatchThumb
           src={entry.item.backdrop || entry.item.poster}
           youtubeId={entry.item.platform === "youtube" ? entry.item.id.replace(/^yt-/, "") : null}
@@ -1064,25 +955,10 @@ function ChannelOnNowPreview({
         <img className={styles.heroPreviewNetworkLogo} src={channel.artwork} alt="" />
         <span>24/7</span>
       </div>
-      {advisoryReady && playable ? (
-        <button
-          type="button"
-          className={styles.heroPreviewSound}
-          aria-pressed={!muted}
-          aria-label={`${muted ? "Turn sound on for" : "Mute"} ${entry.item.title}`}
-          title={muted ? "Turn sound on" : "Mute"}
-          onClick={toggleHeroMute}
-        >
-          {muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
-          <span>{muted ? "Sound off" : "Sound on"}</span>
-        </button>
-      ) : null}
-      {!playing ? (
+      {!usesTwitchSdk ? soundControl : null}
+      {!playing && !usesTwitchSdk ? (
         autoplayBlocked ? (
-          <button type="button" className={styles.heroPreviewRetry} onClick={retryHeroPlayback}>
-            <Play size={16} fill="currentColor" aria-hidden="true" />
-            Try playback
-          </button>
+          retryControl
         ) : (
           <div className={styles.heroPreviewCenter} aria-hidden="true">
             <span><Play size={23} fill="currentColor" /></span>
@@ -1112,6 +988,13 @@ function ChannelOnNowPreview({
           <NetworkAdvisoryArtwork />
         </div>
       ) : null}
+      {usesTwitchSdk ? <div className={styles.heroPreviewControls}>
+        {soundControl}
+        {retryControl}
+        {entry.item.sourceUrl ? <a href={entry.item.sourceUrl} target="_blank" rel="noopener noreferrer">
+          Open on Twitch <ExternalLink size={13} aria-hidden />
+        </a> : null}
+      </div> : null}
     </section>
   );
 }
@@ -1170,12 +1053,12 @@ export function NetworkChannelRail({
           </h2>
         </div>
         {isHomeShelf ? (
-          <Link href={"/guide" as never} className="watch-home-shelf-action">
+          <Link prefetch={false} href={"/guide" as never} className="watch-home-shelf-action">
             Open guide
             <ChevronRight size={14} aria-hidden />
           </Link>
         ) : (
-          <Link href={"/channels/core?mode=shorts" as never} className="watch-home-shelf-action">
+          <Link prefetch={false} href={"/channels/core?mode=shorts" as never} className="watch-home-shelf-action">
             <Zap size={14} aria-hidden />
             Shorts channel
           </Link>
@@ -1233,6 +1116,11 @@ export function NetworkChannelPage({
   ownerXPosts,
   team,
   socialAvatarByUrl,
+  scheduleSnapshot,
+  railTotals,
+  onCompletedLiveInterruptions,
+  scheduleUpdateFailed = false,
+  onRefreshSchedule,
 }: {
   channel: NetworkChannel;
   mode: NetworkChannelMode;
@@ -1250,6 +1138,11 @@ export function NetworkChannelPage({
   team: readonly ChannelCrewMember[];
   /** Official per-platform profile images keyed by the social profile URL. */
   socialAvatarByUrl: Readonly<Record<string, string>>;
+  scheduleSnapshot: { schedule: ChannelScheduleEntry[]; continuous: ChannelScheduleEntry[] };
+  railTotals: Record<string, number>;
+  onCompletedLiveInterruptions: (entries: readonly CompletedLiveInterruption[]) => void;
+  scheduleUpdateFailed?: boolean;
+  onRefreshSchedule?: () => void;
 }) {
   const router = useRouter();
   const player = usePlayer();
@@ -1292,7 +1185,6 @@ export function NetworkChannelPage({
   );
   const parsedNow = Date.parse(serverNow);
   const [now, setNow] = useState(Number.isFinite(parsedNow) ? parsedNow : 0);
-  const [completedLiveInterruptions, setCompletedLiveInterruptions] = useState<CompletedLiveInterruption[]>([]);
   /**
    * This only remembers the previously rendered 24/7 program. It deliberately
    * starts empty on a route change so landing directly on an already-live
@@ -1339,23 +1231,12 @@ export function NetworkChannelPage({
     };
   }, []);
 
-  // Poll the dynamic channel route for live-state changes. The active stream
-  // remains the 24/7 program while it is reported live; the remembered window
-  // below supplies the exact pause in the rotation after it ends.
-  useEffect(() => {
-    if (mode !== "continuous") return;
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
-    }, 60_000);
-    return () => window.clearInterval(interval);
-  }, [mode, router]);
-
   useEffect(() => {
     const scopeLogins = channel.memberSlug
       ? [MEMBERS_BY_SLUG[channel.memberSlug]?.twitchLogin ?? ""]
       : MEMBERS.map((entry) => entry.twitchLogin);
     const scoped = new Set(scopeLogins.map((login) => login.toLowerCase()).filter(Boolean));
-    const active = continuousItems.flatMap((item) => {
+    const active = hub.live.flatMap((item) => {
       if (item.kind !== "live" && item.format !== "live") return [];
       const login = (item.live?.login ?? MEMBERS_BY_SLUG[item.memberSlug ?? ""]?.twitchLogin ?? "").toLowerCase();
       return login && scoped.has(login) ? [{
@@ -1375,8 +1256,8 @@ export function NetworkChannelPage({
       if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs) || endsAtMs <= startsAtMs || endsAtMs <= cutoff) return [];
       return [{ item: entry.item, startsAtMs, endsAtMs } satisfies CompletedLiveInterruption];
     });
-    setCompletedLiveInterruptions(interruptions);
-  }, [channel.memberSlug, continuousItems]);
+    onCompletedLiveInterruptions(interruptions);
+  }, [channel.memberSlug, hub.live, onCompletedLiveInterruptions]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1390,48 +1271,21 @@ export function NetworkChannelPage({
     return () => controller.abort();
   }, [channel.slug]);
 
-  const schedule = useMemo(() => networkChannelSchedule(items, now, mode), [items, mode, now]);
-  const continuousGuideRow = useMemo<GuideNetworkRow>(() => ({
-    id: `${channel.slug}:continuous`,
-    networkSlug: channel.slug,
-    kind: "continuous",
-    label: "24/7",
-    description: modeDescription(channel, "continuous"),
-    timelineSlug: channel.memberSlug ?? "house",
-    channel: {
-      id: `${channel.slug}:continuous`,
-      title: `${channel.name} 24/7`,
-      subtitle: modeDescription(channel, "continuous"),
-      href: channelHref(channel, "continuous"),
-      artwork: channel.artwork,
-    },
-    items: continuousItems,
-  }), [channel, continuousItems]);
-  const continuousGuideGroup = useMemo<GuideNetworkGroup>(() => ({
-    network: channel,
-    rows: [continuousGuideRow],
-  }), [channel, continuousGuideRow]);
-  // Rebuild the duration schedule on a coarse cadence, then project its
-  // current state against the per-second UI clock. This keeps the exact clock
-  // moving without repeatedly rebuilding a long 24/7 rotation.
-  const scheduleBuildNow = Math.floor(now / CHANNEL_SCHEDULE_REFRESH_MS) * CHANNEL_SCHEDULE_REFRESH_MS;
-  const continuousBlocks = useMemo(() => buildContinuousGuideSchedule({
-    group: continuousGuideGroup,
-    row: continuousGuideRow,
-    rangeStart: scheduleBuildNow - CHANNEL_CONTINUOUS_LOOKBACK_MS,
-    rangeEnd: scheduleBuildNow + CONTINUOUS_GUIDE_FUTURE_HORIZON_MS,
-    nowMs: scheduleBuildNow,
-    completedLiveInterruptions,
-  }), [completedLiveInterruptions, continuousGuideGroup, continuousGuideRow, scheduleBuildNow]);
+  // Timings are projected from the complete archive on the server. The
+  // browser receives just the current airing and its upcoming queue.
+  const schedule = useMemo(() => scheduleSnapshot.schedule
+    .filter((entry) => mode === "live" || entry.endsAt > now)
+    .map((entry) => ({ ...entry, current: entry.startsAt <= now && now < entry.endsAt })), [mode, now, scheduleSnapshot.schedule]);
+  const continuousBlocks = scheduleSnapshot.continuous;
   const continuousSchedule = useMemo<ChannelScheduleEntry[]>(() => {
     const queue = continuousBlocks
-      .filter((block) => block.endMs > now)
+      .filter((block) => block.endsAt > now)
       .map((block) => ({
-        key: block.id,
+        key: block.key,
         item: block.item,
-        startsAt: block.startMs,
-        endsAt: block.endMs,
-        current: block.startMs <= now && now < block.endMs,
+        startsAt: block.startsAt,
+        endsAt: block.endsAt,
+        current: block.startsAt <= now && now < block.endsAt,
       }));
     const withinVisibleHorizon = queue.filter((entry) => (
       entry.startsAt < now + CHANNEL_CONTINUOUS_QUEUE_HORIZON_MS
@@ -1455,7 +1309,7 @@ export function NetworkChannelPage({
     const timeout = window.setTimeout(() => setNow(Date.now()), delay + 25);
     return () => window.clearTimeout(timeout);
   }, [nextScheduleBoundary]);
-  const current = schedule[0]?.item ?? items[0] ?? null;
+  const current = schedule[0]?.item ?? null;
   const continuousEntry = continuousSchedule[0] ?? null;
   useEffect(() => {
     // A takeover is meaningful only while this exact page is serving as the
@@ -1697,7 +1551,7 @@ export function NetworkChannelPage({
 
           <div className={styles.modeTabs} aria-label="Channel mode">
             {supportedModes(channel).map((entry) => (
-              <Link key={entry} href={channelHref(channel, entry) as never} aria-current={mode === entry ? "page" : undefined}>
+              <Link prefetch={false} key={entry} href={channelHref(channel, entry) as never} aria-current={mode === entry ? "page" : undefined}>
                 <ModeIcon mode={entry} /> {modeLabel(entry)}
               </Link>
             ))}
@@ -1738,6 +1592,11 @@ export function NetworkChannelPage({
         ) : null}
       </header>
 
+      {scheduleUpdateFailed ? <div className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm text-secondary md:px-10" role="status">
+        <span>Channel updates are temporarily unavailable.</span>
+        <button type="button" className="min-h-11 underline underline-offset-4" onClick={onRefreshSchedule}>Try again</button>
+      </div> : null}
+
       {hasOpenEndedLiveOnAir && onAirEntry ? (
         <div className={styles.onAirBar}>
           <div>
@@ -1759,6 +1618,8 @@ export function NetworkChannelPage({
         channelName={channel.memberSlug === null ? GROUP.name : channel.host}
         items={nonXHubItems}
         initialItemsPerSource={6}
+        archiveEndpoint={`/api/watch/channels/${channel.slug}/archive`}
+        railTotals={railTotals}
         sources={nonXSourceDescriptors}
         onPlay={playSourceItem}
       />
@@ -1920,7 +1781,7 @@ export function NetworkChannelPage({
               <span className={styles.eyebrow}>Gallery · {extras?.total ?? galleryPhotos.length}</span>
               <h2 id="channel-gallery-heading">Photos</h2>
             </div>
-            <Link href="/media" className={styles.creatorGalleryLink}>
+            <Link prefetch={false} href="/media" className={styles.creatorGalleryLink}>
               All media <ChevronRight size={15} aria-hidden />
             </Link>
           </div>
@@ -1943,7 +1804,7 @@ export function NetworkChannelPage({
         </section>
       ) : null}
 
-      {activeSection === "photos" && (!member || !galleryPhotos.length) ? <p className="px-5 py-10 text-secondary" role="status">{extrasLoading ? "Loading photos…" : extrasError ? <>Photos could not be loaded. <button type="button" className="min-h-11 underline" onClick={() => void reloadExtras()}>Try again</button></> : <>No photos are available for this channel yet. <Link href="/media" className="underline">Browse all photos</Link></>}</p> : null}
+      {activeSection === "photos" && (!member || !galleryPhotos.length) ? <p className="px-5 py-10 text-secondary" role="status">{extrasLoading ? "Loading photos…" : extrasError ? <>Photos could not be loaded. <button type="button" className="min-h-11 underline" onClick={() => void reloadExtras()}>Try again</button></> : <>No photos are available for this channel yet. <Link prefetch={false} href="/media" className="underline">Browse all photos</Link></>}</p> : null}
       {activeSection === "about" ? <>
       <section id="crew" className={styles.teamSection} aria-labelledby="channel-team-heading">
         <div className={styles.teamSectionHeading}>
@@ -1951,13 +1812,13 @@ export function NetworkChannelPage({
             <span className={styles.eyebrow}>Behind the camera</span>
             <h2 id="channel-team-heading">{member ? `${member.stageName}'s crew.` : "The CORE crew."}</h2>
           </div>
-          <p>The people behind the stream. Explore their profiles and follow their socials.</p>
+          <p>The people behind the stream. Meet the crew.</p>
         </div>
         {team.length > 0 ? (
           <ul className={styles.teamGrid}>
             {team.map((crew) => (
               <li key={crew.slug}>
-                <Link href={`/crew/${crew.slug}` as never} className={styles.teamCard}>
+                <Link prefetch={false} href={`/crew/${crew.slug}` as never} className={styles.teamCard}>
                   <span className={styles.teamPortrait}>
                     {crew.portrait ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -1969,66 +1830,32 @@ export function NetworkChannelPage({
                   <span className={styles.teamCardCopy}>
                     <small>{crew.roleLabel}</small>
                     <strong>{crew.name}</strong>
-                    <span>Profile & socials <ChevronRight size={13} aria-hidden /></span>
+                    <span>View profile <ChevronRight size={13} aria-hidden /></span>
                   </span>
                 </Link>
-                {crew.socials.length > 0 ? (
-                  <ul className={styles.teamSocials} aria-label={`${crew.name}'s socials`}>
-                    {crew.socials.map((social) => (
-                      <li key={social.url}>
-                        <a
-                          href={social.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`${crew.name} on ${SOCIAL_PLATFORM_LABEL[social.platform]}${social.handle ? ` (${social.handle})` : ""} — opens in a new tab`}
-                          title={`${SOCIAL_PLATFORM_LABEL[social.platform]}${social.handle ? ` · ${social.handle}` : ""}`}
-                        >
-                          <SocialIcon platform={social.platform} size={14} />
-                          <span>{SOCIAL_PLATFORM_LABEL[social.platform]}</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
               </li>
             ))}
           </ul>
         ) : (
           <div className={styles.teamEmpty}>
             <p>{channel.host}&apos;s crew profiles haven&apos;t been added yet.</p>
-            <Link href="/channels/core#crew">Explore the CORE crew <ChevronRight size={14} aria-hidden /></Link>
+            <Link prefetch={false} href="/channels/core#crew">Explore the CORE crew <ChevronRight size={14} aria-hidden /></Link>
           </div>
         )}
       </section>
 
       <section className={styles.mailSection} aria-labelledby="channel-mail-heading">
-        {member ? (
-          <div className={styles.mailPostcard}>
-            <h2 id="channel-mail-heading" className="sr-only">{channel.host} community mail</h2>
-            <FanMailPostcard
-              slug={member.slug}
-              stageName={channel.host}
-              realName={member.name}
-              initial={channel.name.slice(0, 1)}
-              accent={channel.accent}
-              poBox={mailingAddress}
-              commLogo={channel.artwork}
-              commName={channel.name}
-            />
-          </div>
-        ) : (
-          <>
-            <div className={styles.mailCopy}>
-              <span className={styles.eyebrow}><Mail size={13} aria-hidden /> Community mail</span>
-              <h2 id="channel-mail-heading">Send something to the house.</h2>
-              <p>Choose a public mailing address for any community, and check the recipient details before sending.</p>
-            </div>
-            <Link href="/fan-mail" className={styles.mailUnavailable}>
-              <span><Mail size={17} aria-hidden /> <strong>Open the CORE mailroom</strong><small>See public community addresses and mailing details.</small></span>
-              <ChevronRight size={17} aria-hidden />
-            </Link>
-          </>
-        )}
+        <span className={styles.mailIcon} aria-hidden><Mail size={20} /></span>
+        <div className={styles.mailCopy}>
+          <h2 id="channel-mail-heading">Fan mail</h2>
+          <p>{member
+            ? mailingAddress ? `Mailing details for ${member.stageName}.` : "No public mailing address listed."
+            : "Mailing addresses and instructions for each creator."}</p>
+        </div>
+        <Link prefetch={false} href={member ? `/fan-mail/${member.slug}` as Route : "/fan-mail"} className={styles.mailAction}>
+          {member ? "View mailing details" : "View addresses"}
+          <ChevronRight size={16} aria-hidden />
+        </Link>
       </section>
 
       <section className={styles.channelHub} aria-labelledby="channel-hub-heading">
@@ -2037,14 +1864,10 @@ export function NetworkChannelPage({
             {member ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={member.portrait} alt="" className={styles.channelHubPortrait} />
-            ) : (
-              <span className={`${styles.channelHubPortrait} ${styles.channelHubCoreMark}`} aria-hidden="true">
-                <CoreWordmark />
-              </span>
-            )}
+            ) : null}
             <div>
               <h2 id="channel-hub-heading">
-                {channel.memberSlug === null ? "Everything across CORE" : `Everything from ${channel.host}`}
+                {member ? member.stageName : "Official accounts"}
               </h2>
               {member ? (
                 <dl className={styles.creatorProfileMeta} aria-label={`${member.stageName} profile details`}>
@@ -2087,7 +1910,7 @@ export function NetworkChannelPage({
 
         {socialLinks.length ? (
           <div className={styles.connectedAccounts} aria-label={`${channel.host} official platform profiles`}>
-            <p className={styles.officialProfilesLabel}>Official profiles</p>
+            {member ? <h3 className={styles.officialProfilesLabel}>Official accounts</h3> : null}
             {socialLinks.map((social) => (
               <a
                 key={`${social.platform}:${social.url}`}
@@ -2100,9 +1923,9 @@ export function NetworkChannelPage({
                 <ChannelSocialAvatar social={social} />
                 <span className={styles.connectedAccountCopy}>
                   <strong>{CHANNEL_SOCIAL_LABEL[social.platform]}</strong>
-                  <small>Official profile · {social.label ?? social.handle ?? channel.host}</small>
+                  <small>{social.label ?? social.handle ?? channel.host}</small>
                 </span>
-                <ChevronRight size={15} aria-hidden />
+                <ExternalLink size={15} aria-hidden />
               </a>
             ))}
           </div>
@@ -2140,7 +1963,7 @@ export function NetworkChannelPage({
           />
         ) : null}
         <div className={styles.xArchiveActions}>
-          <Link href={`/channels/${channel.slug}/x` as Route} className={styles.profileLink}>
+          <Link prefetch={false} href={`/channels/${channel.slug}/x` as Route} className={styles.profileLink}>
             Browse X post archive
             <ChevronRight aria-hidden="true" />
           </Link>

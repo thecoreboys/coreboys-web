@@ -508,5 +508,7 @@ test("mounts curated rails on the member channel page with an X Community link a
   assert.doesNotMatch(channelRoute, /channelSourceDiagnostics|socialCredentialDiagnosticFor/);
   assert.match(channelRoute, /<NetworkChannelPage[\s\S]{0,220}hub=\{hub\}/);
   assert.doesNotMatch(component, /Connected\. No recent posts/);
-  assert.doesNotMatch(component, /XPostEmbed|loadXWidgets|api\.x\.com|api\.twitter\.com|fetch\s*\(/);
+  assert.doesNotMatch(component, /XPostEmbed|loadXWidgets|api\.x\.com|api\.twitter\.com/);
+  const xRail = component.slice(component.indexOf("function XSourceRail("), component.indexOf("function MediaSourceRail("));
+  assert.doesNotMatch(xRail, /fetch\s*\(/);
 });

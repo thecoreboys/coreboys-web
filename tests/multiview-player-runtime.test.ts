@@ -33,8 +33,10 @@ test("multiview defers nonessential tile work while a tile is offscreen", () => 
 
 test("the details panel focuses without silently taking room audio", () => {
   const details = stage.slice(stage.indexOf("function DetailsPanel"), stage.indexOf("function EmptyStage"));
-  assert.match(details, /player\.focusTile\(focused\.id, \{ takeAudio: false \}\)/);
-  assert.doesNotMatch(details, /player\.focusTile\(focused\.id, \{ takeAudio: true \}\)/);
+  const makeMain = details.slice(details.indexOf("const makeFocusedMain"), details.indexOf("if (!focused) {"));
+  assert.match(makeMain, /player\.focusTile\(focused\.id, \{ takeAudio: false \}\)/);
+  assert.doesNotMatch(makeMain, /takeAudio: true/);
+  assert.match(details, /focused\.muted \? player\.focusTile\(focused\.id, \{ takeAudio: true \}\)/);
 });
 
 test("choosing a chat channel preserves the room audio lead", () => {
@@ -62,8 +64,7 @@ test("multiview collapses same-creator Twitch and YouTube simulcasts and offers 
   assert.match(stage, /uniqueCrossPlatformLiveSources\(currentLive\)/);
   assert.match(stage, /groupCrossPlatformLiveSources/);
   assert.match(stage, /player\.replaceTile\(selectedTileId, item\)/);
-  assert.match(stage, /Switch to \$\{platformLabel\(item\)\}/);
-  assert.match(stage, /keep one tile and switch smoothly/);
+  assert.match(stage, /Watch on \{platformLabel\(item\)\}/);
   assert.match(stage, /Older saved rooms can already contain both sides of a YouTube\/Twitch/);
   assert.match(stage, /openTiles\.find\(\(tile\) => tile\.pinned\)/);
   assert.match(stage, /player\.removeTile\(tile\.id\)/);

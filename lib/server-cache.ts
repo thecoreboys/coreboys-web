@@ -12,7 +12,13 @@ const namespace = createHash("sha256").update([
   process.env.DATABASE_URL ?? "",
 ].join("|")).digest("hex").slice(0, 16);
 
-export const cachedPublicData = createPublicCache({
+// Route handlers, server components, and startup instrumentation are separate
+// bundles. Share their in-process snapshots instead of rebuilding per bundle.
+const processCache = globalThis as typeof globalThis & {
+  __corePublicCaches?: Map<string, ReturnType<typeof createPublicCache>>;
+};
+const caches = processCache.__corePublicCaches ??= new Map<string, ReturnType<typeof createPublicCache>>();
+export const cachedPublicData: ReturnType<typeof createPublicCache> = caches.get(namespace) ?? createPublicCache({
   read: (key) => redisGetJson(`coreboys:public:${namespace}:${key}`),
   write: (key, value, ttl) => redisSetJson(`coreboys:public:${namespace}:${key}`, value, ttl),
   background: (work) => {
@@ -20,3 +26,4 @@ export const cachedPublicData = createPublicCache({
     try { after(work); } catch { void work(); }
   },
 });
+caches.set(namespace, cachedPublicData);

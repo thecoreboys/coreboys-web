@@ -132,7 +132,6 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
       name: crew.name,
       roleLabel: getCrewRoleLabel(crew),
       portrait: getCrewPortrait(crew.slug),
-      socials: crew.socials,
     }));
 
   return (

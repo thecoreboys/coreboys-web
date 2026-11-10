@@ -81,5 +81,7 @@ test("archive visibility stays DB-only and progressively rendered", () => {
   assert.match(rails, /maxItemsPerSource = 20_000/);
   assert.match(rails, /const INITIAL_MEDIA_ITEMS = 24/);
   assert.match(rails, /const MEDIA_ITEMS_STEP = 24/);
-  assert.match(rails, /rail\.items\.slice\(0, visibleCount\)/);
+  assert.match(rails, /availableItems\.slice\(0, visibleCount\)/);
+  assert.match(rails, /params\.set\("after"/);
+  assert.match(rails, /archiveEndpoint/);
 });

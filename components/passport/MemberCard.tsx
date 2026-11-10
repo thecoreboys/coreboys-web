@@ -43,7 +43,7 @@ export function MemberCard({ passport }: { passport: PassportDashboard }) {
     ? "bg-[#eef2f6]"
     : style.skin === "obsidian"
       ? "bg-[#e8ebef]"
-      : "bg-[#f1f3f5]";
+      : "bg-[#efe2c8]";
 
   return (
     <section className="passport-member-card overflow-hidden rounded-xl border border-primary bg-primary p-4 sm:p-5" aria-label="Your CORE Passport identity">
@@ -53,10 +53,10 @@ export function MemberCard({ passport }: { passport: PassportDashboard }) {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,44rem)_15rem] lg:items-center">
-        <article className={`relative aspect-[1.8/1] max-w-2xl overflow-hidden rounded-xl ${cardClass} p-4 shadow-sm ring-1 ring-black/10`} style={{ borderTop: `4px solid ${style.accent}` }}>
+        <article className={`passport-member-card__document relative aspect-[1.8/1] max-w-2xl overflow-hidden rounded-xl ${cardClass} p-4 shadow-sm ring-1 ring-black/10`} style={{ borderTop: `4px solid ${style.accent}` }}>
           <div className="relative flex h-full flex-col justify-between">
             <div className="flex items-start justify-between"><span className="rounded-md border border-black/10 bg-white/70 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#30343b]">CORE PASSPORT</span><span className="text-[10px] font-bold tracking-[0.18em] text-[#4a4f58]">ACCOUNT</span></div>
-            <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#5b616b]">Verified account</p><h3 className="mt-1 text-2xl font-black tracking-[-0.045em] text-[#14161a] sm:text-3xl">{displayName}</h3><div className="mt-3 flex items-end justify-between"><span><strong className="block text-xl text-[#14161a]">Level {passport.profile.level}</strong><small className="text-[10px] text-[#5b616b]">{passport.globalProgress.xp.toLocaleString("en-US")} XP recorded</small></span><span className="text-right"><strong className="block text-xl text-[#14161a]">{passport.recap.cardsCollected}</strong><small className="text-[10px] text-[#5b616b]">Verified records</small></span></div></div>
+            <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#5b616b]">Member</p><h3 className="mt-1 text-2xl font-black tracking-[-0.045em] text-[#14161a] sm:text-3xl">{displayName}</h3><div className="mt-3 flex items-end justify-between"><span><strong className="block text-xl text-[#14161a]">Level {passport.profile.level}</strong><small className="text-[10px] text-[#5b616b]">{passport.globalProgress.xp.toLocaleString("en-US")} XP recorded</small></span><span className="text-right"><strong className="block text-xl text-[#14161a]">{passport.recap.cardsCollected}</strong><small className="text-[10px] text-[#5b616b]">Collected moments</small></span></div></div>
           </div>
         </article>
 

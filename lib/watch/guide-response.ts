@@ -30,6 +30,7 @@ export type GuideProgram = {
 };
 
 export type GuidePayload = {
+  window?: { start: number; end: number; earliest: number };
   serverNow: string;
   horizonEnd: string;
   programs: GuideProgram[];
@@ -49,7 +50,7 @@ export async function fetchWatchGuide(url: string): Promise<GuidePayload> {
     headers: { "X-CORE-Guide-Format": "compact-v1" },
     // Release SWR's in-flight request if an origin never responds, allowing
     // the next attempt to recover while the last successful guide stays up.
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error(`Guide unavailable (${response.status})`);
   const data: unknown = await response.json();

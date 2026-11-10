@@ -38,12 +38,12 @@ test("Twitch Play waits for provider confirmation and carries clicks through SDK
   assert.doesNotMatch(player, /playingRef\.current = shouldPlay;\s*setIsPlaying\(shouldPlay\);\s*if \(shouldPlay\) twitch\.play/);
 });
 
-test("Twitch live details prefer the current stream snapshot, title, and polished platform label", () => {
+test("Twitch live details retain the current title and creator without a duplicate poster or fabricated duration", () => {
   assert.match(player, /live\?\.live\.find\(\(entry\) => entry\.isLive && entry\.login\.toLowerCase\(\) === current\.twitchLogin\?\.toLowerCase\(\)\)/);
-  assert.match(player, /const detailPoster = detailSnapshot \?\? current\.poster/);
+  assert.doesNotMatch(player, /const detailPoster/);
   assert.match(player, /const detailTitle = currentTwitchLive\?\.title\?\.trim\(\) \|\| current\.title/);
-  assert.match(player, />Creator<\/dt>[\s\S]{0,250}\{current\.memberLabel\} · \{formatDisplayLabel\(current\.platform\)\}/);
-  assert.match(player, /currentIsLive && !twitchDvrActive \? "Live now" : playbackClock\(scrubberDuration\)/);
+  assert.match(player, /companionStyles\.author\}>\{current\.accountLabel \|\| current\.memberLabel\}/);
+  assert.match(player, /\(!currentIsLive \|\| twitchDvrActive\) && scrubberDuration > 0/);
 });
 
 test("the live timeline starts at 100 percent and switches into the growing archive", () => {

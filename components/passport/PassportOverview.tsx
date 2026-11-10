@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Award, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Flame, Radio, Sparkles, Target, Trophy, Users, Zap } from "lucide-react";
+import { Award, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Flame, Radio, Sparkles, Target, Users } from "lucide-react";
 import type { PassportActiveEvent, PassportCard, PassportDashboard } from "@/lib/passport/types";
 import { MomentCardBack, MomentCardTile } from "./MomentCard";
 import { PassportDialog } from "./PassportDialog";
@@ -50,7 +50,6 @@ export function PassportOverview({
 
   return (
     <div className="passport-section-stack">
-      <PassportWatchActivity passport={passport} />
       {passport.activeEvents.length ? (
         <section className="passport-live-events">
           {passport.activeEvents.map((event) => {
@@ -80,21 +79,22 @@ export function PassportOverview({
         </section>
       ) : null}
 
-      <section className="passport-stats" aria-label="Passport stats">
-        <article><span><Trophy aria-hidden="true" /></span><div><strong>Level {passport.globalProgress.level}</strong><small>{formatCompact(passport.globalProgress.xp)} global XP</small></div></article>
-              <article><span><BookOpen aria-hidden="true" /></span><div><strong>{passport.recap.cardsCollected}</strong><small>Verified records</small></div></article>
-        <article><span><Award aria-hidden="true" /></span><div><strong>{earnedAchievements.length}</strong><small>Achievements</small></div></article>
-              <article><span><Sparkles aria-hidden="true" /></span><div><strong>{formatCompact(passport.profile.sparks)}</strong><small>Sparks balance</small></div></article>
+      <section className="passport-global-progress">
+        <div className="passport-level-orbit"><span>LEVEL</span><strong>{passport.globalProgress.level}</strong><small>CORE</small></div>
+          <div className="passport-progress-page"><span className="passport-page-label">Your passport · Progress</span><h2>{passport.profile.displayTitle ?? "Your journey so far"}</h2><p>Earn XP through eligible activity on CORE.</p><div className="passport-progress passport-progress--large" role="progressbar" aria-label={`Progress to level ${passport.globalProgress.level + 1}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.max(0, Math.min(100, passport.globalProgress.percent)))}><span style={{ width: `${Math.max(0, Math.min(100, passport.globalProgress.percent))}%` }} /></div><footer><span>{passport.globalProgress.xp.toLocaleString("en-US")} XP</span><span>{Math.max(0, passport.globalProgress.nextLevelXp - passport.globalProgress.xp).toLocaleString("en-US")} XP to level {passport.globalProgress.level + 1}</span></footer></div>
       </section>
 
-      <section className="passport-global-progress">
-        <div className="passport-level-orbit"><span>LEVEL</span><strong>{passport.globalProgress.level}</strong></div>
-          <div><span className="passport-kicker"><Zap aria-hidden="true" /> CORE Passport</span><h2>{passport.profile.displayTitle ?? "Progress overview"}</h2><p>XP is added when CORE records eligible viewing, participation, or collection activity.</p><div className="passport-progress passport-progress--large"><span style={{ width: `${passport.globalProgress.percent}%` }} /></div><footer><span>{passport.globalProgress.xp.toLocaleString("en-US")} XP</span><span>{Math.max(0, passport.globalProgress.nextLevelXp - passport.globalProgress.xp).toLocaleString("en-US")} to Level {passport.globalProgress.level + 1}</span></footer></div>
+      <section className="passport-stats" aria-label="Passport collection">
+        <article><span><BookOpen aria-hidden="true" /></span><div><strong>{passport.recap.cardsCollected}</strong><small>Collected moments</small></div></article>
+        <article><span><Award aria-hidden="true" /></span><div><strong>{earnedAchievements.length}</strong><small>Achievements</small></div></article>
+        <article><span><Sparkles aria-hidden="true" /></span><div><strong>{formatCompact(passport.profile.sparks)}</strong><small>Sparks</small></div></article>
       </section>
+
+      <PassportWatchActivity passport={passport} />
 
       <div className="passport-goals-recap">
         <section className="passport-community-goals">
-          <header><div><span className="passport-kicker"><Users aria-hidden="true" /> Community goals</span><h2>Shared progress</h2></div></header>
+          <header><div><span className="passport-kicker"><Users aria-hidden="true" /> Community goals</span><h2>Watch together</h2></div></header>
           {passport.communityGoals.filter((goal) => goal.state !== "retired").length ? (
             <div>{passport.communityGoals.filter((goal) => goal.state !== "retired").slice(0, 3).map((goal) => {
               const percent = boundedPercent(goal.total, goal.target);
