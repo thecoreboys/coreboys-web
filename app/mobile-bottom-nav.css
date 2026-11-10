@@ -56,7 +56,14 @@
     background: var(--bg-elev);
     color: var(--ink);
     box-shadow: 0 -18px 55px #0005;
+    transform: translate3d(0, var(--members-drag-y, 0px), 0);
+    transition: transform 180ms ease-out;
   }
+  .mobile-members-sheet[data-dragging="true"] { transition: none; }
+  .mobile-members-sheet[data-state="closed"] { animation: mobile-members-dismiss 160ms ease-in both; }
+  .mobile-members-overlay[data-state="closed"] { animation: mobile-members-fade 160ms ease-in both; }
+  .mobile-members-sheet__drag-area { position: sticky; z-index: 1; top: -.65rem; padding-top: .65rem; margin-top: -.65rem; background: var(--bg-elev); touch-action: none; user-select: none; cursor: grab; }
+  .mobile-members-sheet[data-dragging="true"] .mobile-members-sheet__drag-area { cursor: grabbing; }
   .mobile-members-sheet__handle { width: 2.35rem; height: .25rem; margin: 0 auto 1.1rem; border-radius: 1rem; background: var(--ink-dim); opacity: .4; }
   .mobile-members-sheet__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .9rem; }
   .mobile-members-sheet__title { margin: 0; font-size: 1.22rem; font-weight: 700; letter-spacing: -.025em; }
@@ -76,6 +83,19 @@
   .watch-player-stage:not([data-player-fullscreen="true"]) { bottom: var(--mobile-nav-space, 0px) !important; }
   section[aria-label="Now playing"]:not(.watch-player-stage) { bottom: calc(.75rem + var(--mobile-nav-space, 0px)) !important; }
   [role="dialog"][aria-label="Cookie consent"] { bottom: calc(1rem + var(--mobile-nav-space, 0px)); }
+}
+
+@keyframes mobile-members-dismiss {
+  from { transform: translate3d(0, var(--members-drag-y, 0px), 0); }
+  to { transform: translate3d(0, 100%, 0); }
+}
+@keyframes mobile-members-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-members-sheet { transition: none; }
+  .mobile-members-sheet[data-state="closed"], .mobile-members-overlay[data-state="closed"] { animation: none; }
 }
 
 @media (min-width: 768px) {
