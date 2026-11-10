@@ -19,6 +19,7 @@ export type XTweetsRailProps = {
   title?: string;
   maxItems?: number;
   showHeading?: boolean;
+  bounded?: boolean;
 };
 
 const EXTERNAL_REL = "noopener noreferrer";
@@ -429,22 +430,24 @@ function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; o
             : undefined}
           aria-label="Attached media"
         >
-          {visibleMedia.slice(0, 4).map((media, index) => (
-            <a
-              className={styles.mediaTile}
-              key={media.id}
-              href={post.sourceUrl}
-              target="_blank"
-              rel={EXTERNAL_REL}
-              aria-label={`View attached media ${index + 1} on X`}
-            >
+          {visibleMedia.slice(0, 4).map((media, index) => {
+            const content = <>
               {/* X image and video thumbnails are cached by the server. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={media.source} alt="" loading={priority ? "eager" : "lazy"} decoding="async" referrerPolicy="no-referrer" />
               {media.kind === "video" ? <span className={styles.videoBadge}><i aria-hidden="true" /> Video</span> : null}
               {index === 3 && visibleMedia.length > 4 ? <span className={styles.moreMedia}>+{visibleMedia.length - 4}</span> : null}
-            </a>
-          ))}
+            </>;
+            return onOpen ? (
+              <button className={styles.mediaTile} key={media.id} type="button" onClick={() => onOpen(post)} aria-label={`Preview ${post.author.label}'s post, media ${index + 1}`}>
+                {content}
+              </button>
+            ) : (
+              <a className={styles.mediaTile} key={media.id} href={post.sourceUrl} target="_blank" rel={EXTERNAL_REL} aria-label={`View attached media ${index + 1} on X`}>
+                {content}
+              </a>
+            );
+          })}
         </div>
       ) : null}
 
@@ -515,6 +518,7 @@ export function XTweetsRail({
   title = "On X",
   maxItems = 18,
   showHeading = true,
+  bounded = false,
 }: XTweetsRailProps) {
   const headingId = useId();
   const [creator, setCreator] = useState("all");
@@ -576,10 +580,11 @@ export function XTweetsRail({
       ) : null}
 
       {posts.length ? (
+        <div className={bounded ? styles.boundedFeed : undefined} role={bounded ? "region" : undefined} tabIndex={bounded ? 0 : undefined} aria-label={bounded ? `${title} posts` : undefined}>
         <div
           className={styles.grid}
           role="list"
-          tabIndex={0}
+          tabIndex={bounded ? undefined : 0}
           aria-labelledby={showHeading ? headingId : undefined}
           aria-label={showHeading ? undefined : title}
         >
@@ -595,6 +600,7 @@ export function XTweetsRail({
               <XPostCard post={post} onOpen={setSelectedPost} priority={index < 6} />
             </div>
           ))}
+        </div>
         </div>
       ) : null}
       <XPostModal post={selectedPost} onClose={() => setSelectedPost(null)} />

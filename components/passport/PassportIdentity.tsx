@@ -19,6 +19,7 @@ import { channelLabel } from "./passport-utils";
 type SaveLoadout = (loadout: Omit<PassportLoadout, "updatedAt">) => Promise<unknown>;
 
 export function PassportIdentity({
+  displayName,
   cards,
   achievements,
   cosmetics,
@@ -32,6 +33,7 @@ export function PassportIdentity({
   onSavePrivacy,
   pending,
 }: {
+  displayName: string;
   cards: PassportCard[];
   achievements: PassportAchievement[];
   cosmetics: PassportCosmetic[];
@@ -92,12 +94,11 @@ export function PassportIdentity({
     values.includes(value) ? values.filter((candidate) => candidate !== value) : [...values, value].slice(-limit);
 
   return (
-    <div className="passport-section-stack">
+    <div className="passport-section-stack passport-profile-page">
       <section className="passport-section-heading">
         <div>
-          <span className="passport-kicker"><IdCard aria-hidden="true" /> Identity studio</span>
-          <h2>Profile identity</h2>
-          <p>Choose the records and appearance details shown on your CORE profile.</p>
+          <h2>Profile</h2>
+          <p>Choose what appears on your profile and in chat.</p>
         </div>
       </section>
 
@@ -113,6 +114,7 @@ export function PassportIdentity({
             <div className="passport-card-picker">
               {matchingShowcaseCards.slice(0, showcaseLimit).map((card) => <MomentCardTile key={card.id} card={card} selected={showcaseCards.includes(card.id)} onSelect={() => { showcaseRevision.current++; setShowcaseDirty(true); setShowcaseCards((current) => toggleLimited(current, card.id, 3)); }} onOpen={() => setSelectedCard(card)} compact />)}
             </div>
+            {!matchingShowcaseCards.length ? <p className="passport-profile-empty">{showcaseQuery.trim() ? "No matching moments." : "No moments available yet."}</p> : null}
             {matchingShowcaseCards.length > showcaseLimit ? <button type="button" className="passport-button passport-button--small passport-showcase-more" onClick={() => setShowcaseLimit((current) => current + 24)}>Show more cards</button> : null}
           </div>
           <div>
@@ -123,18 +125,20 @@ export function PassportIdentity({
                 return <button key={achievement.code} type="button" className={selected ? "is-selected" : ""} aria-pressed={selected} onClick={() => { showcaseRevision.current++; setShowcaseDirty(true); setShowcaseBadges((current) => toggleLimited(current, achievement.code, 3)); }}><span><Sparkles aria-hidden="true" /></span><strong>{achievement.name}</strong><small>{achievement.tier}</small>{selected ? <Check className="passport-picker-check" aria-hidden="true" /> : null}</button>;
               })}
             </div>
+            {!earned.length ? <p className="passport-profile-empty">Earned achievements will appear here.</p> : null}
           </div>
         </div>
       </section>
 
       <section className="passport-identity-section">
-        <header><div><h3>Channel identity loadouts</h3><p>Chat and channel pages can automatically use the identity you saved for that community.</p></div></header>
+        <header><div><h3>Chat appearance</h3><p>Save an appearance for all channels or a specific community.</p></div></header>
         <div className="passport-scope-tabs" role="tablist" aria-label="Identity scope">
           <button type="button" role="tab" aria-selected={scope === "global"} className={scope === "global" ? "is-active" : ""} onClick={() => setScope("global")}>Everywhere</button>
           {channelSlugs.map((slug) => { const value = passportScope(slug); return <button key={slug} type="button" role="tab" aria-selected={scope === value} className={scope === value ? "is-active" : ""} onClick={() => setScope(value)}>{channelLabel(slug)}</button>; })}
         </div>
         <LoadoutEditor
           key={scope}
+          displayName={displayName}
           scope={scope}
           cards={cards}
           achievements={earned}
@@ -161,6 +165,7 @@ function cosmeticOptions(cosmetics: PassportCosmetic[], kind: PassportCosmetic["
 }
 
 function LoadoutEditor({
+  displayName,
   scope,
   cards,
   achievements,
@@ -170,6 +175,7 @@ function LoadoutEditor({
   onActivate,
   pending,
 }: {
+  displayName: string;
   scope: string;
   cards: PassportCard[];
   achievements: PassportAchievement[];
@@ -198,7 +204,7 @@ function LoadoutEditor({
     <div className="passport-loadout-editor">
       <aside className="passport-identity-preview">
         <div className="passport-identity-preview__avatar"><IdCard aria-hidden="true" /></div>
-        <div><strong>Your display name</strong><span>{cosmetics.find((item) => item.code === draft.titleCode)?.name ?? "CORE Member"}</span></div>
+        <div><strong>{displayName}</strong><span>{cosmetics.find((item) => item.code === draft.titleCode)?.name ?? "CORE Member"}</span></div>
         {draft.featuredCardId ? <small>Featured: {cards.find((card) => card.id === draft.featuredCardId)?.name}</small> : null}
         <p><MessageCircle aria-hidden="true" /> This is how your identity can appear in channel chat.</p>
       </aside>
@@ -210,8 +216,8 @@ function LoadoutEditor({
           <CosmeticSelect label="Theme" value={draft.themeCode} options={cosmeticOptions(cosmetics, "theme", scope)} onChange={(value) => set("themeCode", value)} />
           <NativeSelect label="Featured record" value={draft.featuredCardId ?? ""} onChange={(event) => set("featuredCardId", event.target.value || null)} options={[{ value: "", label: "No featured record" }, ...eligibleCards.map((card) => ({ value: card.id, label: `${card.name} · #${card.serialNumber ?? "—"}` }))]} size="sm" />
         </div>
-        <fieldset className="passport-inline-picker"><legend>Chat badges · pick 3</legend>{achievements.map((achievement) => { const selected = draft.badgeCodes.includes(achievement.code); return <button key={achievement.code} type="button" aria-pressed={selected} className={selected ? "is-selected" : ""} onClick={() => set("badgeCodes", selected ? draft.badgeCodes.filter((code) => code !== achievement.code) : [...draft.badgeCodes, achievement.code].slice(-3))}>{achievement.name}</button>; })}</fieldset>
-        <fieldset className="passport-inline-picker"><legend>Reaction pack</legend>{cosmeticOptions(cosmetics, "reaction", scope).map((reaction) => { const selected = draft.reactionCodes.includes(reaction.code); return <button key={reaction.code} type="button" aria-pressed={selected} className={selected ? "is-selected" : ""} onClick={() => set("reactionCodes", selected ? draft.reactionCodes.filter((code) => code !== reaction.code) : [...draft.reactionCodes, reaction.code].slice(-6))}>{reaction.name}</button>; })}</fieldset>
+        <fieldset className="passport-inline-picker"><legend>Chat badges · pick 3</legend>{achievements.length ? achievements.map((achievement) => { const selected = draft.badgeCodes.includes(achievement.code); return <button key={achievement.code} type="button" aria-pressed={selected} className={selected ? "is-selected" : ""} onClick={() => set("badgeCodes", selected ? draft.badgeCodes.filter((code) => code !== achievement.code) : [...draft.badgeCodes, achievement.code].slice(-3))}>{achievement.name}</button>; }) : <p className="passport-profile-empty">No badges available yet.</p>}</fieldset>
+        <fieldset className="passport-inline-picker"><legend>Reactions</legend>{cosmeticOptions(cosmetics, "reaction", scope).length ? cosmeticOptions(cosmetics, "reaction", scope).map((reaction) => { const selected = draft.reactionCodes.includes(reaction.code); return <button key={reaction.code} type="button" aria-pressed={selected} className={selected ? "is-selected" : ""} onClick={() => set("reactionCodes", selected ? draft.reactionCodes.filter((code) => code !== reaction.code) : [...draft.reactionCodes, reaction.code].slice(-6))}>{reaction.name}</button>; }) : <p className="passport-profile-empty">No reactions available yet.</p>}</fieldset>
         <div className="passport-action-row"><button type="button" className="passport-button passport-button--primary" disabled={pending} onClick={() => void onSave(draft).catch(() => {})}><Save aria-hidden="true" /> Save identity</button><button type="button" className="passport-button" disabled={pending || !loadout} onClick={() => void onActivate(scope).catch(() => {})}><Check aria-hidden="true" /> Use now</button></div>
       </div>
     </div>
@@ -237,7 +243,7 @@ function PrivacyEditor({ value, onChange, onSave, pending }: { value: PassportPr
   ];
   return (
     <section className="passport-identity-section passport-privacy">
-      <header><div><h3><ShieldCheck aria-hidden="true" /> Privacy</h3><p>You decide who can see each part of your Passport. These choices never affect eligibility.</p></div><button type="button" className="passport-button passport-button--primary" disabled={pending} onClick={() => void onSave(value).catch(() => {})}><Save aria-hidden="true" /> Save privacy</button></header>
+      <header><div><h3><ShieldCheck aria-hidden="true" /> Privacy</h3><p>Choose who can see your Passport information.</p></div><button type="button" className="passport-button passport-button--primary" disabled={pending} onClick={() => void onSave(value).catch(() => {})}><Save aria-hidden="true" /> Save privacy</button></header>
       <div className="passport-privacy-grid">
         {rows.map((row) => <div key={row.key} className="passport-privacy__row"><span className="passport-privacy__icon">{value[row.key] === "private" ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</span><span><strong>{row.label}</strong><small>{row.copy}</small></span><NativeSelect aria-label={`${row.label} visibility`} value={value[row.key]} onChange={(event) => onChange({ ...value, [row.key]: event.target.value as PassportPrivacyLevel })} options={PRIVACY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))} size="sm" /></div>)}
       </div>

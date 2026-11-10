@@ -2,7 +2,7 @@
 
 import SiteImage from "@/components/ui/SiteImage";
 import { useMemo, useState } from "react";
-import { BookOpen, Check, Grid2X2, History, ListFilter, Search, Sparkles } from "lucide-react";
+import { BookOpen, Check, Grid2X2, History, ListFilter, Search } from "lucide-react";
 import type { PassportAlbum, PassportCard, PassportRarity } from "@/lib/passport/types";
 import type { PassportInventoryState } from "@/hooks/passport/usePassportInventory";
 import { MomentCardBack, MomentCardTile } from "./MomentCard";
@@ -61,12 +61,11 @@ export function MemoryBook({
   }, [inventoryCards]);
 
   return (
-    <div className="passport-section-stack">
+    <div className="passport-section-stack passport-collection">
       <section className="passport-section-heading">
         <div>
-          <span className="passport-kicker"><BookOpen aria-hidden="true" /> Digital Memory Book</span>
-          <h2>Your verified records, kept together.</h2>
-          <p>Open a record to see its source, earned date, account history, and replay details when available.</p>
+          <h2>Collection</h2>
+          <p>Your earned moments and event records.</p>
         </div>
         <div className="passport-segment" aria-label="Memory book view">
           <button type="button" className={view === "grid" ? "is-active" : ""} onClick={() => setView("grid")} aria-pressed={view === "grid"}><Grid2X2 aria-hidden="true" /> Grid</button>
@@ -80,20 +79,20 @@ export function MemoryBook({
           <span className="sr-only">Search cards</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search moments, events, or tags" />
         </label>
-        <NativeSelect aria-label="Channel" value={channel} onChange={(event) => setChannel(event.target.value)} options={[{ value: "all", label: "All channels" }, ...channels.map((slug) => ({ value: slug, label: slug.replaceAll("-", " ") }))]} size="sm" />
-        <NativeSelect aria-label="Rarity" value={rarity} onChange={(event) => setRarity(event.target.value as PassportRarity | "all")} options={[{ value: "all", label: "All editions" }, { value: "common", label: "Common" }, { value: "rare", label: "Rare" }, { value: "historic", label: "Historic" }, { value: "legendary", label: "Legendary" }]} size="sm" />
+        <NativeSelect className="passport-collection-select" aria-label="Channel" value={channel} onChange={(event) => setChannel(event.target.value)} options={[{ value: "all", label: "All channels" }, ...channels.map((slug) => ({ value: slug, label: slug.replaceAll("-", " ") }))]} size="sm" />
+        <NativeSelect className="passport-collection-select" aria-label="Rarity" value={rarity} onChange={(event) => setRarity(event.target.value as PassportRarity | "all")} options={[{ value: "all", label: "All rarities" }, { value: "common", label: "Common" }, { value: "rare", label: "Rare" }, { value: "historic", label: "Historic" }, { value: "legendary", label: "Legendary" }]} size="sm" />
         <button type="button" className={`passport-filter-toggle ${duplicatesOnly ? "is-active" : ""}`} onClick={() => setDuplicatesOnly((value) => !value)} aria-pressed={duplicatesOnly}>
           <ListFilter aria-hidden="true" /> Duplicates
         </button>
       </section>
 
-      <p className="passport-result-count" aria-live="polite">Showing {filtered.length} of {inventoryCards.length} loaded memories{inventory.loading ? " · checking your full collection…" : ""}</p>
+      {inventoryCards.length > 0 || hasFilters ? <p className="passport-result-count" aria-live="polite">{filtered.length} {filtered.length === 1 ? "moment" : "moments"}{inventory.hasMore ? " in loaded items · more available below" : ""}{inventory.loading ? " · loading…" : ""}</p> : null}
 
       {filtered.length === 0 ? (
         <div className="passport-empty">
           <BookOpen aria-hidden="true" />
-          <h3>{inventory.loading ? "Loading your collection…" : inventory.error ? "Your collection could not be loaded." : hasFilters ? "No memories match those filters." : "Your collection starts here."}</h3>
-          <p>{inventory.loading ? "Checking your saved records." : inventory.error ? "Try loading your collection again below." : hasFilters ? "Try another search or clear your filters." : "Cards from qualifying CORE events will appear here, with the date and activity that earned them."}</p>
+          <h3>{inventory.loading ? "Loading your collection…" : inventory.error ? "Your collection could not be loaded." : hasFilters ? "No matching moments" : "No moments yet"}</h3>
+          <p>{inventory.loading ? "Checking your saved records." : inventory.error ? "Try loading your collection again below." : hasFilters ? (inventory.hasMore ? "Try different filters or load more moments below." : "Try another search or clear your filters.") : "Moments from eligible CORE events will appear here."}</p>
           {hasFilters ? <button type="button" className="passport-button" onClick={() => { setQuery(""); setChannel("all"); setRarity("all"); setDuplicatesOnly(false); }}>Clear filters</button> : null}
         </div>
       ) : view === "grid" ? (
@@ -156,9 +155,8 @@ function Albums({
     <section className="passport-albums">
       <div className="passport-section-heading">
         <div>
-          <span className="passport-kicker"><Sparkles aria-hidden="true" /> Collection albums</span>
-          <h2>Complete the whole story.</h2>
-          <p>Collections group records by creator, event, and other categories tracked by CORE.</p>
+          <h2>Albums</h2>
+          <p>Moments grouped by creator and event.</p>
         </div>
       </div>
       <div className="passport-album-grid">

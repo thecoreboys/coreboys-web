@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { markAiUsageUncertain, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
+import { requirePaidProviderAccess } from "@/lib/subscriptions/paid-provider-access";
 
 export const runtime = "nodejs";
 export const revalidate = 90;
@@ -33,10 +34,10 @@ type CacheEntry = { summary: string; source: "ai" | "fallback"; expiresAt: numbe
 const cache = new Map<string, CacheEntry>();
 const TTL_MS = 90_000;
 const CACHE_HEADERS = {
-  // Keep the public response aligned with the in-process cache. Without this,
-  // fallback and cache-hit responses miss the CDN cache even though their
-  // source data is already intentionally shared for this window.
-  "Cache-Control": "public, s-maxage=90, stale-while-revalidate=180",
+  // Reuse summaries within the server, but never cache membership-gated
+  // responses in a shared browser or CDN cache.
+  "Cache-Control": "private, no-store",
+  Vary: "Cookie",
 };
 
 function cachedJson(entry: CacheEntry) {
@@ -47,6 +48,8 @@ export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ login: string }> },
 ) {
+  const access = await requirePaidProviderAccess(req, "ai.stream_context");
+  if (!access.ok) return access.response;
   const { login } = await ctx.params;
   const key = login.toLowerCase();
   const now = Date.now();

@@ -3214,3 +3214,69 @@ a.redUnderline:focus-visible {
     transition: none;
   }
 }
+
+/* Keep the letter readable and let the photographs carry the page. */
+.paper {
+  background: #f5f1e9;
+}
+
+.paper::before,
+.chapter::after,
+.toolkitSection::after {
+  display: none;
+}
+
+.headlineGrid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.headlineCopy h1 {
+  max-width: 18ch;
+  font-size: clamp(2.8rem, 5.7vw, 5.5rem);
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+}
+
+.eyebrow,
+.chapterLabel span,
+.chapterLabel p,
+.marginFileKicker {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.chapterLabel {
+  border-top-width: 1px;
+}
+
+.storyCopy h2,
+.toolkitIntro h2 {
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
+.marginFile {
+  border: 1px solid rgba(23, 21, 19, 0.18);
+  box-shadow: none;
+  transform: none;
+}
+
+.marginFile::before {
+  display: none;
+}
+
+.toolkitImageWrap {
+  box-shadow: none;
+  transform: none;
+}
+
+@media (max-width: 760px) {
+  .headlineGrid {
+    padding-top: 0;
+  }
+
+  .headlineCopy h1 {
+    font-size: clamp(2.65rem, 11vw, 4.5rem);
+  }
+}

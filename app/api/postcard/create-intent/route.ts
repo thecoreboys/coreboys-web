@@ -47,6 +47,7 @@ import {
   PostcardCollectibleUnavailableError,
 } from "@/lib/postcard-collectible-store";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
+import { requirePaidProviderAccess } from "@/lib/subscriptions/paid-provider-access";
 import { materializeManagedPostcardAssetSource } from "@/lib/postcard-managed-assets";
 
 export const runtime = "nodejs";
@@ -219,6 +220,8 @@ export async function POST(req: Request) {
   if (!isTrustedPostcardRequest(req)) {
     return NextResponse.json({ error: "Postcard request origin was not accepted." }, { status: 403 });
   }
+  const access = await requirePaidProviderAccess(req, "postcard.order");
+  if (!access.ok) return access.response;
   const requestLimit = consumePostcardRequest(postcardRequestKey(req));
   if (!requestLimit.ok) {
     const retryAfter = Math.max(1, Math.ceil((requestLimit.resetAt - Date.now()) / 1_000));

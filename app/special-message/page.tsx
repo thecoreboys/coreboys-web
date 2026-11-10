@@ -76,9 +76,6 @@ export default function SpecialMessagePage() {
               sizes="100vw"
               priority
             />
-            <figcaption className={styles.heroCaption}>
-              <span>A photo of the people and community that made this project matter to me.</span>
-            </figcaption>
           </figure>
 
           <section id="beginning" className={styles.chapter}>
@@ -100,7 +97,7 @@ export default function SpecialMessagePage() {
                 ticket can turn into a real memory, and that idea stuck with me.
               </p>
               <p>
-                That stuck with me. One of my first big ideas was trying to buy web hosting so
+                One of my first big ideas was trying to buy web hosting so
                 I could make a ticket site for my own knock-off basketball team, the Cranberry
                 Crush. I got in trouble for the hosting part, but the instinct behind it never
                 really left me.
@@ -701,24 +698,6 @@ export default function SpecialMessagePage() {
               <strong>Create. Own. Run. Everything. Own the platform.</strong>
             </div>
           </section> : null}
-
-          <section className={styles.closingSpread}>
-            <div className={styles.closingCopy}>
-              <p className={styles.eyebrow}>One last note</p>
-              <h2>This community helped me through some hard days.</h2>
-              <p>
-                There were days when I put on a stream because I didn&apos;t want the room to feel
-                so quiet. It gave me company and, more than once, a reason to laugh.
-              </p>
-              <p>
-                I know a stream can be just another night at work for the person making it. I
-                wanted you to know that those jokes and little moments reached me. To everyone
-                who made them, and everyone who was there in chat: thank you.
-              </p>
-              <div className={styles.closingRule} aria-hidden="true" />
-              <strong>This site is my small way of giving something back.</strong>
-            </div>
-          </section>
 
           <div className={styles.endBar}>
             <Link href="/">Explore what I built</Link>

@@ -17,7 +17,7 @@ test("home hero opens the shared player only through viewer intent", () => {
   assert.match(homeHero, /onClick=\{playInPlayer\}/);
   assert.match(homeHero, /onClick=\{\(event\) => \{\s*if \(!playable\) return;\s*event\.preventDefault\(\);\s*playInPlayer\(\);/);
   assert.equal((homeHero.match(/player\.play\(/g) ?? []).length, 1, "all hero playback must use the intent handler");
-  assert.match(homeHero, /<BillboardHeroPlayer item=\{item\} playable=\{heroPlayable\} onOpen=\{playInPlayer\}/);
+  assert.match(homeHero, /<BillboardHeroPlayer item=\{item\} playable=\{heroPlayable\}/);
   assert.doesNotMatch(previewPlayer, /player\.play\(/);
 });
 
@@ -39,8 +39,8 @@ test("the right-side hero preview starts muted and honors viewing preferences an
   assert.doesNotMatch(previewPlayer, /is-background/);
   assert.match(previewPlayer, /const wantsAutoplay =[\s\S]{0,400}!current[\s\S]{0,100}!dataSaver[\s\S]{0,100}previewAutoplay[\s\S]{0,100}!reducedMotion[\s\S]{0,100}slotFitsProvider[\s\S]{0,100}providerExposed[\s\S]{0,100}pageVisible/);
   assert.match(previewPlayer, /width >= 400 && height >= 300/);
-  assert.match(previewPlayer, /visibleWidth \/ rect\.width >= 0\.85/);
-  assert.match(previewPlayer, /visibleHeight \/ rect\.height >= 0\.85/);
+  assert.match(previewPlayer, /\(visibleWidth \* visibleHeight\) \/ \(rect\.width \* rect\.height\) >= 0\.5/);
+  assert.doesNotMatch(previewPlayer, /className="watch-billboard-live-core-overlay"/);
   assert.match(previewPlayer, /muted: true,[\s\S]{0,100}controls: false,[\s\S]{0,100}autoplay: true/);
   assert.match(previewPlayer, /nativeVideoUrl && wantsAutoplay \? \(/);
   assert.match(previewPlayer, /instance\?\.destroy\?\.\(\)/);

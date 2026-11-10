@@ -113,7 +113,7 @@ export const PROVIDER_CATALOG: readonly ProviderPublic[] = [
     label: "TikTok",
     color: "#FE2C55",
     connectable: true,
-    why: "Sync your profile and public videos. TikTok does not provide comment-writing access here.",
+    why: "Connect your profile and verify access to public videos. TikTok does not provide comment-writing access here.",
     // `video.list` is user-authorized: there is no app-only Display API
     // feed. Existing connections must reauthorize after this scope change.
     scopes: [...TIKTOK_CREATOR_FEED_SCOPES],

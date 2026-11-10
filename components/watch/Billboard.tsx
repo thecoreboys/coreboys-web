@@ -241,7 +241,7 @@ export function BillboardCarousel({ items, headingLevel = "h1" }: { items: Watch
   );
 }
 
-function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: WatchItem; playable: Playable; onOpen: () => void; onSoundChange?: (audible: boolean) => void }) {
+function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchItem; playable: Playable; onSoundChange?: (audible: boolean) => void }) {
   const reducedMotion = useReducedMotion();
   const slotRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -321,10 +321,9 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
         rect.height > 0 &&
         // The hero sits above the browse filters, so using the filter rail as
         // a visibility boundary accidentally prevented every carousel live
-        // preview from mounting. A mostly visible hero is sufficient for
-        // muted provider autoplay and keeps each selected stream active.
-        visibleWidth / rect.width >= 0.85 &&
-        visibleHeight / rect.height >= 0.85,
+        // preview from mounting. Require at least half of the actual player
+        // area, rather than requiring 85% in both dimensions.
+        (visibleWidth * visibleHeight) / (rect.width * rect.height) >= 0.5,
       );
     };
     const scheduleExposureUpdate = () => {
@@ -816,17 +815,6 @@ function BillboardHeroPlayer({ item, playable, onOpen, onSoundChange }: { item: 
         </button>
       ) : null}
       </div>
-      {!isTwitch ? (
-        <button
-          type="button"
-          className="watch-billboard-live-core-overlay"
-          onClick={onOpen}
-          aria-label={`Open ${item.title} in the media player`}
-        >
-          <span className="watch-billboard-live-core-open"><span aria-hidden>▶</span> Open player</span>
-          <span className="watch-billboard-live-core-muted">{muted ? "Muted preview" : "Sound on"}</span>
-        </button>
-      ) : null}
     </div>
   );
 }
@@ -926,7 +914,7 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
       </div>
       <div className="watch-billboard-veil" aria-hidden />
 
-      {heroPlayable ? <BillboardHeroPlayer item={item} playable={heroPlayable} onOpen={playInPlayer} onSoundChange={onSoundChange} /> : null}
+      {heroPlayable ? <BillboardHeroPlayer item={item} playable={heroPlayable} onSoundChange={onSoundChange} /> : null}
 
       {playable && !heroPlayable ? (
         <button

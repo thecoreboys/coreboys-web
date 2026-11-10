@@ -146,8 +146,6 @@ type TwitchInstance = {
   play?: () => void;
   pause?: () => void;
   destroy?: () => void;
-  enableCaptions?: () => void;
-  disableCaptions?: () => void;
 };
 
 type RemotePlaybackLike = {
@@ -1202,14 +1200,10 @@ export function PersistentPlayer() {
         format: "long" as const,
       }
     : null;
-  const twitchCaptionsSupported = Boolean(
-    current?.platform === "twitch"
-      && ((current.kind === "live" && current.twitchLogin) || current.vodId),
-  );
   const captionSupported = Boolean(
-    (nativeSourceSupported && current?.captions?.length)
-      || current?.youtubeId
-      || twitchCaptionsSupported,
+    current?.platform !== "twitch" && (
+      (nativeSourceSupported && current?.captions?.length) || current?.youtubeId
+    ),
   );
   const rateSupported = Boolean(nativeSourceSupported || current?.youtubeId);
   const qualitySupported = Boolean(nativeSourceSupported && (current?.qualities?.length ?? 0) > 1);
@@ -2347,15 +2341,6 @@ export function PersistentPlayer() {
         postYouTubePlayerCommands(target, youtubeCaptionCommands(captionsEnabled));
       }
     }
-    const twitch = twitchPlayerRef.current;
-    if (twitchCaptionsSupported && twitch) {
-      try {
-        if (captionsEnabled) twitch.enableCaptions?.();
-        else twitch.disableCaptions?.();
-      } catch {
-        // Twitch may not have caption data for the current broadcast or VOD.
-      }
-    }
   }, [
     captionsEnabled,
     current?.captions,
@@ -2363,7 +2348,6 @@ export function PersistentPlayer() {
     current?.youtubeId,
     playbackRate,
     selectedNativeMedia,
-    twitchCaptionsSupported,
   ]);
 
   const refreshNativeCapabilities = useCallback((media: DeviceVideo) => {
@@ -3299,8 +3283,6 @@ export function PersistentPlayer() {
                           ?? "auto",
                       );
                       setIsMuted(instance.getMuted?.() ?? autoStartMuted);
-                      if (captionsEnabled) instance.enableCaptions?.();
-                      else instance.disableCaptions?.();
                     } catch {
                       // Provider capabilities can arrive after READY.
                     }

@@ -1,6 +1,7 @@
 "use client";
 
 import SiteImage from "@/components/ui/SiteImage";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -74,6 +75,14 @@ type AccountNotice = {
   tone: "success" | "error";
 };
 
+const CONNECTION_SUMMARY: Record<string, string> = {
+  twitch: "Sync follows and subscriptions, and use Twitch chat.",
+  youtube: "Sync subscriptions and likes, and use YouTube chat and comments.",
+  x: "Sync follows from X.",
+  tiktok: "Connect your profile and verify access to your public videos.",
+  instagram: "Sync media from an eligible professional account.",
+};
+
 type PlatformFollowing = {
   provider: string;
   checkedAt: string | null;
@@ -137,6 +146,8 @@ function ConnectedAccountsForUser({
   const [card, setCard] = useState<Card | null>(null);
   const [publicCard, setPublicCard] = useState(false);
   const [publicSlug, setPublicSlug] = useState("");
+  const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [profileNotice, setProfileNotice] = useState<AccountNotice | null>(null);
   const [favorite, setFavorite] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState<string | null>(null);
@@ -183,6 +194,7 @@ function ConnectedAccountsForUser({
           if (!preferencesLoaded.current) {
             setPublicCard(Boolean(payload.publicCard));
             setPublicSlug(payload.publicSlug ?? "");
+            setPublishedSlug(payload.publicCard ? payload.publicSlug ?? null : null);
             setFavorite(payload.favoriteMember ?? "");
             preferencesLoaded.current = true;
           }
@@ -286,7 +298,7 @@ function ConnectedAccountsForUser({
 
   async function savePrefs() {
     setBusy("prefs");
-    setNotice(null);
+    setProfileNotice(null);
     try {
       const response = await fetch("/api/account/loyalty", {
         method: "PATCH",
@@ -298,16 +310,17 @@ function ConnectedAccountsForUser({
           publicSlug: publicSlug || null,
         }),
       });
-      const result = await readConnectedAccountResponse<{ ok?: boolean; accountId: string }>(
+      const result = await readConnectedAccountResponse<{ ok?: boolean; accountId: string; publicCard: boolean; publicSlug: string | null; favoriteMember: string | null }>(
         response,
         "Your card settings could not be saved.",
       );
       if (result.accountId !== accountId) throw new Error(ACCOUNT_CHANGED_MESSAGE);
       if (result.ok !== true) throw new Error("The server did not confirm your saved card settings.");
-      setNotice({ message: "Saved.", tone: "success" });
-      window.setTimeout(() => setNotice(null), 2000);
+      setPublicSlug(result.publicSlug ?? "");
+      setPublishedSlug(result.publicCard ? result.publicSlug : null);
+      setProfileNotice({ message: "Profile settings saved.", tone: "success" });
     } catch (error) {
-      setNotice({
+      setProfileNotice({
         message: connectedAccountError(error, "Your card settings could not be saved. Try again."),
         tone: "error",
       });
@@ -347,9 +360,7 @@ function ConnectedAccountsForUser({
             </Button>
           </div>
         </div>
-        <p className="mb-4 text-sm text-tertiary">
-          Connect an account when you need it. Disconnect any time.
-        </p>
+        <p className="mb-4 text-sm text-tertiary">Connect platforms to sync your account. Disconnect anytime.</p>
         {notice ? (
           <p
             className={`mb-4 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ${
@@ -456,12 +467,18 @@ function ConnectedAccountsForUser({
                     )
                   )}
                 </div>
-                <div className="w-full space-y-1 pl-0 text-sm text-tertiary sm:pl-10"><p>{p.why}</p><p>{p.interactionLabel}{p.interactionNote ? ` · ${p.interactionNote}` : ""}</p>{!conn ? <p>{p.watchHistorySync.detail}</p> : null}</div>
+                <div className="w-full pl-0 text-sm text-tertiary sm:pl-10">
+                  <p>{CONNECTION_SUMMARY[p.key] ?? p.why}</p>
+                  {p.key === "youtube" && p.interactionNote ? <p className="mt-1 text-xs">{p.interactionNote}</p> : null}
+                  <details className="mt-2">
+                    <summary className="w-fit cursor-pointer text-xs font-medium text-secondary hover:text-primary">Permissions and limits</summary>
+                    <div className="mt-2 space-y-1 text-xs leading-5"><p>{p.why}</p><p>{p.interactionLabel}{p.interactionNote && p.key !== "youtube" ? ` · ${p.interactionNote}` : ""}</p><p>{p.watchHistorySync.detail}</p></div>
+                  </details>
+                </div>
                 {conn ? <div className="w-full pl-0 sm:pl-10">
                   <p className="text-xs text-tertiary">{conn.lastSyncAt ? <>Last synced <time dateTime={conn.lastSyncAt}>{new Date(conn.lastSyncAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time></> : "Waiting for the first successful sync"}</p>
                   {conn.lastSyncError ? <p className="mt-1 text-xs text-warning-primary">Sync needs attention. Try Sync now or reconnect this account.</p> : null}
                   <PlatformFollowingDetails following={platformFollowing} label={p.label} />
-                  <p className="mt-2 text-xs leading-5 text-tertiary">{p.watchHistorySync.detail}</p>
                 </div> : null}
               </li>
             );
@@ -474,29 +491,28 @@ function ConnectedAccountsForUser({
       {card ? <section className="rounded-xl border border-secondary bg-primary p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-primary">Public fan profile</h2>
         <p className="mt-1 text-sm text-tertiary">
-          Private by default. Turn this on to publish a badge-only profile at{" "}
-          <code className="text-xs">/u/your-handle</code> — never your email.
+          Publish your profile at <code className="text-xs">/u/your-handle</code>. Your display name, connected platform usernames and favorite member can be visible. Passport details follow your Passport privacy settings.
         </p>
         <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-secondary bg-primary p-4">
           <div>
             <p className="text-sm font-semibold text-primary">Public fan card</p>
-            <p className="text-xs text-tertiary">Shows platform badges and house loyalty, not identity.</p>
+            <p className="text-xs text-tertiary">Your profile is {publicCard ? "set to public when saved" : "set to private when saved"}.</p>
           </div>
-          <Toggle size="md" isSelected={publicCard} onChange={setPublicCard} aria-label="Make fan card public" />
+          <Toggle size="md" isSelected={publicCard} onChange={(value) => { setPublicCard(value); setProfileNotice(null); }} aria-label="Make fan card public" />
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Input
             size="md"
             label="Public handle"
             value={publicSlug}
-            onChange={setPublicSlug}
+            onChange={(value) => { setPublicSlug(value); setProfileNotice(null); }}
             placeholder="your-name"
-            hint="Letters, numbers, dashes."
+            hint="3–32 letters, numbers, and dashes."
           />
           <NativeSelect
             label="Favorite member"
             value={favorite}
-            onChange={(e) => setFavorite(e.target.value)}
+            onChange={(e) => { setFavorite(e.target.value); setProfileNotice(null); }}
             options={[
               { value: "", label: "Auto from your activity" },
               ...members.map((m) => ({ value: m.slug, label: m.stageName })),
@@ -511,6 +527,8 @@ function ConnectedAccountsForUser({
             Export my data
           </Button>
         </div>
+        {profileNotice ? <p role={profileNotice.tone === "error" ? "alert" : "status"} className={`mt-3 text-sm ${profileNotice.tone === "error" ? "text-error-primary" : "text-success-primary"}`}>{profileNotice.message}</p> : null}
+        {publishedSlug ? <Link href={`/u/${encodeURIComponent(publishedSlug)}` as never} className="mt-3 inline-flex text-sm font-semibold text-brand-secondary hover:underline">View your public profile</Link> : null}
       </section> : null}
     </div>
   );

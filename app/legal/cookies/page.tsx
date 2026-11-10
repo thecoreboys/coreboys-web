@@ -12,10 +12,10 @@ export const metadata: Metadata = {
 
 export default function CookiesPage() {
   return (
-    <LegalLayout title="Cookie policy" effectiveDate="2026-01-01" kind="cookies">
+    <LegalLayout title="Cookie policy" effectiveDate="2026-11-10" kind="cookies">
       <p>
         Cookies are small files that websites place on your device. This
-        page lists every cookie thecoreboys.com may set and explains how
+        page explains the main cookies and similar storage thecoreboys.com may use and how
         to control them.
       </p>
 
@@ -26,17 +26,15 @@ export default function CookiesPage() {
           choice from the cookie banner. 12-month expiry. Without it, the
           banner would re-appear on every visit.
         </li>
-        <li>
-          <strong>coreboys-raw</strong> — first-party, stores whether
-          you&apos;ve enabled the &quot;Raw&quot; editorial overlay. 12-month expiry.
-        </li>
+        <li><strong>Account session</strong> — an HttpOnly cookie used to keep you signed in and protect your account.</li>
       </ul>
+      <p>We also use browser storage for choices such as appearance, playback, and site preferences. Clearing site storage may reset these choices or sign you out.</p>
 
       <h2>Cookies set by third parties</h2>
 
       <h3>Google Analytics (loaded only after consent)</h3>
       <ul>
-        <li><strong>_ga</strong> — Google Analytics. 13-month expiry.</li>
+        <li><strong>_ga</strong> — Google Analytics identifier; its lifetime depends on Google&apos;s configuration.</li>
         <li><strong>_ga_BG4VPN3LGG</strong> — Property-specific GA4 cookie.</li>
       </ul>
       <p>

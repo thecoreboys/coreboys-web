@@ -51,7 +51,7 @@ function communityFrom(source: HTMLElement | null): CursorCommunity {
   const routeCommunity = href.match(/\/channels\/([^/?#]+)/)?.[1];
   const selected = root.dataset.cursorTheme ?? "station";
   const candidate = selected === "station"
-    ? explicit ?? routeCommunity ?? root.dataset.cursorCommunity ?? "core"
+    ? explicit ?? routeCommunity ?? root.dataset.accent ?? root.dataset.cursorCommunity ?? "core"
     : selected;
   return COMMUNITY_ALIASES[candidate.toLowerCase()] ?? "core";
 }
@@ -63,13 +63,12 @@ function readAccent(source: HTMLElement | null): string {
   if (theme !== "station" && selectedThemeColor) return selectedThemeColor;
   const community = communityFrom(source);
   if (community !== "core") return COMMUNITY_ACCENTS[community];
-  if (!source) return selectedThemeColor || "#f8f8fa";
+  if (!source) return COMMUNITY_ACCENTS.core;
   const style = getComputedStyle(source);
   return source.dataset.accent
     || style.getPropertyValue("--channel-accent").trim()
     || style.getPropertyValue("--cursor-accent").trim()
-    || selectedThemeColor
-    || "#f8f8fa";
+    || COMMUNITY_ACCENTS.core;
 }
 
 /**
@@ -249,6 +248,7 @@ export function Cursor({ initialPosition }: { initialPosition?: { x: number; y: 
     };
 
     const hintFor = (nextMode: CursorMode, action: HTMLElement | null, isLive: boolean) => {
+      if (action?.closest("[data-cursor-quiet]")) return "";
       if (nextMode === "play") return isLive ? "Click to watch live" : "Click to play";
       if (nextMode === "pause") return "Click to pause";
       if (nextMode === "scrub") return isLive ? "Drag to seek" : "Drag to scrub";
@@ -416,10 +416,11 @@ export function Cursor({ initialPosition }: { initialPosition?: { x: number; y: 
       else if (action) nextMode = "action";
       setMode(nextMode, source);
       scheduleHint(hintFor(nextMode, action, liveTarget), source);
-      magneticTarget = conserve ? null : action;
+      const quietAction = Boolean(action?.closest("[data-cursor-quiet]"));
+      magneticTarget = conserve || quietAction ? null : action;
       magneticRect = magneticTarget?.getBoundingClientRect() ?? null;
       magneticForce = magneticTarget?.matches(PRIMARY_SELECTOR) ? .16 : .055;
-      setReactiveTarget(action);
+      setReactiveTarget(quietAction ? null : action);
       const spotlight = element?.closest(".watch-poster, .watch-home-promo-card") as HTMLElement | null;
       setSpotlight(spotlight, clientX, clientY);
     };
@@ -536,7 +537,7 @@ export function Cursor({ initialPosition }: { initialPosition?: { x: number; y: 
       scheduleFrame();
     };
     const effectsObserver = new MutationObserver(syncEffects);
-    effectsObserver.observe(root, { attributes: true, attributeFilter: ["data-performance-profile", "data-cursor-fx", "data-cursor-theme", "data-cursor-community", "data-cursor-size"] });
+    effectsObserver.observe(root, { attributes: true, attributeFilter: ["data-performance-profile", "data-cursor-fx", "data-cursor-theme", "data-cursor-community", "data-cursor-size", "data-accent"] });
     const onResize = () => {
       geometryDirty = true;
       hintSizeDirty = true;

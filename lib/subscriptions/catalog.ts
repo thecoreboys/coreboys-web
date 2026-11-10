@@ -67,6 +67,11 @@ export const FEATURE_IDS = [
   "rooms.private",
   "player.advanced_preferences",
   "player.creator_tags",
+  "ai.concierge",
+  "ai.stream_context",
+  "social.x_actions",
+  "community.ai_moderated_submissions",
+  "postcard.order",
   "bookmarks.timestamps",
   "guide.custom_channels",
   "channels.smart",
@@ -178,6 +183,11 @@ const PLUS_FEATURES = [
   "economy.cosmetics",
   "player.advanced_preferences",
   "player.creator_tags",
+  "ai.concierge",
+  "ai.stream_context",
+  "social.x_actions",
+  "community.ai_moderated_submissions",
+  "postcard.order",
 ] as const satisfies readonly FeatureId[];
 const PRO_FEATURES = [
   ...PLUS_FEATURES,

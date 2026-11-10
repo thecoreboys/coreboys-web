@@ -4,6 +4,7 @@ import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { CommunityInputError, CommunityRateLimitError, createCommunityQuestion } from "@/lib/fanzone-communities";
 import { FANZONE_COMMUNITY_KEYS } from "@/lib/fanzone-community-config";
 import { requestHasSameOrigin } from "@/lib/x/security";
+import { requirePaidProviderAccess } from "@/lib/subscriptions/paid-provider-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ export async function POST(request: Request) {
   if (!requestHasSameOrigin(request)) return NextResponse.json({ error: "invalid origin" }, { status: 403 });
   const userId = await getCurrentFanUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await requirePaidProviderAccess(request, "community.ai_moderated_submissions");
+  if (!access.ok) return access.response;
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid question" }, { status: 400 });
   try {

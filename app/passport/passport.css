@@ -813,3 +813,184 @@
   .passport-global-progress { grid-template-columns: 1fr; }
   .passport-progress-page { border-top: 1px dashed #a38d6b; border-left: 0; padding: 1rem 0 0; }
 }
+
+/* The activity page reads like a compact ledger, with the numbers and actions
+   doing the work instead of repeated labels and decorative badges. */
+.passport-overview-clean .passport-goals-recap,
+.passport-overview-clean .passport-overview-split { gap: 1rem; }
+.passport-overview-clean .passport-community-goals,
+.passport-overview-clean .passport-recap-card,
+.passport-overview-clean .passport-overview-split > section {
+  align-content: start;
+  gap: 1.1rem;
+  border: 1px solid var(--rule);
+  border-radius: .65rem;
+  padding: clamp(1.2rem, 2.3vw, 1.65rem);
+  background: var(--bg-elev);
+}
+.passport-overview-clean .passport-community-goals h2,
+.passport-overview-clean .passport-recap-card h2,
+.passport-overview-clean .passport-overview-section h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.3;
+}
+.passport-overview-clean .passport-community-goals article > div:first-child span {
+  color: var(--ink-dim);
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: none;
+}
+.passport-overview-clean .passport-community-goals article strong { margin-top: .4rem; font-size: .95rem; }
+.passport-overview-clean .passport-community-goals article p,
+.passport-overview-clean .passport-community-goals footer,
+.passport-overview-clean .passport-recap-card > p,
+.passport-overview-clean .passport-inline-note,
+.passport-overview-clean .passport-overview-quests p,
+.passport-overview-clean .passport-empty p { font-size: .875rem; line-height: 1.5; }
+.passport-overview-clean .passport-community-goals article { gap: .7rem; }
+.passport-overview-clean .passport-recap-card > div { gap: 0; margin: 0; border-block: 1px solid var(--rule); }
+.passport-overview-clean .passport-recap-card > div > span {
+  justify-items: start;
+  gap: .3rem;
+  min-width: 0;
+  padding: .85rem .75rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.passport-overview-clean .passport-recap-card > div > span + span { border-left: 1px solid var(--rule); }
+.passport-overview-clean .passport-recap-card > div svg { color: #bd9b73; }
+.passport-overview-clean .passport-recap-card > div strong { font-size: 1.2rem; }
+.passport-overview-clean .passport-recap-card > div small { font-size: .75rem; text-transform: none; }
+.passport-overview-clean .passport-overview-section > header { gap: 1rem; }
+.passport-overview-clean .passport-text-button { min-height: 2.5rem; padding: .35rem .5rem; font-size: .875rem; cursor: pointer; }
+.passport-overview-clean .passport-overview-quests h3 { font-size: .9rem; }
+.passport-overview-clean .passport-empty { min-height: 7rem; background: var(--bg-elev); }
+.passport-overview-clean .passport-global-progress {
+  display: block;
+  border: 1px solid var(--rule);
+  border-radius: .65rem;
+  padding: clamp(1.2rem, 2.3vw, 1.65rem);
+  background: var(--bg-elev);
+  color: var(--ink);
+  box-shadow: none;
+}
+.passport-overview-clean .passport-progress-page { border: 0; padding: 0; }
+.passport-overview-clean .passport-progress-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+.passport-overview-clean .passport-global-progress h2 { margin:0; color:var(--ink); font-family:inherit; font-size:1.25rem; font-weight:700; letter-spacing:-.02em; }
+.passport-overview-clean .passport-global-progress p { margin:.3rem 0 0; color:var(--ink-dim); font-size:.875rem; }
+.passport-overview-clean .passport-progress-heading > span { color:var(--ink); font-size:.9rem; font-weight:700; white-space:nowrap; }
+.passport-overview-clean .passport-global-progress .passport-progress { margin-top:1.25rem; background:var(--surface); }
+.passport-overview-clean .passport-global-progress .passport-progress > span { background:#b9956d; }
+.passport-overview-clean .passport-global-progress footer { gap:1rem; color:var(--ink-dim); font-size:.8rem; line-height:1.4; }
+.passport-overview-clean .passport-stats article { border-right-style:solid; }
+.passport-overview-clean .passport-stats small { font-size:.8rem; }
+@media (max-width: 480px) {
+  .passport-overview-clean .passport-recap-card > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .passport-overview-clean .passport-recap-card > div > span:nth-child(3) { border-left: 0; }
+  .passport-overview-clean .passport-recap-card > div > span:nth-child(n+3) { border-top: 1px solid var(--rule); }
+}
+
+/* Collection controls share a single compact toolbar on larger screens. */
+.passport-collection { gap: 1.5rem; }
+.passport-collection > .passport-section-heading h2 { margin: 0; font-size: clamp(1.5rem, 2.5vw, 2rem); }
+.passport-collection > .passport-section-heading p { margin-top: .4rem; font-size: .9375rem; }
+.passport-collection .passport-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1fr) minmax(9rem, .46fr) minmax(9rem, .46fr) auto;
+  gap: .65rem;
+  border-radius: .7rem;
+  padding: .75rem;
+}
+.passport-collection .passport-search-field { min-width: 0; width: 100%; }
+.passport-collection .passport-search-field input { width:100%; font-size:.875rem; }
+.passport-collection .passport-collection-select { min-width: 0; width: 100%; }
+.passport-collection .passport-filter-bar select { width:100%; font-size:.875rem; }
+.passport-collection .passport-filter-toggle { min-height: 2.75rem; padding-inline: .9rem; font-size:.8125rem; cursor:pointer; }
+.passport-collection .passport-filter-toggle:hover { border-color:var(--ink-dim); color:var(--ink); }
+.passport-collection .passport-filter-toggle:focus-visible,
+.passport-collection .passport-search-field:focus-within { outline:2px solid #c7995f; outline-offset:2px; }
+.passport-collection .passport-result-count { margin: -.75rem 0 0; font-size:.8125rem; }
+.passport-collection > .passport-empty { min-height: 12rem; background:var(--bg-elev); }
+.passport-collection > .passport-empty h3 { font-size:1rem; }
+.passport-collection > .passport-empty p { font-size:.875rem; }
+.passport-collection .passport-segment button { min-height: 2.5rem; font-size:.8125rem; cursor:pointer; }
+.passport-hero .passport-cover { justify-content:space-between; background:linear-gradient(145deg,#4b2926,#251819); box-shadow:inset .3rem 0 #130b0b55, 0 .5rem 1.5rem #0004; }
+.passport-hero h1 { font-family:inherit; font-size:clamp(2rem, 3.5vw, 3rem); font-weight:700; letter-spacing:-.04em; }
+@media (max-width: 850px) {
+  .passport-collection .passport-filter-bar { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .passport-collection .passport-search-field { grid-column:1 / -1; }
+  .passport-collection .passport-filter-toggle { justify-content:center; }
+}
+@media (max-width: 480px) {
+  .passport-collection .passport-filter-bar { grid-template-columns:1fr; }
+  .passport-collection .passport-search-field { grid-column:auto; }
+}
+
+.passport-achievements-page { gap: 2rem; }
+.passport-achievements-page > .passport-section-heading h2 { margin:0; font-size:clamp(1.5rem,2.5vw,2rem); }
+.passport-achievements-page .passport-section-heading p { margin-top:.4rem; font-size:.9375rem; }
+.passport-achievements-page .passport-quests > header h3,
+.passport-achievements-page .passport-campaigns h2 { margin:0; font-size:1.2rem; letter-spacing:-.02em; }
+.passport-achievements-page .passport-quest-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr)); }
+.passport-achievements-page .passport-quest,
+.passport-achievements-page .passport-campaign,
+.passport-achievements-page .passport-achievement { border-radius:.65rem; padding:1.2rem; }
+.passport-achievements-page .passport-quest__icon { width:2rem; height:2rem; border-radius:.45rem; background:var(--surface); color:#b9956d; }
+.passport-achievements-page .passport-quest h4 { margin:0; font-size:1rem; }
+.passport-achievements-page .passport-quest div > span,
+.passport-achievements-page .passport-achievement div > span { font-size:.75rem; text-transform:capitalize; }
+.passport-achievements-page .passport-quest p,
+.passport-achievements-page .passport-achievement p,
+.passport-achievements-page .passport-campaign li { font-size:.875rem; line-height:1.5; }
+.passport-achievements-page .passport-quest footer,
+.passport-achievements-page .passport-achievement small { font-size:.8rem; }
+.passport-achievements-page .passport-quest footer strong { color:var(--ink); }
+.passport-achievements-page .passport-campaign { display:block; min-width:0; }
+.passport-achievements-page .passport-campaign > div:last-child { padding:0; }
+.passport-achievements-page .passport-campaign h3 { margin:0; font-size:1rem; }
+.passport-achievements-page .passport-campaign-count { margin:.4rem 0 .8rem; color:var(--ink-dim); font-size:.8125rem; }
+.passport-achievements-page .passport-achievement-library > .passport-filter-bar { display:flex; flex-wrap:wrap; }
+.passport-achievements-page .passport-achievement-select { width:min(100%, 18rem); }
+.passport-achievements-page .passport-filter-bar select,
+.passport-achievements-page .passport-filter-toggle { min-height:2.75rem; font-size:.875rem; }
+.passport-achievements-page .passport-filter-toggle { cursor:pointer; }
+.passport-achievements-page .passport-filter-toggle:focus-visible { outline:2px solid #c7995f; outline-offset:2px; }
+.passport-achievements-page .passport-achievement.is-locked { opacity:1; }
+.passport-achievements-page .passport-achievement-empty { color:var(--ink-dim); font-size:.875rem; }
+@media (max-width: 480px) { .passport-achievements-page .passport-achievement-select { width:100%; } }
+
+.passport-member-card__document { min-height: 13rem; background-image:none; padding:1.35rem; }
+.passport-member-card__document h3 { font-family:inherit; font-weight:700; }
+.passport-member-card__document > div { gap:2rem; }
+.passport-card-appearance { min-height:0; }
+.passport-card-appearance:focus-visible { outline:2px solid #c7995f; outline-offset:3px; }
+.passport-profile-page { gap:1.5rem; }
+.passport-profile-page > .passport-section-heading h2 { margin:0; font-size:clamp(1.5rem,2.5vw,2rem); }
+.passport-profile-page > .passport-section-heading p { margin-top:.4rem; font-size:.9375rem; }
+.passport-profile-page .passport-identity-section { gap:1.1rem; border-radius:.65rem; padding:clamp(1.2rem,2.3vw,1.65rem); }
+.passport-profile-page .passport-identity-section > header h3 { margin:0; font-size:1.1rem; }
+.passport-profile-page .passport-identity-section > header p { margin-top:.35rem; font-size:.875rem; }
+.passport-profile-page .passport-showcase-layout h4 { font-size:.8rem; letter-spacing:0; text-transform:none; }
+.passport-profile-page .passport-showcase-search input { font-size:.875rem; }
+.passport-profile-page .passport-showcase-search small,
+.passport-profile-page .passport-profile-empty { color:var(--ink-dim); font-size:.8125rem; line-height:1.5; }
+.passport-profile-page .passport-profile-empty { margin-top:.55rem; }
+.passport-profile-page .passport-identity-preview { border-radius:.65rem; background:var(--bg); }
+.passport-profile-page .passport-identity-preview__avatar { border:1px solid var(--rule-strong); background:var(--surface); color:#b9956d; box-shadow:none; }
+.passport-profile-page .passport-identity-preview span,
+.passport-profile-page .passport-identity-preview p { color:var(--ink-dim); font-size:.8rem; }
+.passport-profile-page .passport-inline-picker legend { color:var(--ink); font-size:.875rem; }
+.passport-profile-page .passport-scope-tabs button { min-height:2.5rem; border-radius:.5rem; font-size:.8125rem; cursor:pointer; }
+.passport-profile-page .passport-privacy-grid > .passport-privacy__row { border-radius:.55rem; }
+.passport-profile-page .passport-privacy-grid strong { font-size:.875rem; }
+.passport-profile-page .passport-privacy-grid small { font-size:.8125rem; line-height:1.4; }
+.passport-profile-page .passport-privacy-grid select { min-height:2.75rem; font-size:.875rem; }
+@media (max-width: 560px) {
+  .passport-profile-page .passport-privacy-grid .passport-privacy__row > div:last-child { grid-column:1 / -1; width:100%; }
+  .passport-member-card__document { min-height:12rem; }
+}

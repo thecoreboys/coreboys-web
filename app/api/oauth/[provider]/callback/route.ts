@@ -74,10 +74,14 @@ export async function GET(
     });
     const reason = `connect_${provider}` as keyof typeof POINTS;
     const pts = POINTS[reason] ?? 25;
-    await awardPoints(uid, typeof pts === "number" ? pts : 25, String(reason), "oauth", provider);
+    // A reward failure must not turn an already saved connection into a
+    // misleading connection failure or prevent its initial sync.
+    await awardPoints(uid, typeof pts === "number" ? pts : 25, String(reason), "oauth", provider).catch(() => {
+      console.error("[oauth/callback] connection reward could not be recorded", provider);
+    });
     // Complete the first sync before returning. `syncProvider` records a
     // provider error without discarding the successfully stored connection.
-    const sync = await syncProvider(uid, provider);
+    const sync = await syncProvider(uid, provider).catch(() => ({ ok: false }));
     return bounce(origin, { oauth: sync.ok ? "ok" : "sync-error", provider });
   } catch (e) {
     if (e instanceof ProviderLinkedElsewhereError) {

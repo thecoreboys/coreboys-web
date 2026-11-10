@@ -6,11 +6,12 @@ import { xNativeActionsEnvironment } from "@/lib/x/config";
 import { issueXActionCsrfToken } from "@/lib/x/security";
 import { getXUsageSummary, xApiPricing } from "@/lib/x/usage";
 import type { XActionAvailability } from "@/lib/x/types";
+import { requirePaidProviderAccess } from "@/lib/subscriptions/paid-provider-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   const userId = await getCurrentFanUserId();
   const env = xNativeActionsEnvironment();
   const base: XActionAvailability = {
@@ -21,6 +22,11 @@ export async function GET() {
   };
   if (!userId) return privateJson({ availability: { ...base, reason: "sign_in" }, csrfToken: null });
   if (!env.explicitEnable) return privateJson({ availability: base, csrfToken: null });
+  const access = await requirePaidProviderAccess(request, "social.x_actions");
+  if (!access.ok) {
+    if (access.response.status === 503) return access.response;
+    return privateJson({ availability: { ...base, reason: "membership_required" }, csrfToken: null });
+  }
   if (!env.credentials) return privateJson({ availability: { ...base, reason: "credentials_missing" }, csrfToken: null });
   if (!env.creditGate || xApiPricing().writeActionMicrousd <= 0) {
     return privateJson({ availability: { ...base, reason: "credit_gate_missing" }, csrfToken: null });

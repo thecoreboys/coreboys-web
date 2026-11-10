@@ -21,12 +21,14 @@ export default async function CoreOriginalPage({ params }: { params: Promise<{ s
   if (!result) notFound();
   const { original } = result;
   const items = [...result.items].sort((a, b) => a.sortOrder - b.sortOrder);
-  const episodeArtwork = items.find((item) => item.posterUrl)?.posterUrl;
-  const artwork = episodeArtwork || original.posterUrl;
-  return <div className="min-h-screen bg-[#0b0b0e] pb-16 text-white">
-    <header className="mx-auto grid max-w-7xl items-center gap-8 px-5 py-10 md:grid-cols-2 md:px-8 md:py-14">
+  return <div className="relative isolate min-h-screen overflow-hidden bg-[#0b0b0e] pb-16 text-white">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      <Image src={original.posterUrl} alt="" fill sizes="100vw" className="scale-110 object-cover opacity-25 blur-3xl" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0b0b0e]/70 via-[#0b0b0e]/90 to-[#0b0b0e]" />
+    </div>
+    <header className="mx-auto grid max-w-7xl items-center gap-8 px-5 py-10 md:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] md:gap-14 md:px-8 md:py-14">
       <div><Link href="/#events-series-challenges" className="text-sm text-white/70 underline underline-offset-4">CORE Originals</Link><h1 className="mt-5 text-3xl font-semibold tracking-tight md:text-5xl">{original.title}</h1>{original.summary ? <p className="mt-4 max-w-xl text-base leading-7 text-white/75">{original.summary}</p> : null}<p className="mt-4 text-sm text-white/65">{items.length ? `${items.length} episode${items.length === 1 ? "" : "s"} available` : "No episodes have been published here yet."}</p><OriginalStartButton items={items} /></div>
-      <figure><div className="relative aspect-video overflow-hidden rounded-lg bg-white/5"><Image src={artwork} alt={`${original.title} artwork`} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" priority /></div>{!episodeArtwork ? <figcaption className="mt-2 text-sm text-white/60">Illustrated series artwork</figcaption> : null}</figure>
+      <figure className="mx-auto w-full max-w-[18rem] md:max-w-none"><div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-white/5 shadow-2xl ring-1 ring-white/15"><Image src={original.posterUrl} alt={`${original.title} poster`} fill sizes="(max-width: 768px) 288px, 336px" className="object-cover" priority /></div></figure>
     </header>
     <section id="episodes" className="mx-auto max-w-7xl border-t border-white/15 px-5 pt-8 md:px-8"><h2 className="text-2xl font-semibold">Episodes</h2>{items.length ? <OriginalEpisodes items={items} /> : <p className="mt-5 text-base text-white/70">Episodes will appear here when they are available. <Link href="/#latest" className="underline">Browse recent videos</Link></p>}</section>
   </div>;

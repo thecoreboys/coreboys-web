@@ -91,6 +91,7 @@ export type XActionAvailability = {
     | "credit_gate_missing"
     | "monthly_ceiling_reached"
     | "sign_in"
+    | "membership_required"
     | "reconnect";
   connectHref: string;
   requiredScopes: string[];

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import type { GuideHistory as History } from "./GuideHistory";
 
 const GuideHistory = dynamic(() => import("./GuideHistory").then((module) => module.GuideHistory), { ssr: false });
@@ -12,7 +12,8 @@ export function GuideHistorySection() {
   const [data, setData] = useState<HistoryPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const load = async () => {
+  const sectionRef = useRef<HTMLElement>(null);
+  const load = useCallback(async () => {
     if (loading) return;
     setLoading(true);
     setFailed(false);
@@ -22,11 +23,21 @@ export function GuideHistorySection() {
       setData(await response.json() as HistoryPayload);
     } catch { setFailed(true); }
     finally { setLoading(false); }
-  };
+  }, [loading]);
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || data || loading || failed) return;
+    if (!("IntersectionObserver" in window)) { void load(); return; }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) { observer.disconnect(); void load(); }
+    }, { rootMargin: "800px 0px" });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [data, failed, loading, load]);
   if (data) return <GuideHistory {...data} />;
-  return <section className="mx-5 my-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 py-6 md:mx-10" aria-labelledby="guide-history-entry">
-    <div><h2 id="guide-history-entry" className="text-lg font-semibold">Airtime history</h2><p className="mt-1 text-sm text-white/55">Broadcast history by creator.</p></div>
-    <button type="button" onClick={() => void load()} disabled={loading} className="min-h-11 rounded-lg border border-white/20 px-4 text-sm font-medium text-white/80 transition-colors hover:border-white/40 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:opacity-50">{loading ? "Loading history…" : failed ? "Try again" : "View history"}</button>
-    {failed ? <p role="status" className="w-full text-sm text-white/60">History could not load. The guide is still available above.</p> : null}
+  return <section ref={sectionRef} className="guide-history-entry" aria-labelledby="guide-history-entry" aria-busy={loading}>
+    <div><h2 id="guide-history-entry">Airtime history</h2><p>Broadcast history by creator.</p></div>
+    {failed ? <button type="button" onClick={() => void load()}>Try again</button> : <div className="guide-history-skeleton" role="status"><span className="sr-only">Loading airtime history</span><i /><i /><i /><i /><i /><i /></div>}
+    {failed ? <p role="status" className="guide-history-entry-error">History could not load. The guide is still available above.</p> : null}
   </section>;
 }

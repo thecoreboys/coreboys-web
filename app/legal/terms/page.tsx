@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalLayout title="Terms of service" effectiveDate="2026-08-28" kind="terms">
+    <LegalLayout title="Terms of service" effectiveDate="2026-11-10" kind="terms">
       <p>
         <strong>thecoreboys.com</strong> is an{" "}
         <strong>unofficial site</strong> about CORE. It is not
@@ -80,10 +80,14 @@ export default function TermsPage() {
 
       <h2>Optional recurring site support</h2>
       <p>
-        CORE site support is an optional monthly contribution for the independent website. It is not a subscription to any creator, does not grant access to third-party creator content, and does not create an affiliation with CORE or its members. The exact recurring amount and billing interval are shown before you complete Stripe Checkout.
+        CORE site support is an optional recurring membership for this independent website, including access to the current beta features. It is not a subscription to any creator, does not grant access to third-party creator content, and does not create an affiliation with CORE or its members. The exact recurring amount and billing interval are shown before you complete Stripe Checkout.
       </p>
       <p>
-        As of the effective date above, the site-wide safety range is $3 to $500 USD per month and a new checkout starts at a suggested $10 USD. The active minimum, maximum, or suggested amount may be narrowed within that range when shown in the billing interface. Site support is not a charitable donation and should not be treated as tax-deductible unless we expressly provide a legally valid receipt saying otherwise.
+        The available amounts and current minimum are shown in the billing interface before purchase and may change for future purchases. Site support is not a charitable donation and should not be treated as tax-deductible unless we expressly provide a legally valid receipt saying otherwise.
+      </p>
+      <h3>Beta access and availability</h3>
+      <p>
+        The paid membership provides access to features in development; it does not guarantee that every feature, integration, video, record, or notification will be available, accurate, or work without interruption. Features may be changed, limited, delayed, or withdrawn, including when a third-party provider changes its services. Do not rely on the site as the only copy of important information. These beta disclosures do not take away any remedies or consumer rights available under applicable law.
       </p>
       <p>
         By completing Checkout, you authorize the amount displayed there to be charged every month until cancellation. Stripe Checkout separately requires acceptance of these Terms. You may cancel recurring billing at any time in the Stripe billing portal. Unless Stripe states otherwise, cancellation ends future renewal and takes effect after the already-paid billing period; it does not erase charges that were properly incurred before cancellation.
@@ -147,7 +151,7 @@ export default function TermsPage() {
         We may add, remove, modify, restrict, suspend, or permanently discontinue any feature or the entire site at any time for operational, security, legal, financial, or business reasons. We do not promise that any feature, account tool, archive, or integration will remain available. When practical, we may give advance notice, but emergencies or third-party platform changes may require immediate action.
       </p>
       <p>
-        If we discontinue the recurring paid service, we will stop future renewals and handle amounts already paid as required by applicable law. A site shutdown does not authorize continued charges for a service that is no longer being provided, and provisions that by their nature should survive—such as ownership, disclaimers, limitations of liability, and payment obligations already incurred—will survive.
+        If we discontinue the recurring paid service, we will stop future renewals and handle amounts already paid as required by applicable law. A site shutdown does not authorize continued charges for a service that is no longer being provided. Where practical, we may provide notice and an opportunity to export available account data before a shutdown. Provisions that by their nature should survive—such as ownership, disclaimers, limitations of liability, and payment obligations already incurred—will survive.
       </p>
 
       <h2>Disclaimers</h2>

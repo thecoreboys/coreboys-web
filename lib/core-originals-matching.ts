@@ -31,6 +31,7 @@ const RULES: Record<string, readonly RegExp[]> = {
   "caretakers": [/\bcaretakers?\b/],
   "stable-99-kill-lead": [/\b99 kill(?:s| lead)?\b/],
   "jason-the-ween": [/\bisland survivor\b/],
+  "maybach-mondays": [/\bmaybach mondays?\b/],
   "nms-boxing": [/\bnms\b.*\bboxing\b/, /\bboxing\b.*\bnms\b/],
   "stable-los-jynxzi-chained": [/\bchained together\b/],
   "core-po-box-openings": [/\bp\s*o\s*box\b/, /\b(?:fan mail|mail unboxing)\b/],

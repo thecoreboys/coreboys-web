@@ -1548,7 +1548,10 @@ export function NetworkChannelPage({
 
           <div className={styles.modeTabs} aria-label="Channel mode">
             {supportedModes(channel).map((entry) => (
-              <Link prefetch={false} key={entry} href={channelHref(channel, entry) as never} aria-current={mode === entry ? "page" : undefined}>
+              <Link prefetch={false} key={entry} href={channelHref(channel, entry) as never} aria-current={mode === entry ? "page" : undefined}
+                onPointerEnter={(event) => { if (event.pointerType === "mouse" || event.pointerType === "pen") prefetchDialRoute(channelHref(channel, entry)); }}
+                onFocus={() => prefetchDialRoute(channelHref(channel, entry))}
+                onTouchStart={() => prefetchDialRoute(channelHref(channel, entry))}>
                 <ModeIcon mode={entry} /> {modeLabel(entry)}
               </Link>
             ))}

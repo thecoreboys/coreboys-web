@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import { Sparkles } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type Payload = { summary: string; source: "ai" | "fallback" };
 
@@ -16,8 +17,9 @@ const fetcher = async (url: string): Promise<Payload> => {
  * to the stream's game/category if the AI route is unavailable.
  */
 export function StreamContext({ login }: { login: string }) {
+  const subscription = useSubscription();
   const { data } = useSWR<Payload>(
-    login ? `/api/stream-context/${encodeURIComponent(login)}` : null,
+    login && !subscription.loading && subscription.hasFeature("ai.stream_context") ? `/api/stream-context/${encodeURIComponent(login)}` : null,
     fetcher,
     {
       refreshInterval: 90_000,

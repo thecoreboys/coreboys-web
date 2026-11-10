@@ -51,7 +51,7 @@ import {
   playableFromUrl,
   type Playable,
 } from "@/lib/watch/playable";
-import { listenToYouTube, youtubePlaybackSample } from "@/lib/watch/youtube-player";
+import { listenToYouTube, youtubeCaptionCommands, youtubePlaybackSample } from "@/lib/watch/youtube-player";
 import type { WatchCatalog } from "@/lib/watch/types";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
 import { readableTitle } from "@/lib/watch/presentation";
@@ -2110,6 +2110,11 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       if (!message || typeof message !== "object") return;
       const value = message as Record<string, unknown>;
       if (tile.item.youtubeId) {
+        if (value.event === "onReady" || value.event === "onApiChange") {
+          for (const command of youtubeCaptionCommands(player.captionsEnabled, { moduleReady: value.event === "onApiChange" })) {
+            iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", ...command }), "*");
+          }
+        }
         const detail = youtubePlaybackSample(value);
         if (detail) {
           if (typeof detail.currentTime === "number" && Number.isFinite(detail.currentTime)) {
@@ -2160,7 +2165,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [checkpointTile, finishPlayback, tile.item.youtubeId]);
+  }, [checkpointTile, finishPlayback, player.captionsEnabled, tile.item.youtubeId]);
 
   const src = embedFor(tile.item, {
     parent,
@@ -2244,11 +2249,12 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         { func: tile.muted ? "mute" : "unMute", args: [] },
         { func: "setVolume", args: [Math.round(tile.volume * 100)] },
         { func: "setPlaybackRate", args: [player.playbackRate] },
+        ...youtubeCaptionCommands(player.captionsEnabled),
       ]) source.postMessage(JSON.stringify({ event: "command", ...command }), "*");
     } else if (tile.item.platform === "tiktok") {
       source.postMessage({ "x-tiktok-player": true, type: tile.muted ? "mute" : "unMute" }, "*");
     }
-  }, [frameReadyToken, player.playbackRate, standby, tile.item.platform, tile.item.youtubeId, tile.muted, tile.volume]);
+  }, [frameReadyToken, player.captionsEnabled, player.playbackRate, standby, tile.item.platform, tile.item.youtubeId, tile.muted, tile.volume]);
 
   useEffect(() => {
     if (standby || !tile.item.youtubeId) return;

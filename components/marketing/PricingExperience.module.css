@@ -641,3 +641,24 @@
   .upgradeHeroImage { transition: none; }
   .upgradeHeroVisual:hover .upgradeHeroImage { transform: none; }
 }
+
+/* Keep the public membership sections on the same reading grid. */
+.shell:not(.accountMode) .cleanHeader,
+.shell:not(.accountMode) .cleanMain {
+  width: min(100% - 3rem, 72rem);
+}
+
+.shell:not(.accountMode) .cleanMain {
+  padding-top: clamp(2.5rem, 5vw, 4.5rem);
+}
+
+@media (max-width: 760px) {
+  .shell:not(.accountMode) .cleanHeader,
+  .shell:not(.accountMode) .cleanMain {
+    width: min(100% - 2rem, 72rem);
+  }
+
+  .shell:not(.accountMode) .cleanMain {
+    padding-top: 2.5rem;
+  }
+}

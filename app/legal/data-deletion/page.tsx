@@ -22,16 +22,14 @@ export default async function DataDeletionPage({ searchParams }: PageProps) {
   return (
     <LegalLayout
       title="Data deletion"
-      effectiveDate="2026-08-21"
+      effectiveDate="2026-11-10"
       kind="data-deletion"
     >
       {code ? (
         <div className="rounded-xl border border-success_subtle bg-success-primary p-5">
-          <p className="font-semibold text-primary">Request processed</p>
+          <p className="font-semibold text-primary">Meta request reference</p>
           <p className="mt-1 text-sm text-tertiary">
-            A valid Meta deletion request removes the matching Instagram
-            connection, encrypted tokens, and Instagram-derived account data
-            immediately. The connection may already have been absent.
+            This reference alone does not confirm the status of a request. Contact us below if you need help checking it.
           </p>
           <p className="mt-3 text-sm text-tertiary">
             Confirmation code: <code>{code}</code>
@@ -63,17 +61,20 @@ export default async function DataDeletionPage({ searchParams }: PageProps) {
 
       <h2>Delete all of your thecoreboys.com data</h2>
       <p>
+        In <Link href="/account/settings#account-deletion">account settings</Link>, you can request account deletion and cancel the request during the 14-day waiting period. Cancel any renewing subscription in billing first; requesting deletion does not itself cancel it.
+      </p>
+      <p>
         Email <a href="mailto:privacy@thecoreboys.com?subject=Data%20deletion%20request">privacy@thecoreboys.com</a>{" "}
         from the address on your CORE account with the subject &quot;Data deletion
         request.&quot; Tell us whether you want a particular platform connection
         removed or your entire CORE account deleted. We may ask you to verify
-        ownership before acting, and we will respond within 30 days.
+        ownership before acting, and we will respond within the period required by applicable law.
       </p>
       <p>
         Account deletion covers the account profile, encrypted connected-platform
         tokens, loyalty and personalization records, on-site watch progress,
         saved lists, and other account-linked activity, except records we must
-        retain to meet a legal obligation or protect the service from abuse.
+        retain for applicable legal obligations, billing records, disputes, security, or abuse prevention. Some data may remain in backups for their normal retention period before removal. Deletion from this site does not delete data held independently by another platform or payment provider.
       </p>
 
       <h2>Revoke face-presence consent or delete biometric data</h2>

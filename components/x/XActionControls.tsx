@@ -111,6 +111,8 @@ export function XActionControls({
             </div>
           ) : capability?.availability.reason === "reconnect" ? (
             <a className={styles.stepUp} href={capability.availability.connectHref}>Approve one-tap X actions</a>
+          ) : capability?.availability.reason === "membership_required" ? (
+            <a className={styles.stepUp} href="/upgrade?feature=social.x_actions">One-tap X actions require membership</a>
           ) : null}
 
           {pending ? (

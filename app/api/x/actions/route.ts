@@ -4,6 +4,7 @@ import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { performXNativeAction } from "@/lib/x/actions";
 import { requestHasSameOrigin, verifyXActionCsrfToken } from "@/lib/x/security";
 import { X_ACTION_KINDS } from "@/lib/x/types";
+import { requirePaidProviderAccess } from "@/lib/subscriptions/paid-provider-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
   if (!requestHasSameOrigin(request)) return json({ ok: false, error: "Invalid request origin." }, 403);
   const userId = await getCurrentFanUserId();
   if (!userId) return json({ ok: false, error: "Sign in to use your X account." }, 401);
+  const access = await requirePaidProviderAccess(request, "social.x_actions");
+  if (!access.ok) return access.response;
   const csrf = request.headers.get("x-csrf-token") ?? "";
   if (!await verifyXActionCsrfToken(csrf, userId)) return json({ ok: false, error: "Refresh the page and confirm again." }, 403);
   const idempotencyKey = request.headers.get("idempotency-key")?.trim() ?? "";

@@ -10,3 +10,21 @@ export async function guideSourceWithDeadline<T>(work: Promise<T>, fallback: T, 
     if (timer) clearTimeout(timer);
   }
 }
+
+/** Retain successful optional provider data while a slow refresh runs. */
+export function createGuideSourceCache<T extends { state: string }>(freshMs: number) {
+  let saved: { value: T; at: number } | undefined;
+  let pending: Promise<T> | undefined;
+  return async (load: () => Promise<T>, fallback: T, timeoutMs: number): Promise<T> => {
+    if (saved && Date.now() - saved.at < freshMs) return saved.value;
+    if (!pending) {
+      pending = Promise.resolve().then(load).then((value) => {
+        if (value.state !== "error") saved = { value, at: Date.now() };
+        return value;
+      }).finally(() => { pending = undefined; });
+    }
+    // A successful older snapshot is more useful than a temporary outage.
+    if (saved && Date.now() - saved.at < 30 * 60_000) { void pending.catch(() => {}); return saved.value; }
+    return guideSourceWithDeadline(pending, fallback, timeoutMs);
+  };
+}

@@ -18,13 +18,12 @@ test("the home short-form rail warms upcoming preview resources without eager em
   assert.doesNotMatch(poster, /documentHint\.rel\s*=\s*"prefetch"/);
 });
 
-test("the collapsed CORE library still shows a small content preview", () => {
-  assert.match(home, /const libraryPreview = useMemo\(/);
-  assert.match(home, /personalizeItems\(source\.filter\(\(item\) => !isLiveWatchItem\(item\)\), feedback\)/);
+test("the home library sections are available without expanding a disclosure", () => {
   assert.match(home, /if \(isLiveWatchItem\(item\) \|\| item\.format === "photo"\) return false/);
   assert.match(home, /filter\(\(item\) => !isLiveWatchItem\(item\) && !item\.programming\?\.community\)/);
-  assert.match(home, /!showFullLibrary[\s\S]{0,300}From the library/);
-  assert.match(home, /watch-library-empty[\s\S]{0,160}New videos, clips, and Shorts will show up here/);
+  assert.match(home, /id="watch-full-library" className="watch-full-library"/);
+  assert.match(home, /title="Videos & episodes"/);
+  assert.doesNotMatch(home, /showFullLibrary|Show more videos/);
 });
 
 test("preview warming is bounded and honors bandwidth and motion preferences", () => {

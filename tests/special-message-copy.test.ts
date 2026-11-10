@@ -11,5 +11,7 @@ test("the personal message uses direct, human copy", () => {
   assert.match(page, /Hi\. CORE&apos;s streams and videos/);
   assert.match(page, /src="\/special-message\/core-huddle\.webp"/);
   assert.doesNotMatch(page, /origin-storyboard-v2|Special edition|No\. 02|Part 0[1-6]/);
-  assert.match(page, /This community helped me through some hard days/);
+  assert.doesNotMatch(page, /A photo of the people and community that made this project matter to me/);
+  assert.doesNotMatch(page, /This community helped me through some hard days/);
+  assert.match(page, /I wanted to say thank you/);
 });

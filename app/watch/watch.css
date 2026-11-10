@@ -2322,6 +2322,14 @@
   padding: 2.6rem 0.78rem 0.7rem;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .watch-poster:hover .watch-poster-copy,
+  .watch-poster.is-preview-open .watch-poster-copy {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
 .watch-poster-title {
   color: #fff;
   font-size: 0.82rem;
@@ -3046,7 +3054,7 @@
   .watch-billboard-live-player.is-preview .watch-billboard-live-fallback {
     z-index: 0;
     object-fit: cover;
-    pointer-events: none;
+    pointer-events: auto;
   }
 
   .watch-billboard-live-player.is-preview .watch-billboard-live-frame,
@@ -3066,7 +3074,7 @@
 
   .lenis.lenis-smooth .watch-billboard-live-player.is-preview .watch-billboard-live-frame,
   .lenis.lenis-smooth .watch-billboard-live-player.is-preview .watch-billboard-live-mount iframe {
-    pointer-events: none !important;
+    pointer-events: auto !important;
   }
 
   /* Twitch only grants reliable autoplay to a visible, unobscured player.
@@ -4774,8 +4782,7 @@ html[data-watch-density="theater"] .watch-poster.format-short { width: min(11rem
 /* Fine-pointer spotlight: a small, local light follows the custom pointer
    across media without tinting the shelf or section behind it. */
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .watch-poster[data-cursor-spotlight="true"]::before,
-  .watch-home-promo-card[data-cursor-spotlight="true"]::before {
+  .watch-poster[data-cursor-spotlight="true"]::before {
     content: "";
     position: absolute;
     z-index: 8;

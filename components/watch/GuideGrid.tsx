@@ -1347,7 +1347,7 @@ export function GuideGrid({
       {guideView === "now" ? <section className="guide-now-next" aria-labelledby="guide-now-next-title">
         <div className="guide-section-heading"><div><h2 id="guide-now-next-title">On now. Up next.</h2><p className="guide-inline-note">Live creators and always-on replay channels · {formatTimeZoneLabel(liveNowMs, timePreferences)}</p></div></div>
         {scheduleLoading ? <p role="status" className="guide-inline-note">Loading the full schedule…</p> : null}
-        {scheduleNeedsRetry || sourcesIncomplete ? <p role="status" className="guide-inline-note">{data?.partial ? "The full schedule isn’t available yet." : "Some schedule updates aren’t available."} <button type="button" className="underline" onClick={() => void mutate()}>Try again</button></p> : null}
+        {scheduleNeedsRetry || sourcesIncomplete ? <p role="status" className="guide-inline-note">{data?.partial ? "The full schedule isn’t available yet." : "Some schedule sources couldn’t be refreshed. Available programming is shown."} <button type="button" className="underline" onClick={() => void mutate()}>Try again</button></p> : null}
         <div className="guide-now-next-grid">
           {nowNextRows.map(({ group, row, current, next }) => <article key={row.id} className="guide-now-next-card">
             <div className="guide-now-next-network"><ChannelMark channel={channelFor(row.timelineSlug)} /><div><strong>{group.network.name}</strong><span>{row.kind === "continuous" ? "24/7 · Replay channel" : "Live channel"}</span></div></div>
@@ -1414,7 +1414,7 @@ export function GuideGrid({
         {isLoading && !data ? <GuideLoading /> : null}
         {scheduleLoading ? <p role="status" className="guide-inline-note">Loading the full schedule…</p> : null}
         {isValidating && data?.window && (range.start < data.window.start || range.end > data.window.end) ? <p role="status" className="guide-inline-note">Loading dates…</p> : null}
-        {scheduleNeedsRetry || sourcesIncomplete ? <p role="status" className="guide-inline-note">{data?.partial ? "The full schedule isn’t available yet." : "Some schedule updates aren’t available."} <button type="button" className="underline" onClick={() => void mutate()}>Try again</button></p> : null}
+        {scheduleNeedsRetry || sourcesIncomplete ? <p role="status" className="guide-inline-note">{data?.partial ? "The full schedule isn’t available yet." : "Some schedule sources couldn’t be refreshed. Available programming is shown."} <button type="button" className="underline" onClick={() => void mutate()}>Try again</button></p> : null}
 
         {!isLoading && lanes.length === 0 ? (
           <div className="guide-schedule-empty">
@@ -1479,7 +1479,7 @@ export function GuideGrid({
                           onPlay={playProgram}
                         />
                       ))}
-                      {lane.events.length === 0 ? <span className="guide-timeline-lane-empty">{data?.partial ? (scheduleNeedsRetry ? "Schedule unavailable" : "Loading schedule…") : emptyLaneLabel(lane.row)}</span> : null}
+                      {lane.events.length === 0 ? (data?.partial && !scheduleNeedsRetry ? <span className="guide-timeline-skeleton" aria-hidden="true"><i /><i /><i /></span> : <span className="guide-timeline-lane-empty">{data?.partial ? "Schedule unavailable" : emptyLaneLabel(lane.row)}</span>) : null}
                       {liveNowMs >= range.start && liveNowMs <= range.end ? (
                         <span className="guide-timeline-now" style={{ left: timelineOffsetPx(liveNowMs, range.start, range.pxPerMinute) }} aria-hidden />
                       ) : null}

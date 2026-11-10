@@ -34,6 +34,7 @@ const SEEDS = [
   ["caretakers", "Caretakers", "/brand/events-series-challenges/caretakers.webp"],
   ["stable-99-kill-lead", "StableRonaldo: 99 Kill Lead", "/brand/events-series-challenges/stable-99-kill-lead.webp"],
   ["jason-the-ween", "JasonTheWeen: Island Survivor", "/brand/events-series-challenges/jason-the-ween.webp"],
+  ["maybach-mondays", "Maybach Mondays", "/brand/events-series-challenges/maybach-mondays.webp"],
   ["nms-boxing", "NMS Boxing", "/brand/events-series-challenges/nms-boxing.png"],
   ["stable-los-jynxzi-chained", "Stable x Los x Jynxzi: Chained Together Marathon", "/brand/events-series-challenges/stable-los-jynxzi-chained.png"],
   ["core-environment", "CORE Environment", "/brand/events-series-challenges/core-environment.webp"],

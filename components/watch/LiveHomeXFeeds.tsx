@@ -59,7 +59,7 @@ export function LiveHomeXFeeds({ initialMembers, initialCrew, spaces }: {
                 <button type="button" onClick={() => dismiss(audience)} aria-label={`Dismiss new ${audience} posts notice`}><X size={15} /></button>
               </div> : null}
             </div>
-            <XTweetsRail items={items} spaces={isCrew ? [] : spaces} title={title} maxItems={isCrew ? 24 : 18} showHeading={false} />
+            <XTweetsRail items={items} spaces={isCrew ? [] : spaces} title={title} maxItems={isCrew ? 24 : 18} showHeading={false} bounded />
           </section>
         );
       })}

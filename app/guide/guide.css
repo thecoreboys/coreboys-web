@@ -3147,6 +3147,40 @@
   white-space: nowrap;
 }
 
+.guide-timeline-skeleton {
+  position: absolute;
+  inset: 12px auto 12px 12px;
+  display: flex;
+  gap: 8px;
+  width: min(52rem, calc(100% - 24px));
+  pointer-events: none;
+}
+.guide-timeline-skeleton i,
+.guide-history-skeleton i {
+  display: block;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 8px;
+  background: linear-gradient(105deg, #18181c 25%, #24242a 45%, #18181c 65%);
+  background-size: 220% 100%;
+  animation: guide-skeleton-shimmer 2s ease-in-out infinite;
+}
+.guide-timeline-skeleton i { flex: 1; min-width: 4rem; }
+.guide-timeline-skeleton i:nth-child(2) { flex: 1.6; }
+.guide-history-skeleton { display: grid; width: 100%; gap: 8px; }
+.guide-history-skeleton i { height: 22px; }
+.guide-history-entry { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; margin:2rem 2.5rem; padding:1.5rem 0; border-top:1px solid var(--rule); color:var(--ink); }
+.guide-history-entry h2 { margin:0; font-size:1.125rem; font-weight:600; }
+.guide-history-entry p { margin:.25rem 0 0; color:var(--ink-dim); font-size:.875rem; }
+.guide-history-entry button { min-height:44px; padding:0 1rem; border:1px solid var(--rule-strong); border-radius:.5rem; background:var(--bg-elev); color:var(--ink); cursor:pointer; }
+.guide-history-entry button:hover { background:var(--surface); }
+.guide-history-entry button:focus-visible { outline:2px solid var(--core); outline-offset:3px; }
+.guide-history-entry .guide-history-entry-error { width:100%; }
+@media (max-width: 767px) { .guide-history-entry { margin-inline:1.25rem; } }
+@keyframes guide-skeleton-shimmer { to { background-position: -220% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .guide-timeline-skeleton i, .guide-history-skeleton i { animation: none; }
+}
+
 @media (max-width: 639px) {
   .guide-timeline-intro {
     font-size: 0.72rem;
@@ -3770,6 +3804,30 @@ html[data-theme="light"] .guide-view-switch button[aria-pressed="true"] {
   border-color: var(--ink);
   background: var(--ink);
   color: var(--bg-elev);
+}
+
+/* Match the header switch's specificity so both states remain legible. */
+html[data-theme="light"] .guide-v2 .guide-page-header .guide-view-switch {
+  border-color: #d0d0d0;
+  background: #e8e8e7;
+}
+html[data-theme="light"] .guide-v2 .guide-page-header .guide-view-switch button {
+  color: #42424b;
+  background: transparent;
+}
+html[data-theme="light"] .guide-v2 .guide-page-header .guide-view-switch button:hover {
+  color: #111114;
+  background: #d8d8d8;
+}
+html[data-theme="light"] .guide-v2 .guide-page-header .guide-view-switch button[aria-pressed="true"],
+html[data-theme="light"] .guide-v2 .guide-page-header .guide-view-switch button[aria-pressed="true"]:hover {
+  color: #fff;
+  background: #171719;
+}
+html[data-theme="light"] .guide-timeline-skeleton i,
+html[data-theme="light"] .guide-history-skeleton i {
+  border-color: #d9d9d7;
+  background-image: linear-gradient(105deg, #e8e8e6 25%, #f7f7f6 45%, #e8e8e6 65%);
 }
 
 html[data-theme="light"] .guide-controls {

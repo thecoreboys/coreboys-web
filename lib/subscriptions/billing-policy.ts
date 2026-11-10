@@ -1,7 +1,7 @@
 export const MEMBERSHIP_MINIMUM_CENTS = 500;
 export const MEMBERSHIP_MAXIMUM_CENTS = 50_000;
 export const MEMBERSHIP_DEFAULT_CENTS = 1_000;
-export const SUPPORTER_TERMS_VERSION = "2026-08-28";
+export const SUPPORTER_TERMS_VERSION = "2026-11-10";
 export const SUPPORTER_PRICE_NOTICE_MINIMUM_DAYS = 30;
 
 export type SupporterBillingControls = {

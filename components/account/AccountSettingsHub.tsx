@@ -12,7 +12,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Toggle } from "@/components/base/toggle/toggle";
-import { NativeSelect } from "@/components/base/select/select-native";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 import { usePlayer, type AccessibilityPreset, type QualityPreference } from "@/components/providers/PlayerProvider";
 import { useTheme, type Accent, type Theme } from "@/components/providers/ThemeProvider";
 import type { AutoplayMode } from "@/lib/watch/workspace";
@@ -366,7 +366,7 @@ export function AccountSettingsHub({ section, accountId }: { section?: string; a
           <ToggleRow label="Preview sound" detail="Allow sound after you turn it on for a preview." value={player.previewSoundEnabled} onChange={(previewSoundEnabled) => updatePlayer({ previewSoundEnabled })} />
           <ToggleRow label="Data saver" detail="Favors lower-bandwidth playback when available." value={player.dataSaver} onChange={(dataSaver) => updatePlayer({ dataSaver })} />
           <ToggleRow label="Ambient lighting" detail="Shows the color bloom around the theater frame." value={player.ambientLighting} onChange={(ambientLighting) => updatePlayer({ ambientLighting })} />
-          <ToggleRow label="Captions" detail="Requests captions on supported providers." value={player.captionsEnabled} onChange={(captionsEnabled) => updatePlayer({ captionsEnabled })} />
+          <ToggleRow label="Captions" detail="Show captions on supported YouTube videos and videos with caption tracks. Twitch broadcasts are not supported." value={player.captionsEnabled} onChange={(captionsEnabled) => updatePlayer({ captionsEnabled })} />
           <ToggleRow label="Audio description" detail="Uses described audio where a provider offers it." value={player.audioDescription} onChange={(audioDescription) => updatePlayer({ audioDescription })} />
           <ToggleRow label="Mix multiview audio" detail="Allow more than one stream to play sound at once." value={player.mixAudio} onChange={(mixAudio) => updatePlayer({ mixAudio })} />
           <RangeRow label="Preview volume" value={player.previewVolume} min={0} max={1} step={0.05} format={(value) => `${Math.round(value * 100)}%`} onChange={(previewVolume) => updatePlayer({ previewVolume })} />
@@ -430,7 +430,7 @@ function ChoiceGroup({ label, value, onChange, options }: { label: string; value
 }
 
 function SelectRow({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: ReadonlyArray<{ value: string; label: string }> }) {
-  return <div className="border-b border-secondary py-4"><NativeSelect label={label} value={value} onChange={(event) => onChange(event.target.value)} options={[...options]} /></div>;
+  return <div className="border-b border-secondary py-4"><FilterSelect label={label} value={value} onChange={onChange} options={options} /></div>;
 }
 
 function RangeRow({ label, value, min, max, step, format, onChange }: { label: string; value: number; min: number; max: number; step: number; format: (value: number) => string; onChange: (value: number) => void }) {
@@ -438,5 +438,5 @@ function RangeRow({ label, value, min, max, step, format, onChange }: { label: s
 }
 
 function LinkRow({ label, detail, href }: { label: string; detail: string; href: string }) {
-  return <Link href={href as never} className="group flex min-h-20 items-center justify-between gap-4 border-b border-secondary py-4 transition hover:bg-primary_hover"><div><p className="text-sm font-semibold text-primary">{label}</p><p className="mt-1 text-xs leading-5 text-tertiary">{detail}</p></div><ArrowUpRight className="size-4 shrink-0 text-tertiary transition group-hover:text-brand-secondary" aria-hidden /></Link>;
+  return <Link href={href as never} className="group flex min-h-20 items-center justify-between gap-4 border-b border-secondary py-4 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus-ring"><div className="min-w-0"><p className="text-sm font-semibold text-primary underline-offset-4 group-hover:underline">{label}</p><p className="mt-1 text-xs leading-5 text-tertiary">{detail}</p></div><ArrowUpRight className="size-4 shrink-0 text-tertiary transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand-secondary motion-reduce:transition-none" aria-hidden /></Link>;
 }

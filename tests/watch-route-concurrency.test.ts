@@ -187,7 +187,7 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
   const request = new Request("https://example.test/api/watch/guide");
   const firstPending = handlers.GET(request);
   await new Promise<void>((done) => setImmediate(done));
-  assert.deepEqual(events, ["directory", "sessions", "catalog"]);
+  assert.deepEqual([...events].sort(), ["catalog", "directory", "sessions"], "all sources should start before the directory finishes");
   directory.resolve({});
   const first = await firstPending;
   assert.equal(first.status, 503);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Award, Check, Clock3, HelpCircle, LockKeyhole, Sparkles, Target, Trophy } from "lucide-react";
+import { Award, Check, Clock3, HelpCircle, LockKeyhole, Target } from "lucide-react";
 import type { PassportAchievement, PassportCampaign, PassportQuest } from "@/lib/passport/types";
 import { boundedPercent, formatPassportDate, passportQuestProgress, sortAchievements } from "./passport-utils";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -40,6 +40,7 @@ export function PassportAchievements({
   );
   const [family, setFamily] = useState("all");
   const [showLocked, setShowLocked] = useState(true);
+  const visibleQuests = quests.filter((quest) => quest.state !== "expired" && quest.state !== "revoked");
   const shown = useMemo(
     () => sortAchievements(achievements)
       .filter((achievement) => family === "all" || achievement.family === family)
@@ -48,27 +49,26 @@ export function PassportAchievements({
   );
 
   return (
-    <div className="passport-section-stack">
+    <div className="passport-section-stack passport-achievements-page">
       <section className="passport-section-heading">
         <div>
-          <span className="passport-kicker"><Trophy aria-hidden="true" /> Achievements</span>
-          <h2>Milestones from your activity.</h2>
-          <p>Milestones are awarded from verified attendance, viewing, collection, and community activity. Earned dates are kept with each record.</p>
+          <h2>Achievements</h2>
+          <p>Track your quests and earned milestones.</p>
         </div>
       </section>
 
       <section className="passport-quests" aria-labelledby="quest-heading">
-        <header><div><span className="passport-kicker"><Target aria-hidden="true" /> Live objectives</span><h3 id="quest-heading">Quests</h3></div><p>Cosmetic rewards only—never moderation power or vote weight.</p></header>
-        {quests.length ? (
+        <header><div><h3 id="quest-heading">Quests</h3></div></header>
+        {visibleQuests.length ? (
           <div className="passport-quest-grid">
-            {quests.filter((quest) => quest.state !== "expired" && quest.state !== "revoked").map((quest) => {
+            {visibleQuests.map((quest) => {
               const { current: progress, target } = passportQuestProgress(quest);
               const completed = quest.state === "completed" || quest.state === "claimed";
               return (
                 <article key={quest.code} className={`passport-quest ${completed ? "is-complete" : ""}`}>
                   <div className="passport-quest__icon">{completed ? <Check aria-hidden="true" /> : <Target aria-hidden="true" />}</div>
                   <div>
-                    <span>{quest.channelSlug ? quest.channelSlug.replaceAll("-", " ") : "CORE Passport"}</span>
+                    {quest.channelSlug ? <span>{quest.channelSlug.replaceAll("-", " ")}</span> : null}
                     <h4>{quest.name}</h4>
                     <p>{quest.description}</p>
                     <div className="passport-progress"><span style={{ width: `${boundedPercent(progress, target)}%` }} /></div>
@@ -84,19 +84,18 @@ export function PassportAchievements({
               );
             })}
           </div>
-        ) : <div className="passport-empty passport-empty--small"><Target aria-hidden="true" /><h3>No active tasks.</h3><p>Eligible tasks will appear here when they are available.</p></div>}
+        ) : <div className="passport-empty passport-empty--small"><Target aria-hidden="true" /><h3>No quests available</h3><p>New quests will appear here.</p></div>}
       </section>
 
       {campaigns.length ? (
         <section className="passport-campaigns">
-          <div className="passport-section-heading"><div><span className="passport-kicker"><Sparkles aria-hidden="true" /> Activity programs</span><h2>Available programs</h2></div></div>
+          <div className="passport-section-heading"><div><h2>Programs</h2><p>Related quests grouped together.</p></div></div>
           <div className="passport-campaign-grid">
             {campaigns.map((campaign) => {
               const linked = quests.filter((quest) => quest.campaignCode === campaign.code);
               return (
                 <article key={campaign.code} className="passport-campaign">
-                  <div className="passport-campaign__art"><Sparkles aria-hidden="true" /><span>{campaign.completed}/{campaign.total}</span></div>
-                  <div><h3>{campaign.name}</h3><div className="passport-progress"><span style={{ width: `${boundedPercent(campaign.completed, campaign.total)}%` }} /></div>
+                  <div><h3>{campaign.name}</h3><p className="passport-campaign-count">{campaign.completed} of {campaign.total} complete</p><div className="passport-progress"><span style={{ width: `${boundedPercent(campaign.completed, campaign.total)}%` }} /></div>
                     <ol>{linked.map((quest) => { const complete = quest.state === "completed" || quest.state === "claimed"; return <li key={quest.code} className={complete ? "is-complete" : ""}>{complete ? <Check aria-hidden="true" /> : <span />}{quest.name}</li>; })}</ol>
                   </div>
                 </article>
@@ -108,12 +107,13 @@ export function PassportAchievements({
 
       <section className="passport-achievement-library">
         <header className="passport-filter-bar">
-          <NativeSelect aria-label="Milestone family" value={family} onChange={(event) => setFamily(event.target.value)} options={[{ value: "all", label: "All milestone families" }, ...families.map((value) => ({ value, label: value }))]} size="sm" />
-          <button type="button" className={`passport-filter-toggle ${showLocked ? "is-active" : ""}`} onClick={() => setShowLocked((value) => !value)} aria-pressed={showLocked}><LockKeyhole aria-hidden="true" /> {showLocked ? "Hide locked" : "Show locked"}</button>
+          <NativeSelect className="passport-achievement-select" aria-label="Achievement category" value={family} onChange={(event) => setFamily(event.target.value)} options={[{ value: "all", label: "All categories" }, ...families.map((value) => ({ value, label: value }))]} size="sm" />
+          <button type="button" className={`passport-filter-toggle ${showLocked ? "is-active" : ""}`} onClick={() => setShowLocked((value) => !value)} aria-pressed={showLocked}><LockKeyhole aria-hidden="true" /> Show locked</button>
         </header>
         <div className="passport-achievement-grid">
           {shown.map((achievement) => <AchievementTile key={`${achievement.code}:${achievement.channelSlug ?? "global"}`} achievement={achievement} />)}
         </div>
+        {!shown.length ? <p className="passport-achievement-empty" role="status">{achievements.length ? "No achievements match these filters." : "Achievements will appear here when available."}</p> : null}
       </section>
     </div>
   );

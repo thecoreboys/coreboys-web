@@ -155,6 +155,28 @@
 .supporter-showcase__offer .supporter-cta__action svg { transition: transform 180ms ease; }
 .supporter-showcase__offer .supporter-cta__action:hover svg { transform: translateX(3px); }
 
+/* Give the showcase its own light palette instead of placing a dark panel on white. */
+html[data-theme="light"] .supporter-showcase {
+  border-color: #b994803d;
+  background: radial-gradient(ellipse at 5% 0%, #eecdb882, transparent 48%), radial-gradient(ellipse at 90% 100%, #e5bfaa70, transparent 50%), linear-gradient(120deg, #fffaf5, #f8ede8 58%, #f4e7e2);
+  color: #302026;
+  box-shadow: inset 0 1px #fff, 0 16px 45px #6d413319;
+}
+html[data-theme="light"] .supporter-showcase::before { background: radial-gradient(ellipse at 68% 42%, #db9b9840, transparent 34%), radial-gradient(ellipse at 28% 72%, #d9ad7040, transparent 30%); }
+html[data-theme="light"] .supporter-showcase::after { background-image: radial-gradient(#78544724 .55px, transparent .75px); }
+html[data-theme="light"] .supporter-showcase__shade { border-color: #9d716329; box-shadow: 0 0 0 34px #9d71630b, 0 0 0 68px #9d71630b, 0 0 0 102px #9d71630b, 0 0 0 136px #9d71630b; }
+html[data-theme="light"] .supporter-showcase__price { color: #795042; }
+html[data-theme="light"] .supporter-showcase__offer h2 { color: #321f25; background-image: linear-gradient(112deg, #321f25 12%, #784841 65%, #966044); }
+html[data-theme="light"] .supporter-showcase__description { color: #594950; }
+html[data-theme="light"] .supporter-showcase__notice { color: #65565c; }
+html[data-theme="light"] .supporter-showcase__benefit { border-color: #a77d6c42; background: linear-gradient(145deg, #fffdfbe8, #f7ece8f0); box-shadow: inset 0 1px #fff, 0 8px 24px #6e49310c; }
+html[data-theme="light"] .supporter-showcase__benefit > svg { border-color: #ad776252; background: linear-gradient(145deg, #edd0bd80, #edc9c980); color: #865044; box-shadow: none; }
+html[data-theme="light"] .supporter-showcase__benefit h3 { color: #302026; }
+html[data-theme="light"] .supporter-showcase__benefit p { color: #65545b; }
+html[data-theme="light"] .supporter-showcase__offer .supporter-cta__action { border-color: #58323a; background: #4a2832; color: #fffaf7; box-shadow: 0 6px 20px #6d413326; }
+html[data-theme="light"] .supporter-showcase__offer .supporter-cta__action:hover { background: #623846; color: #fff; box-shadow: 0 9px 24px #6d41333d; }
+html[data-theme="light"] .supporter-showcase__offer .supporter-cta__action:focus-visible { outline-color: #6c3349; }
+
 @media (max-width: 960px) {
   .supporter-cta__layout { flex-wrap: wrap; }
   .supporter-cta__copy { flex-basis: calc(100% - 4.5rem); }
@@ -189,5 +211,5 @@
 html[data-performance-profile="conserve"] .supporter-showcase::before,
 html[data-watch-reduced-motion="on"] .supporter-showcase::before { animation: none; }
 @media (forced-colors: active) {
-  .supporter-showcase__offer h2 { background: none; -webkit-text-fill-color: currentColor; color: CanvasText; }
+  .supporter-showcase__offer h2, html[data-theme="light"] .supporter-showcase__offer h2 { background: none; -webkit-text-fill-color: currentColor; color: CanvasText; }
 }

@@ -5,6 +5,7 @@ import { query } from "@/lib/db";
 import { buildLoyaltyCard, listLoyalty, siteWatchStats } from "@/lib/oauth/loyalty";
 import { listConnections } from "@/lib/oauth/connections";
 import { validatePublicHandle } from "@/lib/public-handle";
+import { MEMBERS } from "@/lib/members";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,8 +31,8 @@ export async function GET(req: Request) {
     connections,
     publicCard: Boolean(row?.public_card),
     publicSlug: row?.public_slug ?? null,
-    favoriteMember: row?.favorite_member ?? card.favoriteSlug,
-  });
+    favoriteMember: row?.favorite_member ?? null,
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function PATCH(req: Request) {
@@ -44,9 +45,15 @@ export async function PATCH(req: Request) {
   } catch {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)
+    || (body.publicCard !== undefined && typeof body.publicCard !== "boolean")
+    || (body.publicSlug !== undefined && body.publicSlug !== null && typeof body.publicSlug !== "string")
+    || (body.favoriteMember !== undefined && body.favoriteMember !== null && (typeof body.favoriteMember !== "string" || !MEMBERS.some((member) => member.slug === body.favoriteMember)))) {
+    return NextResponse.json({ error: "Invalid profile settings." }, { status: 400 });
+  }
   const handleResult = typeof body.publicSlug === "string" && body.publicSlug.trim()
     ? validatePublicHandle(body.publicSlug)
-    : body.publicSlug === null ? { ok: true as const, handle: null } : null;
+    : body.publicSlug !== undefined ? { ok: true as const, handle: null } : null;
   if (handleResult && !handleResult.ok) return NextResponse.json({ error: handleResult.error }, { status: 400 });
   const slug = handleResult?.ok ? handleResult.handle : undefined;
   if (slug) {
@@ -56,18 +63,28 @@ export async function PATCH(req: Request) {
     );
     if (existing.rows.length) return NextResponse.json({ error: "That handle is already in use." }, { status: 409 });
   }
-  await query(
+  try {
+  const updated = await query<{ public_card: boolean; public_slug: string | null; favorite_member: string | null }>(
     `UPDATE fan_users
-        SET favorite_member = COALESCE($2, favorite_member),
+        SET favorite_member = CASE WHEN $5::boolean THEN $2 ELSE favorite_member END,
             public_card     = COALESCE($3, public_card),
-            public_slug     = COALESCE($4, public_slug)
-      WHERE id = $1`,
+            public_slug     = CASE WHEN $6::boolean THEN $4 ELSE public_slug END
+      WHERE id = $1 AND (NOT COALESCE($3, public_card) OR (CASE WHEN $6::boolean THEN $4 ELSE public_slug END) IS NOT NULL)
+      RETURNING public_card, public_slug, favorite_member`,
     [
       uid,
       body.favoriteMember === undefined ? null : body.favoriteMember,
       body.publicCard === undefined ? null : body.publicCard,
       slug === undefined ? null : slug,
+      body.favoriteMember !== undefined,
+      body.publicSlug !== undefined,
     ],
   );
-  return NextResponse.json({ ok: true, accountId: uid });
+  const row = updated.rows[0];
+  if (!row) return NextResponse.json({ error: "Add a public handle before publishing your profile." }, { status: 400 });
+  return NextResponse.json({ ok: true, accountId: uid, publicCard: row.public_card, publicSlug: row.public_slug, favoriteMember: row.favorite_member }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    if ((error as { code?: string })?.code === "23505") return NextResponse.json({ error: "That handle is already in use." }, { status: 409 });
+    throw error;
+  }
 }

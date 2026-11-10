@@ -7,7 +7,7 @@ import { fetchUsersByLogin } from "@/lib/twitch";
 import { getWatchCatalog } from "@/lib/watch/catalog";
 import { buildGuideNetworkRows } from "@/lib/watch/channels";
 import { guideLiveCatalog } from "@/lib/watch/guide-live-catalog";
-import { guideSourceWithDeadline } from "@/lib/watch/guide-source-deadline";
+import { createGuideSourceCache, guideSourceWithDeadline } from "@/lib/watch/guide-source-deadline";
 import { removeActiveTwitchArchiveDuplicates } from "@/lib/watch/guide-programs";
 import type { WatchCatalog, WatchItem, WatchPlatform } from "@/lib/watch/types";
 import type { GuidePayload } from "@/lib/watch/guide-response";
@@ -47,7 +47,9 @@ const REPLAY_DAYS = 14;
 const SCHEDULE_DAYS = 7;
 const TWITCH_SCHEDULE_TTL = 5 * 60;
 const YOUTUBE_SCHEDULE_TTL = 4 * 60 * 60;
-const OPTIONAL_SOURCE_TIMEOUT_MS = 6_000;
+const OPTIONAL_SOURCE_TIMEOUT_MS = 2_500;
+const cachedTwitchSchedule = createGuideSourceCache<{ items: GuideProgram[]; state: SourceState }>(5 * 60_000);
+const cachedYoutubeUpcoming = createGuideSourceCache<{ items: GuideProgram[]; state: SourceState }>(5 * 60_000);
 
 let twitchTokenCache: { value: string; expiresAt: number } | null = null;
 
@@ -494,13 +496,10 @@ export async function GET(request: Request) {
   const serverNow = new Date();
   // Only Twitch schedules depend on its directory. Other providers, recorded
   // history and the shared catalog can start immediately.
-  const twitchSchedulePromise = fetchUsersByLogin(MEMBERS.map((member) => member.twitchLogin))
-    .catch(() => ({}))
-    .then((users) => loadTwitchSchedules(users, serverNow));
-
   const [twitchSchedule, youtubeUpcoming, sessions, catalog] = await Promise.all([
-    guideSourceWithDeadline(twitchSchedulePromise, { items: [], state: "error" as SourceState }, OPTIONAL_SOURCE_TIMEOUT_MS),
-    guideSourceWithDeadline(loadYoutubeUpcoming(serverNow), { items: [], state: "error" as SourceState }, OPTIONAL_SOURCE_TIMEOUT_MS),
+    cachedTwitchSchedule(() => fetchUsersByLogin(MEMBERS.map((member) => member.twitchLogin))
+      .catch(() => ({})).then((users) => loadTwitchSchedules(users, serverNow)), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS),
+    cachedYoutubeUpcoming(() => loadYoutubeUpcoming(serverNow), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS),
     guideSourceWithDeadline<{ items: GuideProgram[]; state: "ok" | "error" }>(loadRecordedSessions().then((items) => ({ items, state: "ok" })), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS),
     // getWatchCatalog already coalesces and caches public data. Another
     // five-minute cache here hid live changes and cached failures as null.

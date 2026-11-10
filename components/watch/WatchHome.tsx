@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ChevronUp } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { WatchCatalog, WatchItem } from "@/lib/watch/types";
@@ -91,6 +90,7 @@ const FALLBACK_EVENT_POSTERS = [
   { title: "Caretakers", src: "/brand/events-series-challenges/caretakers.webp" },
   { title: "StableRonaldo: 99 Kill Lead", src: "/brand/events-series-challenges/stable-99-kill-lead.webp" },
   { title: "JasonTheWeen: Island Survivor", src: "/brand/events-series-challenges/jason-the-ween.webp" },
+  { title: "Maybach Mondays", src: "/brand/events-series-challenges/maybach-mondays.webp" },
   { title: "CORE Environment", src: "/brand/events-series-challenges/core-environment.webp" },
   { title: "CORE PO Box Openings", src: "/brand/events-series-challenges/core-po-box-openings.webp" },
 ] as const;
@@ -154,7 +154,6 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
   const [affinityProgress, setAffinityProgress] = useState<WatchProgressMap>({});
   const affinityLoadedFor = useRef<string | null>(null);
   const [continueInHero, setContinueInHero] = useState(true);
-  const [showFullLibrary, setShowFullLibrary] = useState(false);
 
   const all = useMemo(() => groupCrossposts(unique(catalog.all)), [catalog.all]);
   const playable = useMemo(
@@ -281,14 +280,6 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
       : filtered;
     return selectShortFormRailItems(ranked, limit);
   };
-  const libraryPreview = useMemo(() => {
-    const source = catalog.recent.length ? catalog.recent : all;
-    return balancedRail(
-      personalizeItems(source.filter((item) => !isLiveWatchItem(item)), feedback),
-      12,
-    );
-  }, [all, catalog.recent, feedback]);
-
   const continueItems = useMemo(
     () => selectContinueWatchingItems(playable, map, references, { limit: 16 }),
     [map, playable],
@@ -456,28 +447,7 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
           <SupporterCta placement="watch" />
         </div>
 
-        {!showFullLibrary ? (
-          libraryPreview.length ? (
-            <Shelf title="From the library" items={libraryPreview} {...sharedShelfProps} />
-          ) : (
-            <p className="watch-library-empty px-5 md:px-10">New videos, clips, and Shorts will show up here as they’re added.</p>
-          )
-        ) : null}
-
-        <div className="px-5 md:px-10">
-          <button
-            type="button"
-            className="watch-library-disclosure__button inline-flex items-center gap-2"
-            aria-expanded={showFullLibrary}
-            aria-controls="watch-full-library"
-            onClick={() => setShowFullLibrary((visible) => !visible)}
-          >
-            <span>{showFullLibrary ? "Show less" : "Show more videos"}</span>
-            {showFullLibrary ? <ChevronUp size={18} aria-hidden /> : <ArrowRight size={18} aria-hidden />}
-          </button>
-        </div>
-
-        <div id="watch-full-library" className="watch-full-library" hidden={!showFullLibrary}>{showFullLibrary ? <>
+        <div id="watch-full-library" className="watch-full-library">
           {(catalog.programmingSections ?? []).map((section) => {
             const useVertical = section.layout === "vertical" || (
               section.layout === "auto" &&
@@ -514,7 +484,7 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
           {memberRows.map((member) => (
             <Shelf key={member.slug} title={member.label} items={visible(member.items, 30)} {...sharedShelfProps} />
           ))}
-        </> : null}</div>
+        </div>
       </div>
     </div>
   );

@@ -214,7 +214,7 @@ export function NotificationSettings({
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
+      <section className="overflow-hidden rounded-2xl border border-secondary bg-secondary shadow-xl">
         <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
           <div className="flex min-w-0 items-start gap-4">
             <FeaturedIcon icon={Bell01} size="lg" color="brand" theme="modern" />
@@ -248,7 +248,7 @@ export function NotificationSettings({
 
         <div className="border-t border-secondary bg-primary px-5 py-4 sm:px-6">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex items-start gap-3 rounded-xl bg-secondary p-4 ring-1 ring-inset ring-secondary">
+            <div className="flex items-start gap-3 rounded-xl border border-secondary bg-secondary p-4">
               <Mail01 className="mt-0.5 size-5 shrink-0 text-brand-secondary" aria-hidden />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-primary">Email</p>
@@ -262,7 +262,7 @@ export function NotificationSettings({
                 ) : null}
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-xl bg-secondary p-4 ring-1 ring-inset ring-secondary">
+            <div className="flex items-start gap-3 rounded-xl border border-secondary bg-secondary p-4">
               <Phone01 className="mt-0.5 size-5 shrink-0 text-brand-secondary" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-primary">Text / SMS</p>
@@ -275,9 +275,9 @@ export function NotificationSettings({
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
-        <div className="hidden grid-cols-[minmax(0,1fr)_7rem_7rem_8rem] border-b border-secondary bg-primary px-6 py-3 md:grid">
-          <span className="text-xs font-semibold text-tertiary">Notification</span>
+      <section className="overflow-hidden rounded-2xl border border-secondary bg-secondary shadow-xl">
+        <div className="hidden grid-cols-[minmax(0,1fr)_7rem_7rem_8rem] border-b border-secondary bg-primary py-3 md:grid">
+          <span className="px-6 text-xs font-semibold text-tertiary">Notification</span>
           <span className="text-center text-xs font-semibold text-tertiary">Email</span>
           <span className="text-center text-xs font-semibold text-tertiary">Text</span>
           <span className="text-center text-xs font-semibold text-tertiary">Push</span>
@@ -355,9 +355,9 @@ export function NotificationSettings({
                   )}
                 </PreferenceCell>
                 <PreferenceCell label="Push" isLast>
-                  <div className="flex items-center gap-2 md:flex-col md:gap-1.5">
-                    <span className="whitespace-nowrap text-[11px] font-semibold text-quaternary">Manage in Creator alerts</span>
-                  </div>
+                  <Link href="/account/settings#notifications" className="max-w-full text-right text-xs font-semibold leading-4 text-brand-secondary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:text-center">
+                    Creator alerts
+                  </Link>
                 </PreferenceCell>
               </div>
             );
@@ -412,7 +412,7 @@ function PreferenceCell({
   return (
     <div
       className={cx(
-        "flex min-h-14 items-center justify-between gap-4 border-t border-secondary px-5 py-3 md:min-h-0 md:justify-center md:border-l md:border-t-0 md:px-3 md:py-5",
+        "flex min-h-14 min-w-0 items-center justify-between gap-4 border-t border-secondary px-5 py-3 md:min-h-0 md:justify-center md:border-l md:border-t-0 md:px-3 md:py-5",
         isLast && "pb-5 md:pb-5",
       )}
     >

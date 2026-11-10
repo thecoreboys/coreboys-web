@@ -57,7 +57,7 @@ function NotificationPreview({ item, onRead, onDelete, onActivate }: { item: Inb
       !item.readAt && "border-l-2 border-l-[color:var(--core)] bg-[color:var(--bg-elev)] pl-[calc(0.75rem-1px)]",
     )}>
       <NotificationArtwork href={item.href} imageUrl={image || item.xPost?.media[0]?.thumbnailUrl} avatarUrl={item.avatarUrl || item.xPost?.authorAvatarUrl} />
-      <button type="button" onClick={() => onActivate(item)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]">
+      <button type="button" data-cursor-quiet onClick={() => onActivate(item)} className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-quaternary">{categoryLabel(item)}</span>
           <span className="ml-auto shrink-0 text-[10px] text-quaternary">{relativeTime(item.createdAt)}</span>

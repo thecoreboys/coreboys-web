@@ -73,9 +73,9 @@ export function PassportDashboard() {
   return (
     <div className="passport-shell">
       <header className="passport-hero">
-        <div className="passport-cover" aria-hidden="true"><span>CORE</span><span className="passport-cover__seal">C</span><span>Passport</span></div>
+        <div className="passport-cover" aria-hidden="true"><span>CORE</span><span>Passport</span></div>
         <div className="passport-hero__identity">
-          <div><span className="passport-hero__eyebrow">The CORE collection</span><h1>My Passport</h1><p>{displayName} <span aria-hidden="true">·</span> Level {data.profile.level}</p><p className="passport-hero__description">Your moments, milestones and time spent watching.</p></div>
+          <div><h1>My Passport</h1><p>{displayName} <span aria-hidden="true">·</span> Level {data.profile.level}</p><p className="passport-hero__description">Your moments, achievements and watch time.</p></div>
         </div>
         <Link href="/account/settings#connections" className="passport-button"><Settings aria-hidden="true" /> Connected accounts</Link>
       </header>
@@ -90,7 +90,7 @@ export function PassportDashboard() {
         {tab === "memories" ? <MemoryBook inventory={inventory} albums={data.albums} onClaimAlbum={passport.claimAlbum} claimingAlbum={busy} /> : null}
         {tab === "achievements" ? <PassportAchievements achievements={data.achievements} quests={data.quests} campaigns={data.campaigns} onClaimQuest={passport.claimQuest} claiming={busy} /> : null}
         {tab === "identity" ? <><MemberCard passport={data} /><InventorySyncStatus inventory={inventory} /></> : null}
-        {tab === "identity" ? <PassportIdentity key={data.profile.userId} cards={inventory.cards} achievements={data.achievements} cosmetics={data.cosmeticCatalog} loadouts={data.loadouts} showcase={data.showcase} privacy={data.privacy} channelSlugs={channels} onSaveShowcase={passport.saveShowcase} onSaveLoadout={passport.saveLoadout} onActivateLoadout={passport.activateLoadout} onSavePrivacy={passport.savePrivacy} pending={busy} /> : null}
+        {tab === "identity" ? <PassportIdentity key={data.profile.userId} displayName={displayName} cards={inventory.cards} achievements={data.achievements} cosmetics={data.cosmeticCatalog} loadouts={data.loadouts} showcase={data.showcase} privacy={data.privacy} channelSlugs={channels} onSaveShowcase={passport.saveShowcase} onSaveLoadout={passport.saveLoadout} onActivateLoadout={passport.activateLoadout} onSavePrivacy={passport.savePrivacy} pending={busy} /> : null}
       </div>
 
       {passport.mutation.notice || passport.mutation.error ? (

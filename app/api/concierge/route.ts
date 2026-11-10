@@ -4,6 +4,7 @@ import { z } from "zod";
 import { buildSystemPrompt } from "@/lib/concierge-prompt";
 import { markAiUsageUncertain, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 import { redisIncrWithExpiry } from "@/lib/redis";
+import { requirePaidProviderAccess } from "@/lib/subscriptions/paid-provider-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +64,8 @@ async function rateLimit(ip: string): Promise<{ ok: boolean; remaining: number; 
 }
 
 export async function POST(req: NextRequest) {
+  const access = await requirePaidProviderAccess(req, "ai.concierge");
+  if (!access.ok) return access.response;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -101,7 +104,7 @@ export async function POST(req: NextRequest) {
   const estimatedInputTokens = Buffer.byteLength(system + JSON.stringify(body.messages), "utf8") + 2_000;
   const reservation = await reserveAiUsage({
     provider: "anthropic", feature: "concierge", model: "claude-haiku-4-5-20251001",
-    subjectKey: `ip:${ip}`, estimatedInputTokens, maxOutputTokens: 400,
+    subjectKey: `fan:${access.userId}`, estimatedInputTokens, maxOutputTokens: 400,
   });
   if (!reservation.ok) {
     return NextResponse.json({ error: "AI assistant is temporarily unavailable." }, { status: reservation.reason === "unavailable" ? 503 : 429 });

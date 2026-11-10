@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalLayout title="Privacy policy" effectiveDate="2026-08-28" kind="privacy">
+    <LegalLayout title="Privacy policy" effectiveDate="2026-11-10" kind="privacy">
       <p>
         <strong>thecoreboys.com</strong> is an{" "}
         <strong>unofficial site</strong> about CORE. It is not
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
       <h3>Analytics</h3>
       <p>
         After you accept analytics cookies, we load Google Analytics 4
-        (property <code>G-BG4VPN3LGG</code>). GA4 stores anonymous usage
+        (property <code>G-BG4VPN3LGG</code>). GA4 processes usage
         signals (page views, navigation paths, approximate region from
         IP, device family) and sets first-party cookies (<code>_ga</code>,{" "}
         <code>_ga_*</code>). We use this data only to understand which
@@ -117,6 +117,15 @@ export default function PrivacyPage() {
         played a video on this site. That is site presence, not Twitch or
         YouTube hours watched, and we label it that way.
       </p>
+      <h3>Preferences and activity</h3>
+      <p>
+        Depending on the features you use, we may store saved videos, playback progress, follows, settings, notification preferences, and account activity. We use these to operate and personalize the site, provide requested features, troubleshoot problems, and protect accounts. Some preferences are also stored on your device. Information you choose to publish on a public profile may be visible to other visitors.
+      </p>
+
+      <h3>Retention and service providers</h3>
+      <p>
+        We keep account data while needed to provide the service and, after deletion, retain only what is reasonably needed for security, abuse prevention, dispute resolution, backup recovery, accounting, or legal obligations. Retention depends on the type of record and the purpose. Hosting, analytics, payment, and connected-platform providers process information to provide their services; their own policies may also apply.
+      </p>
       <h3>Consent-only face-presence pilot</h3>
       <p>
         If we activate face-presence tagging for participating creators, it is
@@ -176,10 +185,10 @@ export default function PrivacyPage() {
       <h2>Your rights</h2>
       <p>
         Depending on where you live, you may have rights to access,
-        correct, or delete personal data we hold about you, and to object
-        to certain processing. Email{" "}
+        correct, export, or delete personal data we hold about you, and to object
+        to or limit certain processing. You may also have rights concerning sales or sharing of personal information, and to appeal a refusal, where applicable. Email{" "}
         <a href="mailto:privacy@thecoreboys.com">privacy@thecoreboys.com</a>{" "}
-        with your request and we&apos;ll respond within 30 days.
+        with your request. We may need to verify your identity or ask for details before acting. We will respond within the period required by applicable law and explain any applicable exception. See <a href="/legal/data-deletion">data deletion</a> for account and connection controls.
       </p>
 
       <h2>International transfers</h2>
@@ -209,7 +218,7 @@ export default function PrivacyPage() {
       <p>
         We&apos;ll update this policy when our data practices change. The
         effective date above is always current. Material changes will be
-        announced on the home page.
+        communicated as required by applicable law.
       </p>
 
       <h2>Contact</h2>

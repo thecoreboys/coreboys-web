@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { THEME_STORAGE_KEY as STORAGE_KEY, ACCENT_STORAGE_KEY, themePreference, accentPreference, type Theme, type Accent } from "@/lib/theme";
 export type { Theme, Accent } from "@/lib/theme";
 
@@ -46,6 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("dark");
   const [resolvedThemeState, setResolvedThemeState] = useState<"dark" | "light">("dark");
   const [accent, setAccentState] = useState<Accent>("core");
+  const appearanceRef = useRef({ theme: "dark" as Theme, accent: "core" as Accent });
 
   useEffect(() => {
     const sync = () => {
@@ -53,6 +54,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       let savedAccent = accentPreference(document.documentElement.dataset.accent ?? null);
       try { saved = themePreference(localStorage.getItem(STORAGE_KEY)); } catch { /* storage can be blocked */ }
       try { savedAccent = accentPreference(localStorage.getItem(ACCENT_STORAGE_KEY)); } catch { /* storage can be blocked */ }
+      appearanceRef.current = { theme: saved, accent: savedAccent };
       setThemeState(saved);
       setAccentState(savedAccent);
       setResolvedThemeState(applyTheme(saved, savedAccent));
@@ -75,24 +77,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [accent, theme]);
 
   const setTheme = useCallback((t: Theme) => {
+    appearanceRef.current.theme = t;
     setThemeState(t);
-    setResolvedThemeState(applyTheme(t, accent));
+    setResolvedThemeState(applyTheme(t, appearanceRef.current.accent));
     try {
       localStorage.setItem(STORAGE_KEY, t);
     } catch {
       /* ignore */
     }
-  }, [accent]);
+  }, []);
 
   const setAccent = useCallback((nextAccent: Accent) => {
+    appearanceRef.current.accent = nextAccent;
     setAccentState(nextAccent);
-    setResolvedThemeState(applyTheme(theme, nextAccent));
+    setResolvedThemeState(applyTheme(appearanceRef.current.theme, nextAccent));
     try {
       localStorage.setItem(ACCENT_STORAGE_KEY, nextAccent);
     } catch {
       /* ignore */
     }
-  }, [theme]);
+  }, []);
 
   const toggle = useCallback(() => {
     setTheme(resolvedThemeState === "dark" ? "light" : "dark");

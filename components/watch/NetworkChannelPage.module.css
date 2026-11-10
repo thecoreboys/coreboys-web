@@ -1124,6 +1124,19 @@
   border: 1px solid rgba(255, 255, 255, .09);
   background: #09090b;
 }
+:global(.watch-os) .homeChannelTile:is(:hover, :focus-visible) {
+  outline-color: color-mix(in srgb, var(--channel-accent) 65%, white);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .28), 0 0 0 1px color-mix(in srgb, var(--channel-accent) 38%, transparent);
+  transform: translateY(-2px);
+}
+:global(html[data-theme="light"]) :global(.watch-os) .homeChannelTile:is(:hover, :focus-visible) {
+  outline-color: color-mix(in srgb, var(--channel-accent) 60%, #40382f);
+  box-shadow: 0 8px 22px rgba(42, 31, 27, .18), 0 0 0 1px color-mix(in srgb, var(--channel-accent) 38%, transparent);
+}
+:global(.watch-os) .homeChannelTile:focus-visible {
+  outline: 2px solid var(--channel-accent);
+  outline-offset: 3px;
+}
 .homeChannelTile::before {
   content: "";
   position: absolute;
@@ -1295,6 +1308,10 @@
   .page *, .page *::before, .page *::after { scroll-behavior: auto !important; transition: none !important; }
   .homeChannelBackdrop,
   .homeChannelArtwork { transition: none; }
+  :global(.watch-os) .homeChannelTile:is(:hover, :focus-visible) { transform: none; }
+  .homeChannelTile:is(:hover, :focus-visible) .homeChannelBackdrop { transform: scale(1.01); }
+  .homeChannelTile:is(:hover, :focus-visible) .homeChannelArtwork,
+  .homeChannelTile:is(:hover, :focus-visible) .homeCoreWordmark { transform: translate(-50%, -54%); }
 }
 
 html[data-watch-motion="calm"] .heroBug { transform: none; }

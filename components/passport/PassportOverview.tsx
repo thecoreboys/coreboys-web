@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Award, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Flame, Radio, Sparkles, Target, Users } from "lucide-react";
+import { Award, BookOpen, Check, ChevronRight, Clock3, Radio, Sparkles, Target } from "lucide-react";
 import type { PassportActiveEvent, PassportCard, PassportDashboard } from "@/lib/passport/types";
 import { MomentCardBack, MomentCardTile } from "./MomentCard";
 import { PassportDialog } from "./PassportDialog";
@@ -49,7 +49,7 @@ export function PassportOverview({
   const activeQuests = passport.quests.filter((quest) => quest.state === "active" || quest.state === "completed").slice(0, 3);
 
   return (
-    <div className="passport-section-stack">
+    <div className="passport-section-stack passport-overview-clean">
       {passport.activeEvents.length ? (
         <section className="passport-live-events">
           {passport.activeEvents.map((event) => {
@@ -80,8 +80,14 @@ export function PassportOverview({
       ) : null}
 
       <section className="passport-global-progress">
-        <div className="passport-level-orbit"><span>LEVEL</span><strong>{passport.globalProgress.level}</strong><small>CORE</small></div>
-          <div className="passport-progress-page"><span className="passport-page-label">Your passport · Progress</span><h2>{passport.profile.displayTitle ?? "Your journey so far"}</h2><p>Earn XP through eligible activity on CORE.</p><div className="passport-progress passport-progress--large" role="progressbar" aria-label={`Progress to level ${passport.globalProgress.level + 1}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.max(0, Math.min(100, passport.globalProgress.percent)))}><span style={{ width: `${Math.max(0, Math.min(100, passport.globalProgress.percent))}%` }} /></div><footer><span>{passport.globalProgress.xp.toLocaleString("en-US")} XP</span><span>{Math.max(0, passport.globalProgress.nextLevelXp - passport.globalProgress.xp).toLocaleString("en-US")} XP to level {passport.globalProgress.level + 1}</span></footer></div>
+        <div className="passport-progress-page">
+          <header className="passport-progress-heading">
+            <div><h2>Level {passport.globalProgress.level}</h2><p>{passport.profile.displayTitle || "Passport progress"}</p></div>
+            <span>{passport.globalProgress.xp.toLocaleString("en-US")} XP</span>
+          </header>
+          <div className="passport-progress passport-progress--large" role="progressbar" aria-label={`Progress to level ${passport.globalProgress.level + 1}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.max(0, Math.min(100, passport.globalProgress.percent)))}><span style={{ width: `${Math.max(0, Math.min(100, passport.globalProgress.percent))}%` }} /></div>
+          <footer><span>Progress to level {passport.globalProgress.level + 1}</span><span>{Math.max(0, passport.globalProgress.nextLevelXp - passport.globalProgress.xp).toLocaleString("en-US")} XP to go</span></footer>
+        </div>
       </section>
 
       <section className="passport-stats" aria-label="Passport collection">
@@ -94,7 +100,7 @@ export function PassportOverview({
 
       <div className="passport-goals-recap">
         <section className="passport-community-goals">
-          <header><div><span className="passport-kicker"><Users aria-hidden="true" /> Community goals</span><h2>Watch together</h2></div></header>
+          <header><div><h2>Community goals</h2></div></header>
           {passport.communityGoals.filter((goal) => goal.state !== "retired").length ? (
             <div>{passport.communityGoals.filter((goal) => goal.state !== "retired").slice(0, 3).map((goal) => {
               const percent = boundedPercent(goal.total, goal.target);
@@ -103,17 +109,16 @@ export function PassportOverview({
           ) : <p className="passport-inline-note">The next shared community goal will appear here.</p>}
         </section>
         <section className="passport-recap-card">
-          <span className="passport-kicker"><CalendarDays aria-hidden="true" /> Your recent recap</span>
           <h2>Account activity</h2>
           <div><span><BookOpen aria-hidden="true" /><strong>{passport.recap.cardsCollected}</strong><small>records</small></span><span><Radio aria-hidden="true" /><strong>{passport.recap.eventsAttended}</strong><small>events</small></span><span><Award aria-hidden="true" /><strong>{passport.recap.achievementsEarned}</strong><small>milestones</small></span><span><Clock3 aria-hidden="true" /><strong>{Math.floor(passport.recap.watchSeconds / 60)}</strong><small>event minutes</small></span></div>
-          <p>{passport.recap.channelsExplored} communities recorded. Counts update only when activity is verified.</p>
+          <p>{passport.recap.channelsExplored} {passport.recap.channelsExplored === 1 ? "community" : "communities"} recorded · Verified activity</p>
         </section>
       </div>
 
       <section className="passport-overview-section">
-          <header><div><span className="passport-kicker"><Flame aria-hidden="true" /> Community activity</span><h2>Activity by community</h2></div></header>
+          <header><div><h2>Community activity</h2></div></header>
         <div className="passport-channel-grid">
-          {!passport.channels.length ? <p className="passport-inline-note">Community progress appears after your first eligible watch session or event.</p> : null}
+          {!passport.channels.length ? <p className="passport-inline-note">Your progress will appear here after an eligible watch session or event.</p> : null}
           {passport.channels.map((channel) => (
             <article key={channel.channelSlug} style={{ "--channel-accent": channelAccent(channel.channelSlug) } as React.CSSProperties}>
               <span className="passport-channel-level">{channel.level}</span>
@@ -124,25 +129,25 @@ export function PassportOverview({
       </section>
 
       <section className="passport-overview-section">
-          <header><div><span className="passport-kicker"><BookOpen aria-hidden="true" /> Verified records</span><h2>Recent activity records</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("memories")}>Open Memory Book <ChevronRight aria-hidden="true" /></button></header>
+          <header><div><h2>Recent moments</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("memories")}>View collection <ChevronRight aria-hidden="true" /></button></header>
         {recentCards.length ? <div className="memory-book-grid memory-book-grid--featured">{recentCards.slice(0, 4).map((card) => <MomentCardTile key={card.id} card={card} onOpen={() => setSelectedCard(card)} />)}</div> : <div className="passport-empty passport-empty--small"><BookOpen aria-hidden="true" /><h3>No collected moments yet.</h3><p>Join a qualifying CORE event to begin your Memory Book.</p></div>}
       </section>
 
       <div className="passport-overview-split">
         <section className="passport-overview-section">
-          <header><div><span className="passport-kicker"><Target aria-hidden="true" /> Next moves</span><h2>Active quests</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("achievements")}>View all <ChevronRight aria-hidden="true" /></button></header>
+          <header><div><h2>Active quests</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("achievements")}>View all <ChevronRight aria-hidden="true" /></button></header>
           <div className="passport-overview-quests">
             {activeQuests.map((quest) => {
               const { current, target } = passportQuestProgress(quest);
               return <article key={quest.code}><span>{quest.state === "completed" ? <Check aria-hidden="true" /> : <Target aria-hidden="true" />}</span><div><h3>{quest.name}</h3><p>{quest.description}</p><div className="passport-progress"><span style={{ width: `${boundedPercent(current, target)}%` }} /></div><small>{current}/{target}</small>{quest.state === "completed" ? <button type="button" className="passport-button passport-button--small" disabled={claiming} onClick={() => void onClaimQuest(quest.code).catch(() => {})}>Claim reward</button> : null}</div></article>;
             })}
-            {!activeQuests.length ? <p className="passport-inline-note">No active quests right now. Your progress is safe between campaigns.</p> : null}
+            {!activeQuests.length ? <p className="passport-inline-note">No active quests right now.</p> : null}
           </div>
         </section>
 
         <section className="passport-overview-section">
-          <header><div><span className="passport-kicker"><CalendarDays aria-hidden="true" /> Recent achievements</span><h2>Milestones</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("achievements")}>Badge library <ChevronRight aria-hidden="true" /></button></header>
-          <div className="passport-recent-achievements">{!earnedAchievements.length ? <p className="passport-inline-note">Your earned milestones will appear here. Open Achievements to see what you can work toward.</p> : null}{earnedAchievements.slice(0, 5).map((achievement) => <article key={achievement.code}><span><Award aria-hidden="true" /></span><div><strong>{achievement.name}</strong><small>{achievement.tier} · {formatPassportDate(achievement.earnedAt)}</small></div></article>)}</div>
+          <header><div><h2>Achievements</h2></div><button type="button" className="passport-text-button" onClick={() => onNavigate("achievements")}>View all <ChevronRight aria-hidden="true" /></button></header>
+          <div className="passport-recent-achievements">{!earnedAchievements.length ? <p className="passport-inline-note">Your earned achievements will appear here.</p> : null}{earnedAchievements.slice(0, 5).map((achievement) => <article key={achievement.code}><span><Award aria-hidden="true" /></span><div><strong>{achievement.name}</strong><small>{achievement.tier} · {formatPassportDate(achievement.earnedAt)}</small></div></article>)}</div>
         </section>
       </div>
 

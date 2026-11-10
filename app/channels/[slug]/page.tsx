@@ -96,7 +96,13 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
   // after the slowest of those queries finishes.
   const channelCatalog = getWatchCatalog().then(async (catalog) => {
     const hub = buildNetworkChannelHub(catalog, channel);
-    const socialAvatarByUrl = await getCachedCreatorSocialAvatarMap(avatarMember, hub.all);
+    // Profile artwork is secondary to the channel and must not hold up the
+    // first response if the profile cache/database is slow.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const socialAvatarByUrl = await Promise.race([
+      getCachedCreatorSocialAvatarMap(avatarMember, hub.all).catch(() => ({})),
+      new Promise<Record<string, string>>((resolve) => { timer = setTimeout(() => resolve({}), 250); }),
+    ]).finally(() => { if (timer) clearTimeout(timer); });
     return { catalog, hub, socialAvatarByUrl };
   });
   // History and photos load when their tab opens, independently of watch content.
