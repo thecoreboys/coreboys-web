@@ -505,6 +505,18 @@ export function PosterCard({
     contextMenu.open(event, { type: "content", item, context, moment });
   }
 
+  function togglePosterSave() {
+    if (!user) {
+      redirectToMyListSignIn();
+      return;
+    }
+    if (!dvrAllowed) {
+      window.location.assign(subscription.featureHref("dvr.extended_retention"));
+      return;
+    }
+    setSaved(toggleMyList(item.id).includes(item.id));
+  }
+
   return (
     <article
       ref={cardRef}
@@ -672,15 +684,7 @@ export function PosterCard({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            if (!user) {
-              redirectToMyListSignIn();
-              return;
-            }
-            if (!dvrAllowed) {
-              window.location.assign(subscription.featureHref("dvr.extended_retention"));
-              return;
-            }
-            setSaved(toggleMyList(item.id).includes(item.id));
+            togglePosterSave();
           }}
           className="watch-poster-save"
         >
@@ -691,7 +695,7 @@ export function PosterCard({
         </button>
       </Tooltip>
 
-      {(onFeedback && !isPhoto) || (onToggleQueue && activeQueueName) || (!isPhoto && !live && Boolean(playable)) ? (
+      {
         <>
           <Tooltip
             title="More actions"
@@ -702,7 +706,7 @@ export function PosterCard({
             <button
               type="button"
               data-no-drag
-              className="watch-poster-more"
+              className={`watch-poster-more ${!((onFeedback && !isPhoto) || (onToggleQueue && activeQueueName) || (!isPhoto && !live && Boolean(playable))) ? "watch-poster-more--mobile-only" : ""}`}
               aria-label={`More actions for ${item.title}`}
               aria-expanded={feedbackOpen}
               onFocus={cancelPreviewOpen}
@@ -722,6 +726,9 @@ export function PosterCard({
           </Tooltip>
           {feedbackOpen ? (
             <div data-no-drag className="watch-poster-feedback-menu" role="group" aria-label={`Actions for ${item.title}`}>
+              <button type="button" className="watch-poster-mobile-save" disabled={dvrLoading} aria-pressed={Boolean(user && dvrSaved)} onClick={() => { togglePosterSave(); setFeedbackOpen(false); }}>
+                {dvrSaved ? "✓" : "+"} <span>{dvrSaved ? "Remove from DVR" : "Save to DVR"}</span>
+              </button>
               {onToggleQueue && activeQueueName ? (
                 <button type="button" aria-pressed={inActiveQueue} onClick={() => { onToggleQueue(item); setFeedbackOpen(false); }}>
                   {inActiveQueue ? "✓" : "+"} <span>{inActiveQueue ? `In ${activeQueueName}` : `Add to ${activeQueueName}`}</span>
@@ -749,7 +756,7 @@ export function PosterCard({
             </div>
           ) : null}
         </>
-      ) : null}
+      }
 
       {preview && inlinePreview ? <CardMotionPreview item={item} active={previewVisible && !previewClosing} startSeconds={moment?.seconds ?? positionSeconds} /> : null}
       {preview && !inlinePreview ? (

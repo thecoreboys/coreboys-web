@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { AlertTriangle, CreditCard01, Receipt } from "@untitledui/icons";
 
 type Summary = {
@@ -44,7 +43,6 @@ export function BillingSummaryCard() {
         <p className="mt-2 text-sm text-[color:var(--ink-dim)]" role="status">{loading ? "Loading your billing details…" : "Billing details are temporarily unavailable."}</p>
         {!loading ? <div className="mt-3 flex flex-wrap items-center gap-4">
           <button type="button" onClick={() => setAttempt((value) => value + 1)} className="inline-flex min-h-11 items-center rounded-lg border border-[color:var(--rule)] px-4 text-sm font-semibold text-[color:var(--ink)]">Try again</button>
-          <Link href="/upgrade" className="inline-flex min-h-11 items-center text-sm font-semibold text-[color:var(--ink)] underline underline-offset-4">View support options</Link>
         </div> : null}
       </section>
     );
@@ -64,9 +62,8 @@ export function BillingSummaryCard() {
     return (
       <section className="mt-6 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-5">
         <div className="flex items-center gap-2"><CreditCard01 className="size-5" /><h2 className="font-semibold text-[color:var(--ink)]">Billing</h2></div>
-        <p className="mt-2 text-sm text-[color:var(--ink-dim)]">No supporter payment method is currently available here. Site support is optional.</p>
+        <p className="mt-2 text-sm text-[color:var(--ink-dim)]">No billing details are available.</p>
         {warning}
-        <Link href="/upgrade" className="mt-4 inline-flex text-sm font-semibold text-[color:var(--ink)] underline underline-offset-4">View support options</Link>
       </section>
     );
   }

@@ -23,7 +23,7 @@
 .core-topnav__link[aria-current="page"]::after { display: none; }
 
 .core-topnav__mobile-actions { min-width:0; }
-.core-topnav__mobile-menu { scrollbar-width:thin; scrollbar-color:var(--rule-strong) transparent; }
+.core-topnav__mobile-menu { max-height: max(0px, calc(100dvh - var(--site-header-h, 8rem) - var(--mobile-nav-space, 0px))); scrollbar-width:thin; scrollbar-color:var(--rule-strong) transparent; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 .core-topnav__mobile-menu nav { padding-bottom:max(1rem,env(safe-area-inset-bottom)); }
 @media (max-width:359px) { .core-topnav__mobile-actions { gap:0; } }
 

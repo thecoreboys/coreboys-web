@@ -1,6 +1,34 @@
 .mobile-bottom-nav { display: none; }
+.watch-poster-mobile-save, .watch-poster-more--mobile-only { display: none; }
 
 @media (max-width: 767px) {
+  /* Artwork is the play target; keep secondary actions in one quiet menu. */
+  .watch-poster .watch-poster-affordance { display: none; }
+  .watch-poster .watch-poster-save { display: none; }
+  .watch-poster .watch-poster-copy,
+  .watch-os .watch-poster .watch-poster-copy { padding-right: 3.15rem; }
+  .watch-poster .watch-poster-more,
+  .watch-os .watch-poster .watch-poster-more {
+    display: grid;
+    top: auto;
+    right: .1rem;
+    bottom: .1rem;
+    left: auto;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    color: var(--ink-dim);
+    opacity: 1;
+    z-index: 34;
+  }
+  .watch-poster .watch-poster-more[aria-expanded="true"] { z-index: 62; color: white; }
+  .watch-poster .watch-poster-mobile-save { display: flex; }
+  .watch-poster.is-portrait .watch-poster-feedback-menu button span { display: block; }
   html:has(.mobile-bottom-nav:not([data-keyboard-open="true"])) {
     --mobile-nav-space: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
