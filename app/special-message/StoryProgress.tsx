@@ -64,8 +64,7 @@ export function StoryProgress() {
       </nav>
       <div className={styles.authorCard}>
         <span className={styles.authorMark} aria-hidden="true">mc<span>_</span></span>
-        <p>Built by <strong>Michael Cran</strong></p>
-        <a href="https://mdcran.com" target="_blank" rel="noreferrer">Portfolio <ArrowUpRight size={14} aria-hidden="true" /></a>
+        <p>Built by <strong>Michael</strong></p>
         <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">Get in touch <ArrowUpRight size={14} aria-hidden="true" /></a>
       </div>
     </aside>
