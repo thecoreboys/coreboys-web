@@ -82,7 +82,7 @@ export const metadata: Metadata = {
     template: "%s — CORE",
   },
   description:
-    "CORE, also known as The Core Boys and CORE Crew: live streams, videos, Shorts, Reels, news, and shows from Marlon, StableRonaldo, Adapt, Jason TheWeen, Lacy, and Silky.",
+    "An independent fan site for The Core Boys: discover live streams, videos, Shorts, and shows from Marlon, StableRonaldo, Adapt, JasonTheWeen, Lacy, and Silky.",
   keywords: [
     "CORE",
     "The Core Boys",
@@ -97,15 +97,14 @@ export const metadata: Metadata = {
   ],
   applicationName: "CORE",
   category: "entertainment",
-  creator: "CORE",
-  publisher: "CORE",
+  publisher: "CORE TV — independent fan site",
   referrer: "origin-when-cross-origin",
   alternates: { canonical: siteUrl },
   // Favicon comes from the file convention at `app/icon.png` — Next.js
   // emits the <link rel="icon"> automatically.
   openGraph: {
-    title: "CORE",
-    description: "Six creators. One core. Everything we make, we own.",
+    title: "The Core Boys | CORE TV",
+    description: "An independent fan site for The Core Boys: live streams, videos, Shorts, and shows.",
     url: siteUrl,
     siteName: "CORE",
     type: "website",
@@ -113,8 +112,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "CORE",
-    description: "Six creators. One core. Everything we make, we own.",
+    title: "The Core Boys | CORE TV",
+    description: "An independent fan site for The Core Boys: live streams, videos, Shorts, and shows.",
     images: [{ url: embedImage.url, alt: embedImage.alt }],
   },
   robots: { index: true, follow: true },

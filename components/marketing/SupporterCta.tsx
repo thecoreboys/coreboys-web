@@ -112,7 +112,7 @@ function SupporterDiscoveryGrid({
   className: string;
   controls: ReturnType<typeof useSupporterBillingControls>;
 }) {
-  const supportClosed = Boolean(controls?.renewalsDisabledAt);
+  const supportClosed = !controls?.checkoutAvailable || Boolean(controls.renewalsDisabledAt);
   const minimum = controls ? supporterPriceLabel(controls.minimumAmountCents) : null;
   return (
     <section className={`supporter-discovery-grid ${className}`} aria-label="Support the site membership benefits">
@@ -120,7 +120,7 @@ function SupporterDiscoveryGrid({
         <span aria-hidden className="supporter-showcase__shade" />
         <div className="supporter-showcase__layout">
           <div className="supporter-showcase__offer">
-            <p className="supporter-showcase__price">{supportClosed ? "New recurring support closed" : minimum ? `Starting from ${minimum}/month` : "Choose your monthly support"}</p>
+            <p className="supporter-showcase__price">{supportClosed ? "Supporter plans are temporarily unavailable" : minimum ? `Starting from ${minimum}/month` : "Choose your monthly support"}</p>
             <h2>Support the site.</h2>
             <p className="supporter-showcase__description">Your support covers hosting, API access, and ongoing development. Make the site part of your daily watch.</p>
             <Link href="/upgrade" className="supporter-cta__action">{supportClosed ? "View membership details" : "Support the site"}<ArrowRight aria-hidden /></Link>

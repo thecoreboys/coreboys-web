@@ -17,13 +17,13 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "CORE | The Core Boys",
   description:
-    "Watch CORE live: the home of The Core Boys and CORE Crew creators, with Twitch streams, new videos, Shorts, Reels, and shows in one place.",
+    "An independent fan site for The Core Boys, bringing together live streams, videos, Shorts, Reels, and shows.",
   keywords: ["CORE", "The Core Boys", "CORE Crew", "CoreCrew", "FaZe creators", "live streams"],
   alternates: { canonical: "/" },
   openGraph: {
     title: "CORE | The Core Boys",
     description:
-      "Live streams, videos, Shorts, Reels, and shows from the CORE creator network.",
+      "An independent fan site for The Core Boys, with live streams, videos, Shorts, and shows.",
     url: "/",
     type: "website",
   },

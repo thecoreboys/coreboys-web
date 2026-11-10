@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { signupSchema, createFanUser, DuplicateEmailError } from "@/lib/fan-users";
 import { signFanSessionToken, buildFanSessionCookie } from "@/lib/fan-auth";
 import { getEmailVerificationReadiness, requestEmailVerification } from "@/lib/email-verification";
+import { limitFanAuth } from "@/lib/fan-auth-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,9 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+
+  const limited = await limitFanAuth(req, "signup", parsed.data.email);
+  if (limited) return limited;
 
   try {
     const user = await createFanUser(parsed.data);

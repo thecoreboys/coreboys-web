@@ -26,14 +26,14 @@ export function PricingExperience({ accountMode = false, account, accountLoading
   const hasManagedSubscription = Boolean(account?.hasManagedSubscription);
   const configured = Boolean(account?.billingConfigured && !accountUnavailable && account.storageState === "ready");
   const controls = useSupporterBillingControls();
-  const supportClosed = Boolean(controls?.renewalsDisabledAt);
+  const supportClosed = !controls?.checkoutAvailable || Boolean(controls.renewalsDisabledAt);
   const minimum = controls ? supporterPriceLabel(controls.minimumAmountCents) : null;
   const requestedFeature = focusFeature ? FEATURE_FOCUS[focusFeature] : undefined;
 
   return <div className={`${styles.shell} ${accountMode ? styles.accountMode : ""}`}>
     {!accountMode ? <AccountPageHeader
-      title="Support CORE. Get beta access."
-      description="One monthly membership opens the current CORE beta and helps fund the tools we’re building for the community."
+      title={supportClosed ? "Supporter plans are paused." : "Support CORE. Get beta access."}
+      description={supportClosed ? "New supporter plans are temporarily unavailable. Public content remains free to watch." : "One monthly membership opens the current CORE beta and helps fund the tools we’re building for the community."}
       visual={<figure className={styles.upgradeHeroVisual}>
         <Image
           src="/special-message/app-screens/now-playing-guide.png"
@@ -61,8 +61,8 @@ export function PricingExperience({ accountMode = false, account, accountLoading
         <article className={`${styles.membershipCard} ${styles.cleanCard}`}>
           <p className={styles.planEyebrow}>One plan · cancel anytime</p><h2>{supportClosed ? "Support is currently closed" : "CORE Membership"}</h2>
           <div className={styles.priceLine}><strong>{supportClosed ? "—" : minimum ? `${minimum}+` : "Monthly"}</strong><span>{supportClosed ? "" : "per month"}</span></div>
-          <p className={styles.planDescription}>Choose the amount that works for you. Every member gets the same beta access.</p>
-          <div className={styles.amountSelector}>{accountMode ? <MembershipActions active={hasManagedSubscription} configured={configured} /> : <Link className={styles.primaryCta} href="/account/settings/billing"><CreditCard aria-hidden="true" /> Choose your amount <ArrowRight aria-hidden="true" /></Link>}</div>
+          <p className={styles.planDescription}>{supportClosed ? "Supporter plans are temporarily unavailable. You will not be charged." : "Choose the amount that works for you. Every member gets the same beta access."}</p>
+          <div className={styles.amountSelector}>{accountMode ? <MembershipActions active={hasManagedSubscription} configured={configured} /> : supportClosed ? <p role="status">Supporter plans are disabled at the moment.</p> : <Link className={styles.primaryCta} href="/account/settings/billing"><CreditCard aria-hidden="true" /> Choose your amount <ArrowRight aria-hidden="true" /></Link>}</div>
         </article>
         <aside className={styles.includedCard}><div className={styles.cleanCardIcon}><ShieldCheck aria-hidden="true" /></div><h2>Included with membership</h2><ul>{INCLUDED.map((item) => <li key={item}><Check aria-hidden="true" />{item}</li>)}</ul></aside>
       </section>

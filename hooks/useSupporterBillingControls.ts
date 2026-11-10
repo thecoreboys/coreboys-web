@@ -6,16 +6,18 @@ import {
   type SupporterBillingControls,
 } from "@/lib/subscriptions/billing-policy";
 
-async function loadControls(url: string): Promise<SupporterBillingControls | null> {
+type PublicBillingControls = SupporterBillingControls & { checkoutAvailable: boolean };
+
+async function loadControls(url: string): Promise<PublicBillingControls | null> {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) return null;
-  const value = await response.json() as SupporterBillingControls;
-  return validSupporterBillingControls(value) ? value : null;
+  const value = await response.json() as PublicBillingControls;
+  return validSupporterBillingControls(value) ? { ...value, checkoutAvailable: value.checkoutAvailable === true } : null;
 }
 
 /** Shared public view of the active checkout range. SWR deduplicates nav/CTA reads. */
 export function useSupporterBillingControls() {
-  const { data } = useSWR<SupporterBillingControls | null>(
+  const { data } = useSWR<PublicBillingControls | null>(
     "/api/account/billing/settings",
     loadControls,
     { revalidateOnFocus: false, dedupingInterval: 60_000 },

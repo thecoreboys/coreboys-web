@@ -7,16 +7,15 @@ import {
 } from "@/lib/site-access";
 
 /**
- * Edge middleware for the private production preview and the separate admin
- * session. Signed integration webhooks stay reachable so provider deliveries
- * can continue while the human-facing app is gated.
+ * Public pages and their feeds are available without a preview code. The
+ * optional preview gate remains in front of administrative surfaces, which
+ * also require their separate admin session.
  */
 export const config = {
   // Public artwork, media, and fonts never need an access/session decision.
   // Exclude them at the matcher level instead of starting the edge function
   // and immediately returning below for every image in a gallery or rail.
-  // Keep JavaScript out of this list: `core-push-sw.js` must continue through
-  // the access gate so an unauthenticated preview cannot install the worker.
+  // JavaScript remains routed through middleware where applicable.
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|.*\\.(?:avif|gif|ico|jpeg|jpg|mp3|mp4|ogg|png|svg|ttf|wav|webm|webp|woff|woff2)$).*)",
   ],
@@ -56,13 +55,16 @@ export default async function middleware(req: NextRequest) {
 
   // Next's image optimizer fetches local public assets from the server without
   // forwarding the visitor's signed preview cookie. Static files are not app
-  // routes, so let those internal fetches through while pages and APIs remain
-  // gated below.
+  // routes, so let those internal fetches through.
   if ((req.method === "GET" || req.method === "HEAD") && PUBLIC_STATIC_ASSET.test(pathname)) {
     return NextResponse.next();
   }
 
-  if (siteAccessGateEnabled()) {
+  const administrativePath = pathname === "/admin" || pathname.startsWith("/admin/")
+    || pathname === "/studio" || pathname.startsWith("/studio/")
+    || pathname === "/api/admin" || pathname.startsWith("/api/admin/");
+
+  if (siteAccessGateEnabled() && (administrativePath || pathname === "/access")) {
     const integration = TRUSTED_INTEGRATION_PATHS.some((path) => (
       path.endsWith("/") ? pathname.startsWith(path) : pathname === path
     ));

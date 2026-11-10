@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { loginSchema, getFanUserByEmail, verifyPassword } from "@/lib/fan-users";
 import { signFanSessionToken, buildFanSessionCookie } from "@/lib/fan-auth";
+import { limitFanAuth } from "@/lib/fan-auth-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,9 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 400 });
   }
+
+  const limited = await limitFanAuth(req, "login", parsed.data.email);
+  if (limited) return limited;
 
   let row;
   try {

@@ -164,6 +164,10 @@ export function MembershipActions({ active, configured }: { active: boolean; con
     );
   }
 
+  if (!configured) {
+    return <p className={styles.billingError} role="status">Supporter plans are temporarily unavailable. You will not be charged.</p>;
+  }
+
   return (
     <div className={styles.billingActions}>
       <AmountField label="Your monthly support" value={dollarInput} bounds={bounds} onChange={setDollarInput} onAdjust={adjustAmount} describedBy="membership-minimum" />
@@ -172,7 +176,6 @@ export function MembershipActions({ active, configured }: { active: boolean; con
         {pending === "checkout" ? <LoaderCircle className={styles.spinner} /> : <CreditCard />}Become a supporter
       </button>
       <p id="membership-minimum">Recurring site support is optional. {minimumCopy} · cancel recurring billing anytime.</p>
-      {!configured ? <p className={styles.billingError} role="status">Membership checkout is being configured. No charge can be made yet.</p> : null}
       {checkoutDiscontinued ? <p className={styles.billingError} role="status">New recurring site support has been discontinued.</p> : null}
       {error ? <p className={styles.billingError} role="alert">{error}</p> : null}
     </div>

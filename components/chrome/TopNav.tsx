@@ -110,13 +110,13 @@ export function TopNav() {
   ) + youtubeLiveEntries.reduce((sum, e) => sum + (e.viewerCount ?? 0), 0);
   const { user, loading: authLoading, logout } = useAuth();
   const supporterControls = useSupporterBillingControls();
-  const supporterPrice = supporterControls?.renewalsDisabledAt
-    ? "Closed"
+  const supporterPrice = !supporterControls?.checkoutAvailable || supporterControls.renewalsDisabledAt
+    ? "Paused"
     : supporterControls
       ? `${supporterPriceLabel(supporterControls.minimumAmountCents)}+`
       : "Monthly";
-  const supporterAriaLabel = supporterControls?.renewalsDisabledAt
-    ? "View CORE membership information; new recurring support is closed"
+  const supporterAriaLabel = !supporterControls?.checkoutAvailable || supporterControls.renewalsDisabledAt
+    ? "View CORE membership information; supporter plans are temporarily unavailable"
     : supporterControls
       ? `Support the CORE website from ${supporterPriceLabel(supporterControls.minimumAmountCents)} per month`
       : "Explore CORE website membership";

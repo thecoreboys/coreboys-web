@@ -16,14 +16,13 @@ export function GoogleAnalytics() {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    setEnabled(hasAnalyticsConsent());
-    return onConsentChange((accepted) => {
+    const updateConsent = (accepted: boolean) => {
+      // Restore tracking if a visitor opts back in during the same session.
+      (window as unknown as Record<string, boolean>)[`ga-disable-${GA_ID}`] = !accepted;
       setEnabled(accepted);
-      if (!accepted && typeof window !== "undefined") {
-        // Disables further hits without forcing a reload.
-        (window as unknown as Record<string, boolean>)[`ga-disable-${GA_ID}`] = true;
-      }
-    });
+    };
+    updateConsent(hasAnalyticsConsent());
+    return onConsentChange(updateConsent);
   }, []);
 
   if (!enabled) return null;
