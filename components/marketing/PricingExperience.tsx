@@ -61,7 +61,7 @@ export function PricingExperience({ accountMode = false, account, accountLoading
         <article className={`${styles.membershipCard} ${styles.cleanCard}`}>
           <p className={styles.planEyebrow}>One plan · cancel anytime</p><h2>{supportClosed ? "Support is currently closed" : "CORE Membership"}</h2>
           <div className={styles.priceLine}><strong>{supportClosed ? "—" : minimum ? `${minimum}+` : "Monthly"}</strong><span>{supportClosed ? "" : "per month"}</span></div>
-          <p className={styles.planDescription}>{supportClosed ? "Supporter plans are temporarily unavailable. You will not be charged." : "Choose the amount that works for you. Every member gets the same beta access."}</p>
+          <p className={styles.planDescription}>{supportClosed ? "New supporter subscriptions are temporarily unavailable." : "Choose the amount that works for you. Every member gets the same beta access."}</p>
           <div className={styles.amountSelector}>{accountMode ? <MembershipActions active={hasManagedSubscription} configured={configured} /> : supportClosed ? <p role="status">Supporter plans are disabled at the moment.</p> : <Link className={styles.primaryCta} href="/account/settings/billing"><CreditCard aria-hidden="true" /> Choose your amount <ArrowRight aria-hidden="true" /></Link>}</div>
         </article>
         <aside className={styles.includedCard}><div className={styles.cleanCardIcon}><ShieldCheck aria-hidden="true" /></div><h2>Included with membership</h2><ul>{INCLUDED.map((item) => <li key={item}><Check aria-hidden="true" />{item}</li>)}</ul></aside>

@@ -165,7 +165,7 @@ export function MembershipActions({ active, configured }: { active: boolean; con
   }
 
   if (!configured) {
-    return <p className={styles.billingError} role="status">Supporter plans are temporarily unavailable. You will not be charged.</p>;
+    return <p className={styles.billingError} role="status">New supporter subscriptions are temporarily unavailable.</p>;
   }
 
   return (
