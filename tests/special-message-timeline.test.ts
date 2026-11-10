@@ -28,15 +28,15 @@ test("the original photos, videos, posters, screenshots and panorama remain avai
   }
 });
 
-test("the personal history, practical support request and independent-project disclosure remain", () => {
+test("the personal history and independent-project disclosure remain", () => {
   for (const phrase of [
     "Cranberry Crush", "Udonis Haslem", "Norris Cole", "LeBron James, Dwyane Wade,",
     "Lubcubs Gaming", "PopularMMOs", "GamingWithJen", "chronic anxiety and am",
     "neurodivergent", "July 31, 2026", "DigitalOcean", "Army Reserve",
-    "B.S. in Computer Science", "people who speak Spanish", "$3 a month",
-    "at risk of losing my housing", "have been couch surfing", "Adapt, Woj, Bepsy,",
+    "B.S. in Computer Science", "people who speak Spanish", "Adapt, Woj, Bepsy,",
     "not affiliated with,", "@berryeyu",
   ]) assert.ok(page.includes(phrase), `Story detail retained: ${phrase}`);
+  assert.doesNotMatch(page, /\$3 a month|support the site/i);
 });
 
 test("the site banner discloses independence and links to the creator's message", () => {
