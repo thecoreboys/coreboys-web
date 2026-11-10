@@ -99,6 +99,9 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
 .watch-os .core-home .watch-poster:hover,
 .watch-os .core-home .watch-poster:focus-within { border-color: color-mix(in srgb, var(--ink) 24%, transparent); box-shadow: 0 6px 20px #00000014; }
 .core-home .watch-events-series-poster { border-radius: 1.25rem; }
+.watch-events-series-section .watch-rail-arrow { width: 44px; height: 44px; }
+.watch-rail-frame.has-visible-arrows .watch-rail-arrow { opacity: 1; pointer-events: auto; transform: translateY(-50%); }
+.watch-rail-frame.has-visible-arrows .watch-rail-arrow:disabled { opacity: .3; cursor: default; pointer-events: none; }
 
 /* Every home row shares one media height and a compact two-line text panel. */
 .core-home { --home-media-height: clamp(12rem, 16vw, 14rem); --home-copy-height: 106px; }

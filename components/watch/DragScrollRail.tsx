@@ -1,11 +1,12 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useState, type HTMLAttributes } from "react";
+import { useCallback, useEffect, useState, type HTMLAttributes } from "react";
 import { useDragScroll } from "@/hooks/useDragScroll";
 
 type DragScrollRailProps = HTMLAttributes<HTMLDivElement> & {
   wheelToX?: boolean;
+  alwaysShowArrows?: boolean;
 };
 
 const EDGE_TOLERANCE = 8;
@@ -15,7 +16,7 @@ const EDGE_TOLERANCE = 8;
  * desktop mouse grab-to-scroll. Interactive descendants still receive normal
  * clicks unless the pointer actually travels far enough to become a drag.
  */
-export function DragScrollRail({ wheelToX = false, ...props }: DragScrollRailProps) {
+export function DragScrollRail({ wheelToX = false, alwaysShowArrows = false, ...props }: DragScrollRailProps) {
   const railRef = useDragScroll<HTMLDivElement>({ wheel: wheelToX ? "x" : "native" });
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
@@ -47,19 +48,19 @@ export function DragScrollRail({ wheelToX = false, ...props }: DragScrollRailPro
     };
   }, [scroller]);
 
-  const bindRail = (node: HTMLDivElement | null) => {
+  const bindRail = useCallback((node: HTMLDivElement | null) => {
     railRef(node);
     setScroller(node);
-  };
+  }, [railRef]);
   const move = (direction: -1 | 1) => {
-    scroller?.scrollBy({ left: direction * Math.max(260, scroller.clientWidth * .72), behavior: "smooth" });
+    scroller?.scrollBy({ left: direction * Math.max(260, scroller.clientWidth * .72), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   };
 
   return (
-    <div className="watch-rail-frame">
+    <div className={`watch-rail-frame${alwaysShowArrows ? " has-visible-arrows" : ""}`}>
       <div ref={bindRail} data-drag-scroll-root="true" {...props} />
-      {edges.left ? <button type="button" data-no-drag className="watch-rail-arrow is-left" onClick={() => move(-1)} aria-label="Scroll this row left"><ChevronLeft aria-hidden /></button> : null}
-      {edges.right ? <button type="button" data-no-drag className="watch-rail-arrow is-right" onClick={() => move(1)} aria-label="Scroll this row right"><ChevronRight aria-hidden /></button> : null}
+      {edges.left || alwaysShowArrows ? <button type="button" data-no-drag className="watch-rail-arrow is-left" disabled={!edges.left} onClick={() => move(-1)} aria-label="Scroll this row left"><ChevronLeft aria-hidden /></button> : null}
+      {edges.right || alwaysShowArrows ? <button type="button" data-no-drag className="watch-rail-arrow is-right" disabled={!edges.right} onClick={() => move(1)} aria-label="Scroll this row right"><ChevronRight aria-hidden /></button> : null}
     </div>
   );
 }

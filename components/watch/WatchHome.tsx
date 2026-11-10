@@ -29,6 +29,7 @@ import { selectShortFormRailItems } from "@/lib/watch/short-form";
 import { BillboardCarousel } from "./Billboard";
 import { NetworkChannelRail } from "./NetworkChannelPage";
 import { Shelf } from "./PosterCard";
+import { DragScrollRail } from "./DragScrollRail";
 import { LiveHomeXFeeds } from "./LiveHomeXFeeds";
 import type { LiveXFeedResponse } from "@/lib/watch/live-x-feed";
 import { SupporterCta } from "@/components/marketing/SupporterCta";
@@ -115,7 +116,7 @@ export function EventsSeriesChallengesRail({ originals }: { originals: CoreOrigi
           CORE Originals
         </h2>
       </div>
-      <div className="watch-events-series-rail" aria-label="Events, series, and challenges">
+      <DragScrollRail className="watch-events-series-rail" aria-label="Events, series, and challenges" tabIndex={0} alwaysShowArrows>
         {posters.map((poster, index) => (
           <Tooltip key={poster.id} title={poster.title} description="Open this CORE Original collection." placement="top" offset={10}>
             <Link
@@ -140,7 +141,7 @@ export function EventsSeriesChallengesRail({ originals }: { originals: CoreOrigi
             </Link>
           </Tooltip>
         ))}
-      </div>
+      </DragScrollRail>
     </section>
   );
 }
