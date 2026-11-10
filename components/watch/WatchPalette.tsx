@@ -2,6 +2,7 @@
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { navigateToUrl } from "@/lib/external-navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -1140,7 +1141,7 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
       trackSearchEvent("playback_handoff", { platform: item.platform, result_kind: formatLabel(item).toLowerCase() });
     } else {
       const destination = item.sourceUrl || item.href;
-      if (/^https?:\/\//i.test(destination)) window.open(destination, "_blank", "noopener,noreferrer");
+      if (/^https?:\/\//i.test(destination)) navigateToUrl(destination);
       else router.push(destination as never);
     }
     close();

@@ -22,6 +22,7 @@ import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { UnreleasedBanner } from "@/components/chrome/UnreleasedBanner";
 import { SiteHeader } from "@/components/chrome/SiteHeader";
 import { CookieBanner } from "@/components/legal/CookieBanner";
+import { ExternalNavigation } from "@/components/chrome/ExternalNavigation";
 import { AuthModal } from "@/components/auth/AuthModal";
 import "./globals.css";
 import "./watch/watch.css";
@@ -138,6 +139,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://player.twitch.tv" />
       </head>
       <body>
+        <ExternalNavigation />
         {accessPage ? children : (
         <>
         <a href="#main" className="skip-link">

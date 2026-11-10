@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "CORE Watch",
+    "slug": "coreboys-mobile",
+    "version": "0.1.0",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.thecoreboys.watch" },
+    "android": { "package": "com.thecoreboys.watch" }
+  }
+}

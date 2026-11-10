@@ -1,0 +1,14 @@
+diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java b/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+index 209b85525f0ceadae168b7575de00eafe4dba1d0..1dc5bf862f7d8d56f4f0a1106a2e3012314174cd 100644
+--- a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
++++ b/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+@@ -135,5 +135,9 @@ public class RNCWebViewClient extends WebViewClient {
+     @Override
+     public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
++        // Embedded media frames must not be treated as top-level app exits.
++        if (!request.isForMainFrame()) {
++            return false;
++        }
+         final String url = request.getUrl().toString();
+         return this.shouldOverrideUrlLoading(view, url);
+     }

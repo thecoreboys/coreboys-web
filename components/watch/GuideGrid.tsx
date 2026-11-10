@@ -11,6 +11,7 @@ import {
   type UIEvent,
 } from "react";
 import { useWatchGuide } from "@/hooks/useWatchGuide";
+import { navigateToUrl } from "@/lib/external-navigation";
 import type { GuideProgram, GuideStatus as ProgramStatus, GuideContentType as ContentType } from "@/lib/watch/guide-response";
 import type { GuidePayload } from "@/lib/watch/guide-response";
 import { useDragScroll } from "@/hooks/useDragScroll";
@@ -1007,7 +1008,7 @@ export function GuideGrid({
     if (program.watchItem) {
       const playable = itemToPlayable(program.watchItem);
       if (!playable || isExternalOnly(program)) {
-        window.open(program.sourceUrl, "_blank", "noopener,noreferrer");
+        navigateToUrl(program.sourceUrl);
         return;
       }
       playOnGuideChannel(program, program.watchItem);
@@ -1065,7 +1066,7 @@ export function GuideGrid({
       });
       return;
     }
-    window.open(program.sourceUrl, "_blank", "noopener,noreferrer");
+    navigateToUrl(program.sourceUrl);
   }
 
   function suspendTimelineEdgePaging(delay = 260) {
