@@ -37,10 +37,13 @@ export function SocialIcon({
   platform,
   size = 18,
   className,
+  brand = false,
 }: {
   platform: Platform;
   size?: number;
   className?: string;
+  /** TikTok's colored note, without adding filters or a second icon asset. */
+  brand?: boolean;
 }) {
   const icon = ICON_BY_PLATFORM[platform];
   return (
@@ -49,12 +52,16 @@ export function SocialIcon({
       aria-label={icon.title}
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox={brand && platform === "tiktok" ? "-2 -2 28 28" : "0 0 24 24"}
       xmlns="http://www.w3.org/2000/svg"
       className={cn("fill-current", className)}
     >
       <title>{icon.title}</title>
-      <path d={icon.path} />
+      {brand && platform === "tiktok" ? <>
+        <path d={icon.path} fill="#25f4ee" transform="translate(-1 -1)" />
+        <path d={icon.path} fill="#fe2c55" transform="translate(1 1)" />
+        <path d={icon.path} fill="#fff" />
+      </> : <path d={icon.path} />}
     </svg>
   );
 }

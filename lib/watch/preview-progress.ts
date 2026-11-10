@@ -4,6 +4,18 @@ export type PreviewPlaybackSample = {
   playing: boolean | null;
 };
 
+/** Provider readiness is separate from evidence that media is playing. */
+export function isPreviewPlayerReady(payload: unknown): boolean {
+  let value = payload;
+  if (typeof value === "string") {
+    try { value = JSON.parse(value); } catch { return false; }
+  }
+  if (!value || typeof value !== "object") return false;
+  const message = value as Record<string, unknown>;
+  return message.event === "onReady" ||
+    (message["x-tiktok-player"] === true && message.type === "onPlayerReady");
+}
+
 function finiteSeconds(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? value

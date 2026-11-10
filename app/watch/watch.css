@@ -2149,10 +2149,11 @@
 }
 
 .watch-poster-art-fallback.is-tiktok .watch-poster-art-mark {
-  border-color: rgba(255, 255, 255, .18);
-  background: #08090a;
+  border: 0;
+  padding: 0;
+  background: transparent;
   color: #fff;
-  filter: drop-shadow(-2px 0 #25f4ee) drop-shadow(2px 0 #fe2c55);
+  filter: none;
 }
 
 .watch-poster-art-fallback.is-instagram {
@@ -2222,6 +2223,12 @@
   border-color: rgba(255, 255, 255, .44);
   background: rgba(8, 8, 10, .4);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .24);
+}
+
+.watch-poster-art-fallback.has-member-art.is-tiktok .watch-poster-art-mark {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .watch-thumb-shell {

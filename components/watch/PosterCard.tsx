@@ -219,7 +219,7 @@ export function PosterCard({
       <span className="watch-poster-art-platform">{shortSourceLabel || item.platform}</span>
       <span className="watch-poster-art-mark">
         {item.platform === "tiktok" || item.platform === "instagram" || item.platform === "youtube"
-          ? <SocialIcon platform={item.platform} size={24} />
+          ? <SocialIcon platform={item.platform} size={24} brand={item.platform === "tiktok"} />
           : null}
       </span>
     </span>
@@ -615,8 +615,10 @@ export function PosterCard({
         <p className="watch-poster-member">
           {shortSourceLabel ? `${shortSourceLabel} · ${watchDisplayLabel(item)}` : watchDisplayLabel(item)}
         </p>
+        <div className="watch-poster-footer-meta">
         <p className="watch-poster-details">{watchFormatLabel(item)}{!live && item.duration ? ` · ${item.duration}` : ""}{live && item.live?.game ? ` · ${item.live.game}` : ""}</p>
         {item.alternateSources?.length ? <p className="watch-poster-sources">Also on {item.alternateSources.map((source) => <a key={source.href} href={source.href} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>{source.platform === "youtube" ? "YouTube" : source.platform === "tiktok" ? "TikTok" : source.platform === "instagram" ? "Instagram" : source.platform}</a>)}</p> : null}
+        </div>
       </div>
 
       {progress > 0 || done ? (

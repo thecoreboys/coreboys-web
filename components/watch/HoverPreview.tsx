@@ -14,7 +14,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
-import { clampPreviewPosition, previewPlaybackSample } from "@/lib/watch/preview-progress";
+import { clampPreviewPosition, isPreviewPlayerReady, previewPlaybackSample } from "@/lib/watch/preview-progress";
 import { listenToYouTube } from "@/lib/watch/youtube-player";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
@@ -338,16 +338,16 @@ function MediaHoverPreview({
     // A Twitch ad or slow stream startup can outlast the generic embed timeout.
     // Keep the visible SDK player alive so it can actually reach PLAYING.
     if (!motionSource || motionReady || twitchSource) return;
-    const timeout = window.setTimeout(() => setFailedMotionSource(motionSource), 10_000);
+    const timeout = window.setTimeout(() => setFailedMotionSource(motionSource), previewPlayable?.platform === "tiktok" ? 20_000 : 10_000);
     return () => window.clearTimeout(timeout);
-  }, [motionSource, motionReady, twitchSource]);
+  }, [motionSource, motionReady, previewPlayable?.platform, twitchSource]);
 
   useEffect(() => {
     if (!mediaActive || !iframeSrc || (!previewPlayable?.youtubeId && previewPlayable?.platform !== "tiktok")) return;
     // Provider APIs can become ready well after the iframe's load event on a
     // slow connection. Retry while the preview is active so the first play
     // command is not lost during that readiness window.
-    const attempts = [250, 800, 1_600, 3_200, 6_000].map((delay) => (
+    const attempts = [250, 800, 1_600, 3_200, 6_000, 10_000, 16_000].map((delay) => (
       window.setTimeout(requestProviderPlayback, delay)
     ));
     return () => {
@@ -392,6 +392,10 @@ function MediaHoverPreview({
     if (!iframeSrc) return;
     const onMessage = (event: MessageEvent) => {
       if (event.source !== frameRef.current?.contentWindow || event.origin !== new URL(iframeSrc).origin) return;
+      if (isPreviewPlayerReady(event.data)) {
+        requestProviderPlayback();
+        return;
+      }
       const sample = previewPlaybackSample(event.data);
       if (!sample) return;
       if (sample.playing != null) {
@@ -410,7 +414,7 @@ function MediaHoverPreview({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [iframeSrc, initialSeekSeconds, knownDuration, syncPlaybackSeconds]);
+  }, [iframeSrc, initialSeekSeconds, knownDuration, requestProviderPlayback, syncPlaybackSeconds]);
 
   const live = item.kind === "live" || item.format === "live";
   const supportsSyncedSeek = Boolean(

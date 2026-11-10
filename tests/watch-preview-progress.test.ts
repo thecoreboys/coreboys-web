@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 // Node's type-stripping test runner requires the explicit TypeScript suffix.
 // @ts-expect-error App TypeScript does not enable allowImportingTsExtensions.
-import { clampPreviewPosition, previewPlaybackSample } from "../lib/watch/preview-progress.ts";
+import { clampPreviewPosition, isPreviewPlayerReady, previewPlaybackSample } from "../lib/watch/preview-progress.ts";
+
+test("provider-ready messages trigger playback without pretending the media is already playing", () => {
+  for (const message of [{ event: "onReady" }, { "x-tiktok-player": true, type: "onPlayerReady" }]) {
+    assert.equal(isPreviewPlayerReady(message), true);
+    assert.equal(isPreviewPlayerReady(JSON.stringify(message)), true);
+    assert.equal(previewPlaybackSample(message), null);
+  }
+  for (const message of [null, "bad json", { type: "onPlayerReady" }, { "x-tiktok-player": false, type: "onPlayerReady" }]) assert.equal(isPreviewPlayerReady(message), false);
+});
 
 test("reads YouTube preview time and duration updates", () => {
   assert.deepEqual(

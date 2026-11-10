@@ -100,8 +100,8 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
 .watch-os .core-home .watch-poster:focus-within { border-color: color-mix(in srgb, var(--ink) 24%, transparent); box-shadow: 0 6px 20px #00000014; }
 .core-home .watch-events-series-poster { border-radius: 1.25rem; }
 
-/* Match card bottoms to the tallest copy panel in each row, without a fixed blank panel. */
-.core-home { --home-media-height: clamp(12rem, 16vw, 14rem); }
+/* Every home row shares one media height and a compact two-line text panel. */
+.core-home { --home-media-height: clamp(12rem, 16vw, 14rem); --home-copy-height: 106px; }
 .watch-os .core-home .watch-shelf-section .watch-shelf { align-items: stretch; }
 .watch-os .core-home .watch-shelf-section .watch-shelf .watch-poster {
   position: relative;
@@ -109,7 +109,7 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
   flex-direction: column;
   flex: 0 0 auto;
   width: calc(var(--home-media-height) * 16 / 9);
-  height: auto;
+  height: calc(var(--home-media-height) + var(--home-copy-height) + 2px);
   min-height: 0;
   aspect-ratio: auto;
   overflow: visible;
@@ -130,16 +130,20 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
   display: flex;
   flex-direction: column;
   gap: 0;
-  flex: 1;
-  height: auto;
+  flex: 0 0 var(--home-copy-height);
+  height: var(--home-copy-height);
   min-height: 0;
   overflow: hidden;
   padding: 10px 12px 12px;
 }
-.watch-os .core-home .watch-shelf-section .watch-poster .watch-poster-title { display: -webkit-box; flex-shrink: 0; height: auto; overflow: hidden; font-size: 14px; line-height: 21px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.watch-os .core-home .watch-shelf-section .watch-poster .watch-poster-title { display: -webkit-box; flex-shrink: 0; height: 42px; max-height: 42px; overflow: hidden; font-size: 14px; line-height: 21px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .watch-os .core-home .watch-shelf-section .watch-poster .watch-poster-member { overflow: hidden; margin-top: 5px; font-size: 12px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .core-home .watch-poster-details, .core-home .watch-poster-sources { min-height: 16px; overflow: hidden; margin-top: 3px; font-size: 11px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .core-home .watch-poster-sources { flex-wrap: nowrap; }
+.core-home .watch-poster-footer-meta { display: flex; min-width: 0; flex-shrink: 0; align-items: baseline; gap: 6px; }
+.core-home .watch-poster-footer-meta .watch-poster-details { flex-shrink: 0; }
+.core-home .watch-poster-footer-meta .watch-poster-sources { display: block; min-width: 0; }
+.core-home .watch-poster-sources a + a { margin-left: 4px; }
 .core-home .watch-card-motion { position: absolute; z-index: 2; inset: 0 0 auto; height: var(--home-media-height); overflow: hidden; border-radius: 11px 11px 0 0; pointer-events: none; opacity: 0; background: #08080a; transition: opacity 180ms ease; }
 .core-home .watch-card-motion * { pointer-events: none !important; }
 .core-home .watch-card-motion.is-visible { opacity: 1; }
