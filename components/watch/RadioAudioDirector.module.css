@@ -49,9 +49,10 @@
 .dialTicks .activeTick { background: #e1e7dd; }
 .dialNeedle { position: absolute; inset: .13rem auto .12rem var(--dial-position, 0%); width: 2px; transform: translateX(-50%); background: #e98c73; box-shadow: 0 0 3px #e98c7350; pointer-events: none; transition: left 120ms ease-out; }
 .dialNeedle::before { position: absolute; top: -1px; left: -2px; width: 6px; height: 3px; background: #f2b49c; content: ""; }
-.signal { position: relative; min-height: 6.25rem; overflow: hidden; border-right: 1px solid rgba(255,255,255,.09); background: repeating-linear-gradient(0deg, transparent 0 15px, #9dc8b108 15px 16px), repeating-linear-gradient(90deg, transparent 0 15px, #9dc8b108 15px 16px), #101817; }
-.signalRest { position: absolute; inset: 50% .65rem auto; height: 1px; background: #93c9b2; opacity: .16; }
-.signal :global(.strands-container) { position: absolute; inset: 0; height: auto; }
+.signal { position: relative; display: grid; place-items: center; min-height: 6.25rem; overflow: hidden; border-right: 1px solid rgba(255,255,255,.09); background: radial-gradient(ellipse at center, #9dc8b10a, transparent 72%), #101615; }
+.signalMeter { display: flex; align-items: center; justify-content: center; gap: 4px; width: 52px; height: 54px; }
+.signalBar { width: 3px; height: 3px; flex-shrink: 0; border-radius: 3px; background: #9dcbbb; opacity: .4; transform: scaleY(calc(1 + var(--signal-level, 0) * var(--bar-rise, 1))); transition: transform 90ms linear, opacity 150ms ease; }
+.isSpeaking .signalBar { opacity: .9; }
 .signal::before { position: absolute; z-index: 1; inset: .4rem; content: ""; border: 1px solid rgba(255,255,255,.08); border-radius: .3rem; pointer-events: none; }
 .signal::after { position: absolute; z-index: 1; inset: 0; content: ""; background: radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,.42) 100%); pointer-events: none; }
 .chassis { min-width: 0; padding: .78rem .7rem .6rem .9rem; }
@@ -117,7 +118,7 @@
   .settings { display: none; }
   .tunedState { display: block; max-width: 3.4rem; overflow: hidden; color: #aeb4bb; font-size: .42rem; font-weight: 700; letter-spacing: .06em; text-overflow: ellipsis; white-space: nowrap; }
 }
-@media (prefers-reduced-motion: reduce) { .root, .isSpeaking .statusDot, .play, .stop, .power, .settings, .edgeRestore, .dialNeedle { animation: none; transition: none; } .signalRest { opacity: .65; } }
+@media (prefers-reduced-motion: reduce) { .root, .isSpeaking .statusDot, .play, .stop, .power, .settings, .edgeRestore, .dialNeedle, .signalBar { animation: none; transition: none; } }
 
 /* Desktop controls open by default; modal dialogs keep priority. */
 .root { z-index: 35; }

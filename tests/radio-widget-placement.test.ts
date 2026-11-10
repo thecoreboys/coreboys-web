@@ -44,17 +44,12 @@ test("the channel dial commits one accessible selection to a new network", () =>
   assert.match(director, /onBlur=\{\(event\) => commitTuner/);
 });
 
-test("DJ Cora's signal strands move clearly while speaking, even without audio analysis", () => {
+test("DJ Cora uses a bounded level meter driven by speech instead of crossing strands", () => {
   assert.match(director, /const rms = Math\.sqrt\(sum \/ samples\.length\)/);
   assert.match(director, /const level = clamp\(\(rms - 0\.012\) \* 16\)/);
   assert.match(director, /isSpeaking \? Math\.max\(voiceLevel, 0\.26\) : 0/);
-  assert.match(director, /audioLevel=\{signalLevel\}/);
-  for (const property of ["speed", "amplitude"]) {
-    const expression = director.match(new RegExp(`${property}=\\{isSpeaking \\? ([\\d.]+) \\+ signalLevel \\* ([\\d.]+) : ([\\d.]+)\\}`));
-    assert.ok(expression, `${property} responds to speaking state and signal level`);
-    const [, base, gain, idle] = expression.map(Number);
-    assert.ok(base! > idle!, `${property} remains visibly active while speaking without analysis`);
-    assert.ok(gain! > 0, `${property} increases with the analyzed audio level`);
-    assert.ok(idle! >= 0, `${property} has a valid quiet state`);
-  }
+  assert.match(director, /"--signal-level": reducedMotion \? 0 : signalLevel/);
+  assert.match(director, /className=\{styles\.signalBar\}/);
+  assert.doesNotMatch(director, /<Strands|components\/ui\/Strands/);
+  assert.match(styles, /\.signalBar[^}]*scaleY\(calc\(1 \+ var\(--signal-level/);
 });

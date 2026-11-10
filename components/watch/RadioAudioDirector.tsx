@@ -31,7 +31,6 @@ import {
   type RadioNetworkLiveTakeoverEvent,
 } from "@/lib/radio-client";
 import styles from "./RadioAudioDirector.module.css";
-import { Strands } from "@/components/ui/Strands";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { writeRadioAudioSettings } from "@/lib/radio/settings";
 import { playRadioTunerTick } from "@/lib/radio/tuning-sound";
@@ -448,8 +447,7 @@ export function RadioAudioDirector({
           let sum = 0;
           for (const sample of samples) { const value = (sample - 128) / 128; sum += value * value; }
           // Scale the quieter parts of recorded speech into a useful visual
-          // range; keep the waveform independently animated below as a
-          // graceful fallback when Web Audio analysis is unavailable.
+          // range so the compact level meter can follow quieter speech.
           const rms = Math.sqrt(sum / samples.length);
           const level = clamp((rms - 0.012) * 16);
           if (now - lastPaint > 48) { setVoiceLevel(level); lastPaint = now; }
@@ -1017,23 +1015,9 @@ export function RadioAudioDirector({
         <span className={styles.tunerHint}>Stations</span>
       </div> : null}
       <div className={styles.signal} aria-hidden>
-        <span className={styles.signalRest} />
-        {mobileExpanded && !autoCollapse && !compactScreen && !placement?.hiddenEdge && !reducedMotion ? <Strands
-          colors={["#a3d9c5", "#78b5a6", "#d1e7c9"]}
-          count={3}
-          audioLevel={signalLevel}
-          speed={isSpeaking ? 0.7 + signalLevel * 0.6 : 0.08}
-          amplitude={isSpeaking ? 0.8 + signalLevel * 0.8 : 0.1}
-          waviness={1.7}
-          thickness={isSpeaking ? 0.9 : 0.72}
-          glow={1.2}
-          taper={3}
-          spread={1}
-          intensity={isSpeaking ? 0.52 + signalLevel * 0.48 : 0.12}
-          saturation={0.85}
-          opacity={enabled ? 1 : 0.32}
-          scale={1.6}
-        /> : null}
+        <span className={styles.signalMeter} style={{ "--signal-level": reducedMotion ? 0 : signalLevel } as CSSProperties}>
+          {[4, 8, 12, 16, 12, 8, 4].map((rise, index) => <span key={index} className={styles.signalBar} style={{ "--bar-rise": rise } as CSSProperties} />)}
+        </span>
       </div>
       <div className={styles.chassis}>
         <div className={styles.topline}><span className={styles.statusDot} aria-hidden /> <span className={styles.coraLabel}>DJ CORA</span></div>
