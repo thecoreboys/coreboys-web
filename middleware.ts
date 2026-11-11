@@ -7,9 +7,8 @@ import {
 } from "@/lib/site-access";
 
 /**
- * Public pages and their feeds are available without a preview code. The
- * optional preview gate remains in front of administrative surfaces, which
- * also require their separate admin session.
+ * When configured, require the preview code for site pages and visitor APIs.
+ * Administrative surfaces also require their separate admin session.
  */
 export const config = {
   // Public artwork, media, and fonts never need an access/session decision.
@@ -60,11 +59,7 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const administrativePath = pathname === "/admin" || pathname.startsWith("/admin/")
-    || pathname === "/studio" || pathname.startsWith("/studio/")
-    || pathname === "/api/admin" || pathname.startsWith("/api/admin/");
-
-  if (siteAccessGateEnabled() && (administrativePath || pathname === "/access")) {
+  if (siteAccessGateEnabled()) {
     const integration = TRUSTED_INTEGRATION_PATHS.some((path) => (
       path.endsWith("/") ? pathname.startsWith(path) : pathname === path
     ));
@@ -90,7 +85,9 @@ export default async function middleware(req: NextRequest) {
         }
         const url = new URL("/access", req.url);
         url.searchParams.set("next", `${pathname}${req.nextUrl.search}`);
-        return NextResponse.redirect(url);
+        const response = NextResponse.redirect(url);
+        response.headers.set("Cache-Control", "no-store, private");
+        return response;
       }
     }
   }
