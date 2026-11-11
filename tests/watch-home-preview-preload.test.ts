@@ -8,6 +8,7 @@ const poster = source("components/watch/PosterCard.tsx");
 const preview = source("components/watch/HoverPreview.tsx");
 const thumb = source("components/watch/WatchThumb.tsx");
 const home = source("components/watch/WatchHome.tsx");
+const deferredRail = source("components/watch/DeferredHomeRail.tsx");
 
 test("the home short-form rail warms upcoming preview resources without eager embeds", () => {
   assert.match(home, /title="Shorts, reels & TikToks"[\s\S]{0,180}preloadUpcoming/);
@@ -24,6 +25,14 @@ test("the home library sections are available without expanding a disclosure", (
   assert.match(home, /id="watch-full-library" className="watch-full-library"/);
   assert.match(home, /title="Videos & episodes"/);
   assert.doesNotMatch(home, /showFullLibrary|Show more videos/);
+});
+
+test("lower home cards wait for viewport approach and keyboard users enter the loaded row", () => {
+  assert.match(home, /const libraryShelfProps = \{ \.\.\.sharedShelfProps, deferCards: true \}/);
+  assert.match(poster, /observeViewportApproach\(rail, \(\) => \{/);
+  assert.match(deferredRail, /observeViewportApproach\(ref\.current/);
+  assert.match(deferredRail, /tabIndex=\{ready \? undefined : 0\}/);
+  assert.match(deferredRail, /focus\(\{ preventScroll: true \}\)/);
 });
 
 test("preview warming is bounded and honors bandwidth and motion preferences", () => {

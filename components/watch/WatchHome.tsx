@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { WatchCatalog, WatchItem } from "@/lib/watch/types";
 import { MEMBERS } from "@/lib/members";
@@ -145,7 +145,7 @@ export function EventsSeriesChallengesRail({ originals }: { originals: CoreOrigi
   );
 }
 
-export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode; initialXFeed?: LiveXFeedResponse | null }) {
+export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode; initialXFeed?: Promise<LiveXFeedResponse | null> }) {
   const { ids: listIds, user, loading } = useMyList();
   const { map, ready } = useWatchProgress();
   const discovery = useWatchDiscovery();
@@ -360,7 +360,9 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
     onFeedback: handleFeedback,
     hoverAutoplay: true,
     inlinePreview: false,
+    fixedCardLayout: true,
   };
+  const libraryShelfProps = { ...sharedShelfProps, deferCards: true };
   return (
     <div className="core-home">
       <h1 className="sr-only">CORE live and latest videos</h1>
@@ -428,6 +430,7 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
             {MEMBERS.map((member) => (
               <Link
                 key={member.slug}
+                prefetch={false}
                 href={`/channels/${member.slug}` as never}
                 className="watch-creator-network-poster"
                 aria-label={`Open ${member.stageName}'s network`}
@@ -440,7 +443,9 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
           </div>
         </section>
 
-        <LiveHomeXFeeds initialMembers={initialXFeed?.members ?? xPosts} initialCrew={initialXFeed?.crew ?? crewXPosts} spaces={xSpaces} />
+        <Suspense fallback={null}>
+          <LiveHomeXFeeds initialMembers={xPosts} initialCrew={crewXPosts} initialFeed={initialXFeed} spaces={xSpaces} />
+        </Suspense>
 
         <div id="watch-full-library" className="watch-full-library">
           {(catalog.programmingSections ?? []).map((section) => {
@@ -455,29 +460,29 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
               kicker={section.kicker}
               items={useVertical ? visibleShortForm(section.items, 30) : visible(section.items, 30, false)}
               variant={useVertical ? "vertical" : undefined}
-              {...sharedShelfProps}
+              {...libraryShelfProps}
             />;
           })}
 
-          <Shelf title="From the CORE House" items={visible(catalog.house, 30)} {...sharedShelfProps} />
+          <Shelf title="From the CORE House" items={visible(catalog.house, 30)} {...libraryShelfProps} />
 
           <div id="videos" className="scroll-mt-28">
-            <Shelf title="Videos & episodes" items={visible(longForm, 30)} {...sharedShelfProps} />
+            <Shelf title="Videos & episodes" items={visible(longForm, 30)} {...libraryShelfProps} />
           </div>
 
           {patreon}
 
-          <Shelf title="Past broadcasts" items={visible(catalog.broadcasts, 30)} {...sharedShelfProps} />
-          <Shelf title="Shorts, reels & TikToks" items={displayedQuickHits} variant="vertical" preloadUpcoming {...sharedShelfProps} />
+          <Shelf title="Past broadcasts" items={visible(catalog.broadcasts, 30)} {...libraryShelfProps} />
+          <Shelf title="Shorts, reels & TikToks" items={displayedQuickHits} variant="vertical" preloadUpcoming {...libraryShelfProps} />
           <div id="clips" className="scroll-mt-28">
-            <Shelf title="Clips" kicker="The moments people kept" items={visible(catalog.clips)} {...sharedShelfProps} />
+            <Shelf title="Clips" kicker="The moments people kept" items={visible(catalog.clips)} {...libraryShelfProps} />
           </div>
           <div id="photos" className="scroll-mt-28">
-            <Shelf title="Photos" items={visible(catalog.photos.filter((item) => item.platform !== "x"), 30)} {...sharedShelfProps} />
+            <Shelf title="Photos" items={visible(catalog.photos.filter((item) => item.platform !== "x"), 30)} {...libraryShelfProps} />
           </div>
 
           {memberRows.map((member) => (
-            <Shelf key={member.slug} title={member.label} items={visible(member.items, 30)} {...sharedShelfProps} />
+            <Shelf key={member.slug} title={member.label} items={visible(member.items, 30)} {...libraryShelfProps} />
           ))}
         </div>
       </div>

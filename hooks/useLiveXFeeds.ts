@@ -7,13 +7,14 @@ import { advanceXPostWatermark, countNewXPosts } from "@/lib/watch/x-feed-update
 
 const POLL_MS = 15_000;
 
-export function useLiveXFeeds(initialMembers: WatchHomeXPost[], initialCrew: WatchHomeXPost[]) {
+export function useLiveXFeeds(initialMembers: WatchHomeXPost[], initialCrew: WatchHomeXPost[], enabled = true) {
   const [feed, setFeed] = useState<LiveXFeedResponse | null>(null);
   const [connection, setConnection] = useState<"connecting" | "connected" | "retrying" | "offline">("connecting");
   const [newPosts, setNewPosts] = useState({ members: 0, crew: 0 });
   const loadRef = useRef<() => void>(() => {});
 
   useEffect(() => {
+    if (!enabled) return;
     let stopped = false;
     let pending = false;
     let initialized = false;
@@ -88,7 +89,7 @@ export function useLiveXFeeds(initialMembers: WatchHomeXPost[], initialCrew: Wat
       window.removeEventListener("online", resume);
       window.removeEventListener("offline", resume);
     };
-  }, []);
+  }, [enabled]);
 
   const refresh = useCallback(() => loadRef.current(), []);
   const dismiss = useCallback((audience: "members" | "crew") => {

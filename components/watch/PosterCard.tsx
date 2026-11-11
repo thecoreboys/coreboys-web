@@ -22,12 +22,14 @@ import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
 import { tiktokPostThumbnailSource } from "@/lib/watch/thumbs";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
+import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 import { shortFormPlatformLabel } from "@/lib/watch/short-form";
 import type { WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import { HoverPreview } from "./HoverPreview";
 import { WatchThumb } from "./WatchThumb";
 import { XPostPoster } from "./XPostPoster";
 import { DragScrollRail } from "./DragScrollRail";
+import { DeferredHomeRail } from "./DeferredHomeRail";
 import { WatchSelect } from "./WatchSelect";
 const CardMotionPreview = dynamic(() => import("./CardMotionPreview").then((module) => module.CardMotionPreview), { ssr: false });
 import { useWatchContextMenu } from "./WatchContextMenu";
@@ -256,26 +258,26 @@ export function PosterCard({
     const rail = card.closest<HTMLElement>("[data-drag-scroll-root='true']");
     if (!rail || typeof IntersectionObserver === "undefined") return;
     let warmTimer: number | null = null;
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      observer.disconnect();
-      // The margin catches roughly the next few portrait cards. Only still
-      // imagery and one of four provider origins are warmed while scrolling;
-      // the real embed remains gated on deliberate pointer/focus intent.
-      warmTimer = window.setTimeout(() => {
-        warmTimer = null;
-        if (avoidsPreviewWarm(player.dataSaver)) return;
-        // A small, bounded set of near-visible social covers gets high
-        // priority so the next card does not arrive as a black tile.
-        warmHoverStill(item, true);
-        if (!avoidsMotionWarm(player.dataSaver, motionEnabled)) {
-          preconnectHoverEmbed(item, moment?.seconds ?? positionSeconds);
-        }
-      }, 40);
-    }, { root: rail, rootMargin: "0px 140% 0px 20%", threshold: 0.01 });
-    observer.observe(card);
+    let observer: IntersectionObserver | undefined;
+    const stopApproach = observeViewportApproach(rail, () => {
+      observer = new IntersectionObserver((entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer?.disconnect();
+        // Warm the next covers only when the row is near the page viewport.
+        warmTimer = window.setTimeout(() => {
+          warmTimer = null;
+          if (avoidsPreviewWarm(player.dataSaver)) return;
+          warmHoverStill(item, true);
+          if (!avoidsMotionWarm(player.dataSaver, motionEnabled)) {
+            preconnectHoverEmbed(item, moment?.seconds ?? positionSeconds);
+          }
+        }, 40);
+      }, { root: rail, rootMargin: "0px 140% 0px 20%", threshold: 0.01 });
+      observer.observe(card);
+    });
     return () => {
-      observer.disconnect();
+      stopApproach();
+      observer?.disconnect();
       if (warmTimer != null) window.clearTimeout(warmTimer);
     };
   }, [approachPreload, item, moment?.seconds, motionEnabled, player.dataSaver, positionSeconds]);
@@ -921,6 +923,8 @@ export function Shelf({
   hoverAutoplay = true,
   inlinePreview = false,
   preloadUpcoming = false,
+  deferCards = false,
+  fixedCardLayout = false,
 }: {
   title: string;
   kicker?: string;
@@ -935,6 +939,8 @@ export function Shelf({
   inlinePreview?: boolean;
   /** Preload lightweight preview resources just ahead of horizontal scroll. */
   preloadUpcoming?: boolean;
+  deferCards?: boolean;
+  fixedCardLayout?: boolean;
 }) {
   if (items.length === 0) return null;
   // A rail is a content-format surface, not a creator surface. When the user
@@ -948,30 +954,39 @@ export function Shelf({
       : items.every((item) => item.format === "short" || item.orientation === "portrait")
         ? "vertical"
         : "standard";
+  const cardShapes = fixedCardLayout || deferCards ? items.map(contentShape) : [];
+  const rail = (
+    <DragScrollRail
+      className="watch-shelf"
+      tabIndex={0}
+      aria-label={title}
+      fixedItemLayout={fixedCardLayout ? cardShapes.join("|") : undefined}
+    >
+      {items.map((item, index) => (
+        <PosterCard
+          key={item.id}
+          item={item}
+          context={items}
+          rank={numbered ? index + 1 : undefined}
+          focused={focusIndex === index}
+          feedback={feedback?.[item.id]?.value}
+          onFeedback={onFeedback}
+          moment={moments?.[item.id]}
+          hoverAutoplay={hoverAutoplay}
+          inlinePreview={inlinePreview}
+          preloadOnApproach={preloadUpcoming}
+        />
+      ))}
+    </DragScrollRail>
+  );
   return (
-    <section className={`watch-shelf-section px-5 md:px-10 ${resolvedVariant === "vertical" ? "is-vertical" : ""} ${resolvedVariant === "photo" ? "is-photo-shelf" : ""}`}>
+    <section className={`watch-shelf-section px-5 md:px-10 ${resolvedVariant === "vertical" ? "is-vertical" : ""} ${resolvedVariant === "photo" ? "is-photo-shelf" : ""}`} data-deferred-home-shelf={deferCards || undefined}>
       <div className="watch-shelf-heading mb-3 flex items-baseline gap-3">
         <h2 className="watch-shelf-title text-lg font-semibold tracking-tight text-[color:var(--ink)] md:text-xl">{title}</h2>
         {/* Section headings stay intentionally quiet. Source/platform copy is
             available in cards and filters, not beside every title. */}
       </div>
-      <DragScrollRail className="watch-shelf" tabIndex={0} aria-label={title}>
-        {items.map((item, index) => (
-          <PosterCard
-            key={item.id}
-            item={item}
-            context={items}
-            rank={numbered ? index + 1 : undefined}
-            focused={focusIndex === index}
-            feedback={feedback?.[item.id]?.value}
-            onFeedback={onFeedback}
-            moment={moments?.[item.id]}
-            hoverAutoplay={hoverAutoplay}
-            inlinePreview={inlinePreview}
-            preloadOnApproach={preloadUpcoming}
-          />
-        ))}
-      </DragScrollRail>
+      {deferCards ? <DeferredHomeRail title={title} shapes={cardShapes.slice(0, 6)}>{rail}</DeferredHomeRail> : rail}
     </section>
   );
 }

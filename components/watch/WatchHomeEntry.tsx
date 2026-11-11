@@ -16,7 +16,7 @@ const EMPTY_ITEMS: WatchItem[] = [];
 
 export function WatchHomeEntry({ catalog: compact, patreon, originals, initialXFeed }: {
   catalog: CompactWatchCatalog; patreon: ReactNode; originals: ReactNode;
-  initialXFeed?: LiveXFeedResponse | null;
+  initialXFeed?: Promise<LiveXFeedResponse | null>;
 }) {
   const base = useMemo(() => expandWatchCatalog(compact), [compact]);
   const { map, ready, accountKey } = useWatchProgress();

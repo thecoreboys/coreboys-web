@@ -40,12 +40,9 @@ async function PatreonSection() {
 }
 
 export default async function HomePage() {
-  const [catalog, initialXFeed] = await Promise.all([
-    getHomeWatchCatalog(),
-    // Seed the same rich DTO used by polling. Older catalog imports may omit
-    // URL entities, which otherwise produces a plain-link first render.
-    getPublicXFeedSnapshot().then(buildLiveXFeedResponse).catch(() => null),
-  ]);
+  // Stream the richer post data separately so a slow X snapshot cannot delay the hero.
+  const initialXFeed = getPublicXFeedSnapshot().then(buildLiveXFeedResponse).catch(() => null);
+  const catalog = await getHomeWatchCatalog();
 
   return (
     <WatchHomeEntry catalog={compactWatchCatalog(projectHomeCatalog(catalog))}

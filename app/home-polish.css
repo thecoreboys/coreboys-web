@@ -117,7 +117,25 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
   aspect-ratio: auto;
   overflow: visible;
   border-radius: 12px;
+  transform: none;
 }
+.core-home .watch-shelf-section[data-deferred-home-shelf] {
+  contain-intrinsic-block-size: auto calc(var(--home-media-height) + var(--home-copy-height) + 3.75rem);
+}
+.watch-os .core-home .watch-content-rails .watch-home-shelf-placeholder {
+  overflow: hidden;
+  mask-image: none;
+}
+.watch-home-card-placeholder {
+  flex: 0 0 auto;
+  width: min(calc(var(--home-media-height) * 16 / 9), calc(100vw - 2 * var(--home-gutter)));
+  height: calc(var(--home-media-height) + var(--home-copy-height) + 2px);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-elev) 96%, var(--ink) 4%);
+}
+.watch-home-card-placeholder.is-portrait { width: max(10.5rem, calc(var(--home-media-height) * 9 / 16)); }
+.watch-home-card-placeholder.is-square { width: var(--home-media-height); }
 .watch-os .core-home .watch-shelf-section .watch-shelf .watch-poster.is-portrait { width: max(10.5rem, calc(var(--home-media-height) * 9 / 16)); }
 .watch-os .core-home .watch-shelf-section .watch-shelf .watch-poster.is-square { width: var(--home-media-height); }
 .watch-os .core-home .watch-shelf-section .watch-shelf .watch-poster > .watch-poster-link {

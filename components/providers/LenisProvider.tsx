@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import type Lenis from "lenis";
 import { detectWeakGpu, devicePerformanceProfile } from "@/lib/device-performance";
 
@@ -16,8 +17,11 @@ import { detectWeakGpu, devicePerformanceProfile } from "@/lib/device-performanc
  * `data-lenis-prevent` so Lenis doesn't fight the local scroll.
  */
 export function LenisProvider({ children }: { children: React.ReactNode }) {
+  const isHome = usePathname() === "/";
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // The media-heavy homepage uses native wheel scrolling.
+    if (isHome) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     // Touch screens keep native momentum, browser gestures and form scrolling.
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
@@ -100,7 +104,7 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
       lenis?.destroy();
       document.documentElement.classList.remove("lenis", "lenis-smooth");
     };
-  }, []);
+  }, [isHome]);
 
   return <>{children}</>;
 }

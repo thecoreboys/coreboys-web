@@ -7,6 +7,8 @@ import { useDragScroll } from "@/hooks/useDragScroll";
 type DragScrollRailProps = HTMLAttributes<HTMLDivElement> & {
   wheelToX?: boolean;
   alwaysShowArrows?: boolean;
+  /** Changes when fixed-width cards are added or change shape. */
+  fixedItemLayout?: string;
 };
 
 const EDGE_TOLERANCE = 8;
@@ -16,14 +18,16 @@ const EDGE_TOLERANCE = 8;
  * desktop mouse grab-to-scroll. Interactive descendants still receive normal
  * clicks unless the pointer actually travels far enough to become a drag.
  */
-export function DragScrollRail({ wheelToX = false, alwaysShowArrows = false, ...props }: DragScrollRailProps) {
+export function DragScrollRail({ wheelToX = false, alwaysShowArrows = false, fixedItemLayout, ...props }: DragScrollRailProps) {
   const railRef = useDragScroll<HTMLDivElement>({ wheel: wheelToX ? "x" : "native" });
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
 
   useEffect(() => {
     if (!scroller) return;
+    let frame = 0;
     const updateEdges = () => {
+      frame = 0;
       const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
       const next = {
         left: scroller.scrollLeft > EDGE_TOLERANCE,
@@ -31,22 +35,26 @@ export function DragScrollRail({ wheelToX = false, alwaysShowArrows = false, ...
       };
       setEdges((current) => current.left === next.left && current.right === next.right ? current : next);
     };
-    updateEdges();
-    const nextFrame = window.requestAnimationFrame(updateEdges);
-    scroller.addEventListener("scroll", updateEdges, { passive: true });
-    window.addEventListener("resize", updateEdges);
-    scroller.addEventListener("load", updateEdges, true);
-    const observer = new ResizeObserver(updateEdges);
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(updateEdges);
+    };
+    schedule();
+    scroller.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    const observer = new ResizeObserver(schedule);
     observer.observe(scroller);
-    for (const child of scroller.children) observer.observe(child);
+    if (fixedItemLayout === undefined) {
+      scroller.addEventListener("load", schedule, true);
+      for (const child of scroller.children) observer.observe(child);
+    }
     return () => {
-      window.cancelAnimationFrame(nextFrame);
-      scroller.removeEventListener("scroll", updateEdges);
-      window.removeEventListener("resize", updateEdges);
-      scroller.removeEventListener("load", updateEdges, true);
+      window.cancelAnimationFrame(frame);
+      scroller.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      scroller.removeEventListener("load", schedule, true);
       observer.disconnect();
     };
-  }, [scroller]);
+  }, [fixedItemLayout, scroller]);
 
   const bindRail = useCallback((node: HTMLDivElement | null) => {
     railRef(node);

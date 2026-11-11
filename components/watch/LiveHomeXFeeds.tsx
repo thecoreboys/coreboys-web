@@ -1,19 +1,38 @@
 "use client";
 
 import Link from "next/link";
+import { use, useEffect, useRef, useState } from "react";
 import { Bell, Camera, RefreshCw, X } from "lucide-react";
 import { useLiveXFeeds } from "@/hooks/useLiveXFeeds";
+import type { LiveXFeedResponse } from "@/lib/watch/live-x-feed";
+import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 import type { WatchHomeXPost, WatchHomeXSpace } from "@/lib/watch/x-posts";
 import { BrowserRelativeTime } from "@/components/ui/BrowserDateTime";
 import { XTweetsRail } from "./XTweetsRail";
 import styles from "./LiveHomeXFeeds.module.css";
 
-export function LiveHomeXFeeds({ initialMembers, initialCrew, spaces }: {
+export function LiveHomeXFeeds({ initialMembers, initialCrew, initialFeed, spaces }: {
   initialMembers: WatchHomeXPost[];
   initialCrew: WatchHomeXPost[];
+  initialFeed?: Promise<LiveXFeedResponse | null>;
   spaces: WatchHomeXSpace[];
 }) {
-  const { members, crew, feed, connection, newPosts, refresh, dismiss } = useLiveXFeeds(initialMembers, initialCrew);
+  const seed = initialFeed ? use(initialFeed) : null;
+  const feedRoot = useRef<HTMLDivElement>(null);
+  const [polling, setPolling] = useState(false);
+  const { members, crew, feed, connection, newPosts, refresh, dismiss } = useLiveXFeeds(
+    seed?.members ?? initialMembers,
+    seed?.crew ?? initialCrew,
+    polling,
+  );
+  useEffect(() => {
+    if (polling) return;
+    const start = () => setPolling(true);
+    if (feedRoot.current) return observeViewportApproach(feedRoot.current, start);
+    // An empty snapshot can recover even though there is no row to observe.
+    const timer = window.setTimeout(start, 5000);
+    return () => window.clearTimeout(timer);
+  }, [polling]);
   const audiences = (["members", "crew"] as const).filter((audience) => (
     audience === "members" ? members.length > 0 || spaces.length > 0 : crew.length > 0
   ));
@@ -26,7 +45,7 @@ export function LiveHomeXFeeds({ initialMembers, initialCrew, spaces }: {
   const status = saved ? "Saved posts" : fresh ? "Updates automatically" : "Latest posts";
 
   return (
-    <div className={styles.feeds}>
+    <div className={styles.feeds} ref={feedRoot}>
       {audiences.map((audience, index) => {
         const isCrew = audience === "crew";
         const items = isCrew ? crew : members;
@@ -40,7 +59,7 @@ export function LiveHomeXFeeds({ initialMembers, initialCrew, spaces }: {
               </div>
               {index === 0 ? <>
                 <div className={styles.actions} role="group" aria-label="X post updates">
-                  <button type="button" onClick={refresh} aria-label="Check for new X posts" title="Check for new posts"><RefreshCw size={17} aria-hidden="true" /></button>
+                  <button type="button" onClick={polling ? refresh : () => setPolling(true)} aria-label="Check for new X posts" title="Check for new posts"><RefreshCw size={17} aria-hidden="true" /></button>
                   <Link href="/account/settings#notifications" aria-label="X post notification settings" title="Notification settings"><Bell size={17} aria-hidden="true" /></Link>
                 </div>
                 <div className={styles.status}>
