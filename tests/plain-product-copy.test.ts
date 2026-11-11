@@ -16,7 +16,7 @@ test("membership copy stays direct and avoids duplicate promotional badges", () 
   }
 
   assert.doesNotMatch(auth, /OPTIONAL SUPPORTER|From \$3\/month/);
-  assert.match(navigation, />Support the site</);
+  assert.doesNotMatch(navigation, />Support the site</);
   assert.doesNotMatch(navigation, /supporterIdentity|>Supporter</);
   assert.doesNotMatch(pricing, /styles\.previewBadge|styles\.recommended|Neutral app Supporter badge/);
   assert.doesNotMatch(homeCta, /Member identity|neutral badge/);

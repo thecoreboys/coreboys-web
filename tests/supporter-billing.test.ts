@@ -127,7 +127,6 @@ test("public pricing surfaces use live controls instead of promising a stale min
   const files = [
     "components/marketing/PricingExperience.tsx",
     "components/marketing/SupporterCta.tsx",
-    "components/chrome/TopNav.tsx",
   ].map((file) => readFileSync(resolve(process.cwd(), file), "utf8"));
   for (const source of files) {
     assert.match(source, /useSupporterBillingControls/);
