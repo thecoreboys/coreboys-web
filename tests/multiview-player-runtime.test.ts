@@ -34,7 +34,7 @@ test("multiview defers nonessential tile work while a tile is offscreen", () => 
 test("the details panel focuses without silently taking room audio", () => {
   const details = stage.slice(stage.indexOf("function DetailsPanel"), stage.indexOf("function EmptyStage"));
   const makeMain = details.slice(details.indexOf("const makeFocusedMain"), details.indexOf("if (!focused) {"));
-  assert.match(makeMain, /player\.focusTile\(focused\.id, \{ takeAudio: false \}\)/);
+  assert.match(makeMain, /player\.makeMain\(focused\.id, \{ takeAudio: false \}\)/);
   assert.doesNotMatch(makeMain, /takeAudio: true/);
   assert.match(details, /focused\.muted \? player\.focusTile\(focused\.id, \{ takeAudio: true \}\)/);
 });
