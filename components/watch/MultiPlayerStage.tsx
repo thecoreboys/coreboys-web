@@ -38,11 +38,15 @@ import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { ChatDock, ChatSessionProvider } from "@/components/live/chat";
 import { YouTubeLiveChat } from "@/components/live/YouTubeLiveChat";
 import { usePlayer, type PlayerContextValue } from "@/components/providers/PlayerProvider";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { openAuthModal } from "@/lib/auth/modal";
 import { MEMBERS } from "@/lib/members";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useMultiviewSourceSearch } from "@/hooks/useMultiviewSourceSearch";
+import { useMultiviewRemoteHost } from "@/hooks/useMultiviewRemote";
+import { MULTIVIEW_LAUNCH_PATH, remoteSourceKey, type RemoteSource } from "@/lib/watch/multiview-remote";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import {
   catalogPlayables,
@@ -100,6 +104,23 @@ type Notice = {
 type SidebarTab = "queue" | "chat" | "details";
 type SourceIntent = "tile" | "queue";
 type MemberRecord = (typeof MEMBERS)[number];
+
+function remoteSourceFor(item: Playable): RemoteSource | null {
+  if (item.kind !== "live" || !item.embeddable) return null;
+  const member = MEMBERS.find(({ slug }) => slug === item.memberSlug);
+  if (!member) return null;
+  if (item.platform === "twitch" && item.twitchLogin?.toLowerCase() === member.twitchLogin.toLowerCase()) {
+    return { member: member.slug, platform: "twitch" };
+  }
+  if (item.platform === "youtube" && item.youtubeId && /^[\w-]{11}$/.test(item.youtubeId)) {
+    return { member: member.slug, platform: "youtube", videoId: item.youtubeId };
+  }
+  return null;
+}
+
+function mainRoomTile(tiles: WorkspaceTile[], maximizedId?: string | null) {
+  return tiles.find((tile) => tile.id === maximizedId) ?? tiles.find((tile) => tile.pinned) ?? tiles[0];
+}
 
 const ROOM_RECIPES: Array<{
   id: string;
@@ -177,6 +198,7 @@ export function MultiPlayerStage({
   autoFillLive = false,
   liveRoom = false,
   initialLiveRoom,
+  remoteHost = false,
 }: {
   catalog: WatchCatalog;
   /** Used by /chat: seed a room from the live-status source once it resolves. */
@@ -185,8 +207,10 @@ export function MultiPlayerStage({
   liveRoom?: boolean;
   /** Server-authorized, redacted bootstrap for /multiview?live=all. */
   initialLiveRoom?: MultiviewLiveRoom;
+  remoteHost?: boolean;
 }) {
   const player = usePlayer();
+  const { user, loading: authLoading } = useAuth();
   const subscription = useSubscription();
   const discovery = useWatchDiscovery();
   const authoritativeLiveRoom = initialLiveRoom?.mode === "all-current-live";
@@ -194,6 +218,7 @@ export function MultiPlayerStage({
   // live-status response. Only the server-issued playable subset enters state.
   const { data: liveStatus } = useLiveStatus(!authoritativeLiveRoom);
   const searchParams = useSearchParams();
+  const remoteLaunch = remoteHost && searchParams.get("remote") === "1";
   const all = useMemo(() => catalogPlayables(catalog), [catalog]);
   const live = useMemo(() => {
     const existing = all.filter((item) => item.kind === "live");
@@ -448,6 +473,42 @@ export function MultiPlayerStage({
   }, [authoritativeLiveRoom, autoFillLive, currentLive, liveStatus, player, roomLive, subscription.loading, tileLimit]);
 
   const focused = player.focusedTile ?? player.tiles[0] ?? null;
+  const mainTile = mainRoomTile(player.tiles, player.maximizedTileId);
+  const remoteItems = useMemo(() => {
+    const result = new Map<string, { source: RemoteSource; item: Playable }>();
+    if (!remoteHost) return result;
+    for (const item of currentLive) {
+      const source = remoteSourceFor(item);
+      if (!source) continue;
+      const key = remoteSourceKey(source);
+      if (!result.has(key) || mainTile?.item.key === item.key) result.set(key, { source, item });
+    }
+    return result;
+  }, [currentLive, mainTile?.item.key, remoteHost]);
+  const remoteSources = useMemo(() => [...remoteItems.values()].map(({ source }) => source), [remoteItems]);
+  const mainSource = mainTile && !mainTile.standby ? remoteSourceFor(mainTile.item) : null;
+  const remoteMain = mainSource ? remoteSourceKey(mainSource) : null;
+  useMultiviewRemoteHost({
+    accountId: remoteHost && player.ready && !subscription.loading ? user?.id ?? null : null,
+    sources: remoteSources,
+    main: remoteMain && remoteItems.get(remoteMain)?.item.key === mainTile?.item.key ? remoteMain : null,
+    switchSource: (key) => {
+      const target = remoteItems.get(key);
+      if (!target) return false;
+      const replacement = player.tiles.length >= tileLimit
+        ? [focused, ...player.tiles].find((tile) => tile && !tile.pinned)?.id
+        : undefined;
+      const tileId = switchLiveSource(target.item, {
+        takeAudio: true,
+        preferredTileId: replacement,
+        resume: true,
+      });
+      if (!tileId) return false;
+      player.makeMain(tileId, { takeAudio: true });
+      if (player.maximizedTileId) player.setMaximizedTileId(tileId);
+      return true;
+    },
+  });
   const focusedMember = useMemo(() => {
     if (!focused) return null;
     return MEMBERS.find((entry) =>
@@ -605,7 +666,7 @@ export function MultiPlayerStage({
     setQuery("");
   }
 
-  function switchLiveSource(item: Playable, options: { takeAudio: boolean; preferredTileId?: string }) {
+  function switchLiveSource(item: Playable, options: { takeAudio: boolean; preferredTileId?: string; resume?: boolean }) {
     const group = liveSourceGroups.find((entry) => entry.sources.some((source) => source.item.key === item.key));
     const sameCreatorTiles = item.memberSlug
       ? player.tiles.filter((tile) => tile.item.kind === "live" && tile.item.memberSlug === item.memberSlug)
@@ -634,6 +695,7 @@ export function MultiPlayerStage({
         if (tile.id !== selectedTileId) player.removeTile(tile.id);
       }
     }
+    if (options.resume) player.updateTile(selectedTileId, { standby: false });
     if (options.takeAudio) {
       for (const tile of player.tiles) {
         if (tile.id !== selectedTileId) player.updateTile(tile.id, { muted: true });
@@ -643,6 +705,7 @@ export function MultiPlayerStage({
     player.focusTile(selectedTileId, { takeAudio: options.takeAudio });
     if (options.takeAudio) setAudioPickerOpen(false);
     setNotice({ text: `${options.takeAudio ? "Now watching" : "Switched to"} ${item.memberLabel} on ${platformLabel(item)}.` });
+    return selectedTileId;
   }
 
   function chooseLiveSource(item: Playable) {
@@ -876,6 +939,13 @@ export function MultiPlayerStage({
             </IconControlTooltip>
           </div>
         </header>
+
+        {remoteLaunch && !authLoading && !user ? (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-400/25 bg-indigo-400/10 px-4 py-3 text-sm text-white/85">
+            <p>Sign in to the same CORE account as your phone to control this Multiview.</p>
+            <button type="button" onClick={() => openAuthModal({ next: MULTIVIEW_LAUNCH_PATH })} className="min-h-11 rounded-full bg-white px-4 font-semibold text-black">Sign in</button>
+          </div>
+        ) : null}
 
         {(player.dataSaver || player.maxActivePlayers < 2) && player.tiles.length > 1 ? (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 px-4 py-3 text-xs text-white/65">
@@ -1370,11 +1440,7 @@ function DetailsPanel({
   const player = usePlayer();
   const makeFocusedMain = () => {
     if (!focused) return;
-    for (const tile of player.tiles) {
-      const pinned = tile.id === focused.id;
-      if (tile.pinned !== pinned) player.updateTile(tile.id, { pinned });
-    }
-    player.focusTile(focused.id, { takeAudio: false });
+    player.makeMain(focused.id, { takeAudio: false });
   };
   if (!focused) {
     return <div className="grid h-full min-h-52 place-items-center p-6 text-center text-xs text-white/38">Add a player to see its details.</div>;
@@ -1532,7 +1598,7 @@ function TheaterRoomSurface({
   // Selection drives details and audio, but never moves the room under the
   // viewer. A pinned tile is the deliberate main view; otherwise the first
   // source keeps the main slot until the user promotes another one.
-  const main = tiles.find((tile) => tile.pinned) ?? tiles[0] ?? null;
+  const main = mainRoomTile(tiles);
   const roomRef = useRef<HTMLElement>(null);
   const [roomWidth, setRoomWidth] = useState(0);
   useEffect(() => {
@@ -1819,14 +1885,6 @@ type PlayerTileRuntime = Pick<
 
 function PlayerTile(props: PlayerTileProps) {
   const player = usePlayer();
-  const { tiles, updateTile, focusTile } = player;
-  const makeMain = useCallback((id: string, options?: { takeAudio?: boolean }) => {
-    for (const candidate of tiles) {
-      const pinned = candidate.id === id;
-      if (candidate.pinned !== pinned) updateTile(candidate.id, { pinned });
-    }
-    focusTile(id, options);
-  }, [focusTile, tiles, updateTile]);
   const actionsRef = useRef({
     onReplace: props.onReplace,
     onDragStart: props.onDragStart,
@@ -1859,7 +1917,7 @@ function PlayerTile(props: PlayerTileProps) {
     removeTile: player.removeTile,
     setMaximizedTileId: player.setMaximizedTileId,
     updateTile: player.updateTile,
-    makeMain,
+    makeMain: player.makeMain,
   }), [
     player.audioDescription,
     player.captionsEnabled,
@@ -1873,7 +1931,7 @@ function PlayerTile(props: PlayerTileProps) {
     player.removeTile,
     player.setMaximizedTileId,
     player.updateTile,
-    makeMain,
+    player.makeMain,
   ]);
 
   return <PlayerTileSurface {...props} {...stableActions} player={runtime} />;

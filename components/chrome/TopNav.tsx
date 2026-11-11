@@ -27,6 +27,7 @@ import { openAuthModal } from "@/lib/auth/modal";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { ThemeToggle } from "@/components/chrome/ThemeToggle";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
+import { MultiviewRemoteMenuLink } from "@/components/watch/MultiviewRemoteLinks";
 import { countLiveCreators } from "@/lib/watch/live-source-groups";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
@@ -566,6 +567,7 @@ export function TopNav() {
       {open ? (
         <div id="mobile-navigation" data-lenis-prevent className="core-topnav__mobile-menu absolute inset-x-0 top-full overflow-y-auto overscroll-contain border-y border-[color:var(--rule)] bg-[color:var(--bg)] shadow-xl lg:hidden">
           <nav aria-label="Mobile navigation" className="mx-auto max-w-container px-4 py-4 sm:px-6">
+            <MultiviewRemoteMenuLink onNavigate={() => setOpen(false)} />
             {!authLoading && !user ? (
               <Button color="secondary" size="lg" className="mb-5 w-full" onPress={() => { setOpen(false); openAuth(); }}>
                 Sign in

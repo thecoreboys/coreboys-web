@@ -12,6 +12,7 @@ import { WatchContextMenuProvider } from "@/components/watch/WatchContextMenu";
 import { GlobalWatchEnhancements } from "@/components/watch/GlobalWatchEnhancements";
 import { TopNav } from "@/components/chrome/TopNav";
 import { LiveRibbon } from "@/components/live/LiveRibbon";
+import { MultiviewRemoteBanner } from "@/components/watch/MultiviewRemoteLinks";
 import { GlobalSiteFooter } from "@/components/chrome/GlobalSiteFooter";
 import { MobileBottomNav } from "@/components/chrome/MobileBottomNav";
 
@@ -159,6 +160,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <TopNav />
                 </Suspense>
                 <LiveRibbon />
+                <MultiviewRemoteBanner />
               </SiteHeader>
               {/* SiteHeader measures the complete banner, navigation and live ribbon. */}
               <main

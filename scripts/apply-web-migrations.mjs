@@ -74,6 +74,7 @@ const migrations = [
   "063_clipping_campaigns.sql",
   "063_face_photo_candidates.sql",
   "064_face_processing_costs.sql",
+  "066_multiview_remote.sql",
 ];
 
 function loadEnvLocal() {

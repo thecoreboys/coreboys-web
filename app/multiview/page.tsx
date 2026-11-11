@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 type MultiviewPageProps = {
-  searchParams: Promise<{ live?: string | string[]; add?: string | string[]; layout?: string | string[] }>;
+  searchParams: Promise<{ live?: string | string[]; add?: string | string[]; layout?: string | string[]; remote?: string }>;
 };
 
 async function expandedMultiviewAllowed(): Promise<boolean> {
@@ -64,6 +64,8 @@ export default async function MultiviewPage({ searchParams }: MultiviewPageProps
       <MultiviewEntry
         catalog={compactWatchCatalog(projectMultiviewCatalog(browserCatalog, references))}
         initialLiveRoom={initialLiveRoom}
+        autoFillLive={openAllCurrentLive || params.remote === "1"}
+        remoteHost
       />
     </Suspense>
   );

@@ -266,6 +266,7 @@ export type PlayerContextValue = {
   removeTile: (tileId: string) => void;
   finishTile: (tileId: string) => void;
   focusTile: (tileId: string, options?: { takeAudio?: boolean }) => void;
+  makeMain: (tileId: string, options?: { takeAudio?: boolean }) => void;
   updateTile: (
     tileId: string,
     patch: Partial<Omit<WorkspaceTile, "id" | "item">>,
@@ -1491,6 +1492,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [focusTile, mixAudio]);
 
+  const makeMain = useCallback((id: string, options?: { takeAudio?: boolean }) => {
+    if (!tilesRef.current.some((tile) => tile.id === id)) return;
+    for (const tile of tilesRef.current) {
+      const pinned = tile.id === id;
+      if (tile.pinned !== pinned) updateTile(tile.id, { pinned, rect: tile.rect });
+    }
+    focusTile(id, options);
+  }, [focusTile, updateTile]);
+
   const swapTiles = useCallback((firstId: string, secondId: string) => {
     if (firstId === secondId) return;
     const first = tilesRef.current.find((tile) => tile.id === firstId);
@@ -2277,6 +2287,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     removeTile,
     finishTile,
     focusTile,
+    makeMain,
     updateTile,
     swapTiles,
     applyPreset,
@@ -2306,7 +2317,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     activeChannel, autoplay, autoplayMode, captionsEnabled, chatChannels, chatDock, chatDockSize, chatFloatingRect, chatFocusedLogin, chatMode, chatTextScale, companionView, current,
     clearQueue, dataSaver, deleteLayout, fillWithLive, finishTile, focusTile, focusedTile,
     focusedTileId, gridColumnsState, history, importWorkspace, layoutPreset,
-    loadLayout, maxActivePlayersState, maximizedTileId, mixAudio, mode, muteAll, playbackRate,
+    loadLayout, makeMain, maxActivePlayersState, maximizedTileId, mixAudio, mode, muteAll, playbackRate,
     moveQueueItem, navigateShortForm, play, playChannel, playFromQueue, previewAutoplay, previewSoundEnabled,
     previewVolume, activePreviewAudioId, previous, queue, queueOpen, refill, replaceQueue,
     qualityPreference, ready, removeFromQueue, removeTile, replaceTile, requestSeek,
