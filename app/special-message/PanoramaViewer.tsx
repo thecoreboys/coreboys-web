@@ -42,7 +42,8 @@ export function PanoramaViewer() {
   });
   const [view, setView] = useState<View>(INITIAL_VIEW);
   const [dragging, setDragging] = useState(false);
-  const [panoramaReady, setPanoramaReady] = useState(false);
+  const [panoramaState, setPanoramaState] = useState<"loading" | "ready" | "photo">("loading");
+  const panoramaReady = panoramaState === "ready";
   const isOceanView = isLookingOceanward(view);
 
   useEffect(() => {
@@ -51,6 +52,12 @@ export function PanoramaViewer() {
 
     let disposed = false;
     let disposeRenderer: (() => void) | undefined;
+    const showPhoto = () => {
+      if (disposed) return;
+      disposeRenderer?.();
+      disposeRenderer = undefined;
+      setPanoramaState("photo");
+    };
 
     void import("three").then((THREE) => {
       if (disposed) return;
@@ -90,6 +97,15 @@ export function PanoramaViewer() {
       renderRef.current = render;
       const resizeObserver = new ResizeObserver(resize);
       resizeObserver.observe(mount);
+      disposeRenderer = () => {
+        resizeObserver.disconnect();
+        renderRef.current = null;
+        material.map?.dispose();
+        material.dispose();
+        geometry.dispose();
+        renderer.dispose();
+        renderer.domElement.remove();
+      };
       resize();
 
       textureLoader.load(
@@ -105,26 +121,13 @@ export function PanoramaViewer() {
           material.map = texture;
           material.color.set(0xffffff);
           material.needsUpdate = true;
-          setPanoramaReady(true);
+          setPanoramaState("ready");
           render();
         },
         undefined,
-        () => {
-          // Leave the accessible CSS fallback in place if the source image cannot load.
-          renderRef.current = null;
-        },
+        showPhoto,
       );
-
-      disposeRenderer = () => {
-        resizeObserver.disconnect();
-        renderRef.current = null;
-        material.map?.dispose();
-        material.dispose();
-        geometry.dispose();
-        renderer.dispose();
-        renderer.domElement.remove();
-      };
-    });
+    }).catch(showPhoto);
 
     return () => {
       disposed = true;
@@ -141,10 +144,6 @@ export function PanoramaViewer() {
     renderRef.current?.();
   }
 
-  function setYaw(yaw: number) {
-    setViewpoint({ yaw, pitch: view.pitch });
-  }
-
   function resetView() {
     setViewpoint(INITIAL_VIEW);
   }
@@ -156,15 +155,15 @@ export function PanoramaViewer() {
 
   return (
     <figure className={styles.panoramaFigure}>
-      <h3 className={styles.panoramaTitle}>Where I call home</h3>
+      <h3>Where I call home</h3>
       <div
-        className={`${styles.panoramaViewport} ${dragging ? styles.panoramaDragging : ""}`}
-        role="region"
-        aria-label="Interactive 360 degree aerial panorama of South Florida"
-        aria-describedby="panorama-instructions panorama-status"
-        tabIndex={0}
+        className={`${styles.panoramaViewport} ${panoramaReady ? styles.panoramaInteractive : ""} ${dragging ? styles.panoramaDragging : ""}`}
+        role={panoramaReady ? "region" : "img"}
+        aria-label={panoramaReady ? "Interactive 360 degree aerial panorama of South Florida" : "Aerial photo of South Florida"}
+        aria-describedby={panoramaReady ? "panorama-instructions panorama-status" : undefined}
+        tabIndex={panoramaReady ? 0 : undefined}
         onPointerDown={(event) => {
-          if (event.button !== 0 || (event.target instanceof Element && event.target.closest("button"))) {
+          if (!panoramaReady || event.button !== 0 || (event.target instanceof Element && event.target.closest("button"))) {
             return;
           }
 
@@ -209,13 +208,13 @@ export function PanoramaViewer() {
 
           if (!nextView) return;
           event.preventDefault();
-          setYaw(nextView.yaw);
+          setViewpoint(nextView);
         }}
       >
         <div className={styles.panoramaFallback} aria-hidden="true" />
         <div ref={canvasMountRef} className={styles.panoramaCanvas} aria-hidden="true" />
 
-        {!panoramaReady ? <div className={styles.panoramaLoading}>Loading 360° view</div> : null}
+        {panoramaState === "loading" ? <div className={styles.panoramaLoading}>Loading panorama…</div> : null}
 
         <div
           className={`${styles.panoramaPlace} ${
@@ -223,40 +222,32 @@ export function PanoramaViewer() {
           }`}
           aria-hidden="true"
         >
-          <span>Atlantic coast</span>
           <strong>South Florida</strong>
         </div>
 
-        <div className={styles.panoramaHud} aria-hidden="true">
-          <span className={styles.panoramaCompass}>E</span>
-          <span>360° field view</span>
-        </div>
-
-        <button
-          className={styles.panoramaReset}
-          type="button"
-          onClick={resetView}
-          aria-label="Reset panorama to the ocean view"
-        >
-          <span aria-hidden="true">↺</span>
-          Ocean view
-        </button>
-
-        <span className={styles.panoramaHint}>Drag to look around and tilt up or down</span>
-        <span id="panorama-instructions" className={styles.panoramaSrOnly}>
-          Drag horizontally to look around and vertically to tilt up or down. Use the arrow keys,
-          or Home or R, to reset to the ocean view.
-        </span>
-        <span id="panorama-status" className={styles.panoramaSrOnly} aria-live="polite">
-          {isOceanView ? "Facing the Atlantic Ocean: South Florida." : "Looking around South Florida."}
-        </span>
+        {panoramaReady ? (
+          <>
+            <button
+              className={styles.panoramaReset}
+              type="button"
+              onClick={resetView}
+              aria-label="Reset panorama to the ocean view"
+            >
+              <span aria-hidden="true">↺</span>
+              Ocean view
+            </button>
+            <span className={styles.panoramaHint}>Drag to look around</span>
+            <span id="panorama-instructions" className={styles.panoramaSrOnly}>
+              Drag horizontally to look around and vertically to tilt up or down. Use the arrow keys,
+              or Home or R, to reset to the ocean view.
+            </span>
+            <span id="panorama-status" className={styles.panoramaSrOnly} aria-live="polite">
+              {isOceanView ? "Facing the Atlantic Ocean: South Florida." : "Looking around South Florida."}
+            </span>
+          </>
+        ) : null}
       </div>
-      <figcaption>
-        <span>Production file / FAA-registered drone flight</span>
-        <div>
-          <small>Source capture / 8,192 × 4,096 / 360° equirectangular panorama</small>
-        </div>
-      </figcaption>
+      <figcaption>I took this 360° photo with my FAA-registered drone in South Florida.</figcaption>
     </figure>
   );
 }

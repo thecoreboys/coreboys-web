@@ -31,7 +31,7 @@ test("the original photos, videos, posters, screenshots and panorama remain avai
 test("the personal history and independent-project disclosure remain", () => {
   for (const phrase of [
     "Cranberry Crush", "Udonis Haslem", "Norris Cole", "LeBron James, Dwyane Wade,",
-    "Lubcubs Gaming", "PopularMMOs", "GamingWithJen", "chronic anxiety and am",
+    "Lubcubs Gaming", "PopularMMOs", "GamingWithJen", "chronic anxiety",
     "neurodivergent", "July 31, 2026", "DigitalOcean", "Army Reserve",
     "B.S. in Computer Science", "people who speak Spanish", "Adapt, Woj, Bepsy,",
     "not affiliated with,", "@berryeyu",

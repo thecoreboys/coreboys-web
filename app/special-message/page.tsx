@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, ArrowUpRight, Code2, Cpu, Radio } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUpRight } from "lucide-react";
 import { AutoLoopVideo } from "./AutoLoopVideo";
 import { PanoramaViewer } from "./PanoramaViewer";
 import { StoryProgress } from "./StoryProgress";
@@ -9,573 +9,326 @@ import styles from "./special-message.module.css";
 
 export const metadata: Metadata = {
   title: "A Personal Message",
-  description:
-    "A personal letter about code, creative production, the story behind Coreboys, and why I built this site.",
+  description: "A letter from Michael about how he got started, why he built CORE Watch, and what he’d like to do with CORE.",
   alternates: { canonical: "/special-message" },
   openGraph: {
     title: "A Personal Message",
-    description:
-      "An open letter about this site, the people who inspired it, and why I made it.",
+    description: "A letter from Michael about how he got started and why he built CORE Watch.",
     url: "/special-message",
     type: "article",
     images: [
       {
         url: "/special-message/core-huddle.webp",
         width: 1600,
-        height: 2400,
-        alt: "A real group photo of CORE members and friends.",
+        height: 1600,
+        alt: "CORE members and friends looking down toward the camera.",
       },
     ],
   },
 };
 
-const toolkit = [
+const creators = [
   {
-    number: "01",
-    title: "Software & Engineering",
-    body: "I make websites, full-stack apps, and Java mods and plugins. My favorite projects start with a wild idea and end with something people can actually use.",
+    name: "PopularMMOs",
+    href: "https://www.youtube.com/channel/UCpGdL9Sn3Q5YWUH2DVUW1Ug",
+    image: "/special-message/popularmmos-profile.jpg",
   },
   {
-    number: "02",
-    title: "Production & A/V",
-    body: "I have set up cameras, lights, microphones, and soundboards, then edited the footage. I like knowing what happens behind the camera as much as what ends up on screen.",
-  },
-  {
-    number: "03",
-    title: "Hardware & IT",
-    body: "I build servers and gaming PCs, including the water-cooled computer shown below. I also fly an FAA-registered drone and enjoy figuring out why a setup is not working.",
+    name: "GamingWithJen",
+    href: "https://www.youtube.com/channel/UC_ItCy-BTDCULPpDPlieUKA",
+    image: "/special-message/gamingwithjen-profile.jpg",
   },
 ] as const;
 
 const videoIdeas = [
-  { image: "science-fair", title: "CORE SCIENCE FAIR: Whose Experiment Will Win?" },
-  { image: "kart-challenges", title: "CORE GO KARTS: Soccer, Bowling & Pure Chaos" },
-  { image: "world-records", title: "DUDE IMPERFECT: We Tried Breaking the Dumbest World Records" },
-  { image: "blanket-fort", title: "We Built the World’s Biggest Blanket Fort at the CORE House" },
-  { image: "ninja", title: "CORE Attempts an American Ninja Warrior Course" },
-  { image: "single", title: "CORE Plays Odd One Out: Who Is Single?" },
-  { image: "gay", title: "CORE Plays Odd One Out: Who Is Gay?" },
-  { image: "millionaire", title: "CORE Plays Odd One Out: Who Is a Millionaire?" },
+  "CORE science fair",
+  "Go-kart soccer and bowling",
+  "Dude Imperfect: Trying to break ridiculous world records",
+  "The world’s biggest blanket fort at the CORE House",
+  "CORE tries an American Ninja Warrior course",
+  "Odd One Out: Who’s single?",
+  "Odd One Out: Who’s a millionaire?",
+];
+
+const computerClips = [
+  {
+    src: "/special-message/evidence/pc-build-macro.mp4",
+    poster: "/special-message/evidence/pc-build-open.webp",
+    caption: "A closer look at the tubing",
+  },
+  {
+    src: "/special-message/evidence/pc-build-tour.mp4",
+    poster: "/special-message/evidence/pc-build-lit.webp",
+    caption: "A tour of the finished PC",
+  },
+  {
+    src: "/special-message/evidence/pc-build-red.mp4",
+    poster: "/special-message/evidence/pc-build-red-poster.webp",
+    caption: "The build with red lighting",
+  },
+] as const;
+
+const siteScreens = [
+  {
+    title: "Home",
+    src: "/special-message/app-screens/home.png",
+    alt: "CORE Watch home page with a featured live stream.",
+    description: "See who’s live, then browse Originals, clips, and posts.",
+  },
+  {
+    title: "Guide",
+    src: "/special-message/app-screens/guide.png",
+    alt: "The Guide showing broadcasts and timeline filters.",
+    description: "Find a stream or filter past shows by member, platform, or format.",
+  },
+  {
+    title: "Theater",
+    src: "/special-message/app-screens/now-playing-guide.png",
+    alt: "Theater with Adapt’s stream and the chat panel open.",
+    description: "Watch with chat and keep Up Next within reach.",
+  },
+  {
+    title: "Community networks",
+    src: "/special-message/app-screens/flock-network.png",
+    alt: "The Flock Network page and its 24/7 programming.",
+    description: "Each community has its own 24/7 channel and a place to catch up on its creators.",
+  },
 ] as const;
 
 export default function SpecialMessagePage() {
   return (
-    <>
-      <article id="special-message-top" className={styles.page}>
-        <div className={styles.paper}>
-          <div className={styles.systemBar}>
-            <Link href="/"><ArrowLeft size={14} aria-hidden="true" /> Back to CORE</Link>
-            <span>The builder&apos;s log <span aria-hidden="true">/</span> A personal message</span>
-            <span className={styles.independentBadge}><i aria-hidden="true" /> Independent project</span>
-          </div>
-          <header className={styles.frontPage}>
-            <div className={styles.headlineCopy}>
-                <p className={styles.eyebrow}>A personal message from Michael</p>
-                <h1>CORE, I&apos;d love to <span>work with you.</span></h1>
-                <p className={styles.dek}>
-                  I built this site because your streams helped me through some hard days.
-                  I&apos;d love to help with the website and whatever else CORE wants to build,
-                  from software and infrastructure to cameras, audio, and live production.
-                </p>
-                <div className={styles.heroActions}>
-                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">Get in touch <ArrowUpRight size={17} aria-hidden="true" /></a>
-                  <a href="#beginning">My story <ArrowDown size={17} aria-hidden="true" /></a>
-                </div>
-                <div className={styles.heroByline}>
-                  <span className={styles.bylineMark} aria-hidden="true">mc_</span>
-                  <p><strong>Michael</strong><span>Software, production and a lot of curiosity.</span></p>
-                </div>
+    <article id="special-message-top" className={styles.page}>
+      <div className={styles.paper}>
+        <header className={styles.frontPage}>
+          <div className={styles.headlineCopy}>
+            <p className={styles.byline}>A personal message from Michael</p>
+            <h1>CORE, I&apos;d love to work with you.</h1>
+            <p className={styles.lead}>
+              I built CORE Watch because your streams helped me through some hard days.
+              I wanted a place to find those streams and clips again. If you&apos;re working
+              on the site or planning a shoot, I&apos;d like to help.
+            </p>
+            <div className={styles.heroActions}>
+              <a className={styles.primaryLink} href="#beginning">Read my story <ArrowDown size={18} aria-hidden="true" /></a>
+              <a className={styles.textLink} href="https://x.com/berryeyu" target="_blank" rel="noreferrer">Get in touch <ArrowUpRight size={18} aria-hidden="true" /></a>
             </div>
+          </div>
           <figure className={styles.heroFigure}>
-            <div className={styles.mediaBar}><span>THE PEOPLE WHO INSPIRED IT</span><span>CORE / COMMUNITY</span></div>
             <Image
-              className={styles.heroImage}
               src="/special-message/core-huddle.webp"
-              alt="A real group photo of CORE members and friends looking down toward the camera."
+              alt="CORE members and friends looking down toward the camera."
               width={1600}
-              height={2400}
-              sizes="(max-width: 900px) 100vw, 45vw"
+              height={1600}
+              sizes="(max-width: 760px) calc(100vw - 2rem), 42vw"
               priority
             />
           </figure>
-          </header>
+        </header>
 
-          <div className={styles.disciplineBar} aria-label="Where my work comes together">
-            <span>Curiosity, connected.</span>
-            <span><Code2 size={16} aria-hidden="true" /> Software &amp; engineering</span>
-            <span><Radio size={16} aria-hidden="true" /> Production &amp; A/V</span>
-            <span><Cpu size={16} aria-hidden="true" /> Hardware &amp; IT</span>
-          </div>
-
-          <div id="story-timeline" className={styles.readingLayout}>
+        <div id="story-timeline" className={styles.readingLayout}>
           <StoryProgress />
+
           <div className={styles.timelineMain}>
-
-          <section id="beginning" data-step="01" className={styles.chapter}>
-            <div className={styles.chapterLabel}>
-              <span><b>01</b> When I was 11</span>
-              <p>My first big idea</p>
-            </div>
-
-            <div className={styles.storyCopy}>
-              <p className={styles.previously}>A Miami Heat game, a soccer field, and Minecraft</p>
-              <h2>I was always the kid behind the scenes.</h2>
-              <p>
-                I was 11 when I first got into programming. One of my earliest site ideas came
-                from a Miami Heat game. My dad bought the tickets as a Christmas and birthday
-                gift, then realized the seller had scammed him. Somehow, the night still turned
-                into something I&apos;ll never forget. I met Udonis Haslem, shot free throws after
-                the game with Norris Cole and the Heat&apos;s Big Three: LeBron James, Dwyane Wade,
-                and Chris Bosh. I even got to hold championship rings. It showed me how one
-                ticket can turn into a real memory, and that idea stuck with me.
-              </p>
-              <p>
-                One of my first big ideas was trying to buy web hosting so
-                I could make a ticket site for my own knock-off basketball team, the Cranberry
-                Crush. I got in trouble for the hosting part, but the instinct behind it never
-                really left me.
-              </p>
-              <p>
-                My introduction to Minecraft happened at a soccer field. Another kid&apos;s dad
-                brought iPads for us to use, and I was fortunate enough to get one and play.
-                I slowly but surely got Minecraft on PC, then learned how to moderate servers,
-                build maps, develop in Java, and make mods and plugins. I kept following the
-                next thing I was curious about, and every step pulled me further into making
-                things other people could use and enjoy.
-              </p>
-            </div>
-
-            <aside className={styles.marginFile}>
-              <span className={styles.marginFileKicker}>My first website idea</span>
-              <strong>Cranberry Crush</strong>
-              <p>
-                A made-up basketball team and an early hosting idea. I tried to purchase hosting
-                at age 11, got in trouble for it, and learned that an idea can feel real before
-                it is ever built.
-              </p>
-              <span className={styles.redUnderline}>The first spark</span>
-            </aside>
-          </section>
-
-          <section id="creator-work" data-step="02" className={styles.chapter}>
-            <div className={styles.chapterLabel}>
-              <span><b>02</b> 2018 to 2021</span>
-              <p>Building for creators</p>
-            </div>
-
-            <div className={styles.storyCopy}>
-              <p className={styles.previously}>Minecraft opened a real door</p>
-              <h2>I got to build for creators I had grown up watching.</h2>
-              <p>
-                Minecraft work opened the door to{" "}
-                <a
-                  className={styles.creatorInlineLink}
-                  href="https://www.youtube.com/@Lubcubs"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Lubcubs Gaming
-                </a>
-                . Between 2018 and 2021, I also helped with projects for{" "}
-                <a
-                  className={styles.creatorInlineLink}
-                  href="https://www.youtube.com/channel/UCpGdL9Sn3Q5YWUH2DVUW1Ug"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  PopularMMOs
-                </a>
-                ,{" "}
-                <a
-                  className={styles.creatorInlineLink}
-                  href="https://www.youtube.com/channel/UC_ItCy-BTDCULPpDPlieUKA"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  GamingWithJen
-                </a>
-                , and other creators I had watched for years.
-              </p>
-              <p>
-                I was usually behind the scenes. Someone would bring in a strange or funny
-                idea, and I would work out the Java, maps, mods, or plugins needed to make it
-                happen. I set up simulators and tycoons, built challenge and hide-and-seek
-                games, and figured out the little details that made each world feel alive.
-                I was helping shape the kind of childhood I had grown up loving, even when I
-                was nowhere near the camera.
-              </p>
-
-              <div className={styles.creatorProfiles} aria-label="Creators I worked for">
-                <a
-                  className={styles.creatorProfile}
-                  href="https://www.youtube.com/channel/UCpGdL9Sn3Q5YWUH2DVUW1Ug"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Image
-                    className={styles.creatorAvatar}
-                    src="/special-message/popularmmos-profile.jpg"
-                    alt="PopularMMOs official YouTube profile picture"
-                    width={900}
-                    height={900}
-                    sizes="80px"
-                  />
-                  <span>
-                    <small>Projects I helped with</small>
-                    <strong>PopularMMOs</strong>
-                    <em>Official channel ↗</em>
-                  </span>
-                </a>
-
-                <a
-                  className={styles.creatorProfile}
-                  href="https://www.youtube.com/channel/UC_ItCy-BTDCULPpDPlieUKA"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Image
-                    className={styles.creatorAvatar}
-                    src="/special-message/gamingwithjen-profile.jpg"
-                    alt="GamingWithJen official YouTube profile picture"
-                    width={900}
-                    height={900}
-                    sizes="80px"
-                  />
-                  <span>
-                    <small>Projects I helped with</small>
-                    <strong>GamingWithJen</strong>
-                    <em>Official channel ↗</em>
-                  </span>
-                </a>
+            <section id="beginning" data-step="01" className={styles.chapter}>
+              <h2>A basketball team I made up</h2>
+              <div className={styles.prose}>
+                <p>
+                  I was 11 when I got in trouble for trying to buy web hosting. I wanted to make
+                  a ticket site for the Cranberry Crush, a basketball team I&apos;d made up.
+                </p>
+                <p>
+                  The idea came from a Miami Heat game. My dad bought the tickets for Christmas
+                  and my birthday, then found out the seller had scammed him. Somehow, it still
+                  turned into a night I&apos;ll never forget. I met Udonis Haslem and shot free throws
+                  after the game with Norris Cole and the Big Three (LeBron James, Dwyane Wade,
+                  and Chris Bosh). I even got to hold championship rings. After that, I wanted
+                  to build a ticket site of my own.
+                </p>
+                <p>
+                  Around that time, I tried Minecraft on an iPad at a soccer field. Another kid&apos;s
+                  dad had brought iPads for us to play on. I eventually got the PC version and
+                  started moderating servers and building maps. When I wanted to change what the
+                  game could do, I learned Java and started writing mods and plugins.
+                </p>
               </div>
+            </section>
 
-            </div>
-
-            <aside className={styles.marginFile}>
-              <span className={styles.marginFileKicker}>A career in the making</span>
-              <strong>Player → builder</strong>
-              <p>I started out playing. Before long, I was the one building the maps, servers, and ideas.</p>
-              <a
-                className={styles.redUnderline}
-                href="https://www.youtube.com/@Lubcubs"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Lubcubs Gaming
-              </a>
-            </aside>
-          </section>
-
-          <section id="hard-years" data-step="03" className={styles.chapter}>
-            <div className={styles.chapterLabel}>
-              <span><b>03</b> A difficult stretch</span>
-              <p>High school through college</p>
-            </div>
-
-            <div className={styles.storyCopy}>
-              <p className={styles.previously}>A lot changed in a short time</p>
-              <h2>Then I stopped feeling like myself for a while.</h2>
-              <p>
-                First, COVID hit while I was still in high school. After high school, I moved
-                away to college. Then, while I was trying to adjust to college and adulthood,
-                my parents divorced, and my health spiraled.
-              </p>
-              <p>
-                It was a lot of change close together. I live with chronic anxiety and am
-                neurodivergent, and those years made it hard to feel grounded. My confidence took
-                a real hit, communication got harder, and there were long stretches where I felt
-                stuck and unsure of what I was supposed to do next.
-              </p>
-              <p>
-                I kept making things whenever I had the energy. I helped with sound, lighting,
-                video, cameras, editing, computer systems, and software. Those projects gave me
-                somewhere to be creative, keep learning, and turn an idea into something people
-                could actually use.
-              </p>
-            </div>
-
-            <blockquote className={styles.pullQuote}>
-              <span aria-hidden="true">“</span>
-              <p>When it was hard to smile, my goal shifted: how could I make others smile?</p>
-            </blockquote>
-          </section>
-
-          <div className={styles.resetPause} aria-label="Chapter transition">
-            <span>Then I found a reason to build again</span>
-            <strong>That is where CORE enters this story.</strong>
-          </div>
-
-          <section id="why-core" data-step="04" className={styles.chapter}>
-            <div className={styles.chapterLabel}>
-              <span><b>04</b> Why I started again</span>
-              <p>College to now</p>
-            </div>
-
-            <div className={styles.storyCopy}>
-              <p className={styles.previously}>The reason I made this site</p>
-              <h2>CORE gave me something to come back to on hard days.</h2>
-              <p>
-                There were days when I woke up already exhausted, went through the motions,
-                and did not really feel like myself. During that time, I would put on a stream,
-                watch a clip, or find some ridiculous joke and let it give me a break. It did not
-                fix anything by itself, and I was never pretending it did. But those small breaks
-                helped me laugh, reset, and get through the day.
-              </p>
-              <p>
-                That is why I made this. I wanted to turn that feeling into something practical:
-                a place where the streams, clips, and memories are easier to find, without acting
-                like any of it is bigger or more perfect than it really is.
-              </p>
-              <p>
-                When V1 went offline on July 31, 2026, my free college server credits with
-                DigitalOcean had expired. I had a choice: let the idea disappear with it, or
-                build it again with more care. I chose to rebuild it. The site on this page is V2.
-              </p>
-            </div>
-
-            <aside className={styles.shutdownNotice}>
-              <span>Why V2 exists</span>
-              <strong>V1 went dark.</strong>
-              <p>July 31, 2026 / the original site went offline</p>
-              <em>I built it again.</em>
-            </aside>
-          </section>
-
-          <section id="what-i-built" data-step="05" className={styles.toolkitSection}>
-            <div className={styles.chapterLabel}>
-              <span><b>05</b> Code meets production</span><p>The toolkit</p>
-            </div>
-            <div className={styles.toolkitImageWrap}>
-              <Image
-                className={styles.toolkitImage}
-                src="/special-message/app-screens/home.png"
-                alt="A screenshot of CORE Watch, the website I built, open to its home page."
-                width={1265}
-                height={710}
-                sizes="(max-width: 900px) 100vw, 58vw"
-              />
-            </div>
-
-            <div className={styles.toolkitIntro}>
-              <p className={styles.eyebrow}>The work I enjoy</p>
-              <h2>This is the kind of work I love doing.</h2>
-              <p>
-                Most of my work happens where code, cameras, sound, and hardware meet. I like
-                learning how the pieces fit together, then getting my hands on the part that
-                needs fixing or building.
-              </p>
-              <p>
-                I&apos;m a recent computer science graduate trying to find my footing in a job
-                market being reshaped by AI. It&apos;s been difficult, but I still want to make
-                useful things and work with people who care about what they create.
-              </p>
-            </div>
-
-            <div className={styles.toolkitGrid}>
-              {toolkit.map((item) => (
-                <section className={styles.toolkitCard} key={item.number}>
-                  <span>{item.number}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
-                </section>
-              ))}
-            </div>
-
-            <div className={styles.productionWork}>
-              <div className={styles.productionIntro}>
-                <h3>Behind the camera, too.</h3>
-                <div>
-                  <p>I&apos;ve worked with DJI drones and wireless mics, RØDE mics, Shure microphones and headsets, Sony Alpha 7, FX3 and FX5 cameras, lighting and sound boards, studio lighting, and XLR cable management.</p>
-                  <p>I know how to stream drone footage live and manage video ingest. I&apos;ve also built my own ingest management server and toolkit. From planning and production through execution, I like taking an idea, building it, and making it work at scale.</p>
-                  <p className={styles.productionCredit}>Equipment images are illustrative.</p>
-                </div>
+            <section id="creator-work" data-step="02" className={styles.chapter}>
+              <h2>Building for creators I grew up watching</h2>
+              <div className={styles.prose}>
+                <p>
+                  That Minecraft work led to <a href="https://www.youtube.com/@Lubcubs" target="_blank" rel="noreferrer">Lubcubs Gaming</a>.
+                  From 2018 to 2021, I also helped with projects for PopularMMOs, GamingWithJen,
+                  and other creators I&apos;d watched growing up.
+                </p>
+                <p>
+                  I worked behind the scenes. Someone would pitch a challenge or a hide-and-seek
+                  game, and I&apos;d figure out how to make it work in Minecraft. I built maps, mods,
+                  simulators, and tycoons. It was fun knowing something I made could become part
+                  of a video I would&apos;ve watched as a kid.
+                </p>
               </div>
-              <div className={styles.productionGallery}>
-                <Image src="/special-message/production/drone.webp" alt="Illustration of a drone and controller on a production table" width={1200} height={800} sizes="(max-width: 700px) 100vw, 33vw" />
-                <Image src="/special-message/production/audio.webp" alt="Illustration of an audio console, microphones and cables" width={1200} height={800} sizes="(max-width: 700px) 100vw, 33vw" />
-                <Image src="/special-message/production/camera.webp" alt="Illustration of a camera and lighting setup" width={1200} height={800} sizes="(max-width: 700px) 100vw, 33vw" />
-              </div>
-            </div>
-
-            <section className={styles.ideasSection} aria-labelledby="ideas-title">
-              <div>
-                <h3 id="ideas-title">Ideas for CORE</h3>
-                <p>A few video concepts I&apos;d love to help bring to life. These are proposed ideas, with illustrative thumbnails.</p>
-              </div>
-              <div className={styles.ideasGrid}>
-                {videoIdeas.map((idea) => (
-                  <article className={styles.ideaCard} key={idea.image}>
-                    <Image src={`/special-message/ideas/${idea.image}.webp`} alt="" width={1200} height={675} sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw" />
-                    <h4>{idea.title}</h4>
-                  </article>
+              <div className={styles.creatorProfiles}>
+                {creators.map((creator) => (
+                  <a className={styles.creatorProfile} key={creator.name} href={creator.href} target="_blank" rel="noreferrer">
+                    <Image src={creator.image} alt="" width={900} height={900} sizes="48px" />
+                    <span>{creator.name}</span>
+                    <ArrowUpRight size={17} aria-hidden="true" />
+                  </a>
                 ))}
               </div>
             </section>
 
-            <PanoramaViewer />
-          </section>
-
-          <section id="receipts" data-step="06" className={styles.receiptsSection}>
-            <div className={styles.chapterLabel}>
-              <span><b>06</b> The work, up close</span><p>Projects + proof</p>
-            </div>
-            <header className={styles.receiptsHeader}>
-              <div>
-                <p className={styles.eyebrow}>A few things I have made</p>
-                <h2>A few projects I am proud of.</h2>
-              </div>
-              <p>
-                Here are a few things I have actually worked on: a computer I built, a project
-                for the Army Reserve, and the degree I finished at UCF. I will let the work
-                speak for itself.
-              </p>
-            </header>
-
-            <div className={styles.evidenceDrawer}>
-              <div className={styles.evidenceDrawerBody}>
-
-                <div className={styles.workbenchSpread}>
-              <figure className={styles.workbenchMain}>
-                <Image
-                  src="/special-message/evidence/pc-build-open.webp"
-                  alt="An open custom hardline water-cooled workstation during assembly, with clear blocks, a distribution plate, and purple lighting."
-                  width={1600}
-                  height={1298}
-                  sizes="(max-width: 760px) 100vw, 66vw"
-                />
-              </figure>
-
-              <figure className={styles.workbenchInset}>
-                <Image
-                  src="/special-message/evidence/pc-build-lit.webp"
-                  alt="The completed custom water-cooled computer glowing through its glass side panel."
-                  width={750}
-                  height={1000}
-                  sizes="(max-width: 760px) 62vw, 28vw"
-                />
-              </figure>
-
-              <div className={styles.workbenchCopy}>
-                <span>Built by hand</span>
-                <h3>I like work where everything has to work together.</h3>
+            <section id="hard-years" data-step="03" className={styles.chapter}>
+              <h2>When things got hard</h2>
+              <div className={styles.prose}>
                 <p>
-                  Building a hardline loop makes you care about the stuff most people never
-                  notice: tubing runs, custom blocks, cable routing, leak tests, even whether
-                  one bend sits right. If something is off, I redo it. That is how I work in
-                  software and production too. I learn the whole setup, take my time, and make
-                  sure the details hold up.
+                  COVID hit while I was in high school. After graduation, I moved away for college.
+                  My parents divorced while I was still adjusting, and my health got worse.
+                </p>
+                <p>
+                  I live with chronic anxiety and I&apos;m neurodivergent. For a while, even talking
+                  to people felt harder than it used to. I lost a lot of confidence and didn&apos;t
+                  know what I wanted to do next.
+                </p>
+                <p>
+                  I kept working on projects when I had the energy. Some days that meant setting
+                  up sound or lighting. Other days it meant editing footage, fixing a computer,
+                  or writing code. Even when I had a hard time laughing myself, I still liked
+                  making things that might make someone else laugh.
+                </p>
+              </div>
+            </section>
+
+            <section id="why-core" data-step="04" className={styles.chapter}>
+              <h2>Why I built CORE Watch</h2>
+              <div className={styles.prose}>
+                <p>
+                  On days when I woke up already tired, I&apos;d put on a CORE stream or replay a clip
+                  that made me laugh. Sometimes that was the best part of my day.
+                </p>
+                <p>
+                  I wanted a place where I could see who was live or find an old clip without
+                  digging through different feeds. So I made one. The first site went offline on
+                  July 31, 2026, when my college hosting credits with DigitalOcean expired.
+                  I still wanted to use it, so I built it again. That&apos;s the site you&apos;re on now.
+                </p>
+              </div>
+            </section>
+
+            <section id="what-i-built" data-step="05" className={styles.chapter}>
+              <h2>What I can help with</h2>
+              <div className={styles.prose}>
+                <p>
+                  I recently finished my computer science degree. It&apos;s been tough looking
+                  for work while AI is changing what companies hire for. I want to write
+                  software and still get my hands on the equipment.
+                </p>
+                <p>
+                  I build websites, full-stack apps, servers, and gaming PCs. On the production
+                  side, I&apos;ve worked with Sony Alpha 7, FX3, and FX5 cameras, DJI drones and
+                  wireless mics, RØDE and Shure gear, lighting, soundboards, and XLR cabling.
+                  I&apos;ve streamed drone footage live. I also built my own server and tools for
+                  bringing in footage from cameras.
                 </p>
               </div>
 
-                </div>
+              <PanoramaViewer />
 
-                <div className={styles.filmRail} role="region" tabIndex={0} aria-label="Computer build film clips">
-              <figure>
-                <AutoLoopVideo
-                  src="/special-message/evidence/pc-build-macro.mp4"
-                  poster="/special-message/evidence/pc-build-open.webp"
-                  label="Water-cooled computer build detail"
-                />
-                <figcaption>01 / The details</figcaption>
-              </figure>
-              <figure>
-                <AutoLoopVideo
-                  src="/special-message/evidence/pc-build-tour.mp4"
-                  poster="/special-message/evidence/pc-build-lit.webp"
-                  label="A tour of the finished computer build"
-                />
-                <figcaption>02 / The finished build</figcaption>
-              </figure>
-              <figure>
-                <AutoLoopVideo
-                  src="/special-message/evidence/pc-build-red.mp4"
-                  poster="/special-message/evidence/pc-build-red-poster.webp"
-                  label="Computer build with red lighting"
-                />
-                <figcaption>03 / Lights on</figcaption>
-              </figure>
-                </div>
+              <div className={styles.ideasSection}>
+                <h3>Videos I&apos;d pitch to CORE</h3>
+                <ul className={styles.ideasList}>
+                  {videoIdeas.map((idea) => <li key={idea}>{idea}</li>)}
+                </ul>
+              </div>
+            </section>
 
-                <div className={styles.evidenceDesk}>
-              <article className={styles.mercuryCard}>
-                <div className={styles.mercuryLogoWrap}>
+            <section id="receipts" data-step="06" className={styles.chapter}>
+              <h2>Some of my work</h2>
+
+              <div className={styles.project}>
+                <h3>A PC I built by hand</h3>
+                <div className={styles.prose}>
+                  <p>
+                    I built this PC with a hardline water-cooling loop. That meant bending rigid
+                    tubing to fit the case, routing the cables, and testing the loop for leaks.
+                    If a bend didn&apos;t sit right, I made it again.
+                  </p>
+                </div>
+                <div className={styles.computerPhotos}>
+                  <Image
+                    src="/special-message/evidence/pc-build-open.webp"
+                    alt="The open PC during assembly, showing clear tubing and purple lighting."
+                    width={1600}
+                    height={1298}
+                    sizes="(max-width: 560px) calc(100vw - 2rem), 42vw"
+                  />
+                  <Image
+                    src="/special-message/evidence/pc-build-lit.webp"
+                    alt="The finished water-cooled PC lit up behind its glass panel."
+                    width={750}
+                    height={1000}
+                    sizes="(max-width: 560px) calc(100vw - 2rem), 25vw"
+                  />
+                </div>
+                <div className={styles.filmRail} role="region" tabIndex={0} aria-label="Computer build videos">
+                  {computerClips.map(({ src, poster, caption }) => (
+                    <figure key={src}>
+                      <AutoLoopVideo src={src} poster={poster} label={caption} />
+                      <figcaption>{caption}</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.projectGrid}>
+                <section className={styles.projectCard}>
                   <Image
                     src="/special-message/evidence/army-mercury.webp"
-                    alt="Army Reserve Mercury project mark"
+                    alt="Mercury project mark."
                     width={1400}
                     height={788}
-                    sizes="(max-width: 760px) 100vw, 46vw"
-                  />
-                  <span>A project for the U.S. Army Reserve</span>
-                </div>
-                <div className={styles.mercuryCopy}>
-                  <p className={styles.eyebrow}>A project I built / Army Reserve Mercury</p>
-                  <h3>I built a better path for Army Reserve notifications and pay.</h3>
-                  <dl className={styles.caseStudySteps}>
-                    <div>
-                      <dt>Problem</dt>
-                      <dd>
-                        Notifications, forms, and payment-related processes created avoidable
-                        friction for reservists.
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Contribution</dt>
-                      <dd>
-                        For this project, I created a web and mobile notification system, pitched a redesigned
-                        interface, and proved out form automation.
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Result</dt>
-                      <dd>
-                        Project sponsors adopted the new UI direction, while the automation
-                        demonstrated a clearer path toward helping reservists get paid faster.
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </article>
-
-              <article className={styles.degreeCard}>
-                <div className={styles.degreeHeading}>
-                  <Image
-                    src="/special-message/evidence/ucf-mark.webp"
-                    alt="University of Central Florida mark"
-                    width={220}
-                    height={220}
+                    sizes="(max-width: 640px) calc(100vw - 2rem), 42vw"
                   />
                   <div>
-                    <span>What I studied</span>
-                    <h3>B.S. in Computer Science</h3>
-                    <p>University of Central Florida</p>
+                    <h3>Mercury for the Army Reserve</h3>
+                    <p>
+                      Reservists had to navigate separate notifications, forms, and steps to get paid.
+                      I built a web and mobile notification system, proposed a new interface, and
+                      prototyped a way to automate the forms. The project sponsors adopted the design
+                      direction, and the prototype showed how the paperwork could move faster.
+                    </p>
                   </div>
-                </div>
-                <figure>
+                </section>
+
+                <section className={styles.projectCard}>
                   <Image
                     src="/special-message/evidence/ucf-degree-redacted.webp"
-                    alt="A redacted University of Central Florida Bachelor of Science degree in Computer Science."
+                    alt="My University of Central Florida diploma with private details redacted."
                     width={1400}
                     height={1092}
-                    sizes="(max-width: 760px) 100vw, 42vw"
+                    sizes="(max-width: 640px) calc(100vw - 2rem), 42vw"
                   />
-                </figure>
-              </article>
-                </div>
-
-                <article className={styles.dubbingSpread}>
-              <div className={styles.dubbingCopy}>
-                <p className={styles.eyebrow}>Spanish-language test</p>
-                <h3>A version for people who speak Spanish.</h3>
-                <p>
-                  I used a CORE backyard episode to see how the same video could be easier to
-                  follow for people who speak Spanish. It is a small example of how the archive
-                  could reach more of the people already watching.
-                </p>
-                <span className={styles.dubbingStamp}>Escuchar en español</span>
+                  <div className={styles.degree}>
+                    <Image src="/special-message/evidence/ucf-mark.webp" alt="" width={220} height={220} sizes="40px" />
+                    <div>
+                      <h3>B.S. in Computer Science</h3>
+                      <p>University of Central Florida</p>
+                    </div>
+                  </div>
+                </section>
               </div>
-              <figure>
+
+              <div className={styles.project}>
+                <h3>A CORE video in Spanish</h3>
+                <div className={styles.prose}>
+                  <p>
+                    I made a Spanish dub of a CORE backyard episode to see how the video could
+                    be easier to follow for people who speak Spanish.
+                  </p>
+                </div>
                 <video
+                  className={styles.dubbingVideo}
                   aria-label="Spanish-language CORE backyard video demo"
                   controls
                   playsInline
@@ -585,200 +338,63 @@ export default function SpecialMessagePage() {
                   <source src="/special-message/evidence/core-backyard-es-dubbed.mp4" type="video/mp4" />
                   Your browser does not support this video.
                 </video>
-                <figcaption>
-                  Press play to hear the Spanish-language version of the original CORE backyard footage.
-                </figcaption>
-              </figure>
-                </article>
-
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section id="platform-story" data-step="07" className={styles.platformStory} aria-labelledby="platform-story-title">
-            <div className={styles.chapterLabel}>
-              <span><b>07</b> Inside the platform</span><p>CORE Watch</p>
-            </div>
-            <header className={styles.platformStoryHeader}>
-              <div>
-                <p className={styles.platformStoryKicker}>The platform / built to last</p>
-                <h2 id="platform-story-title">A home that does not disappear with the feed.</h2>
+            <section id="platform-story" data-step="07" className={styles.chapter}>
+              <h2>What you can find on CORE Watch</h2>
+              <div className={styles.prose}>
+                <p>
+                  I built it for the moment you hear about a stream or a clip and want to find it.
+                  I also wanted each member and their community to have a place of their own.
+                </p>
               </div>
-              <p>
-                I built this not only so CORE has a real home when someone searches for it. I
-                wanted one place where every member, community, live moment, and memory could
-                live together.
-              </p>
-            </header>
+              <div className={styles.platformScreens}>
+                {siteScreens.map(({ title, src, alt, description }) => (
+                  <figure className={styles.platformScreen} key={title}>
+                    <Image src={src} alt={alt} width={1265} height={710} sizes="(max-width: 640px) calc(100vw - 2rem), 42vw" />
+                    <figcaption>
+                      <h3>{title}</h3>
+                      <p>{description}</p>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </section>
 
-            <div className={styles.platformScreens}>
-              <figure className={styles.platformScreen}>
-                <div className={styles.platformScreenVisual}>
-                  <Image
-                    src="/special-message/app-screens/home.png"
-                    alt="The CORE home page, with a live stream featured in the hero area."
-                    width={1265}
-                    height={710}
-                    sizes="(max-width: 720px) calc(100vw - 2rem), (max-width: 1100px) 50vw, 33vw"
-                  />
-                </div>
-                <figcaption>
-                  <span>01 / Home</span>
-                  <h3>Start with what is live right now.</h3>
-                  <p>
-                    The home page leads with the live moment, then takes people to Originals,
-                    clips, posts, and each CORE community.
-                  </p>
-                </figcaption>
-              </figure>
-
-              <figure className={styles.platformScreen}>
-                <div className={styles.platformScreenVisual}>
-                  <Image
-                    src="/special-message/app-screens/guide.png"
-                    alt="The CORE Guide showing live broadcasts, media formats, and timeline filters."
-                    width={1265}
-                    height={710}
-                    sizes="(max-width: 720px) calc(100vw - 2rem), (max-width: 1100px) 50vw, 33vw"
-                  />
-                </div>
-                <figcaption>
-                  <span>02 / Guide</span>
-                  <h3>See what is live, then filter the rest.</h3>
-                  <p>
-                    The Guide puts live streams first and lets people narrow the timeline by
-                    format, platform, or member.
-                  </p>
-                </figcaption>
-              </figure>
-
-              <figure className={styles.platformScreen}>
-                <div className={styles.platformScreenVisual}>
-                  <Image
-                    src="/special-message/app-screens/now-playing-guide.png"
-                    alt="The CORE theater view with Adapt's stream and the live chat panel open."
-                    width={1265}
-                    height={710}
-                    sizes="(max-width: 720px) calc(100vw - 2rem), 50vw"
-                  />
-                </div>
-                <figcaption>
-                  <span>03 / Theater</span>
-                  <h3>Keep the stream and chat together.</h3>
-                  <p>
-                    Theater keeps the player, details, Up Next, and chat in the same viewing
-                    space instead of sending people through separate pages.
-                  </p>
-                </figcaption>
-              </figure>
-
-              <figure className={styles.platformScreen}>
-                <div className={styles.platformScreenVisual}>
-                  <Image
-                    src="/special-message/app-screens/flock-network.png"
-                    alt="The Flock Network page with its dedicated 24/7 channel and live programming."
-                    width={1265}
-                    height={710}
-                    sizes="(max-width: 720px) calc(100vw - 2rem), (max-width: 1100px) 50vw, 33vw"
-                  />
-                </div>
-                <figcaption>
-                  <span>04 / Flock network</span>
-                  <h3>A dedicated place for each community.</h3>
-                  <p>
-                    Each network has its own 24/7 channel, programming modes, creator details,
-                    and connected activity from across the web.
-                  </p>
-                </figcaption>
-              </figure>
-            </div>
-
-            <div className={styles.platformPurpose}>
-              <p>
-                For CORE, it is one home base: a clear place for the community, future
-                collaborators, and anyone trying to understand what the group is building.
-              </p>
-              <p>
-                For viewers, it is one place to find every member, every platform, and the
-                moments that would otherwise disappear in a feed.
-              </p>
-              <strong>Create. Own. Run. Everything. Own the platform.</strong>
-            </div>
-          </section>
-
-          <p className={styles.continuedNote}>One last thing</p>
-
-          <section id="thank-you" data-step="08" className={`${styles.chapter} ${styles.chapterProof}`}>
-            <div className={styles.chapterLabel}>
-              <span><b>08</b> To the CORE team and community</span>
-              <p>Thank you</p>
-            </div>
-
-            <div className={styles.storyCopy}>
+            <section id="thank-you" data-step="08" className={styles.chapter}>
               <h2>I wanted to say thank you.</h2>
-              <p>
-                I built this because CORE and its community have meant a lot to me. I wanted the
-                streams, clips, and old memories I kept going back to in one place. If it helps
-                someone else find something to watch, that would make me happy.
-              </p>
-              <p className={styles.craftClosing}>
-                CORE&apos;s phrase, Create. Own. Run. Everything., has stuck with me. It sounds like
-                the kid I was at 11: take an idea seriously, learn what it takes, and build it
-                with your own hands.
-              </p>
-            </div>
-
-            <div className={styles.proofNotes}>
-              <div className={styles.clippedNote}>
-                <small>CORE means</small>
-                <span>Create.</span>
-                <span>Own.</span>
-                <span>Run.</span>
-                <strong>Everything.</strong>
+              <div className={styles.prose}>
+                <p>
+                  To the CORE team and everyone watching, thanks for giving me something to
+                  look forward to when I needed it. If this site helps someone find a stream
+                  or a clip they&apos;d forgotten about, I&apos;m glad I made it.
+                </p>
+                <p>
+                  “Create. Own. Run. Everything.” reminds me of being 11 and trying to get
+                  the Cranberry Crush online. I still like taking an idea far enough to see
+                  what it could become.
+                </p>
+                <p>
+                  I&apos;d love to talk with Adapt, Woj, Bepsy, or anyone working on the site
+                  or on production. If there&apos;s something I can help build or a shoot
+                  I can help with, reach me on X at{" "}
+                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">@berryeyu</a>.
+                </p>
+                <p className={styles.signature}>Michael</p>
               </div>
+            </section>
 
-              <aside className={styles.disclaimerCard}>
-                <span>Disclaimer</span>
-                <p>
-                  This is an independent, community-created project and is not affiliated with,
-                  endorsed by, or officially associated with CORE or its members.
-                </p>
-                <p>
-                  The project is publicly shared as a portfolio piece to showcase my web
-                  development, design, and software engineering work.
-                </p>
-                <p>
-                  I&apos;m a big believer in the potential of CORE as a brand, platform, and
-                  community, and I&apos;d love the opportunity to connect with Adapt, Woj, Bepsy,
-                  or anyone on the technical, marketing, or digital team to discuss the project,
-                  future ideas, or ways I could potentially contribute.
-                </p>
-                <p>
-                  Feel free to reach out to me on X: {" "}
-                  <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">
-                    @berryeyu
-                  </a>
-                </p>
-              </aside>
-            </div>
-          </section>
-
-          <div className={styles.contactPanel}>
-            <div><p className={styles.eyebrow}>To the CORE team</p><h2>CORE, I&apos;d love to work with you.</h2><p>On this site, on your next technical project, or behind the scenes in production. If you&apos;d like to talk, I&apos;d be glad to hear from you.</p></div>
-            <div className={styles.contactLinks}>
-              <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">Talk to me on X <ArrowUpRight size={18} aria-hidden="true" /></a>
-            </div>
-          </div>
-          </div>
-          </div>
-
-          <div className={styles.endBar}>
-            <Link href="/">Explore what I built</Link>
-            <span>Made with purpose. Built independently.</span>
-            <a href="#special-message-top">Back to the top</a>
+            <footer className={styles.letterFooter}>
+              <p>I built CORE Watch independently as a portfolio project. It is not affiliated with, or endorsed by, CORE or its members.</p>
+              <div>
+                <Link href="/"><ArrowLeft size={17} aria-hidden="true" /> Back to CORE</Link>
+                <a href="#special-message-top">Back to the top</a>
+              </div>
+            </footer>
           </div>
         </div>
-      </article>
-    </>
+      </div>
+    </article>
   );
 }
