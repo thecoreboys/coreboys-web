@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { WatchCatalog, WatchItem } from "@/lib/watch/types";
 import { MEMBERS } from "@/lib/members";
@@ -31,7 +31,6 @@ import { NetworkChannelRail } from "./NetworkChannelPage";
 import { Shelf } from "./PosterCard";
 import { DragScrollRail } from "./DragScrollRail";
 import { LiveHomeXFeeds } from "./LiveHomeXFeeds";
-import type { LiveXFeedResponse } from "@/lib/watch/live-x-feed";
 import { CampaignSection } from "@/components/campaigns/CampaignSection";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import type { CoreOriginal } from "@/lib/core-originals";
@@ -146,7 +145,7 @@ export function EventsSeriesChallengesRail({ originals }: { originals: CoreOrigi
   );
 }
 
-export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode; initialXFeed?: Promise<LiveXFeedResponse | null> }) {
+export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode }) {
   const { ids: listIds, user, loading } = useMyList();
   const { map, ready } = useWatchProgress();
   const discovery = useWatchDiscovery();
@@ -449,9 +448,7 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
           </div>
         </section>
 
-        <Suspense fallback={null}>
-          <LiveHomeXFeeds initialMembers={xPosts} initialCrew={crewXPosts} initialFeed={initialXFeed} spaces={xSpaces} />
-        </Suspense>
+        <LiveHomeXFeeds initialMembers={xPosts} initialCrew={crewXPosts} spaces={xSpaces} />
 
         <div id="watch-full-library" className="watch-full-library">
           {(catalog.programmingSections ?? []).map((section) => {

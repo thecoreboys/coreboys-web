@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState, type HTMLAttributes } from "react";
 import { useDragScroll } from "@/hooks/useDragScroll";
+import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 
 type DragScrollRailProps = HTMLAttributes<HTMLDivElement> & {
   wheelToX?: boolean;
@@ -38,21 +39,27 @@ export function DragScrollRail({ wheelToX = false, alwaysShowArrows = false, fix
     const schedule = () => {
       if (!frame) frame = window.requestAnimationFrame(updateEdges);
     };
-    schedule();
-    scroller.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    const observer = new ResizeObserver(schedule);
-    observer.observe(scroller);
-    if (fixedItemLayout === undefined) {
-      scroller.addEventListener("load", schedule, true);
-      for (const child of scroller.children) observer.observe(child);
-    }
+    let observer: ResizeObserver | undefined;
+    // Measuring a distant content-visibility shelf forces its skipped layout.
+    // Wait until the row approaches the viewport before reading scrollWidth.
+    const stopApproach = observeViewportApproach(scroller, () => {
+      schedule();
+      scroller.addEventListener("scroll", schedule, { passive: true });
+      window.addEventListener("resize", schedule);
+      observer = new ResizeObserver(schedule);
+      observer.observe(scroller);
+      if (fixedItemLayout === undefined) {
+        scroller.addEventListener("load", schedule, true);
+        for (const child of scroller.children) observer.observe(child);
+      }
+    });
     return () => {
+      stopApproach();
       window.cancelAnimationFrame(frame);
       scroller.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
       scroller.removeEventListener("load", schedule, true);
-      observer.disconnect();
+      observer?.disconnect();
     };
   }, [fixedItemLayout, scroller]);
 

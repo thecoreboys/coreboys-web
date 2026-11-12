@@ -8,8 +8,6 @@ import { EventsSeriesChallengesRail } from "@/components/watch/WatchHome";
 import { PatreonLockedShelf } from "@/components/watch/PatreonLockedShelf";
 import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
 import { projectHomeCatalog } from "@/lib/watch/home-catalog";
-import { getPublicXFeedSnapshot } from "@/lib/x-feed-snapshot";
-import { buildLiveXFeedResponse } from "@/lib/watch/live-x-feed";
 import "./watch/watch.css";
 
 export const dynamic = "force-dynamic";
@@ -40,13 +38,10 @@ async function PatreonSection() {
 }
 
 export default async function HomePage() {
-  // Stream the richer post data separately so a slow X snapshot cannot delay the hero.
-  const initialXFeed = getPublicXFeedSnapshot().then(buildLiveXFeedResponse).catch(() => null);
   const catalog = await getHomeWatchCatalog();
 
   return (
     <WatchHomeEntry catalog={compactWatchCatalog(projectHomeCatalog(catalog))}
-      initialXFeed={initialXFeed}
       patreon={<Suspense key="patreon" fallback={<p role="status" className="px-5 text-sm text-secondary">Loading Patreon previews…</p>}><PatreonSection /></Suspense>}
       originals={<Suspense key="originals" fallback={<div className="min-h-56 px-5" role="status">Loading CORE Originals…</div>}><OriginalsSection /></Suspense>}
     />

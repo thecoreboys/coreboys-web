@@ -30,7 +30,9 @@ export function CampaignShowcase({ campaigns, preview = false }: { campaigns: Pu
     const firstCycle = cycle.current;
     if (!element || !firstCycle) return;
     const animated = window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
+    let onScreen = false;
     const update = () => {
+      if (!onScreen) return;
       if (animated.matches && element.dataset.manual !== "true") element.scrollLeft = 0;
       const width = firstCycle.getBoundingClientRect().width;
       if (!width) return;
@@ -41,7 +43,11 @@ export function CampaignShowcase({ campaigns, preview = false }: { campaigns: Pu
     const observer = new ResizeObserver(update);
     observer.observe(element);
     observer.observe(firstCycle);
-    const visibility = new IntersectionObserver(([entry]) => setInView(Boolean(entry?.isIntersecting)));
+    const visibility = new IntersectionObserver(([entry]) => {
+      onScreen = Boolean(entry?.isIntersecting);
+      setInView(onScreen);
+      if (onScreen) update();
+    });
     visibility.observe(element);
     const onVisibility = () => setPageVisible(!document.hidden);
     document.addEventListener("visibilitychange", onVisibility);

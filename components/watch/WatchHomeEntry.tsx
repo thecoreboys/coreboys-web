@@ -5,7 +5,6 @@ import { expandWatchCatalog, type CompactWatchCatalog } from "@/lib/watch/catalo
 import { homeItemReferences, mergeHomeItems } from "@/lib/watch/home-catalog";
 import { isContinueWatchingMark } from "@/lib/watch/continue-watching";
 import type { WatchItem } from "@/lib/watch/types";
-import type { LiveXFeedResponse } from "@/lib/watch/live-x-feed";
 import { useMyList } from "@/hooks/useMyList";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { WatchChrome } from "./WatchChrome";
@@ -14,9 +13,8 @@ import { WatchHome } from "./WatchHome";
 type Resolved = { owner: string; items: WatchItem[]; checked: string[]; error: boolean };
 const EMPTY_ITEMS: WatchItem[] = [];
 
-export function WatchHomeEntry({ catalog: compact, patreon, originals, initialXFeed }: {
+export function WatchHomeEntry({ catalog: compact, patreon, originals }: {
   catalog: CompactWatchCatalog; patreon: ReactNode; originals: ReactNode;
-  initialXFeed?: Promise<LiveXFeedResponse | null>;
 }) {
   const base = useMemo(() => expandWatchCatalog(compact), [compact]);
   const { map, ready, accountKey } = useWatchProgress();
@@ -67,6 +65,6 @@ export function WatchHomeEntry({ catalog: compact, patreon, originals, initialXF
     {failed ? <div role="status" className="px-5 pt-20 text-sm text-white/70">
       Your saved history could not load. <button type="button" className="underline" onClick={() => setResolved((value) => ({ ...value, error: false }))}>Retry</button>
     </div> : null}
-    <WatchHome catalog={catalog} patreon={patreon} originals={originals} initialXFeed={initialXFeed} />
+    <WatchHome catalog={catalog} patreon={patreon} originals={originals} />
   </WatchChrome>;
 }

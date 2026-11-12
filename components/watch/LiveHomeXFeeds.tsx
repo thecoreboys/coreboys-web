@@ -1,28 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bell, Camera, RefreshCw, X } from "lucide-react";
 import { useLiveXFeeds } from "@/hooks/useLiveXFeeds";
-import type { LiveXFeedResponse } from "@/lib/watch/live-x-feed";
 import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 import type { WatchHomeXPost, WatchHomeXSpace } from "@/lib/watch/x-posts";
 import { BrowserRelativeTime } from "@/components/ui/BrowserDateTime";
 import { XTweetsRail } from "./XTweetsRail";
 import styles from "./LiveHomeXFeeds.module.css";
 
-export function LiveHomeXFeeds({ initialMembers, initialCrew, initialFeed, spaces }: {
+export function LiveHomeXFeeds({ initialMembers, initialCrew, spaces }: {
   initialMembers: WatchHomeXPost[];
   initialCrew: WatchHomeXPost[];
-  initialFeed?: Promise<LiveXFeedResponse | null>;
   spaces: WatchHomeXSpace[];
 }) {
-  const seed = initialFeed ? use(initialFeed) : null;
   const feedRoot = useRef<HTMLDivElement>(null);
   const [polling, setPolling] = useState(false);
+  // Hydrate from the same catalog as the page. Fetch the richer snapshot only
+  // near this section, without a second streamed promise through the home tree.
   const { members, crew, feed, connection, newPosts, refresh, dismiss } = useLiveXFeeds(
-    seed?.members ?? initialMembers,
-    seed?.crew ?? initialCrew,
+    initialMembers,
+    initialCrew,
     polling,
   );
   useEffect(() => {

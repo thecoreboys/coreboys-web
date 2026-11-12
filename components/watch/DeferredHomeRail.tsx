@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 
 export function DeferredHomeRail({ title, shapes, children }: {
@@ -14,7 +14,9 @@ export function DeferredHomeRail({ title, shapes, children }: {
 
   useEffect(() => {
     if (ready || !ref.current) return;
-    return observeViewportApproach(ref.current, () => startTransition(() => setReady(true)));
+    // A viewer may already have scrolled here while the page was hydrating.
+    // Visible content must not wait behind unrelated background transitions.
+    return observeViewportApproach(ref.current, () => setReady(true));
   }, [ready]);
 
   useLayoutEffect(() => {

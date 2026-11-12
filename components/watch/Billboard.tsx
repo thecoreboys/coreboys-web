@@ -285,28 +285,38 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
     const slot = slotRef.current;
     if (!slot) return;
 
-    const updateFit = () => {
-      const { width, height } = slot.getBoundingClientRect();
+    const updateFit = ({ width, height }: { width: number; height: number }) => {
       const fits = item.platform === "twitch"
         ? width >= 400 && height >= 300
         : width >= 200 && height >= 200;
       setSlotFitsProvider(fits);
     };
 
-    updateFit();
     if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(updateFit);
+      const observer = new ResizeObserver(([entry]) => {
+        if (entry) updateFit(entry.contentRect);
+      });
       observer.observe(slot);
       return () => observer.disconnect();
     }
 
-    window.addEventListener("resize", updateFit);
-    return () => window.removeEventListener("resize", updateFit);
+    const measureFit = () => updateFit(slot.getBoundingClientRect());
+    measureFit();
+    window.addEventListener("resize", measureFit);
+    return () => window.removeEventListener("resize", measureFit);
   }, [item.platform]);
 
   useEffect(() => {
     const slot = slotRef.current;
     if (!slot) return;
+
+    if (typeof IntersectionObserver !== "undefined") {
+      const observer = new IntersectionObserver(([entry]) => {
+        if (entry) setProviderExposed(entry.isIntersecting && entry.intersectionRatio >= 0.5);
+      }, { threshold: [0, 0.5] });
+      observer.observe(slot);
+      return () => observer.disconnect();
+    }
 
     let frame = 0;
     const updateExposure = () => {
