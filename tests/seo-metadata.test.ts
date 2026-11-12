@@ -32,7 +32,7 @@ test("article and creator metadata retain their own image and tags instead of in
 });
 
 test("all exported static page metadata includes complete social cards and a route canonical", () => {
-  const files = readdirSync("app", { recursive: true }).filter(file => /(?:^|[\\/])(?:page|layout)\.tsx$/.test(file));
+  const files = readdirSync("app", { encoding: "utf8", recursive: true }).map(file => String(file)).filter(file => /(?:^|[\\/])(?:page|layout)\.tsx$/.test(file));
   let checked = 0;
   for (const file of files) {
     const filename = join("app", file);
