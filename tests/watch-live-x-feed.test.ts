@@ -6,7 +6,7 @@ import vm from "node:vm";
 import test from "node:test";
 import ts from "typescript";
 import type { FeedItem } from "../components/feed/types";
-import { buildLiveXFeedResponse } from "../lib/watch/live-x-feed";
+import { buildLiveXFeedResponse, selectCrewProfileXPosts } from "../lib/watch/live-x-feed";
 import { configuredXCrewFeedAccounts } from "../lib/x/crew-roster";
 import { configuredXRosterFeedAccounts } from "../lib/x/roster";
 import * as freshness from "../lib/x-feed-freshness";
@@ -63,6 +63,43 @@ test("live projection keeps multi-image posts, full text and quote metadata", ()
   assert.equal(response.members[0]?.text, "The full post text");
   assert.equal(response.members[0]?.media.length, 2);
   assert.equal(response.members[0]?.quote?.text, "Quoted words");
+});
+
+test("crew profiles show up to twelve of their own newest posts without mixing creator or other crew identities", () => {
+  const [owner, other] = configuredXCrewFeedAccounts();
+  assert.ok(owner);
+  assert.ok(other);
+  const authorSlug = owner.authorSlug;
+  assert.ok(authorSlug);
+  assert.match(authorSlug, /^crew:/);
+  const ownItems = Array.from({ length: 14 }, (_, index) => feedItem(owner.authorSlug, owner.handle,
+    900000 + index, { publishedAt: at(-index) }));
+  const items = [feedItem(other.authorSlug, other.handle, 910000),
+    feedItem("lacy", "lacy", 920000), ...ownItems];
+  const posts = selectCrewProfileXPosts({ items }, authorSlug.slice(5));
+  assert.equal(posts.length, 12);
+  assert.ok(posts.every((post) => post.author.slug === authorSlug));
+  assert.deepEqual(posts.map((post) => post.statusId), ownItems.slice(0, 12).map((item) => item.id.slice(2)));
+  assert.deepEqual(selectCrewProfileXPosts({ items }, "unknown-crew-member"), []);
+  assert.deepEqual(selectCrewProfileXPosts({ items: [] }, authorSlug.slice(5)), []);
+});
+
+test("crew profile previews retain full text, video sources and all attachments from a single post", () => {
+  const owner = configuredXCrewFeedAccounts()[0]!;
+  const common = feedItem(owner.authorSlug, owner.handle, 930000, {
+    mediaType: "video", thumbnailUrl: "https://pbs.twimg.com/media/preview.jpg",
+    mediaUrl: "https://video.twimg.com/clip.mp4",
+    x: { authorId: "123", authorHandle: owner.handle, authorName: "Crew author",
+      authorProfileUrl: `https://x.com/${owner.handle}`, statusId: "930000",
+      statusUrl: `https://x.com/${owner.handle}/status/930000`, noteText: "Full crew post\nMore behind the scenes." },
+  });
+  const posts = selectCrewProfileXPosts({ items: [common,
+    { ...common, id: "x-930000-photo", mediaType: "image", mediaUrl: "https://pbs.twimg.com/media/photo.jpg" },
+  ] }, owner.authorSlug!.slice(5));
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0]?.text, common.x?.noteText);
+  assert.equal(posts[0]?.media.length, 2);
+  assert.ok(posts[0]?.media.some((media) => media.kind === "video" && media.mediaUrl === common.mediaUrl));
 });
 
 test("public freshness distinguishes overdue, unavailable and genuinely empty feeds", () => {

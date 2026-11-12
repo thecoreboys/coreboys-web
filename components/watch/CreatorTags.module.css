@@ -1,4 +1,12 @@
 .overlay { position:absolute; inset:0; z-index:44; pointer-events:none; color:#fff; font-size:14px; }
+/* Twitch observes painted occlusion, including shadows. Keep every passive
+   creator control in document flow outside its iframe; selecting is explicit. */
+.railRoot { display:contents; color:#fff; font-size:14px; }
+.railPanel { position:relative; width:100%; padding:4px; overflow:hidden; border-radius:8px; color:#fff; background:#101014; font-size:14px; }
+.railPanel .panelTrigger { min-height:36px; box-shadow:none; backdrop-filter:none; }
+.railPanel .panelBody { width:100%; max-width:none; margin-top:4px; box-shadow:none; backdrop-filter:none; }
+.railPanel button:focus-visible,.railPanel a:focus-visible { outline:2px solid #fff; outline-offset:-2px; }
+.railSelection { z-index:44; }
 .panel { position:absolute; top:12px; left:12px; max-width:calc(100% - 24px); pointer-events:auto; }
 .overlay[data-compact=true] .panel { top:72px; left:8px; max-width:calc(100% - 16px); }
 .panelTrigger { display:flex; align-items:center; gap:7px; min-height:36px; padding:8px 11px; border:1px solid #ffffff26; border-radius:9px; background:#101014de; color:#fff; font-size:12px; font-weight:600; backdrop-filter:blur(12px); cursor:pointer; }
@@ -56,3 +64,20 @@
 .toggle { display:flex; align-items:center; gap:8px; margin-top:20px; color:#bdbdca; font-size:14px; }
 @media(max-width:600px) { .dialog { padding:20px; } .panel { top:8px; left:8px; max-width:calc(100% - 16px); } .panelBody { width:250px; } .socialIcons a { width:32px; height:32px; } .selectionHint { font-size:12px; width:max-content; max-width:calc(100% - 24px); } }
 @media(prefers-reduced-transparency:reduce) { .panelBody,.panelTrigger { background:#111115; backdrop-filter:none; } }
+
+/* The rail lives outside the video. Its controls and search dialog follow
+   the site palette; tags painted over footage retain their dark treatment. */
+:global(html[data-theme="light"]) .railPanel { padding:0; background:transparent; color:var(--ink); }
+:global(html[data-theme="light"]) .railPanel .panelTrigger,
+:global(html[data-theme="light"]) .railPanel .panelBody { border-color:var(--rule); background:var(--bg-elev); color:var(--ink); }
+:global(html[data-theme="light"]) .railPanel .panelTrigger:hover { border-color:var(--rule-strong); background:var(--surface); }
+:global(html[data-theme="light"]) .railPanel :is(.person,.panelActions button,.panelAction) { color:var(--ink); }
+:global(html[data-theme="light"]) .railPanel :is(.panelEmpty,.socialIcons a) { color:var(--ink-dim); }
+:global(html[data-theme="light"]) .railPanel :is(.count,.avatar,.panelAction) { background:var(--surface); color:var(--ink-dim); }
+:global(html[data-theme="light"]) .railPanel :is(.people li,.panelActions) { border-color:var(--rule); }
+:global(html[data-theme="light"]) .railPanel :is(button,a):focus-visible { outline-color:var(--core); }
+:global(html[data-theme="light"]) .dialog { border-color:var(--rule); background:var(--bg-elev); color:var(--ink); box-shadow:0 16px 64px rgb(24 24 32 / .16); }
+:global(html[data-theme="light"]) .dialog :is(.description,.notice,.toggle,.socials a) { color:var(--ink-dim); }
+:global(html[data-theme="light"]) .dialog :is(.close,.label input,.actions button,.results button) { border-color:var(--rule-strong); background:var(--surface); color:var(--ink); }
+:global(html[data-theme="light"]) .dialog button:hover { background:var(--rule); }
+:global(html[data-theme="light"]) .dialog .results article { border-color:var(--rule); }

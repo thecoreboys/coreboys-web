@@ -41,14 +41,14 @@ const creators = [
 ] as const;
 
 const videoIdeas = [
-  "CORE science fair",
-  "Go-kart soccer and bowling",
-  "Dude Imperfect: Trying to break ridiculous world records",
-  "The world’s biggest blanket fort at the CORE House",
-  "CORE tries an American Ninja Warrior course",
-  "Odd One Out: Who’s single?",
-  "Odd One Out: Who’s a millionaire?",
-];
+  { title: "CORE science fair", image: "/special-message/ideas/science-fair.webp" },
+  { title: "Go-kart soccer and bowling", image: "/special-message/ideas/kart-challenges.webp" },
+  { title: "Dude Imperfect: Trying to break ridiculous world records", image: "/special-message/ideas/world-records.webp" },
+  { title: "The world’s biggest blanket fort at the CORE House", image: "/special-message/ideas/blanket-fort.webp" },
+  { title: "CORE tries an American Ninja Warrior course", image: "/special-message/ideas/ninja.webp" },
+  { title: "Odd One Out: Who’s single?", image: "/special-message/ideas/single.webp" },
+  { title: "Odd One Out: Who’s a millionaire?", image: "/special-message/ideas/millionaire.webp" },
+] as const;
 
 const computerClips = [
   {
@@ -235,12 +235,19 @@ export default function SpecialMessagePage() {
 
               <PanoramaViewer />
 
-              <div className={styles.ideasSection}>
-                <h3>Videos I&apos;d pitch to CORE</h3>
-                <ul className={styles.ideasList}>
-                  {videoIdeas.map((idea) => <li key={idea}>{idea}</li>)}
-                </ul>
-              </div>
+              <ul className={styles.ideaThumbnails} aria-label="Video ideas">
+                {videoIdeas.map(({ title, image }) => (
+                  <li key={image}>
+                    <Image
+                      src={image}
+                      alt={`${title} video thumbnail`}
+                      width={1200}
+                      height={675}
+                      sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 900px) calc(50vw - 2rem), 28rem"
+                    />
+                  </li>
+                ))}
+              </ul>
             </section>
 
             <section id="receipts" data-step="06" className={styles.chapter}>

@@ -43,3 +43,9 @@ clerk.lock
 /workers/face-analyzer/.local-data/
 __pycache__/
 *.py[cod]
+
+# Local previews and generated compiler caches.
+/.tmp/
+/output/
+*.tsbuildinfo
+/next-env.d.ts

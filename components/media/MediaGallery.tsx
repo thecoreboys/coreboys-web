@@ -392,7 +392,7 @@ function GridView({
                   : { aspectRatio: "4 / 5" }
               }
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <Image
                 src={item.src}
                 alt={peopleHere.map((p) => p.name).join(", ") || "CORE photo"}

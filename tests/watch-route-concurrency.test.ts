@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import type { WatchCatalog, WatchItem } from "../lib/watch/types";
 import { unpackWatchItemLists } from "../lib/watch/item-payload";
+import { guideRefreshInterval } from "../lib/watch/guide-response";
 
 const requireModule = createRequire(resolve(process.cwd(), "package.json"));
 
@@ -172,12 +173,15 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
   const directory = deferred<Record<string, { id: string }>>();
   const events: string[] = [];
   let catalogReads = 0;
+  let recentReads = 0;
+  const background: Array<() => Promise<void>> = [];
   const handlers = route<{ GET: (request: Request) => Promise<Response> }>("./app/api/watch/guide/route", {
+    "next/server": { ...requireModule("next/server"), after: (work: () => Promise<void>) => { background.push(work); } },
     "./lib/twitch": { fetchUsersByLogin: () => { events.push("directory"); return directory.promise; } },
     "./lib/social-feed": { resolveYouTubeChannelId: async () => null },
     "./lib/db": { query: async () => { events.push("sessions"); return { rows: [] }; } },
     "./lib/watch/channels": { buildGuideNetworkRows: () => [] },
-    "./lib/watch/catalog": { getWatchCatalog: async () => {
+    "./lib/watch/catalog": { getHomeWatchCatalog: async () => { recentReads++; throw new Error("recent catalog unavailable"); }, getWatchCatalog: async () => {
       events.push("catalog");
       catalogReads++;
       if (catalogReads === 1) throw new Error("temporary catalog failure");
@@ -192,6 +196,7 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
   const first = await firstPending;
   assert.equal(first.status, 503);
   assert.equal(first.headers.get("Cache-Control"), "no-store");
+  await Promise.all(background.map((work) => work()));
 
   const second = await handlers.GET(request);
   const recovered = (await second.json()).programs[0];
@@ -200,9 +205,10 @@ test("Guide loads catalog/history before Twitch directory finishes and retries f
   const third = await handlers.GET(request);
   assert.equal((await third.json()).programs[0].id, "catalog-recovered_3");
   assert.equal(catalogReads, 3, "Guide must follow the shared catalog freshness instead of holding another five-minute snapshot");
+  assert.equal(recentReads, 1, "the recent fallback is only needed for the failed archive request");
 });
 
-test("Guide returns its available schedule when an optional provider stalls", async (context) => {
+test("Guide returns its available schedule and polls while an optional provider is loading", async (context) => {
   const previousKey = process.env.YOUTUBE_API_KEY;
   process.env.YOUTUBE_API_KEY = "test-key";
   context.after(() => {
@@ -219,7 +225,8 @@ test("Guide returns its available schedule when an optional provider stalls", as
   const response = await handlers.GET(new Request("https://example.test/api/watch/guide"));
   const body = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(body.sources.youtubeUpcoming, "error");
+  assert.equal(body.sources.youtubeUpcoming, "loading");
+  assert.equal(guideRefreshInterval(body), 5_000);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.equal(body.programs[0].id, "catalog-available");
 });

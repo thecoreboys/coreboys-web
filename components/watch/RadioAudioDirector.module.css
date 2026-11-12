@@ -40,6 +40,10 @@
 .tunerReadout > span, .tunerHint { color: #8f969f; font-size: .48rem; font-weight: 700; letter-spacing: .1em; }
 .tunerReadout strong { overflow: hidden; color: #f5f5f5; font-size: .64rem; font-weight: 650; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
 .tunerHint { color: #a7d9d0; text-align: right; white-space: nowrap; }
+.tunerActions { display: flex; align-items: center; gap: .5rem; }
+.panelClose { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border: 1px solid #ffffff24; border-radius: .5rem; background: transparent; color: inherit; cursor: pointer; touch-action: manipulation; }
+.panelClose:hover { background: #ffffff12; }
+.panelClose:focus-visible { outline: 2px solid #f39a87; outline-offset: 2px; }
 .dialTrack { position: relative; height: 1.65rem; margin-inline: .2rem; border-radius: 3px; background: linear-gradient(180deg, #101416, #1c2224); box-shadow: inset 0 1px 3px #0009, 0 1px #ffffff10; }
 .dialTrack input { position: absolute; z-index: 2; inset: 50% 0 auto; transform: translateY(-50%); width: 100%; height: 44px; margin: 0; cursor: ew-resize; opacity: 0; touch-action: none; }
 .dialTrack:focus-within { outline: 2px solid #f39a87; outline-offset: 4px; }
@@ -103,9 +107,9 @@
 :global(html[data-theme="light"]) .power[aria-pressed="true"] { color: #305d45; background: #d6e6d9; border-color: #94b09c; }
 :global(html[data-theme="light"]) .mobileToggle,
 :global(html[data-theme="light"]) .edgeRestore { color: #263c2f; background: #e9ede6; border-color: #b8c3b9; }
-@media (max-width: 560px) {
-  .root { grid-template-columns: minmax(0, 1fr) auto; min-height: 4.9rem; width: calc(100vw - 1.5rem); left: .75rem !important; right: .75rem !important; top: auto !important; bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + 3.5rem + var(--mobile-nav-space, 0px)) !important; cursor: auto; touch-action: pan-y; }
-  .mobileToggle { bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px)); }
+@media (max-width: 767px) {
+  .root { grid-template-columns: minmax(0, 1fr) auto; min-height: 4.9rem; width: auto; left: .75rem !important; right: .75rem !important; top: auto !important; bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px)) !important; cursor: auto; touch-action: pan-y; }
+  .mobileToggle { display: none; }
   .signal { display: none; }
   .signal { min-height: 4.9rem; }
   .tuner { gap: .4rem; min-height: 2.1rem; padding-inline: .45rem; }
@@ -121,7 +125,7 @@
 }
 @media (prefers-reduced-motion: reduce) { .root, .isSpeaking .statusDot, .play, .stop, .power, .settings, .edgeRestore, .dialNeedle, .signalBar { animation: none; transition: none; } }
 
-/* Desktop controls open by default; modal dialogs keep priority. */
+/* Modal dialogs keep priority over the optional radio controls. */
 .root { z-index: 35; }
 .mobileToggle, .edgeRestore { z-index: 36; }
 .tunerReadout > span, .tunerHint, .topline, .coraLabel { font-size: .75rem; letter-spacing: .02em; }
@@ -130,6 +134,12 @@
 :global(body:has([role="dialog"])) .root,
 :global(body:has([role="dialog"])) .mobileToggle,
 :global(body:has([role="dialog"])) .edgeRestore { visibility: hidden; pointer-events: none; }
+:global(body:has(.watch-together[data-open="true"])) .root,
+:global(body:has(.watch-together[data-open="true"])) .mobileToggle,
+:global(body:has(.watch-together[data-open="true"])) .edgeRestore { visibility: hidden; pointer-events: none; }
+@media (min-width: 768px) {
+  :global(body:has(.watch-together[data-open="false"])) .mobileToggle { bottom: calc(var(--now-playing-h, 0px) + clamp(.75rem, 2vw, 1.5rem) + 4rem); }
+}
 
 /* The launcher reads as an action before, during, and after interaction. */
 .mobileToggle {

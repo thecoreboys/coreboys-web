@@ -1,9 +1,9 @@
 "use client";
 
-import { compactTitle } from "@/lib/watch/presentation";
+import { billboardHeadline, compactTitle, readableTitle } from "@/lib/watch/presentation";
 
 import Link from "next/link";
-import { Volume2, VolumeX } from "lucide-react";
+import { ChevronDown, Volume2, VolumeX } from "lucide-react";
 import { setTwitchHeroSound } from "@/lib/watch/hero-audio";
 import { PREVIEW_AUDIO_CLAIM_EVENT } from "@/lib/watch/preview-audio";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -880,6 +880,8 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
     ? `${formatPlaybackTime(watchedPosition)} / ${formatPlaybackTime(watchedDuration)}`
     : null;
   const action = item.format === "photo" ? "View" : live ? "Watch live" : resumable ? "Continue watching" : "Play";
+  const mobileHeadline = billboardHeadline(item.title);
+  const hasFullTitle = mobileHeadline !== readableTitle(item.title);
   const titleSizeClass = item.title.length > 88
     ? "is-extra-long"
     : item.title.length > 54
@@ -945,8 +947,13 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
           title={item.title}
           className={`watch-title ${titleSizeClass} mt-3 max-w-[52rem] break-words text-[color:var(--ink)]`}
         >
-          {compactTitle(item.title, 84)}
+          <span className="watch-billboard-desktop-title">{compactTitle(item.title, 84)}</span>
+          <span className="watch-billboard-mobile-title">{mobileHeadline}</span>
         </Heading>
+        {hasFullTitle ? <details className="watch-billboard-title-details">
+          <summary>{live ? "Full stream title" : "Full title"}<ChevronDown size={14} aria-hidden /></summary>
+          <p>{item.title}</p>
+        </details> : null}
 
         {progress > 0 && !live ? (
           <div className="watch-billboard-progress-row">

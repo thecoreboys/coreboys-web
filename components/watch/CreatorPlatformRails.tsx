@@ -234,9 +234,10 @@ export const CreatorPlatformRails = memo(function CreatorPlatformRails({
   railTotals,
 }: CreatorPlatformRailsProps) {
   const discovery = useWatchDiscovery();
+  const setFeedback = discovery.setFeedback;
   const handleFeedback = useCallback((item: WatchItem, value: WatchFeedbackValue | null) => {
-    discovery.setFeedback(item.id, value);
-  }, [discovery.setFeedback]);
+    setFeedback(item.id, value);
+  }, [setFeedback]);
   const rails = useMemo(
     () => buildCuratedChannelRails(items, { maxItemsPerSource, sources }),
     [items, maxItemsPerSource, sources],

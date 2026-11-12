@@ -168,6 +168,7 @@ export function RadioAudioSystem() {
   }, [pathname, player.channel?.id]);
   return (
     <RadioAudioDirector
+      defaultExpanded={!pathname.startsWith("/guide") && !pathname.startsWith("/multiview")}
       enabled={settings.enabled && !player.audioDescription && !player.current}
       volume={settings.volume}
       captions={settings.captions}

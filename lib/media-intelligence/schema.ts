@@ -5,7 +5,7 @@ import { TRANSCRIPT_SCHEMA_SQL } from "./transcript-schema";
 import { CREATOR_TAG_SCHEMA_SQL } from "@/lib/creator-tags/schema";
 
 declare global {
-  // eslint-disable-next-line no-var
+
   var __mediaIntelligencePool: Pool | undefined;
 }
 

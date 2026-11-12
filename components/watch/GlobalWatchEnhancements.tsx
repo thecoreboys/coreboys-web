@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePlayer } from "@/components/providers/PlayerProvider";
+import { useNativeApp } from "@/hooks/useNativeApp";
 
 // These are useful, stateful watch surfaces, but none of them contributes to
 // the first paint of an editorial, account, or legal page. Keeping the
@@ -108,6 +109,7 @@ function useWatchEnhancementReadiness(pathname: string) {
  * become interactive before the large media controls are requested.
  */
 export function GlobalWatchEnhancements() {
+  const nativeApp = useNativeApp();
   const pathname = usePathname();
   const { user } = useAuth();
   const player = usePlayer();
@@ -115,7 +117,7 @@ export function GlobalWatchEnhancements() {
 
   return (
     <>
-      <RadioAudioSystem />
+      {nativeApp === false ? <RadioAudioSystem /> : null}
       {ready ? <>
       {player.current || isRoomSurface(pathname) || pathname.startsWith("/shorts") ? <PersistentPlayer /> : null}
       {isRoomSurface(pathname) ? <WatchTogetherBridge /> : null}

@@ -172,6 +172,71 @@ button.mediaTile:focus-visible { outline:2px solid var(--member-accent); outline
 .viewLink svg { width:.85rem; height:.85rem; }
 .viewLink:hover { background:color-mix(in srgb,var(--ink) 8%,transparent); border-color:color-mix(in srgb,var(--ink) 40%,transparent); }
 
+.previewButton { display:inline-flex; min-height:44px; flex:0 0 auto; align-items:center; justify-content:center; gap:.4rem; border:1px solid color-mix(in srgb,var(--ink) 18%,transparent); border-radius:.65rem; background:color-mix(in srgb,var(--ink) 5%,transparent); color:var(--ink); padding:.5rem .75rem; font-size:.75rem; font-weight:600; cursor:pointer; transition:background 160ms ease,border-color 160ms ease; }
+.previewButton svg { width:.9rem; height:.9rem; }
+.previewButton:hover { border-color:color-mix(in srgb,var(--ink) 40%,transparent); background:color-mix(in srgb,var(--ink) 10%,transparent); }
+.previewButton:focus-visible { outline:2px solid var(--member-accent); outline-offset:3px; }
+
+.postModal[data-state] { display:grid; grid-template-rows:auto minmax(0,1fr) auto; gap:0; width:min(40rem,calc(100vw - 1.5rem)); max-height:min(52rem,calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))); overflow:hidden; border:1px solid var(--ui-line,var(--rule)); border-radius:1.25rem; background:var(--bg-elev,var(--bg)); color:var(--ink); padding:0; box-shadow:0 32px 100px #0008; }
+.postModalWithMedia[data-state] { width:min(72rem,calc(100vw - 2rem)); }
+.modalHeader { display:flex; min-height:4.5rem; align-items:center; gap:.7rem; border-bottom:1px solid var(--ui-line,var(--rule)); padding:1rem 5rem 1rem 1.5rem; }
+.modalTitle { font-size:1rem; font-weight:650; letter-spacing:-.015em; line-height:1.4; }
+.modalBody { display:grid; min-width:0; min-height:0; overflow:hidden; }
+.modalBody[data-has-media="true"] { grid-template-columns:minmax(0,1.35fr) minmax(20rem,1fr); }
+.modalDetails { min-width:0; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.postCard[data-expanded="true"] { gap:1.4rem; overflow:visible; border:0; border-radius:0; background:transparent; padding:1.5rem; }
+.postCard[data-expanded="true"]:hover { background:transparent; }
+.postCard[data-expanded="true"] .avatarLink { width:3rem; height:3rem; }
+.postCard[data-expanded="true"] .authorCopy strong { font-size:1rem; }
+.postCard[data-expanded="true"] .authorCopy > a:last-child { font-size:.8125rem; }
+.postCard[data-expanded="true"] .postText { display:block; overflow:visible; -webkit-line-clamp:unset; font-size:1.0625rem; line-height:1.7; }
+.postCard[data-expanded="true"] .quoteText { display:block; overflow:visible; -webkit-line-clamp:unset; font-size:.875rem; }
+.postCard[data-expanded="true"] .postFooter { flex-wrap:wrap; margin-top:.25rem; padding-top:1rem; }
+.postCard[data-expanded="true"] .timestamp { font-size:.75rem; line-height:1.6; }
+.attachmentViewer { display:flex; min-width:0; min-height:0; flex-direction:column; border-right:1px solid var(--ui-line,var(--rule)); background:#08080a; color:#fff; }
+.attachmentStage { position:relative; display:grid; min-width:0; min-height:0; flex:1; place-items:center; overflow:hidden; }
+.attachmentMedia { display:block; width:100%; height:100%; min-height:0; max-height:min(39rem,calc(100dvh - 15rem)); object-fit:contain; }
+.attachmentVideoLink { position:absolute; bottom:1rem; display:inline-flex; min-height:44px; align-items:center; justify-content:center; gap:.5rem; max-width:calc(100% - 2rem); border:1px solid #ffffff40; border-radius:.7rem; background:#08080ae6; color:#fff; padding:.65rem 1rem; font-size:.8125rem; font-weight:600; text-decoration:none; backdrop-filter:blur(8px); }
+.attachmentVideoLink:hover { background:#222226; }
+.attachmentVideoLink svg { width:1rem; height:1rem; flex:0 0 auto; }
+.attachmentFallback { display:flex; min-height:16rem; align-items:center; justify-content:center; flex-direction:column; gap:1rem; padding:1.5rem; text-align:center; }
+.attachmentFallback > svg { width:2rem; height:2rem; color:#a1a1aa; }
+.attachmentFallback strong { font-size:.875rem; font-weight:550; }
+.attachmentFallback a { display:inline-flex; min-height:44px; align-items:center; gap:.5rem; color:#fff; font-size:.8125rem; text-decoration:underline; text-underline-offset:4px; }
+.attachmentFallback a svg { width:1rem; height:1rem; }
+.attachmentControls,.postNavigation { display:flex; min-width:0; align-items:center; justify-content:center; gap:.65rem; }
+.attachmentControls { flex:0 0 auto; border-top:1px solid #ffffff1a; padding:.5rem; }
+.attachmentControls > span,.postNavigation > span { min-width:3.75rem; text-align:center; font-size:.8125rem; font-weight:550; font-variant-numeric:tabular-nums; }
+.attachmentControls > span > span { color:#a1a1aa; }
+.postNavigation > span > span { color:var(--ink-dim); }
+.attachmentControls button,.postNavigation button { display:grid; width:44px; height:44px; flex:0 0 auto; place-items:center; border:1px solid var(--ui-line,var(--rule)); border-radius:.65rem; background:transparent; color:inherit; cursor:pointer; }
+.attachmentControls button { border-color:#ffffff26; }
+.attachmentControls button:hover { background:#ffffff14; }
+.postNavigation button:hover:not(:disabled) { background:color-mix(in srgb,var(--ink) 7%,transparent); }
+.postNavigation button:disabled { opacity:.3; cursor:default; }
+.attachmentControls button svg,.postNavigation button svg { width:1.1rem; height:1.1rem; }
+.attachmentViewer :is(a,button):focus-visible,.modalFooter :is(a,button):focus-visible { outline:2px solid #1d9bf0; outline-offset:3px; }
+.modalFooter { display:flex; min-width:0; align-items:center; justify-content:space-between; gap:1rem; border-top:1px solid var(--ui-line,var(--rule)); padding:.85rem 1.5rem; }
+.modalSourceLink { display:inline-flex; min-height:44px; align-items:center; justify-content:center; gap:.5rem; margin-left:auto; border:1px solid color-mix(in srgb,var(--ink) 20%,transparent); border-radius:.7rem; background:var(--ink); color:var(--bg); padding:.6rem 1rem; font-size:.8125rem; font-weight:650; text-decoration:none; }
+.modalSourceLink:hover { opacity:.85; }
+.modalSourceLink svg { width:1rem; height:1rem; }
+@media (max-width:760px) {
+  .postModal[data-state],.postModalWithMedia[data-state] { width:calc(100vw - 1rem); max-height:calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); border-radius:1rem; }
+  .modalHeader { padding-left:1rem; }
+  .modalBody[data-has-media="true"] { grid-template-columns:minmax(0,1fr); overflow-y:auto; overscroll-behavior:contain; }
+  .modalDetails { overflow:visible; }
+  .attachmentViewer { border-right:0; border-bottom:1px solid var(--ui-line,var(--rule)); }
+  .attachmentStage { min-height:12rem; }
+  .attachmentMedia { height:auto; max-height:45dvh; }
+  .postCard[data-expanded="true"] { gap:1.1rem; padding:1.25rem 1rem; }
+  .modalFooter { gap:.5rem; padding:.65rem .75rem; }
+  .postNavigation { gap:.2rem; }
+  .postNavigation > span { min-width:3.2rem; font-size:.75rem; }
+  .modalSourceLink { padding:.55rem .75rem; }
+}
+@media (prefers-reduced-motion:reduce) { .previewButton { transition:none; } }
+@media (forced-colors:active) { .postModal[data-state],.attachmentControls button,.postNavigation button,.previewButton,.modalSourceLink { border-color:ButtonText; } }
+
 @media (max-width:1120px) { .mediaGrid { height:clamp(10.5rem,21vw,13.5rem); } .quoteMediaGrid { height:clamp(7.75rem,15vw,10.5rem); } }
 @media (max-width:760px) {
   .boundedFeed { max-height:32rem; }

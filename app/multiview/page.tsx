@@ -60,7 +60,7 @@ export default async function MultiviewPage({ searchParams }: MultiviewPageProps
     ? restrictCatalogForLiveRoom(catalog, initialLiveRoom)
     : catalog;
   return (
-    <Suspense fallback={<div className="min-h-[calc(100dvh-4rem)] bg-[#070709]" />}>
+    <Suspense fallback={<div className="min-h-[calc(100dvh-4rem)] bg-room-base" />}>
       <MultiviewEntry
         catalog={compactWatchCatalog(projectMultiviewCatalog(browserCatalog, references))}
         initialLiveRoom={initialLiveRoom}

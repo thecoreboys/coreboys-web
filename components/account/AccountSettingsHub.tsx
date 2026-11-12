@@ -26,6 +26,7 @@ import {
 } from "@/lib/radio/settings";
 import { cx } from "@/utils/cx";
 import { createDebouncedWorkspaceSave } from "@/lib/account/workspace-save-queue";
+import { useNativeApp } from "@/hooks/useNativeApp";
 
 type AccountSettings = {
   theme: Theme;
@@ -129,7 +130,9 @@ function isCompanionView(value: unknown): value is PlayerCompanionView {
   return value === "details" || value === "up-next" || value === "chat";
 }
 
-export function AccountSettingsHub({ section, accountId }: { section?: string; accountId: string }) {
+export function AccountSettingsHub({ section: requestedSection, accountId }: { section?: string; accountId: string }) {
+  const nativeApp = useNativeApp();
+  const section = nativeApp && requestedSection === "station-audio" ? "playback" : requestedSection;
   const player = usePlayer();
   const playerRef = useRef(player);
   playerRef.current = player;
@@ -374,7 +377,7 @@ export function AccountSettingsHub({ section, accountId }: { section?: string; a
         </div>
       </section> : null}
 
-      {(!section || section === "station-audio") ? <section id="station-audio" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
+      {nativeApp === false && (!section || section === "station-audio") ? <section id="station-audio" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={Radio} eyebrow="Station audio" title="DJ Cora settings" detail="Adjust station announcements, captions, and volume." status={saveLabel(saveStates.radio)} error={saveStates.radio === "error"} onRetry={() => updateRadio({})} />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ToggleRow label="Station announcements" detail="Let DJ Cora introduce stations and content." value={radioSettings.enabled} onChange={(enabled) => updateRadio({ enabled })} />

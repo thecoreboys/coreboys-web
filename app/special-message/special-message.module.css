@@ -173,16 +173,23 @@
 .creatorProfile img { width: 3rem; height: 3rem; border-radius: 50%; object-fit: cover; }
 .creatorProfile svg { flex: none; margin-left: auto; }
 
-.ideasSection {
-  max-width: 43rem;
-  margin-top: 2rem;
-  padding: clamp(1rem, 4vw, 1.6rem);
-  border-radius: .8rem;
-  border: 1px solid var(--letter-rule);
-  background: #f4ece6;
+.ideaThumbnails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
 }
-.ideasList { margin: .75rem 0 0; padding-left: 1.25rem; color: var(--letter-body); font-size: 1.0625rem; line-height: 1.55; }
-.ideasList li + li { margin-top: .45rem; }
+.ideaThumbnails li { min-width: 0; }
+.ideaThumbnails img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: .75rem;
+  background: #ede6de;
+}
 
 .project { margin-top: 2rem; }
 .computerPhotos {
@@ -308,7 +315,7 @@
 }
 
 @media (max-width: 640px) {
-  .creatorProfiles, .projectGrid, .platformScreens { grid-template-columns: minmax(0, 1fr); }
+  .creatorProfiles, .projectGrid, .platformScreens, .ideaThumbnails { grid-template-columns: minmax(0, 1fr); }
   .filmRail {
     grid-template-columns: none;
     grid-auto-flow: column;

@@ -39,9 +39,9 @@ test("the details panel focuses without silently taking room audio", () => {
   assert.match(details, /focused\.muted \? player\.focusTile\(focused\.id, \{ takeAudio: true \}\)/);
 });
 
-test("choosing a chat channel preserves the room audio lead", () => {
+test("browsing a chat channel leaves the main video and audio alone", () => {
   const chatFocus = stage.slice(stage.indexOf("const focusChatChannel"), stage.indexOf("const needle"));
-  assert.match(chatFocus, /player\.focusTile\(tile\.id, \{ takeAudio: false \}\)/);
+  assert.doesNotMatch(chatFocus, /player\.(?:focusTile|makeMain|updateTile)\(/);
 });
 
 test("Twitch room audio changes use the SDK without rebuilding its frame", () => {
@@ -64,7 +64,7 @@ test("multiview collapses same-creator Twitch and YouTube simulcasts and offers 
   assert.match(stage, /uniqueCrossPlatformLiveSources\(currentLive\)/);
   assert.match(stage, /groupCrossPlatformLiveSources/);
   assert.match(stage, /player\.replaceTile\(selectedTileId, item\)/);
-  assert.match(stage, /Watch on \{platformLabel\(item\)\}/);
+  assert.match(stage, /Make \$\{group\.memberLabel\} on \$\{platformLabel\(item\)\} the main stage/);
   assert.match(stage, /Older saved rooms can already contain both sides of a YouTube\/Twitch/);
   assert.match(stage, /openTiles\.find\(\(tile\) => tile\.pinned\)/);
   assert.match(stage, /player\.removeTile\(tile\.id\)/);

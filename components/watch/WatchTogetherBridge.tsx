@@ -21,6 +21,7 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePlayer, type PlayerContextValue } from "@/components/providers/PlayerProvider";
 import { useSubscription } from "@/hooks/useSubscription";
+import { OPEN_WATCH_TOGETHER_EVENT } from "@/lib/site-utility-events";
 import {
   WATCH_PLAYBACK_CONTROL_EVENT,
   WATCH_PLAYBACK_STATE_EVENT,
@@ -181,6 +182,17 @@ export function WatchTogetherBridge() {
   const routeEligible = pathname.startsWith("/theater") || pathname.startsWith("/multiview");
   const multiview = pathname.startsWith("/multiview");
   const [panelOpen, setPanelOpen] = useState(false);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!routeEligible) return;
+    const show = () => {
+      setPanelOpen(true);
+      window.requestAnimationFrame(() => panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus());
+    };
+    window.addEventListener(OPEN_WATCH_TOGETHER_EVENT, show);
+    return () => window.removeEventListener(OPEN_WATCH_TOGETHER_EVENT, show);
+  }, [routeEligible]);
   const [joinCode, setJoinCode] = useState("");
   const [roomTitle, setRoomTitle] = useState("My CORE room");
   const [session, setSession] = useState<RoomSession | null>(null);
@@ -665,11 +677,18 @@ export function WatchTogetherBridge() {
         ? `WebRTC direct · ${directPeers}`
         : "Secure server sync";
 
+  const closePanel = () => {
+    setPanelOpen(false);
+    if (multiview && window.matchMedia("(max-width: 767px)").matches) document.querySelector<HTMLButtonElement>('[aria-controls="mobile-navigation"]')?.focus();
+    else window.requestAnimationFrame(() => triggerRef.current?.focus());
+  };
+
   return (
-    <aside className="watch-together" data-open={panelOpen ? "true" : "false"} aria-label="Watch together">
+    <aside className="watch-together" data-room-surface={multiview ? "multiview" : "theater"} data-open={panelOpen ? "true" : "false"} aria-label="Watch together" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); closePanel(); } }}>
       {!panelOpen ? (
         <button
           type="button"
+          ref={triggerRef}
           className="watch-together__trigger"
           onClick={() => setPanelOpen(true)}
           aria-expanded={false}
@@ -680,10 +699,10 @@ export function WatchTogetherBridge() {
           {session ? <b>{memberCount}</b> : null}
         </button>
       ) : (
-        <section className="watch-together__panel" aria-live="polite">
+        <section ref={panelRef} className="watch-together__panel" aria-live="polite">
           <header>
             <span><ShieldCheck aria-hidden /><b>{session ? "Private watch room" : "Watch together"}</b></span>
-            <button type="button" onClick={() => setPanelOpen(false)} aria-label="Close watch together"><X aria-hidden /></button>
+            <button type="button" onClick={closePanel} aria-label="Close watch together"><X aria-hidden /></button>
           </header>
 
           {!signedIn && !authLoading ? (

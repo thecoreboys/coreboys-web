@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "@/components/ui/SiteImage";
 import dynamic from "next/dynamic";
 import type { Route } from "next";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,9 +15,12 @@ import {
   Gem,
   LogOut,
   Menu,
+  Radio,
   Search,
   Settings,
+  Sparkles,
   UserRound,
+  UsersRound,
   X,
 } from "lucide-react";
 import { ButtonUtility } from "@/components/base/buttons/button-utility";
@@ -25,6 +28,7 @@ import { Button } from "@/components/base/buttons/button";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { openAuthModal } from "@/lib/auth/modal";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
+import { useNativeApp } from "@/hooks/useNativeApp";
 import { ThemeToggle } from "@/components/chrome/ThemeToggle";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { MultiviewRemoteMenuLink } from "@/components/watch/MultiviewRemoteLinks";
@@ -34,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import type { UnifiedLiveEntry, UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
+import { OPEN_CONTRIBUTOR_FORM_EVENT, OPEN_RADIO_CONTROLS_EVENT, OPEN_WATCH_TOGETHER_EVENT } from "@/lib/site-utility-events";
 
 const LiveNowModal = dynamic(
   () => import("@/components/live/LiveNowModal").then((module) => module.LiveNowModal),
@@ -61,6 +66,7 @@ function isYouTubeLiveEntry(entry: UnifiedLiveEntry): entry is UnifiedLiveEntry 
  * selection.
  */
 export function TopNav() {
+  const nativeApp = useNativeApp();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -120,6 +126,12 @@ export function TopNav() {
 
   const openAuth = (mode: "login" | "signup" = "login") => {
     openAuthModal({ mode, next: `${pathname}${searchParams.size ? `?${searchParams}` : ""}` });
+  };
+
+  const openMobileUtility = (eventName: string) => {
+    // Release navigation's scroll/focus handlers before opening a utility.
+    flushSync(() => setOpen(false));
+    window.dispatchEvent(new Event(eventName));
   };
 
   useEffect(() => {
@@ -568,6 +580,13 @@ export function TopNav() {
         <div id="mobile-navigation" data-lenis-prevent className="core-topnav__mobile-menu absolute inset-x-0 top-full overflow-y-auto overscroll-contain border-y border-[color:var(--rule)] bg-[color:var(--bg)] shadow-xl lg:hidden">
           <nav aria-label="Mobile navigation" className="mx-auto max-w-container px-4 py-4 sm:px-6">
             <MultiviewRemoteMenuLink onNavigate={() => setOpen(false)} />
+            {!pathname.startsWith("/admin") && !pathname.startsWith("/studio") && !pathname.startsWith("/access") ? (
+              <div className="mb-5 grid grid-cols-2 gap-2 md:hidden" aria-label="Site tools">
+                {nativeApp === false ? <button type="button" onClick={() => openMobileUtility(OPEN_RADIO_CONTROLS_EVENT)} className="flex min-h-11 items-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 text-sm font-medium text-[color:var(--ink)] hover:bg-[color:var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)]"><Radio size={16} aria-hidden />DJ Cora</button> : null}
+                <button type="button" onClick={() => openMobileUtility(OPEN_CONTRIBUTOR_FORM_EVENT)} className="flex min-h-11 items-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 text-sm font-medium text-[color:var(--ink)] hover:bg-[color:var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)]"><Sparkles size={16} aria-hidden />Help improve CORE</button>
+                {pathname.startsWith("/multiview") ? <button type="button" onClick={() => openMobileUtility(OPEN_WATCH_TOGETHER_EVENT)} className="col-span-2 flex min-h-11 items-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 text-sm font-medium text-[color:var(--ink)] hover:bg-[color:var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)]"><UsersRound size={16} aria-hidden />Watch together</button> : null}
+              </div>
+            ) : null}
             {!authLoading && !user ? (
               <Button color="secondary" size="lg" className="mb-5 w-full" onPress={() => { setOpen(false); openAuth(); }}>
                 Sign in

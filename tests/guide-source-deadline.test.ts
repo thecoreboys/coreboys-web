@@ -27,3 +27,36 @@ test("a slow refresh keeps the last successful schedule and later picks up the r
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(await source(() => new Promise(() => {}), fallback, 5), { state: "ok", items: [2] });
 });
+
+test("a cold source reports loading at the response deadline and reuses the in-flight result", async () => {
+  type Snapshot = { state: string; items: number[] };
+  const source = createGuideSourceCache<Snapshot>(60_000);
+  const failure: Snapshot = { state: "error", items: [] };
+  const loading: Snapshot = { state: "loading", items: [] };
+  let finish!: (value: Snapshot) => void;
+  let calls = 0;
+  const work = new Promise<Snapshot>((resolve) => { finish = resolve; });
+  const load = () => { calls += 1; return work; };
+  const [first, concurrent] = await Promise.all([
+    source(load, failure, 5, loading), source(load, failure, 5, loading),
+  ]);
+  assert.deepEqual(first, loading);
+  assert.deepEqual(concurrent, loading);
+  assert.equal(calls, 1, "the response deadline must not restart the provider");
+  finish({ state: "ok", items: [42] });
+  await work;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(await source(load, failure, 5, loading), { state: "ok", items: [42] });
+  assert.equal(calls, 1);
+});
+
+test("real source failures remain errors and cannot replace the saved schedule", async () => {
+  const source = createGuideSourceCache<{ state: string; items: number[] }>(0);
+  const fallback = { state: "error", items: [] };
+  const loading = { state: "loading", items: [] };
+  assert.deepEqual(await source(async () => { throw new Error("offline"); }, fallback, 100, loading), fallback);
+  assert.deepEqual(await source(async () => ({ state: "ok", items: [7] }), fallback, 100, loading), { state: "ok", items: [7] });
+  assert.deepEqual(await source(async () => { throw new Error("offline"); }, fallback, 100, loading), { state: "ok", items: [7] });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(await source(async () => { throw new Error("still offline"); }, fallback, 100, loading), { state: "ok", items: [7] });
+});

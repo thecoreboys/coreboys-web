@@ -47,6 +47,11 @@ export type ChatDockProps = {
   paused?: boolean;
   showToolbar?: boolean;
   showComposer?: boolean;
+  /** Let a surrounding chat settings surface control the message filters. */
+  filters?: ChatFeedFilters;
+  onFiltersChange?: (filters: ChatFeedFilters) => void;
+  /** Allow the feed to shrink so its composer stays inside a bounded sidebar. */
+  fillContainer?: boolean;
   focusedHeaderActions?: ReactNode;
   nameplate?: string | null;
   themeOverride?: "dark" | "light";
@@ -145,6 +150,9 @@ function ChatDockContent({
   dataSaver,
   showToolbar = true,
   showComposer = true,
+  filters: controlledFilters,
+  onFiltersChange,
+  fillContainer = false,
   focusedHeaderActions,
   nameplate,
   themeOverride,
@@ -158,7 +166,13 @@ function ChatDockContent({
   const [internalFocus, setInternalFocus] = useState(channels[0]?.login.toLowerCase() ?? "");
   const [internalSeparateTab, setInternalSeparateTab] = useState(channels[0]?.login.toLowerCase() ?? "");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState<ChatFeedFilters>(EMPTY_CHAT_FILTERS);
+  const [internalFilters, setInternalFilters] = useState<ChatFeedFilters>(EMPTY_CHAT_FILTERS);
+  const filters = controlledFilters ?? internalFilters;
+  const setFilters = (next: ChatFeedFilters | ((previous: ChatFeedFilters) => ChatFeedFilters)) => {
+    const value = typeof next === "function" ? next(filters) : next;
+    setInternalFilters(value);
+    onFiltersChange?.(value);
+  };
   const [reply, setReply] = useState<{ message: ChatMessage; channelLogin: string } | null>(null);
   const [viewerLogin, setViewerLogin] = useState<string | null>(null);
   const [publicIdentities, setPublicIdentities] = useState<Record<string, PassportChatIdentity>>({});
@@ -179,6 +193,8 @@ function ChatDockContent({
         ? internalFocus
         : fallbackFocus).toLowerCase();
   const focusedChannel = channels.find((channel) => normalize(channel.login) === selectedFocus);
+  const visibleNotice = session.notices.filter((notice) => channels.some((channel) => normalize(channel.login) === normalize(notice.channelLogin))).at(-1);
+  const visibleRaid = session.lastRaid && channels.some((channel) => normalize(channel.login) === normalize(session.lastRaid!.fromLogin)) ? session.lastRaid : null;
   const passportIdentity = usePassportIdentity(
     selectedMode === "focused" ? focusedChannel?.passportChannelSlug ?? null : null,
   );
@@ -499,13 +515,13 @@ function ChatDockContent({
         </p>
       ) : null}
 
-      {session.notices.at(-1) ? (
+      {visibleNotice ? (
         <p className="shrink-0 rounded-lg bg-warning-secondary px-3 py-2 text-xs text-warning-primary" role="status">
-          {session.notices.at(-1)?.message}
+          {visibleNotice.message}
         </p>
       ) : null}
 
-      <div className="min-h-[320px] flex-1">
+      <div className={fillContainer ? "min-h-0 flex-1" : "min-h-[320px] flex-1"}>
         {selectedMode === "combined" ? (
           <ChatFeed
             messages={session.mergedMessages}
@@ -633,7 +649,7 @@ function ChatDockContent({
           preferredTarget={selectedMode === "focused" ? selectedFocus : undefined}
           reply={reply}
           onClearReply={() => setReply(null)}
-          raid={session.lastRaid}
+          raid={visibleRaid}
           onDismissRaid={session.dismissRaid}
           onFollowRaid={(login) => setFocus(login, true)}
           nameplate={nameplate}
