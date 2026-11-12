@@ -123,17 +123,31 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
   contain-intrinsic-block-size: auto calc(var(--home-media-height) + var(--home-copy-height) + 3.75rem);
 }
 .watch-os .core-home .watch-content-rails .watch-home-shelf-placeholder {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   mask-image: none;
 }
 .watch-home-card-placeholder {
+  display: flex;
+  flex-direction: column;
   flex: 0 0 auto;
   width: min(calc(var(--home-media-height) * 16 / 9), calc(100vw - 2 * var(--home-gutter)));
   height: calc(var(--home-media-height) + var(--home-copy-height) + 2px);
   border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
   border-radius: 12px;
   background: color-mix(in srgb, var(--bg-elev) 96%, var(--ink) 4%);
+  color: var(--ink);
+  overflow: hidden;
+  text-decoration: none;
+  scroll-snap-align: start;
 }
+.watch-home-card-placeholder > img,
+.watch-home-preview-art { display: block; width: 100%; height: var(--home-media-height); flex-shrink: 0; object-fit: cover; background: var(--bg-elev); }
+.watch-home-card-placeholder.is-portrait > img { object-fit: contain; }
+.watch-home-preview-copy { display: grid; align-content: start; gap: .4rem; height: var(--home-copy-height); padding: 12px; }
+.watch-home-preview-copy strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: .875rem; line-height: 1.4; font-weight: 600; }
+.watch-home-preview-copy > span { color: var(--home-muted); font-size: .75rem; line-height: 1.4; }
+.watch-home-card-placeholder:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
 .watch-home-card-placeholder.is-portrait { width: max(10.5rem, calc(var(--home-media-height) * 9 / 16)); }
 .watch-home-card-placeholder.is-square { width: var(--home-media-height); }
 .watch-os .core-home .watch-shelf-section .watch-shelf .watch-poster.is-portrait { width: max(10.5rem, calc(var(--home-media-height) * 9 / 16)); }

@@ -20,7 +20,7 @@ import { SocialIcon } from "@/components/ui/SocialIcon";
 import { MEMBERS_BY_SLUG } from "@/lib/members";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
-import { tiktokPostThumbnailSource } from "@/lib/watch/thumbs";
+import { tiktokPostThumbnailSource, watchThumbCandidates } from "@/lib/watch/thumbs";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 import { shortFormPlatformLabel } from "@/lib/watch/short-form";
@@ -986,7 +986,14 @@ export function Shelf({
         {/* Section headings stay intentionally quiet. Source/platform copy is
             available in cards and filters, not beside every title. */}
       </div>
-      {deferCards ? <DeferredHomeRail title={title} shapes={cardShapes.slice(0, 6)}>{rail}</DeferredHomeRail> : rail}
+      {deferCards ? <DeferredHomeRail title={title} previews={items.slice(0, 6).map((item, index) => ({
+        id: item.id,
+        shape: cardShapes[index]!,
+        title: watchTitle(item),
+        subtitle: watchDisplayLabel(item),
+        poster: watchThumbCandidates(item.poster)[0] ?? "",
+        href: item.format === "photo" ? item.sourceUrl || item.href : item.href,
+      }))}>{rail}</DeferredHomeRail> : rail}
     </section>
   );
 }

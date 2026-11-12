@@ -3,9 +3,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 
-export function DeferredHomeRail({ title, shapes, children }: {
+export function DeferredHomeRail({ title, previews, children }: {
   title: string;
-  shapes: readonly string[];
+  previews: readonly { id: string; shape: string; title: string; subtitle: string; poster: string; href: string }[];
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -32,15 +32,26 @@ export function DeferredHomeRail({ title, shapes, children }: {
       role={ready ? undefined : "group"}
       aria-label={ready ? undefined : title}
       tabIndex={ready ? undefined : 0}
-      onFocus={ready ? undefined : () => {
+      onFocus={ready ? undefined : (event) => {
+        if (event.target !== event.currentTarget) return;
         focusOnLoad.current = true;
         setReady(true);
       }}
     >
       {ready ? children : (
-        <div className="watch-shelf watch-home-shelf-placeholder" aria-hidden="true">
-          {shapes.map((shape, index) => (
-            <span key={index} className={`watch-home-card-placeholder is-${shape}`} />
+        <div className="watch-shelf watch-home-shelf-placeholder">
+          {previews.map((preview) => (
+            <a key={preview.id} href={preview.href} target={/^https?:\/\//.test(preview.href) ? "_blank" : undefined} rel="noopener noreferrer" className={`watch-home-card-placeholder is-${preview.shape}`} data-home-preview={preview.id}>
+              {preview.poster ? (
+                // Native lazy loading keeps covers available before hydration.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={preview.poster} alt="" loading="lazy" decoding="async" fetchPriority="low" />
+              ) : <span className="watch-home-preview-art" aria-hidden="true" />}
+              <span className="watch-home-preview-copy">
+                <strong>{preview.title}</strong>
+                <span>{preview.subtitle}</span>
+              </span>
+            </a>
           ))}
         </div>
       )}
