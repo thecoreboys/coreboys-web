@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
-import { AUTH_MODAL_EVENT, type AuthModalRequest } from "@/lib/auth/modal";
+import { AUTH_MODAL_EVENT, type AuthModalMode, type AuthModalRequest } from "@/lib/auth/modal";
+import { safeAuthNext } from "@/lib/auth/password-reset";
 import { dialogTabBoundary, visibleDialogControls } from "@/lib/auth/modal-focus";
 
 // Keep the global event/link listeners immediate while requesting the form
@@ -15,8 +16,9 @@ function FormLoading() {
 }
 const LoginForm = dynamic(() => import("./AuthModalForms").then((module) => module.LoginForm), { loading: FormLoading });
 const SignupForm = dynamic(() => import("./AuthModalForms").then((module) => module.SignupForm), { loading: FormLoading });
+const ForgotPasswordForm = dynamic(() => import("./AuthModalForms").then((module) => module.ForgotPasswordForm), { loading: FormLoading });
 
-type AuthMode = "login" | "signup";
+type AuthMode = AuthModalMode;
 const SLIDE_DURATION_MS = 5_000;
 
 const SLIDES = [
@@ -27,11 +29,11 @@ const SLIDES = [
 ] as const;
 
 function safeNext(value: string | null | undefined, fallback: string) {
-  return value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : fallback;
+  return safeAuthNext(value, fallback);
 }
 
 function authModeFrom(value: string | null): AuthMode | null {
-  return value === "login" || value === "signup" ? value : null;
+  return value === "login" || value === "signup" || value === "forgot-password" ? value : null;
 }
 
 export function AuthModal() {
@@ -43,6 +45,7 @@ export function AuthModal() {
   const modalRef = useRef<HTMLElement | null>(null);
   const [mode, setMode] = useState<AuthMode | null>(requestedMode);
   const [nextPath, setNextPath] = useState(requestedNextPath);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -85,7 +88,7 @@ export function AuthModal() {
       const target = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
       if (!target || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const href = new URL(target.href, window.location.origin);
-      const nextMode = href.pathname === "/login" ? "login" : href.pathname === "/signup" ? "signup" : null;
+      const nextMode = href.pathname === "/login" ? "login" : href.pathname === "/signup" ? "signup" : href.pathname === "/forgot-password" ? "forgot-password" : null;
       if (!nextMode || href.origin !== window.location.origin) return;
       event.preventDefault();
       event.stopPropagation();
@@ -211,11 +214,11 @@ export function AuthModal() {
       <section ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" className="auth-modal-panel grid max-h-[100dvh] w-full overflow-y-auto rounded-t-[1.6rem] border border-white/12 bg-[#151518] shadow-[0_34px_140px_rgba(0,0,0,.76)] sm:max-h-[min(46rem,calc(100dvh-2.5rem))] sm:max-w-lg lg:max-w-5xl lg:grid-cols-[minmax(0,1.05fr)_minmax(25rem,.95fr)] sm:rounded-3xl">
         <AuthShowcase slide={slide} isPaused={paused} reducedMotion={reducedMotion} onSlide={selectSlide} onPause={setShowcasePaused} />
         <div className="auth-modal-form relative flex min-h-[34rem] flex-col px-5 py-6 sm:min-h-0 sm:px-10 sm:py-9">
-          <button type="button" onClick={close} className="absolute right-4 top-4 grid size-11 place-items-center rounded-xl text-white/65 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label="Close sign in"><X className="size-4" /></button>
+          <button type="button" onClick={close} className="absolute right-4 top-4 grid size-11 place-items-center rounded-xl text-white/65 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label={mode === "forgot-password" ? "Close password recovery" : "Close sign in"}><X className="size-4" /></button>
           <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
-            <h1 id="auth-modal-title" className="text-3xl font-semibold tracking-[-.045em] text-white">{mode === "login" ? "Welcome back." : "Create your account."}</h1>
-            <p className="mt-2 text-sm leading-5 text-white/48">{mode === "login" ? "Sign in to sync your watch history and settings." : "A free account saves your watch history and settings."}</p>
-            {mode === "login" ? <LoginForm onSwitch={() => open("signup", nextPath)} onComplete={complete} next={nextPath} /> : <SignupForm onSwitch={() => open("login", nextPath)} onComplete={complete} next={nextPath || "/account"} />}
+            <h1 id="auth-modal-title" className="text-3xl font-semibold tracking-[-.045em] text-white">{mode === "login" ? "Welcome back." : mode === "forgot-password" ? "Forgot your password?" : "Create your account."}</h1>
+            <p className="mt-2 text-sm leading-5 text-white/48">{mode === "login" ? "Sign in to sync your watch history and settings." : mode === "forgot-password" ? "Enter your account email and we’ll send you a reset link." : "A free account saves your watch history and settings."}</p>
+            {mode === "login" ? <LoginForm initialEmail={recoveryEmail} onForgotPassword={(email) => { setRecoveryEmail(email); open("forgot-password", nextPath); }} onSwitch={() => open("signup", nextPath)} onComplete={complete} next={nextPath} /> : mode === "forgot-password" ? <ForgotPasswordForm initialEmail={recoveryEmail} next={nextPath} onBack={(email) => { setRecoveryEmail(email); open("login", nextPath); }} /> : <SignupForm onSwitch={() => open("login", nextPath)} onComplete={complete} next={nextPath || "/account"} />}
           </div>
         </div>
       </section>

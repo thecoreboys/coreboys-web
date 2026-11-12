@@ -4,6 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import Image from "next/image";
 import { ChevronDown, ExternalLink, LockKeyhole, ScanText, Search, Users, X } from "lucide-react";
 import { useEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { activeCreatorTags, matchCreatorText, normalizeCreatorText, verifiedCreatorAvatar, videoRectangle, type CreatorBox, type CreatorProfile, type CreatorTagPayload } from "@/lib/creator-tags/model";
 import styles from "./CreatorTags.module.css";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -27,9 +28,10 @@ function SocialLinks({ creator, compact = false }: { creator: CreatorProfile; co
   })}</div>;
 }
 
-export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain", sourceRatio = 16 / 9, compact = false, liveStartedAt }: {
+export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain", sourceRatio = 16 / 9, compact = false, liveStartedAt, placement = "overlay", panelContainer }: {
   assetKey: string; title: string; getTime: () => number | null; mediaRef?: RefObject<HTMLVideoElement | null>;
   fit?: "contain" | "cover"; sourceRatio?: number; compact?: boolean; liveStartedAt?: string;
+  placement?: "overlay" | "rail"; panelContainer?: HTMLElement | null;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const reader = useRef(getTime); reader.current = getTime;
@@ -77,8 +79,9 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
   useEffect(() => {
     if (!loaded) return;
     let controller: AbortController | null = null;
+    let disposed = false;
     const load = async () => {
-      if (document.visibilityState !== "visible") return;
+      if (disposed || document.visibilityState !== "visible") return;
       controller?.abort(); controller = new AbortController();
       const currentSequence = ++sequence.current;
       try {
@@ -86,7 +89,7 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
         if (liveStartedAt) params.set("liveStartedAt", liveStartedAt);
         const response = await fetch(`/api/watch/creator-tags?${params}`, { signal: controller.signal, cache: "no-store" });
         const value = await response.json();
-        if (currentSequence !== sequence.current) return;
+        if (disposed || currentSequence !== sequence.current) return;
         if (response.status === 401 || response.status === 403) { setData(empty); setAccessBlocked(true); setSelecting(false); return; }
         if (response.ok && Array.isArray(value.creators) && Array.isArray(value.tags)) { setData(value); setSnapshotReady(true); if (value.unavailable) setMessage("Video tags are temporarily unavailable. Name lookup still works."); }
         else setMessage("Creator tags could not load. Try again shortly.");
@@ -96,7 +99,7 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
     const interval = window.setInterval(() => void load(), 15_000);
     const onVisibility = () => { if (document.visibilityState !== "visible") { controller?.abort(); sequence.current++; setData(empty); } else void load(); };
     document.addEventListener("visibilitychange", onVisibility);
-    return () => { controller?.abort(); sequence.current++; clearInterval(interval); document.removeEventListener("visibilitychange", onVisibility); };
+    return () => { disposed = true; controller?.abort(); clearInterval(interval); document.removeEventListener("visibilitychange", onVisibility); };
   }, [assetKey, liveStartedAt, loaded]);
 
   useEffect(() => {
@@ -107,18 +110,22 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
   }, [loaded, assetKey]);
 
   useEffect(() => {
-    const host = root.current;
+    // An external rail must never measure its controls as the video rectangle.
+    // The component remains at the media surface; only its panel is portaled.
+    const host = placement === "rail" ? root.current?.parentElement : root.current;
     if (!host) return;
     const update = () => {
       const video = mediaRef?.current;
-      setPanelMaxHeight(Math.max(0, host.clientHeight - (compact ? 190 : 128)));
+      setPanelMaxHeight(placement === "rail" ? Math.max(96, Math.min(240, window.innerHeight * .25)) : Math.max(0, host.clientHeight - (compact ? 190 : 128)));
       setGeometry(videoRectangle({ width: host.clientWidth, height: host.clientHeight },
         { width: video?.videoWidth || sourceRatio, height: video?.videoHeight || 1 }, fit));
     };
     update(); const observer = new ResizeObserver(update); observer.observe(host);
-    mediaRef?.current?.addEventListener("loadedmetadata", update);
-    return () => { observer.disconnect(); mediaRef?.current?.removeEventListener("loadedmetadata", update); };
-  }, [assetKey, mediaRef, fit, sourceRatio, compact]);
+    window.addEventListener("resize", update);
+    const media = mediaRef?.current;
+    media?.addEventListener("loadedmetadata", update);
+    return () => { observer.disconnect(); window.removeEventListener("resize", update); media?.removeEventListener("loadedmetadata", update); };
+  }, [assetKey, mediaRef, fit, sourceRatio, compact, placement]);
 
   const named = matchCreatorText(title, data.creators);
   const textMatches = matchCreatorText(query, data.creators);
@@ -129,7 +136,7 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
   const currentCreators = [...new Map(tags.map((tag) => data.creators.find((creator) => creator.id === tag.creatorId))
     .filter((creator): creator is CreatorProfile => Boolean(creator)).map((creator) => [creator.id, creator])).values()];
   const panelHasRoom = panelMaxHeight >= 60;
-  const panelExpanded = panelHasRoom && !open && !selecting && (hovered || panelPinned);
+  const panelExpanded = panelHasRoom && !open && !selecting && (panelPinned || (placement === "overlay" && hovered));
   const search = () => { setSelectedTime(reader.current()); setMessage(""); setOpen(true); };
   const select = () => { setOpen(false); setSelecting(true); setBox(null); setSelectedTime(reader.current()); };
 
@@ -183,8 +190,7 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
     document.addEventListener("keydown", cancel);
     return () => document.removeEventListener("keydown", cancel);
   }, [selecting]);
-  return <div ref={root} className={styles.overlay} data-creator-tags data-active={panelExpanded ? "true" : undefined} data-compact={compact ? "true" : undefined} data-cursor-native onKeyDown={(event) => { if (event.key === "Escape") { setSelecting(false); setPanelPinned(false); setHovered(false); } }}>
-    <div className={styles.panel} onClick={(event) => event.stopPropagation()}>
+  const panel = <div className={placement === "rail" ? styles.railPanel : styles.panel} onClick={(event) => event.stopPropagation()}>
       <button type="button" className={styles.panelTrigger} aria-label="Show on-screen creators" disabled={!panelHasRoom} title={panelHasRoom ? undefined : "Expand this player to see creator tags"} aria-expanded={panelExpanded} aria-pressed={panelPinned} onClick={() => { setPanelPinned((pinned) => !pinned); setHovered(false); }}>
         <Users size={15} aria-hidden /><span>On screen</span>{loaded && currentCreators.length ? <span className={styles.count}>{currentCreators.length}</span> : null}{!loaded && !subscription.loading ? <LockKeyhole size={12} aria-hidden /> : <ChevronDown size={13} aria-hidden />}
       </button>
@@ -198,8 +204,10 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
           <div className={styles.panelActions}><button type="button" onClick={search}><Search size={14} aria-hidden /> Find a creator</button><button type="button" onClick={select} disabled={time == null}><ScanText size={14} aria-hidden /> Add tag</button></div>
         </> : <><p className={styles.panelEmpty}>{subscription.loading ? "Loading membership…" : "Creator tags are included with CORE Membership."}</p>{!subscription.loading ? <a className={styles.panelAction} href={subscription.featureHref("player.creator_tags")}>{subscription.signedIn ? "View membership" : "Sign in"}</a> : null}</>}
       </section>
-    </div>
-    {selecting && loaded ? <div className={styles.selection} role="region" aria-label="Drag to place a creator tag" onPointerDown={begin} onPointerMove={move} onPointerUp={finish} onPointerCancel={() => { anchor.current = null; setBox(null); }} onClick={(event) => event.stopPropagation()}>
+    </div>;
+  return <div ref={root} className={placement === "rail" ? styles.railRoot : styles.overlay} data-creator-tags data-placement={placement} data-active={panelExpanded ? "true" : undefined} data-compact={compact ? "true" : undefined} data-cursor-native onKeyDown={(event) => { if (event.key === "Escape") { setSelecting(false); setPanelPinned(false); setHovered(false); } }}>
+    {placement === "rail" ? panelContainer ? createPortal(panel, panelContainer) : null : panel}
+    {selecting && loaded ? <div className={`${styles.selection} ${placement === "rail" ? styles.railSelection : ""}`} role="region" aria-label="Drag to place a creator tag" onPointerDown={begin} onPointerMove={move} onPointerUp={finish} onPointerCancel={() => { anchor.current = null; setBox(null); }} onClick={(event) => event.stopPropagation()}>
       <span className={styles.selectionHint}>Drag to place a creator tag · Esc to cancel</span>
       <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setSelecting(false); }}>Cancel</button>
       {box ? <div className={styles.box} style={boxStyle(box)} /> : null}

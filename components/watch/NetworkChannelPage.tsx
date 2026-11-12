@@ -6,7 +6,7 @@ import Image from "@/components/ui/SiteImage";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChevronRight, Clapperboard, Clock3, ExternalLink, Mail, Play, Radio, RotateCcw, Volume2, VolumeX, Zap } from "lucide-react";
+import { ChevronRight, Clapperboard, Clock3, ExternalLink, Images, Mail, MessageCircle, Play, Radio, RotateCcw, Sparkles, Volume2, VolumeX, Zap } from "lucide-react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import {
   markNetworkRouteReady,
@@ -78,6 +78,14 @@ export type ChannelCrewMember = {
 const CHANNEL_CONTINUOUS_QUEUE_HORIZON_MS = 8 * 60 * 60 * 1_000;
 const CHANNEL_CONTINUOUS_QUEUE_MIN_BLOCKS = 18;
 const CHANNEL_CONTINUOUS_QUEUE_MAX_BLOCKS = 60;
+
+const CHANNEL_SECTIONS = [
+  { id: "watch", label: "Latest", description: "Videos & live streams", Icon: Sparkles },
+  { id: "schedule", label: "Guide & history", description: "On air, next & past", Icon: Clock3 },
+  { id: "photos", label: "Photos", description: "From the camera roll", Icon: Images },
+  { id: "posts", label: "Posts", description: "Updates & posts on X", Icon: MessageCircle },
+  { id: "about", label: "About & fan mail", description: "The crew, socials & mail", Icon: Mail },
+] as const;
 
 const CHANNEL_TV_PACKAGES: Record<string, { signal: string; transmission: string; treatment: string }> = {
   core: { signal: "CORE NETWORK", transmission: "All-house transmission", treatment: "node signal" },
@@ -1149,6 +1157,24 @@ export function NetworkChannelPage({
   const { current: activePlayback, channel: activeChannel, playChannel, requestSeek } = player;
   const viewer = useBrowserTimeZone();
   const [activeSection, setActiveSection] = useState("watch");
+  const sectionNavRef = useRef<HTMLElement>(null);
+  const sectionPanelRef = useRef<HTMLDivElement>(null);
+  const sectionId = useId();
+  const reducedMotion = useReducedMotion();
+  const selectSection = useCallback((section: string) => {
+    setActiveSection(section);
+    window.history.replaceState(null, "", `#${section}`);
+    window.requestAnimationFrame(() => {
+      const panel = sectionPanelRef.current;
+      const nav = sectionNavRef.current;
+      if (!panel || !nav) return;
+      const chromeHeight = Number.parseFloat(window.getComputedStyle(nav).top) || 0;
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + panel.getBoundingClientRect().top - chromeHeight - nav.offsetHeight - 20),
+        behavior: reducedMotion ? "auto" : "smooth",
+      });
+    });
+  }, [reducedMotion]);
   const extrasSection = activeSection === "schedule" ? "history" : activeSection === "photos" ? "photos" : null;
   const { data: extras, error: extrasError, isLoading: extrasLoading, mutate: reloadExtras } = useSWR<{
     photos?: string[]; total?: number;
@@ -1506,6 +1532,29 @@ export function NetworkChannelPage({
         </div>
       </nav>
 
+      <nav ref={sectionNavRef} className={styles.sectionNav} aria-label={`${channel.name} sections`}>
+        <div className={styles.sectionTabs} role="tablist" aria-label="Explore this channel"
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+            const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
+            if (index < 0) return;
+            event.preventDefault();
+            const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+              : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+            tabs[next]?.focus({ preventScroll: true });
+          }}>
+          {CHANNEL_SECTIONS.map(({ id, label, description, Icon }) => (
+            <button key={id} id={`${sectionId}-${id}`} type="button" role="tab"
+              aria-selected={activeSection === id} aria-controls={`${sectionId}-panel`}
+              tabIndex={activeSection === id ? 0 : -1} onClick={() => selectSection(id)}>
+              <Icon aria-hidden="true" />
+              <span><strong>{label}</strong><small>{description}</small></span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
       <header className={styles.hero}>
         <div className={styles.heroMedia} aria-hidden>
           {/* The channel page begins in its community world. Live and
@@ -1598,9 +1647,8 @@ export function NetworkChannelPage({
         <button type="button" className="min-h-11 underline underline-offset-4" onClick={onRefreshSchedule}>Try again</button>
       </div> : null}
 
-      <nav className="creator-section-nav" aria-label="Creator sections">
-        {[["watch", "Latest"], ["schedule", "Guide & history"], ["photos", "Photos"], ["posts", "Posts"], ["about", "About & fan mail"]].map(([id, label]) => <button key={id} type="button" aria-pressed={activeSection === id} onClick={() => { setActiveSection(id!); window.history.replaceState(null, "", `#${id}`); }}>{label}</button>)}
-      </nav>
+      <div ref={sectionPanelRef} id={`${sectionId}-panel`} className={styles.sectionPanel}
+        role="tabpanel" aria-labelledby={`${sectionId}-${activeSection}`} tabIndex={-1}>
       {activeSection === "watch" ? <div className="py-6">
       <CreatorPlatformRails
         channelName={channel.memberSlug === null ? GROUP.name : channel.host}
@@ -1956,6 +2004,7 @@ export function NetworkChannelPage({
       </div>
       </> : null}
 
+      </div>
     </div>
   );
 }

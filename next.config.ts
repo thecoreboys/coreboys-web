@@ -38,6 +38,14 @@ const config: NextConfig = {
 
     return [
       {
+        source: "/reset-password",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store, private" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+      {
         source: "/api/twitch/live",
         headers: [
           {

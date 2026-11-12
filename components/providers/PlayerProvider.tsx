@@ -557,7 +557,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [seekRequest, setSeekRequest] = useState<PlayerSeekRequest | null>(null);
   const [mode, setMode] = useState<PlayerMode>("mini");
   const [queueOpen, setQueueOpen] = useState(false);
-  const [companionView, setCompanionView] = useState<PlayerCompanionView>("details");
+  const [companionView, setCompanionView] = useState<PlayerCompanionView>("chat");
   const [tiles, setTiles] = useState<WorkspaceTile[]>([]);
   const [focusedTileId, setFocusedTileId] = useState<string | null>(null);
   // New rooms open as a Theater surface: one focused program with companion

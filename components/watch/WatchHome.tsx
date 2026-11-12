@@ -32,6 +32,7 @@ import { Shelf } from "./PosterCard";
 import { DragScrollRail } from "./DragScrollRail";
 import { LiveHomeXFeeds } from "./LiveHomeXFeeds";
 import { CampaignSection } from "@/components/campaigns/CampaignSection";
+import { MobileAppSection } from "@/components/sections/MobileAppSection";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import type { CoreOriginal } from "@/lib/core-originals";
 
@@ -145,7 +146,7 @@ export function EventsSeriesChallengesRail({ originals }: { originals: CoreOrigi
   );
 }
 
-export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode }) {
+export function WatchHome({ catalog, patreon, originals, awards }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode; awards?: ReactNode }) {
   const { ids: listIds, user, loading } = useMyList();
   const { map, ready } = useWatchProgress();
   const discovery = useWatchDiscovery();
@@ -377,6 +378,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
       </div>
 
       <div className="watch-content-rails relative z-10 flex flex-col gap-11 pb-24 pt-8 md:gap-14 md:pt-10">
+        {awards}
         {liveShelfItems.length > 0 ? (
           <Shelf title="Live now" items={visible(liveShelfItems)} {...sharedShelfProps} />
         ) : null}
@@ -412,6 +414,8 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
             preferredMemberSlugs={preferredMemberSlugs}
           />
         </div>
+
+        <MobileAppSection />
 
         {originals}
 

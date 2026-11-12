@@ -35,6 +35,7 @@ import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { writeRadioAudioSettings } from "@/lib/radio/settings";
 import { playRadioTunerTick } from "@/lib/radio/tuning-sound";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { OPEN_RADIO_CONTROLS_EVENT } from "@/lib/site-utility-events";
 
 const FADE_MS = 180;
 const GESTURE_GRACE_MS = 4_000;
@@ -116,6 +117,8 @@ export type RadioAudioDirectorProps = {
   onTuneNetwork?: (slug: string) => void;
   /** Automatically tuck the widget away on immersive player routes. */
   autoCollapse?: boolean;
+  /** Start compact on pages whose content needs the bottom-right corner. */
+  defaultExpanded?: boolean;
   className?: string;
 };
 
@@ -252,6 +255,7 @@ export function RadioAudioDirector({
   tunerNetworks = [],
   onTuneNetwork,
   autoCollapse = false,
+  defaultExpanded = true,
   className,
 }: RadioAudioDirectorProps) {
   const reducedMotion = useReducedMotion();
@@ -269,16 +273,17 @@ export function RadioAudioDirector({
   const widgetExpandedRef = useRef(widgetExpanded);
   widgetExpandedRef.current = widgetExpanded;
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 560px)");
+    const media = window.matchMedia("(max-width: 767px)");
     const update = () => {
       setCompactScreen(media.matches);
-      setMobileExpanded(!media.matches);
+      setMobileExpanded(!media.matches && defaultExpanded);
     };
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
-  }, []);
+  }, [defaultExpanded]);
   const rootRef = useRef<HTMLElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
   const placementRef = useRef<WidgetPlacement | null>(null);
   const dragRef = useRef<WidgetDrag | null>(null);
   const activeRef = useRef<ActivePlayback | null>(null);
@@ -944,13 +949,14 @@ export function RadioAudioDirector({
     updatePlacement(next, true);
   };
 
-  const restoreWidget = () => {
-    const edge = placement?.hiddenEdge;
+  const restoreWidget = useCallback(() => {
+    const currentPlacement = placementRef.current;
+    const edge = currentPlacement?.hiddenEdge;
     const root = rootRef.current;
     if (!edge || !root) return;
     const width = root.offsetWidth;
     const height = root.offsetHeight;
-    const edgeOffset = placement.edgeOffset ?? (edge === "left" || edge === "right" ? window.innerHeight / 2 : window.innerWidth / 2);
+    const edgeOffset = currentPlacement.edgeOffset ?? (edge === "left" || edge === "right" ? window.innerHeight / 2 : window.innerWidth / 2);
     const next = clampVisiblePlacement({
       x: edge === "left" ? WIDGET_INSET : edge === "right" ? window.innerWidth - width - WIDGET_INSET : edgeOffset - width / 2,
       y: edge === "top" ? WIDGET_INSET : edge === "bottom" ? window.innerHeight - height - WIDGET_INSET : edgeOffset - height / 2,
@@ -958,6 +964,23 @@ export function RadioAudioDirector({
       edgeOffset: null,
     }, width, height);
     updatePlacement(next, true);
+  }, [updatePlacement]);
+
+  useEffect(() => {
+    const show = () => {
+      restoreWidget();
+      setMobileExpanded(true);
+      window.requestAnimationFrame(() => rootRef.current?.querySelector<HTMLButtonElement>("button")?.focus());
+    };
+    window.addEventListener(OPEN_RADIO_CONTROLS_EVENT, show);
+    return () => window.removeEventListener(OPEN_RADIO_CONTROLS_EVENT, show);
+  }, [restoreWidget]);
+
+  const closeControls = () => {
+    widgetExpandedRef.current = false;
+    setMobileExpanded(false);
+    if (compactScreen) document.querySelector<HTMLButtonElement>('[aria-controls="mobile-navigation"]')?.focus();
+    else toggleRef.current?.focus();
   };
 
   const widgetStyle: CSSProperties | undefined = placement
@@ -989,6 +1012,7 @@ export function RadioAudioDirector({
         onPointerUp={finishDragging}
         onPointerCancel={finishDragging}
         onLostPointerCapture={finishDragging}
+        onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); closeControls(); } }}
       >
       {tunerNetworks.length ? <div className={styles.tuner}>
         <div className={styles.tunerReadout}>
@@ -1017,7 +1041,10 @@ export function RadioAudioDirector({
           <div className={styles.dialTicks} aria-hidden>{tunerNetworks.map((network, index) => <span key={network.slug} className={index === tunerIndex ? styles.activeTick : ""} />)}</div>
           <span className={styles.dialNeedle} aria-hidden />
         </div>
-        <span className={styles.tunerHint}>Stations</span>
+        <div className={styles.tunerActions}>
+          <span className={styles.tunerHint}>Stations</span>
+          <button type="button" className={styles.panelClose} onClick={closeControls} aria-label="Minimize DJ Cora"><X size={18} aria-hidden /></button>
+        </div>
       </div> : null}
       <div className={styles.signal} aria-hidden>
         <span className={styles.signalMeter} style={{ "--signal-level": reducedMotion ? 0 : signalLevel } as CSSProperties}>
@@ -1041,6 +1068,7 @@ export function RadioAudioDirector({
       </aside>
       {!autoCollapse ? <button
         type="button"
+        ref={toggleRef}
         className={styles.mobileToggle}
         aria-label={mobileExpanded ? "Close DJ Cora controls" : "Show DJ Cora controls"}
         aria-expanded={mobileExpanded}

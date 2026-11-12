@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { loadTwitchPlayer, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
-import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
+import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, exposedTwitchPlayer, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import { withTwitchAutoplayPermissions } from "@/lib/watch/player-autoplay";
 
-export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, onPlaying, onPaused, onProgress, onEnded }: {
+export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, onPlaying, onPaused, onProgress, onEnded, statusContainer }: {
+  statusContainer?: HTMLElement | null;
   channel?: string | null;
   video?: string | null;
   muted: boolean;
@@ -70,10 +72,11 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
         requestStart();
       }
     };
+    const tracksVisibility = "isVisible" in IntersectionObserverEntry.prototype;
     const visibilityObserver = new IntersectionObserver((entries) => {
-      inView = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
+      inView = entries.some((entry) => exposedTwitchPlayer(entry as IntersectionObserverEntry & { isVisible?: boolean }, tracksVisibility));
       updateVisibility();
-    }, { threshold: [0, 0.5] });
+    }, { threshold: [0, 0.99, 1], ...(tracksVisibility ? { trackVisibility: true, delay: 250 } : {}) });
     if (mount) visibilityObserver.observe(mount);
     document.addEventListener("visibilitychange", updateVisibility);
     retryRef.current = () => {
@@ -190,13 +193,15 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
 
   return <>
     <div ref={mountRef} id={id} className="absolute inset-0" />
-    {startRequired && !failed ? <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-lg bg-black/90 px-3 py-2 text-xs text-white" role="status">
+    {statusContainer ? createPortal(<div data-twitch-playback-status className="space-y-2">
+    {startRequired && !failed ? <div className="flex items-center justify-between gap-3 rounded-lg bg-room-inset px-3 py-2 text-xs text-room-ink ring-1 ring-inset ring-room-ink/10" role="status">
       <span>Press Play in the Twitch player.</span>
-      <button type="button" className="pointer-events-auto min-h-10 rounded-lg bg-white px-3 font-semibold text-black" onClick={(event) => { event.stopPropagation(); retryRef.current?.(); }}>Retry playback</button>
+      <button type="button" className="min-h-10 rounded-lg bg-room-ink px-3 font-semibold text-room-inverse" onClick={(event) => { event.stopPropagation(); retryRef.current?.(); }}>Retry playback</button>
     </div> : null}
-    {failed ? <div className="absolute inset-0 grid place-content-center gap-3 bg-[#101014] p-5 text-center text-sm">
+    {failed ? <div className="grid place-content-center gap-3 rounded-lg bg-room-panel p-5 text-center text-sm text-room-ink">
       <p>Twitch could not load.</p>
-      <button type="button" className="rounded-lg border border-white/20 px-4 py-2" onClick={() => setAttempt((value) => value + 1)}>Try again</button>
+      <button type="button" className="rounded-lg border border-room-ink/20 px-4 py-2" onClick={() => setAttempt((value) => value + 1)}>Try again</button>
     </div> : null}
+    </div>, statusContainer) : null}
   </>;
 }

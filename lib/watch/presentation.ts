@@ -33,6 +33,19 @@ export function compactTitle(value: string, maxLength = 100): string {
   return `${cut || title.slice(0, maxLength - 1)}…`;
 }
 
+/** Keep complete opening topics in the mobile hero; its disclosure holds the full title. */
+export function billboardHeadline(value: string, maxLength = 64): string {
+  const title = readableTitle(value);
+  if (title.length <= maxLength) return title;
+  const topics = title.split(" · ");
+  let headline = topics[0] ?? title;
+  for (const topic of topics.slice(1)) {
+    if (`${headline} · ${topic}`.length > maxLength) break;
+    headline += ` · ${topic}`;
+  }
+  return compactTitle(headline, maxLength);
+}
+
 export function watchTitle(item: Pick<WatchItem, "title" | "memberLabel" | "format" | "kind">): string {
   return readableTitle(item.title, `${item.memberLabel || "Creator"} · ${item.format === "photo" ? "Photo" : item.kind === "post" ? "Post" : "Video"}`);
 }

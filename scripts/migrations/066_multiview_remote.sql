@@ -14,3 +14,17 @@ CREATE TABLE IF NOT EXISTS fan_multiview_sessions (
 );
 CREATE INDEX IF NOT EXISTS fan_multiview_sessions_user_idx ON fan_multiview_sessions (user_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS fan_multiview_sessions_expiry_idx ON fan_multiview_sessions (updated_at);
+
+-- Only authenticated server routes may discover sessions or issue commands.
+-- Keep browser API roles from bypassing account/host-secret validation.
+ALTER TABLE public.fan_multiview_sessions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.fan_multiview_sessions FROM PUBLIC;
+DO $$
+DECLARE api_role text;
+BEGIN
+  FOREACH api_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=api_role) THEN
+      EXECUTE format('REVOKE ALL ON TABLE public.fan_multiview_sessions FROM %I', api_role);
+    END IF;
+  END LOOP;
+END $$;

@@ -1,6 +1,7 @@
 "use client";
 
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { hasAnalyticsConsent, onConsentChange } from "@/lib/consent";
 
@@ -14,18 +15,22 @@ const GA_ID = "G-BG4VPN3LGG";
  */
 export function GoogleAnalytics() {
   const [enabled, setEnabled] = useState(false);
+  const recoveryPage = usePathname() === "/reset-password";
 
   useEffect(() => {
     const updateConsent = (accepted: boolean) => {
+      // Recovery URLs carry a secret fragment until the form mounts. Never
+      // initialize analytics or record navigation on this page.
+      const canTrack = accepted && !recoveryPage;
       // Restore tracking if a visitor opts back in during the same session.
-      (window as unknown as Record<string, boolean>)[`ga-disable-${GA_ID}`] = !accepted;
-      setEnabled(accepted);
+      (window as unknown as Record<string, boolean>)[`ga-disable-${GA_ID}`] = !canTrack;
+      setEnabled(canTrack);
     };
     updateConsent(hasAnalyticsConsent());
     return onConsentChange(updateConsent);
-  }, []);
+  }, [recoveryPage]);
 
-  if (!enabled) return null;
+  if (!enabled || recoveryPage) return null;
 
   return (
     <>
