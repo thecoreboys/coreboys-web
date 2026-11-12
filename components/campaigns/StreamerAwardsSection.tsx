@@ -75,7 +75,7 @@ export function StreamerAwardsSection({ initialNow }: { initialNow: number }) {
     const syncVisibility = () => setPageVisible(!document.hidden);
     syncMotion();
     syncVisibility();
-    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold: .1 });
+    const observer = new IntersectionObserver(([entry]) => setInView(entry?.isIntersecting ?? false), { threshold: .1 });
     observer.observe(section);
     motion.addEventListener("change", syncMotion);
     document.addEventListener("visibilitychange", syncVisibility);
