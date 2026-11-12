@@ -1,8 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { GET } from "../app/api/watch/instagram-thumbnail/route";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import vm from "node:vm";
+import ts from "typescript";
+import { createPublicCache } from "../lib/public-cache";
+import * as crypto from "node:crypto";
+
+// Use the real cache with a fresh, isolated store for each case. Server-only
+// Redis setup belongs to Next, and must never be reached by this unit test.
+function loadRoute() {
+  const source = readFileSync(resolve(process.cwd(), "app/api/watch/instagram-thumbnail/route.ts"), "utf8");
+  const module = { exports: {} as typeof import("../app/api/watch/instagram-thumbnail/route") };
+  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(code, {
+    module, exports: module.exports,
+    require: (name: string) => {
+      if (name === "node:crypto") return crypto;
+      if (name === "@/lib/server-cache") return { cachedThumbnailData: createPublicCache({ read: async () => null, write: async () => {}, background: (work) => { void work(); } }) };
+      throw new Error(`Unexpected import: ${name}`);
+    },
+    Response, Request, URL, AbortSignal, TextDecoder,
+    fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args),
+  });
+  return module.exports;
+}
 
 test("Instagram covers decode signed URLs and skip private or empty sharing pages", async () => {
+  const { GET } = loadRoute();
   const originalFetch = globalThis.fetch;
   const endpoint = new URL("https://core.local/api/watch/instagram-thumbnail");
   endpoint.searchParams.set("url", "https://www.instagram.com/reel/AbCd12345/");
@@ -12,11 +37,13 @@ test("Instagram covers decode signed URLs and skip private or empty sharing page
     assert.equal(cover.headers.get("location"), "https://scontent.cdninstagram.com/cover.jpg?key=123&size=large");
     assert.doesNotMatch(cover.headers.get("cache-control") ?? "", /stale-while-revalidate/);
     globalThis.fetch = (async () => new Response('<head><title>Sign in</title></head>', { headers: { "content-type": "text/html" } })) as typeof fetch;
+    endpoint.searchParams.set("url", "https://www.instagram.com/reel/Private12345/");
     assert.equal((await GET(new Request(endpoint))).status, 404);
   } finally { globalThis.fetch = originalFetch; }
 });
 
 test("Instagram thumbnail recovery rejects non-Instagram URLs", async () => {
+  const { GET } = loadRoute();
   const originalFetch = globalThis.fetch;
   let requested = false;
   globalThis.fetch = (async () => {
@@ -33,6 +60,7 @@ test("Instagram thumbnail recovery rejects non-Instagram URLs", async () => {
 });
 
 test("Instagram thumbnail recovery redirects to the public Reel cover", async () => {
+  const { GET } = loadRoute();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response('<html><head><meta property="og:image" content="https://scontent.cdninstagram.com/cover.jpg"></head></html>', { headers: { "content-type": "text/html" } })) as typeof fetch;
   try {
@@ -48,6 +76,7 @@ test("Instagram thumbnail recovery redirects to the public Reel cover", async ()
 });
 
 test("Instagram thumbnail recovery rejects unsafe sharing image URLs", async () => {
+  const { GET } = loadRoute();
   const originalFetch = globalThis.fetch;
   let requestedUrl = "";
   globalThis.fetch = (async (input) => {

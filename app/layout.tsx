@@ -12,6 +12,7 @@ import { WatchContextMenuProvider } from "@/components/watch/WatchContextMenu";
 import { GlobalWatchEnhancements } from "@/components/watch/GlobalWatchEnhancements";
 import { TopNav } from "@/components/chrome/TopNav";
 import { LiveRibbon } from "@/components/live/LiveRibbon";
+import { MultiviewRemoteBanner } from "@/components/watch/MultiviewRemoteLinks";
 import { GlobalSiteFooter } from "@/components/chrome/GlobalSiteFooter";
 import { MobileBottomNav } from "@/components/chrome/MobileBottomNav";
 
@@ -23,6 +24,8 @@ import { UnreleasedBanner } from "@/components/chrome/UnreleasedBanner";
 import { SiteHeader } from "@/components/chrome/SiteHeader";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { ContributorWidget } from "@/components/contributors/ContributorWidget";
+import "./contributors.css";
 import "./globals.css";
 import "./watch/watch.css";
 import "./ui-refinements.css";
@@ -34,6 +37,9 @@ import "./cta-polish.css";
 import "./site-polish.css";
 import "./text-polish.css";
 import "./watch-search.css";
+import "./guide-polish.css";
+import "./guide/guide.css";
+import "./guide-readable.css";
 import "./mobile-bottom-nav.css";
 
 // One typeface across the entire product. Inter's variable font covers every
@@ -157,6 +163,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <TopNav />
                 </Suspense>
                 <LiveRibbon />
+                <MultiviewRemoteBanner />
               </SiteHeader>
               {/* SiteHeader measures the complete banner, navigation and live ribbon. */}
               <main
@@ -169,6 +176,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Suspense fallback={null}><MobileBottomNav /></Suspense>
               </div>
                <GlobalWatchEnhancements />
+              <ContributorWidget />
               <Suspense fallback={null}>
                 <AuthModal />
               </Suspense>

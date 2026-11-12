@@ -7,6 +7,7 @@ const config: NextConfig = {
   typescript: { tsconfigPath: process.env.CORE_NEXT_TSCONFIG || "tsconfig.json" },
   reactStrictMode: true,
   typedRoutes: true,
+  serverExternalPackages: ["@grpc/grpc-js", "protobufjs"],
   // Smaller, self-contained server bundle so the Docker runtime stage
   // doesn't need pnpm or node_modules — just `node server.js`.
   // Windows contributors can set CORE_NEXT_STANDALONE=0 for a full local

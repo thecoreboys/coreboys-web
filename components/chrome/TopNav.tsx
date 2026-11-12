@@ -27,6 +27,7 @@ import { openAuthModal } from "@/lib/auth/modal";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { ThemeToggle } from "@/components/chrome/ThemeToggle";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
+import { MultiviewRemoteMenuLink } from "@/components/watch/MultiviewRemoteLinks";
 import { countLiveCreators } from "@/lib/watch/live-source-groups";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
@@ -589,6 +590,7 @@ export function TopNav() {
       {open ? (
         <div id="mobile-navigation" data-lenis-prevent className="core-topnav__mobile-menu absolute inset-x-0 top-full max-h-[calc(100dvh-var(--site-header-h,8rem))] overflow-y-auto overscroll-contain border-y border-[color:var(--rule)] bg-[color:var(--bg)] pb-[env(safe-area-inset-bottom)] shadow-xl lg:hidden">
           <nav aria-label="Mobile navigation" className="mx-auto max-w-container px-4 py-4 sm:px-6">
+            <MultiviewRemoteMenuLink onNavigate={() => setOpen(false)} />
             <p className="text-xs font-medium text-[color:var(--ink-dim)]">Networks</p>
             <ul className="mt-3 grid grid-cols-2 gap-2">
               {NETWORK_CHANNELS.map((network) => {

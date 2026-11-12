@@ -33,8 +33,10 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    ".next-nov11-verify/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    ".next-nov11-dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { CalendarDays, ChevronRight, Clapperboard, Home, Radio, UsersRound, X } from "lucide-react";
 import Link from "next/link";
+import Image from "@/components/ui/SiteImage";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
@@ -78,7 +79,7 @@ export function MobileBottomNav() {
               const member = MEMBERS_BY_SLUG[channel.memberSlug!];
               return <Dialog.Close asChild key={channel.slug}>
                 <Link href={`/channels/${channel.slug}`} prefetch={false} className="mobile-members-sheet__member" aria-current={pathname === `/channels/${channel.slug}` ? "page" : undefined}>
-                  <span className="mobile-members-sheet__avatar"><img src={channel.artwork} alt="" loading="lazy" /></span>
+                  <span className="mobile-members-sheet__avatar"><Image src={channel.artwork} alt="" width={48} height={48} /></span>
                   <span className="mobile-members-sheet__name">{member?.stageName ?? channel.host}<small>{channel.name}</small></span>
                   <ChevronRight size={18} aria-hidden="true" />
                 </Link>

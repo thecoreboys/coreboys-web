@@ -1,15 +1,20 @@
-/**
- * Pre-launch banner. Pinned to the top of every page above the navbar.
- * Untitled UI brand banner: brand-solid pill badge + supporting copy on
- * a subtle bg-secondary strip with a real bottom rule.
- */
+import Link from "next/link";
+
+/** The independent fan-site notice stays above the navigation on every page. */
 export function UnreleasedBanner() {
   return (
     <div
       className="relative z-50 w-full border-b border-secondary bg-secondary/90 backdrop-blur-md"
     >
-      <p className="mx-auto max-w-container px-3 py-1.5 text-center text-[13px] leading-5 text-secondary">
-        Unofficial fan site · Not affiliated with CORE.
+      <p className="mx-auto max-w-container whitespace-nowrap px-2 py-1 text-center text-[12px] leading-5 text-secondary sm:px-3 sm:py-1.5 sm:text-[13px]">
+        <span className="sm:hidden">Unofficial · Not affiliated with CORE · </span>
+        <span className="hidden sm:inline">
+        Unofficial fan site - not affiliated with CORE.{" "}
+        </span>
+        <Link href="/special-message" className="rounded-sm font-semibold underline underline-offset-4 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+          <span className="sm:hidden">Read note</span>
+          <span className="hidden sm:inline">Read a message from the site creator.</span>
+        </Link>
       </p>
     </div>
   );

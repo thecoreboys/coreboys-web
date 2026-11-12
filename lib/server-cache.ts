@@ -27,3 +27,15 @@ export const cachedPublicData: ReturnType<typeof createPublicCache> = caches.get
   },
 });
 caches.set(namespace, cachedPublicData);
+
+// Thumbnail lookups have a much larger key space than page snapshots. Keep
+// their bounded in-process LRU separate so they cannot evict the home catalog.
+const thumbnailNamespace = `${namespace}:thumbnails`;
+export const cachedThumbnailData: ReturnType<typeof createPublicCache> = caches.get(thumbnailNamespace) ?? createPublicCache({
+  read: (key) => redisGetJson(`coreboys:public:${thumbnailNamespace}:${key}`),
+  write: (key, value, ttl) => redisSetJson(`coreboys:public:${thumbnailNamespace}:${key}`, value, ttl),
+  background: (work) => {
+    try { after(work); } catch { void work(); }
+  },
+});
+caches.set(thumbnailNamespace, cachedThumbnailData);

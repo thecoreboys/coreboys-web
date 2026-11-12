@@ -7,6 +7,27 @@ import { isTinyYoutubeStub, isYoutubePlaceholderPixels, watchThumbCandidates } f
 
 // Repeated cards share failed-image knowledge for this browser session.
 const failedImages = new Map<string, number>();
+// A long home feed can contain hundreds of thumbnails. One observer handles
+// all of them instead of registering one browser observer per card.
+const viewportCallbacks = new Map<Element, () => void>();
+let viewportObserver: IntersectionObserver | null = null;
+function observeThumbnail(element: Element, onVisible: () => void) {
+  viewportCallbacks.set(element, onVisible);
+  viewportObserver ??= new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const callback = viewportCallbacks.get(entry.target);
+      viewportCallbacks.delete(entry.target);
+      viewportObserver?.unobserve(entry.target);
+      callback?.();
+    }
+  }, { rootMargin: "200px 0px", threshold: 0 });
+  viewportObserver.observe(element);
+  return () => {
+    viewportCallbacks.delete(element);
+    viewportObserver?.unobserve(element);
+  };
+}
 function markFailed(url: string) {
   failedImages.set(url, Date.now() + 30_000);
   if (failedImages.size > 500) failedImages.delete(failedImages.keys().next().value!);
@@ -55,13 +76,7 @@ function ViewportWatchThumb(props: Parameters<typeof WatchThumbImage>[0]) {
     // Native lazy loading can start thousands of pixels ahead. In long feeds,
     // expired covers then launch dozens of provider-recovery requests at once.
     // Keep those requests off the page's critical path until a card approaches.
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      setNearViewport(true);
-      observer.disconnect();
-    }, { rootMargin: "200px 0px", threshold: 0 });
-    observer.observe(element);
-    return () => observer.disconnect();
+    return observeThumbnail(element, () => setNearViewport(true));
   }, [nearViewport]);
   if (nearViewport) return <WatchThumbImage {...props} />;
   return <span ref={placeholderRef} className={props.className} role={props.alt ? "img" : undefined}

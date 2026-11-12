@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { cachedThumbnailData } from "@/lib/server-cache";
+
 const POST_PATH = /^\/(p|reel|reels|tv)\/([a-zA-Z0-9_-]{5,32})\/?$/;
 
 function safeInstagramPostUrl(value: string | null): string | null {
@@ -42,10 +45,7 @@ function openGraphImage(html: string): string | null {
   return null;
 }
 
-export async function GET(request: Request) {
-  const shareUrl = safeInstagramPostUrl(new URL(request.url).searchParams.get("url"));
-  if (!shareUrl) return new Response(null, { status: 400, headers: { "Cache-Control": "no-store" } });
-
+async function lookupThumbnail(shareUrl: string): Promise<string | null> {
   try {
     // oEmbed no longer provides a reliable thumbnail. The public post's
     // social-sharing metadata is a best-effort fallback to stored artwork.
@@ -56,11 +56,10 @@ export async function GET(request: Request) {
       signal: AbortSignal.timeout(4_000),
       next: { revalidate: 300 },
     });
-    if (!response.ok) return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
-    if (!response.headers.get("content-type")?.includes("text/html")) return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
+    if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) return null;
     // Bound the document read even when Content-Length is absent or incorrect.
     const reader = response.body?.getReader();
-    if (!reader) return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
+    if (!reader) return null;
     const decoder = new TextDecoder();
     let bytes = 0;
     let html = "";
@@ -72,18 +71,31 @@ export async function GET(request: Request) {
         html += decoder.decode(value.subarray(0, Math.max(0, 1_000_000 - (bytes - value.byteLength))), { stream: true });
       }
     } finally { await reader.cancel(); }
-    const thumbnailUrl = openGraphImage(html);
-    if (!thumbnailUrl) return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
-
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: thumbnailUrl,
-        "Cache-Control": "public, max-age=300, s-maxage=300",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
+    return openGraphImage(html);
   } catch {
-    return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
+    return null;
   }
+}
+
+export async function GET(request: Request) {
+  const shareUrl = safeInstagramPostUrl(new URL(request.url).searchParams.get("url"));
+  if (!shareUrl) return new Response(null, { status: 400, headers: { "Cache-Control": "no-store" } });
+
+  const key = `instagram:v1:${createHash("sha256").update(shareUrl).digest("hex")}`;
+  const thumbnailUrl = await cachedThumbnailData(key, () => lookupThumbnail(shareUrl), {
+    freshSeconds: 60,
+    staleSeconds: 0,
+    validate: (value): value is string | null => value === null || safeInstagramImageUrl(value) !== null,
+    // A transient upstream failure should not become a shared Redis entry.
+    shouldCache: (value) => value !== null,
+  });
+  if (!thumbnailUrl) return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=60, s-maxage=60" } });
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: thumbnailUrl,
+      "Cache-Control": "public, max-age=300, s-maxage=300",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }

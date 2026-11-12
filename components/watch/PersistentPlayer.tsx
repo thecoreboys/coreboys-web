@@ -70,6 +70,7 @@ import {
   waitForNetworkTuningAudio,
 } from "@/components/watch/CinematicRouteTransition";
 import { TheaterNetworkGuide } from "@/components/watch/TheaterNetworkGuide";
+import type { PlayerGuideSession } from "@/components/watch/GuideGrid";
 import { ChatDock } from "@/components/live/chat";
 import { YouTubeLiveChat } from "@/components/live/YouTubeLiveChat";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
@@ -861,6 +862,14 @@ export function PersistentPlayer() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [guideDetailsCollapsed, setGuideDetailsCollapsed] = useState(false);
   const [guideMenuOpen, setGuideMenuOpen] = useState(false);
+  const guideSession = useRef<PlayerGuideSession>({});
+  useEffect(() => {
+    if (!guideMenuOpen) return;
+    const compact = window.matchMedia("(max-width: 1023px)");
+    const clearCoveringSidebar = () => { if (compact.matches) setQueueOpen(false); };
+    clearCoveringSidebar(); compact.addEventListener("change", clearCoveringSidebar);
+    return () => compact.removeEventListener("change", clearCoveringSidebar);
+  }, [guideMenuOpen, setQueueOpen]);
   const [contentAdvisoryReady, setContentAdvisoryReady] = useState(false);
   const [waitingForTuningAudio, setWaitingForTuningAudio] = useState(false);
   const [playerStageShellHeight, setPlayerStageShellHeight] = useState<number | null>(null);
@@ -888,6 +897,16 @@ export function PersistentPlayer() {
   const guideDetailsCollapseRef = useRef<HTMLButtonElement | null>(null);
   const guideDetailsRestoreRef = useRef<HTMLButtonElement | null>(null);
   const twitchPlayerRef = useRef<TwitchInstance | null>(null);
+  const [creatorRail, setCreatorRail] = useState<HTMLDivElement | null>(null);
+  const [creatorRailHeight, setCreatorRailHeight] = useState(0);
+  useEffect(() => {
+    if (!creatorRail) { setCreatorRailHeight(0); return; }
+    let frame = 0;
+    const measure = () => { frame = 0; const height = Math.ceil(creatorRail.getBoundingClientRect().height) + 8; setCreatorRailHeight((old) => old === height ? old : height); };
+    const observer = new ResizeObserver(() => { if (!frame) frame = requestAnimationFrame(measure); });
+    measure(); observer.observe(creatorRail);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [creatorRail]);
   const twitchPlayPendingRef = useRef(false);
   const twitchDvrActiveRef = useRef(false);
   const positionRef = useRef(0);
@@ -1790,6 +1809,7 @@ export function PersistentPlayer() {
   useEffect(() => {
     if (!current) return;
     const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || guideMenuOpen) return;
       const target = event.target as HTMLElement | null;
       if (target?.matches("input, textarea, select, [contenteditable=true]")) return;
       if (event.key === "Escape" && playbackSettingsOpen) {
@@ -1889,7 +1909,7 @@ export function PersistentPlayer() {
         }
       }
     };
-  }, [current, mode, minimizeForNavigation, navigateShortForm, playbackSettingsOpen, playerPage, previous, queueOpen, requestSeek, router, setQueueOpen, shortFormTheaterNavigation, skip]);
+  }, [current, guideMenuOpen, mode, minimizeForNavigation, navigateShortForm, playbackSettingsOpen, playerPage, previous, queueOpen, requestSeek, router, setQueueOpen, shortFormTheaterNavigation, skip]);
 
   useEffect(() => () => {
     if (shortWheelResetTimerRef.current !== null) {
@@ -2892,7 +2912,9 @@ export function PersistentPlayer() {
       ? "Calm viewing pauses ambient lighting"
       : null;
   const ambientActive = playerScreen && ambientLighting && !ambientPausedReason;
-  const playerPanelPosition = playerScreen
+  const playerPanelPosition = cleanTwitchFrame || compactTwitchFrame
+    ? "relative m-3 w-auto max-h-[60dvh] shrink-0"
+    : playerScreen
     ? "fixed bottom-20 right-3 w-[min(27rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-6rem)]"
     : `absolute ${shape === "portrait" ? "bottom-[8.5rem]" : "bottom-[5.75rem]"} left-0 w-[min(24rem,calc(100vw-1.5rem))]`;
   const aspect =
@@ -2902,10 +2924,10 @@ export function PersistentPlayer() {
     : inlineGuideVodDetails
     ? "max-w-none"
     : shape === "portrait"
-    ? "max-w-[calc((100dvh-8rem)*9/16)]"
+    ? "max-w-[calc((100dvh-8rem-var(--watch-creator-tags-height,0px))*9/16)]"
     : shape === "square"
-      ? "max-w-[calc(100dvh-8rem)]"
-      : "max-w-[calc((100dvh-8rem)*16/9)]";
+      ? "max-w-[calc(100dvh-8rem-var(--watch-creator-tags-height,0px))]"
+      : "max-w-[calc((100dvh-8rem-var(--watch-creator-tags-height,0px))*16/9)]";
   const customTransport = Boolean(nativeMedia || current.youtubeId || coreTwitchLiveControls);
   const twitchQualityOptions = [
     ...(!twitchQualities.some((quality) => quality.id === twitchQuality) && twitchQuality
@@ -2976,7 +2998,7 @@ export function PersistentPlayer() {
                 onClick={() => {
                   setGuideMenuOpen((open) => !open);
                   if (!guideMenuOpen) {
-                    setQueueOpen(true);
+                    setQueueOpen(window.matchMedia("(min-width: 1024px)").matches);
                     setCompanionView("details");
                   }
                 }}
@@ -2993,7 +3015,7 @@ export function PersistentPlayer() {
           data-player-workspace-grid={playerScreen ? true : undefined}
           className={
             playerScreen
-              ? `relative z-10 mx-auto grid h-full min-h-0 min-w-0 w-full ${isFullscreen ? "max-w-none gap-0" : shortsPage && queueOpen ? "max-w-[min(100%,calc((100dvh-8rem)*9/16+22.75rem))] gap-3" : "max-w-[1920px] gap-3"} ${queueOpen && !isFullscreen ? shortsPage ? "lg:grid-cols-[minmax(0,calc((100dvh-8rem)*9/16))_22rem]" : "lg:grid-cols-[minmax(0,1fr)_22rem]" : ""}`
+              ? `relative z-10 mx-auto grid h-full min-h-0 min-w-0 w-full ${isFullscreen ? "max-w-none gap-0" : shortsPage && queueOpen ? "max-w-[min(100%,calc((100dvh-8rem-var(--watch-creator-tags-height,0px))*9/16+22.75rem))] gap-3" : "max-w-[1920px] gap-3"} ${queueOpen && !isFullscreen ? shortsPage ? "lg:grid-cols-[minmax(0,calc((100dvh-8rem-var(--watch-creator-tags-height,0px))*9/16))_22rem]" : "lg:grid-cols-[minmax(0,1fr)_22rem]" : ""}`
               : "w-full"
           }
         >
@@ -3002,6 +3024,7 @@ export function PersistentPlayer() {
             data-player-stage-shell={playerScreen ? true : undefined}
             data-player-layout={playerScreen ? "screen" : "compact"}
             data-player-shape={shape}
+            style={{ ["--watch-creator-tags-height" as string]: `${creatorRailHeight}px` }}
             className={
               playerScreen
                 ? `relative mx-auto flex min-h-0 min-w-0 w-full flex-col ${isFullscreen ? "h-full self-stretch" : "self-center"} ${playerStageWidth} ${playbackSettingsOpen ? "overflow-visible" : ""}`
@@ -3010,7 +3033,7 @@ export function PersistentPlayer() {
           >
             {cleanTwitchFrame ? (
               <div
-                className="mb-2 flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-[#0b0b0e]/92 px-2 py-1.5 text-white ring-1 ring-white/12"
+                className="mb-2 flex shrink-0 min-h-11 shrink-0 items-center gap-2 rounded-xl bg-[#0b0b0e]/92 px-2 py-1.5 text-white ring-1 ring-white/12"
                 aria-label="Twitch player actions"
               >
                 {current.vodId ? (
@@ -3045,7 +3068,7 @@ export function PersistentPlayer() {
                 <Tooltip
                   title={dvrLocked ? "DVR with CORE Membership" : dvrUser && savedToDvr ? "Remove from DVR" : "Save"}
                   description={dvrLocked ? "Your DVR is included with CORE Membership." : dvrUser ? savedToDvr ? "Remove this broadcast from your DVR." : "Add this broadcast to your DVR for later." : "Sign in to add this broadcast to your DVR."}
-                  placement="bottom"
+                  placement="top"
                 >
                   <button
                     type="button"
@@ -3072,7 +3095,7 @@ export function PersistentPlayer() {
                 <Tooltip
                   title={queueOpen ? "Close side panel" : companionChatAvailable ? "Live chat & more" : "Up next & details"}
                   description={queueOpen ? "Hide the queue, live chat, and video details." : companionChatAvailable ? "Open live chat, your queue, and video details." : "Open your queue and video details."}
-                  placement="bottom"
+                  placement="top"
                 >
                   <button
                     ref={companionTriggerRef}
@@ -3087,7 +3110,7 @@ export function PersistentPlayer() {
                   </button>
                 </Tooltip>
                 <div className="watch-player-window-controls is-twitch-header ml-1 flex shrink-0 items-center gap-1">
-                  <Tooltip title="Minimize player" description="Keep watching in a compact floating player." placement="bottom">
+                  <Tooltip title="Minimize player" description="Keep watching in a compact floating player." placement="top">
                     <button
                       type="button"
                       onClick={() => leavePlayerPage(false)}
@@ -3097,7 +3120,7 @@ export function PersistentPlayer() {
                       ↙
                     </button>
                   </Tooltip>
-                  <Tooltip title="Close player" description="Stop playback and close the player." placement="bottom">
+                  <Tooltip title="Close player" description="Stop playback and close the player." placement="top">
                     <button
                       type="button"
                       onClick={() => leavePlayerPage(true)}
@@ -3489,6 +3512,8 @@ export function PersistentPlayer() {
               {(current.platform === "youtube" || current.platform === "twitch" || current.platform === "house") && !imageMedia ? (
                 <CreatorTags
                   key={`creators:${current.platform}:${current.key}:${current.publishedAt ?? ""}`}
+                  placement={current.platform === "twitch" ? "rail" : "overlay"}
+                  panelContainer={creatorRail}
                   assetKey={`${current.platform}:${current.key}`}
                   title={current.title}
                   liveStartedAt={current.kind === "live" ? current.publishedAt : undefined}
@@ -3569,7 +3594,7 @@ export function PersistentPlayer() {
                   ) : null}
                 </div>
               ) : null}
-              {socialTheaterPresentation && !cleanTwitchFrame ? (
+              {socialTheaterPresentation && !cleanTwitchFrame && !compactTwitchFrame ? (
                 <div
                   data-social-theater-presentation
                   className="absolute bottom-4 left-4 z-30 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-2xl border border-white/15 bg-black/72 py-1.5 pl-1.5 pr-2.5 text-white shadow-[0_14px_40px_rgba(0,0,0,0.42)] backdrop-blur-xl"
@@ -3627,7 +3652,7 @@ export function PersistentPlayer() {
                   </button>
                 </Tooltip>
               </div> : null}
-              {playerScreen && !cleanTwitchFrame && !coreTwitchLiveControls && (canStartOver || twitchDvrActive) ? (
+              {playerScreen && !cleanTwitchFrame && !compactTwitchFrame && !coreTwitchLiveControls && (canStartOver || twitchDvrActive) ? (
                 <button
                   type="button"
                   onClick={twitchDvrActive ? returnToTwitchLive : startFromBeginning}
@@ -3637,7 +3662,7 @@ export function PersistentPlayer() {
                   {twitchDvrActive ? "Go live" : "Start over"}
                 </button>
               ) : null}
-              {playerScreen && !cleanTwitchFrame && canSkipIntro && introChapter?.endSeconds ? (
+              {playerScreen && !cleanTwitchFrame && !compactTwitchFrame && canSkipIntro && introChapter?.endSeconds ? (
                 <button
                   type="button"
                   onClick={() => requestSeek(introChapter.endSeconds!)}
@@ -3646,7 +3671,7 @@ export function PersistentPlayer() {
                   Skip intro
                 </button>
               ) : null}
-              {playerScreen && !cleanTwitchFrame && matchingFullVideo ? (
+              {playerScreen && !cleanTwitchFrame && !compactTwitchFrame && matchingFullVideo ? (
                 <button
                   type="button"
                   onClick={() => play(matchingFullVideo, queue)}
@@ -3967,7 +3992,15 @@ export function PersistentPlayer() {
                 </div>
               ) : null}
             </div>
-            {playerScreen && guideMenuOpen ? <TheaterNetworkGuide onReturn={() => setGuideMenuOpen(false)} /> : null}
+            {guideOverlayOpen ? (
+              <TheaterNetworkGuide
+                session={guideSession.current}
+                onReturn={() => setGuideMenuOpen(false)}
+                onTune={item => {
+                  if (item.key === current.key) setPlaybackIntent("play");
+                }}
+              />
+            ) : null}
             {restoreGuideVodDetails ? (
               <Tooltip title="Show Now Playing" description="Reopen this video's details." placement="left">
                 <button
@@ -4044,7 +4077,7 @@ export function PersistentPlayer() {
                 <Tooltip
                   title={isPlaying ? "Pause" : "Play"}
                   description={isPlaying ? "Pause this broadcast at the current time." : "Continue this broadcast from the current time."}
-                  placement="top"
+                  placement="bottom"
                 >
                   <button type="button" onClick={togglePlayback} aria-label={isPlaying ? "Pause" : "Play"}>
                     {isPlaying ? <PauseIcon aria-hidden /> : <PlayIcon aria-hidden />}
@@ -4053,7 +4086,7 @@ export function PersistentPlayer() {
                 <Tooltip
                   title={isMuted ? "Unmute" : "Mute"}
                   description={isMuted ? "Turn this broadcast's sound back on." : "Turn off sound for this broadcast."}
-                  placement="top"
+                  placement="bottom"
                 >
                   <button type="button" onClick={toggleMuted} aria-label={isMuted ? "Unmute" : "Mute"}>
                     {isMuted ? <VolumeX aria-hidden /> : <Volume2 aria-hidden />}
@@ -4115,7 +4148,7 @@ export function PersistentPlayer() {
                   <Tooltip
                     title={captionsEnabled ? "Turn captions off" : "Turn captions on"}
                     description={captionsEnabled ? "Hide spoken dialogue and audio cues." : "Show spoken dialogue and audio cues."}
-                    placement="top"
+                    placement="bottom"
                   >
                     <button type="button" onClick={() => setCaptionsEnabled(!captionsEnabled)} className={captionsEnabled ? "is-active" : ""} aria-label={`${captionsEnabled ? "Disable" : "Enable"} captions`} aria-pressed={captionsEnabled}>
                       <Captions aria-hidden />
@@ -4126,7 +4159,7 @@ export function PersistentPlayer() {
                   <Tooltip
                     title="Add another view"
                     description="Keep this playing while you choose another title, Twitch stream, or YouTube video."
-                    placement="top"
+                    placement="bottom"
                   >
                     <Link href="/multiview?picker=1" className={`watch-player-multiview-control ${CONTROL_FEEDBACK}`} onClick={() => {
                       checkpointCurrent();
@@ -4139,7 +4172,7 @@ export function PersistentPlayer() {
                 <Tooltip
                   title={playbackSettingsOpen ? "Close settings" : "Player settings"}
                   description={playbackSettingsOpen ? "Return to the broadcast controls." : "Adjust playback, accessibility, quality, and devices."}
-                  placement="top"
+                  placement="bottom"
                 >
                   <button ref={settingsTriggerRef} type="button" onClick={() => setPlaybackSettingsOpen((open) => !open)} className={playbackSettingsOpen ? "is-active" : ""} aria-label={playbackSettingsOpen ? "Close player settings" : "Open player settings"} aria-expanded={playbackSettingsOpen} aria-controls="playback-settings-panel">
                     <Settings2 aria-hidden />
@@ -4148,7 +4181,7 @@ export function PersistentPlayer() {
                 <Tooltip
                   title={isFullscreen ? "Exit full screen" : "Enter full screen"}
                   description={isFullscreen ? "Return this broadcast to the media player page." : "Expand this broadcast to fill your screen."}
-                  placement="top"
+                  placement="bottom"
                 >
                   <button type="button" onClick={() => void toggleFullscreen()} aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"}>
                     <Maximize aria-hidden />
@@ -4156,6 +4189,7 @@ export function PersistentPlayer() {
                 </Tooltip>
               </div>
             ) : null}
+            {current.platform === "twitch" && !imageMedia ? <div ref={setCreatorRail} data-player-creator-tools className="mt-2 shrink-0" /> : null}
             {!playerScreen ? (
             <div
               data-player-details
@@ -4213,6 +4247,7 @@ export function PersistentPlayer() {
                 className={`z-[52] max-h-[calc(100dvh-1.5rem)] overscroll-contain overflow-y-auto rounded-2xl bg-[#111216]/[0.98] p-4 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl ${playerPanelPosition}`}
                 aria-label="Player settings"
                 data-player-settings
+                data-native-twitch-settings={cleanTwitchFrame || compactTwitchFrame ? true : undefined}
               >
                 <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
                   <div className="min-w-0 pt-0.5">
