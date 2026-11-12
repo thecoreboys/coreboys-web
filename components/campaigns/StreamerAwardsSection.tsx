@@ -1,7 +1,8 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowLeft, ArrowRight, Maximize2, Trophy, X } from "lucide-react";
+import useEmblaCarousel from "embla-carousel-react";
+import { ArrowLeft, ArrowRight, Maximize2, Pause, Play, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import SiteImage from "@/components/ui/SiteImage";
 import {
@@ -21,7 +22,14 @@ export function StreamerAwardsSection({ initialNow }: { initialNow: number }) {
   const [now, setNow] = useState(initialNow);
   const [selected, setSelected] = useState<number | null>(null);
   const [edges, setEdges] = useState({ previous: false, next: true });
-  const railRef = useRef<HTMLDivElement>(null);
+  const [rotationEnabled, setRotationEnabled] = useState(true);
+  const [hovered, setHovered] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [motionAllowed, setMotionAllowed] = useState(false);
+  const [pageVisible, setPageVisible] = useState(true);
+  const sectionRef = useRef<HTMLElement>(null);
+  const [carouselRef, carousel] = useEmblaCarousel({ loop: true, align: "start", duration: 45 });
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const countdown = streamerAwardsCountdown(now);
   const active = selected === null ? null : nominees[selected] ?? null;
@@ -46,43 +54,68 @@ export function StreamerAwardsSection({ initialNow }: { initialNow: number }) {
   }, [visible]);
 
   const updateEdges = useCallback(() => {
-    const rail = railRef.current;
-    if (!rail) return;
-    setEdges({ previous: rail.scrollLeft > 2, next: rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 2 });
-  }, []);
+    if (!carousel) return;
+    setEdges({ previous: carousel.canScrollPrev(), next: carousel.canScrollNext() });
+  }, [carousel]);
 
   useEffect(() => {
-    const rail = railRef.current;
-    if (!rail || !visible) return;
+    if (!carousel) return;
     updateEdges();
-    const observer = new ResizeObserver(updateEdges);
-    observer.observe(rail);
-    return () => observer.disconnect();
-  }, [updateEdges, visible]);
+    const onPointerDown = () => setDragging(true);
+    const onPointerUp = () => setDragging(false);
+    carousel.on("select", updateEdges).on("reInit", updateEdges).on("pointerDown", onPointerDown).on("pointerUp", onPointerUp);
+    return () => { carousel.off("select", updateEdges).off("reInit", updateEdges).off("pointerDown", onPointerDown).off("pointerUp", onPointerUp); };
+  }, [carousel, updateEdges]);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || !visible) return;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotion = () => setMotionAllowed(!motion.matches);
+    const syncVisibility = () => setPageVisible(!document.hidden);
+    syncMotion();
+    syncVisibility();
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold: .1 });
+    observer.observe(section);
+    motion.addEventListener("change", syncMotion);
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => {
+      observer.disconnect();
+      motion.removeEventListener("change", syncMotion);
+      document.removeEventListener("visibilitychange", syncVisibility);
+    };
+  }, [visible]);
+
+  useEffect(() => {
+    if (!carousel || !rotationEnabled || !motionAllowed || !inView || !pageVisible || hovered || dragging || selected !== null || !edges.next) return;
+    const interval = window.setInterval(() => carousel.scrollNext(), 4500);
+    return () => window.clearInterval(interval);
+  }, [carousel, rotationEnabled, motionAllowed, inView, pageVisible, hovered, dragging, selected, edges.next]);
 
   const scroll = (direction: number) => {
-    const rail = railRef.current;
-    if (!rail) return;
-    rail.scrollBy({ left: direction * rail.clientWidth * .8,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    setRotationEnabled(false);
+    if (direction < 0) carousel?.scrollPrev(!motionAllowed);
+    else carousel?.scrollNext(!motionAllowed);
   };
   const changePoster = (direction: number) => setSelected((index) => index === null ? null : (index + direction + nominees.length) % nominees.length);
 
   if (!countdown) return null;
 
   return (
-    <section id="streamer-awards" className={styles.section} aria-labelledby="streamer-awards-heading" data-streamer-awards>
+    <section id="streamer-awards" ref={sectionRef} className={styles.section} aria-labelledby="streamer-awards-heading" aria-roledescription="carousel" data-streamer-awards
+      onPointerEnter={(event) => { if (event.pointerType === "mouse") setHovered(true); }}
+      onPointerLeave={() => setHovered(false)}
+      onFocusCapture={(event) => { if (!(event.target as HTMLElement).closest("[data-awards-rotation]")) setRotationEnabled(false); }}>
       <div className={styles.frame}>
         <header className={styles.header}>
           <div className={styles.intro}>
-            <p className={styles.eyebrow}><Trophy size={15} aria-hidden /> The Streamer Awards <span>2026</span></p>
-            <h2 id="streamer-awards-heading">The countdown begins.</h2>
-            <p className={styles.subtitle}>CORE members nominated this year!</p>
+            <p className={styles.eyebrow}>2026 <span>CORE nominees</span></p>
+            <h2 id="streamer-awards-heading">The Streamer Awards</h2>
           </div>
           <div className={styles.countdown}>
             <div className={styles.clock} role="timer" aria-live="off" aria-label={`${countdown.days} days, ${countdown.hours} hours, ${countdown.minutes} minutes, ${countdown.seconds} seconds remaining`}>
               {([
-                ["Days", countdown.days], ["Hours", countdown.hours], ["Minutes", countdown.minutes], ["Seconds", countdown.seconds],
+                ["Days", countdown.days], ["Hours", countdown.hours], ["Min", countdown.minutes], ["Sec", countdown.seconds],
               ] as const).map(([label, value]) => (
                 <div key={label} className={styles.unit} aria-hidden="true"><span>{pad(value)}</span><small>{label}</small></div>
               ))}
@@ -91,16 +124,11 @@ export function StreamerAwardsSection({ initialNow }: { initialNow: number }) {
           </div>
         </header>
 
-        <div className={styles.railHeading}>
-          <span><i aria-hidden /> 9 nominations. One CORE.</span>
-          <div className={styles.arrows}>
-            <button type="button" onClick={() => scroll(-1)} disabled={!edges.previous} aria-label="Previous nominees" aria-controls="streamer-awards-nominees"><ArrowLeft size={17} aria-hidden /></button>
-            <button type="button" onClick={() => scroll(1)} disabled={!edges.next} aria-label="Next nominees" aria-controls="streamer-awards-nominees"><ArrowRight size={17} aria-hidden /></button>
-          </div>
-        </div>
-        <div id="streamer-awards-nominees" ref={railRef} className={styles.rail} onScroll={updateEdges}>
+        <div id="streamer-awards-nominees" ref={carouselRef} className={styles.viewport} aria-live={rotationEnabled && motionAllowed ? "off" : "polite"} data-lenis-prevent>
+          <div className={styles.rail}>
           {nominees.map((nominee, index) => (
             <button key={nominee.id} type="button" className={styles.card}
+              data-awards-slide
               onClick={(event) => { openerRef.current = event.currentTarget; setSelected(index); }}
               aria-label={`View ${nominee.name} — ${nominee.category} nomination`}>
               <span className={styles.artwork}>
@@ -110,6 +138,12 @@ export function StreamerAwardsSection({ initialNow }: { initialNow: number }) {
               <span className={styles.cardCopy}><small>{nominee.category}</small><strong>{nominee.name}</strong></span>
             </button>
           ))}
+          </div>
+        </div>
+        <div className={styles.controls}>
+          <button type="button" onClick={() => scroll(-1)} disabled={!edges.previous} aria-label="Previous nominees" aria-controls="streamer-awards-nominees"><ArrowLeft size={17} aria-hidden /></button>
+          {motionAllowed && (edges.previous || edges.next) ? <button type="button" data-awards-rotation onClick={() => setRotationEnabled((enabled) => !enabled)} aria-label={rotationEnabled ? "Pause carousel" : "Play carousel"} aria-controls="streamer-awards-nominees">{rotationEnabled ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}</button> : null}
+          <button type="button" onClick={() => scroll(1)} disabled={!edges.next} aria-label="Next nominees" aria-controls="streamer-awards-nominees"><ArrowRight size={17} aria-hidden /></button>
         </div>
       </div>
 
