@@ -25,7 +25,7 @@ export function groupCrossPlatformLiveSources<T extends LiveSource>(items: reado
   const byCreator = new Map<string, T[]>();
   for (const item of items) {
     if (item.kind !== "live") continue;
-    const key = item.memberSlug ? `member:${item.memberSlug}` : `source:${item.key}`;
+    const key = item.memberSlug ? `member:${item.memberSlug.toLowerCase()}` : `source:${item.key}`;
     byCreator.set(key, [...(byCreator.get(key) ?? []), item]);
   }
 

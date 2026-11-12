@@ -25,6 +25,7 @@ import {
 } from "@/lib/watch/continue-watching";
 import { selectWatchHomeXPosts, selectWatchHomeXSpaces } from "@/lib/watch/x-posts";
 import { selectShortFormRailItems } from "@/lib/watch/short-form";
+import { groupCrossPlatformLiveSources } from "@/lib/watch/live-source-groups";
 import { BillboardCarousel } from "./Billboard";
 import { NetworkChannelRail } from "./NetworkChannelPage";
 import { Shelf } from "./PosterCard";
@@ -155,6 +156,11 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
   const [continueInHero, setContinueInHero] = useState(true);
 
   const all = useMemo(() => groupCrossposts(unique(catalog.all)), [catalog.all]);
+  const liveShelfItems = useMemo(
+    () => groupCrossPlatformLiveSources(catalog.live.map((item) => ({ ...item, key: item.id })))
+      .map((group) => group.sources[0]!),
+    [catalog.live],
+  );
   const playable = useMemo(
     () => all.filter((item) => item.format !== "photo" && item.kind !== "post"),
     [all],
@@ -372,8 +378,8 @@ export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catal
       </div>
 
       <div className="watch-content-rails relative z-10 flex flex-col gap-11 pb-24 pt-8 md:gap-14 md:pt-10">
-        {catalog.live.length > 0 ? (
-          <Shelf title="Live now" items={visible(catalog.live)} {...sharedShelfProps} />
+        {liveShelfItems.length > 0 ? (
+          <Shelf title="Live now" items={visible(liveShelfItems)} {...sharedShelfProps} />
         ) : null}
 
         {defaultRowOrder.map((rowId) => (

@@ -50,6 +50,15 @@ test("different creators and single-platform lives stay separate", () => {
   assert.deepEqual(uniqueCrossPlatformLiveSources(sources), [sources[0], sources[2]]);
 });
 
+test("home live shelf groups creator simulcasts while retaining unknown creators", () => {
+  const home = readFileSync(resolve(process.cwd(), "components/watch/WatchHome.tsx"), "utf8");
+  assert.match(home, /groupCrossPlatformLiveSources\(catalog\.live\.map/);
+  const youtube = source("lacy-youtube", "Lacy", "youtube");
+  const twitch = source("lacy-twitch", "lacy", "twitch");
+  const unknown = { ...source("other", "", "twitch"), memberSlug: null };
+  assert.deepEqual(uniqueCrossPlatformLiveSources([youtube, twitch, unknown]), [youtube, unknown]);
+});
+
 test("non-live uploads are not treated as alternate live sources", () => {
   const live = source("lacy-twitch", "lacy", "twitch");
   const vod = source("lacy-youtube-vod", "lacy", "youtube", "vod");
