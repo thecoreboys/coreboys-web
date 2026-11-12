@@ -3,6 +3,7 @@ import { signupSchema, createFanUser, DuplicateEmailError } from "@/lib/fan-user
 import { signFanSessionToken, buildFanSessionCookie } from "@/lib/fan-auth";
 import { getEmailVerificationReadiness, requestEmailVerification } from "@/lib/email-verification";
 import { limitFanAuth } from "@/lib/fan-auth-rate-limit";
+import { FanSignupRateLimitError } from "@/lib/fan-signup-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,12 @@ export async function POST(req: Request) {
     }
     return res;
   } catch (err) {
+    if (err instanceof FanSignupRateLimitError) {
+      return NextResponse.json(
+        { error: err.message, code: "signup_rate_limited" },
+        { status: 429, headers: { "Retry-After": String(err.retryAfterSeconds), "Cache-Control": "no-store" } },
+      );
+    }
     if (err instanceof DuplicateEmailError) {
       return NextResponse.json({ error: err.message }, { status: 409 });
     }

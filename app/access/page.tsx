@@ -1,5 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
+import { redirect } from "next/navigation";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
+import { siteAccessGateEnabled } from "@/lib/site-access";
+import { safeAuthNext } from "@/lib/auth/password-reset";
 import { AccessGateIntro } from "./AccessGateIntro";
 import { AccessGateForm } from "./AccessGateForm";
 
@@ -15,6 +18,10 @@ export default async function AccessPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const params = await searchParams;
+  if (!siteAccessGateEnabled()) {
+    const next = safeAuthNext(params.next);
+    redirect((next.startsWith("/access") ? "/" : next) as Route);
+  }
   return (
     <main className="access-gate-shell">
       <AccessGateIntro />

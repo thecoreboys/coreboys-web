@@ -13,7 +13,8 @@ function configuredCode(): string | null {
 }
 
 export function siteAccessGateEnabled(): boolean {
-  return process.env.NODE_ENV === "production" && Boolean(secret() && configuredCode());
+  return process.env.SITE_ACCESS_GATE_ENABLED === "true"
+    && process.env.NODE_ENV === "production" && Boolean(secret() && configuredCode());
 }
 
 async function hmacKey() {

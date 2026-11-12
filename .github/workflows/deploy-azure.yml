@@ -45,6 +45,7 @@ jobs:
           pnpm typecheck
           pnpm lint
           pnpm test
+          node scripts/test-fan-signup-sql.mjs
 
       - name: Verify Stripe supporter readiness
         env:
@@ -236,6 +237,7 @@ jobs:
           declare -a secret_args=()
           declare -a env_args=(
             "NODE_ENV=production"
+            "SITE_ACCESS_GATE_ENABLED=false"
             "FACE_ANALYZER_ENABLED=${FACE_ANALYZER_ENABLED}"
             "FACE_AUTOMATIC_MATCHING_ENABLED=${FACE_AUTOMATIC_MATCHING_ENABLED}"
             "FACE_PRESENCE_PUBLIC_ENABLED=${FACE_PRESENCE_PUBLIC_ENABLED}"

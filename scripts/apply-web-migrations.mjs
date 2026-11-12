@@ -77,6 +77,7 @@ const migrations = [
   "065_contributor_applications.sql",
   "066_multiview_remote.sql",
   "067_fan_password_reset.sql",
+  "068_fan_signup_capacity.sql",
 ];
 
 function loadEnvLocal() {

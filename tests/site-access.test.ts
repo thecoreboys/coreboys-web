@@ -10,27 +10,36 @@ import {
 const originalNodeEnv = process.env.NODE_ENV;
 const originalCode = process.env.SITE_ACCESS_CODE;
 const originalSecret = process.env.SITE_ACCESS_COOKIE_SECRET;
+const originalEnabled = process.env.SITE_ACCESS_GATE_ENABLED;
 
 test.afterEach(() => {
   for (const [key, value] of Object.entries({
     NODE_ENV: originalNodeEnv,
     SITE_ACCESS_CODE: originalCode,
     SITE_ACCESS_COOKIE_SECRET: originalSecret,
+    SITE_ACCESS_GATE_ENABLED: originalEnabled,
   })) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
 });
 
-test("production gate requires both secrets", () => {
+test("production is public unless the preview gate is explicitly enabled with both secrets", () => {
   Object.assign(process.env, { NODE_ENV: "production" });
+  delete process.env.SITE_ACCESS_GATE_ENABLED;
   delete process.env.SITE_ACCESS_CODE;
   delete process.env.SITE_ACCESS_COOKIE_SECRET;
   assert.equal(siteAccessGateEnabled(), false);
   process.env.SITE_ACCESS_CODE = "123456";
   assert.equal(siteAccessGateEnabled(), false);
   process.env.SITE_ACCESS_COOKIE_SECRET = "test-secret-that-is-long-enough";
+  assert.equal(siteAccessGateEnabled(), false);
+  process.env.SITE_ACCESS_GATE_ENABLED = "false";
+  assert.equal(siteAccessGateEnabled(), false);
+  process.env.SITE_ACCESS_GATE_ENABLED = "true";
   assert.equal(siteAccessGateEnabled(), true);
+  delete process.env.SITE_ACCESS_CODE;
+  assert.equal(siteAccessGateEnabled(), false);
 });
 
 test("access code comparison accepts only the configured code", async () => {

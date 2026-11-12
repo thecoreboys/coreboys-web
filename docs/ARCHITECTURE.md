@@ -63,7 +63,14 @@ access gate use separate secrets.
 | --- | --- |
 | Fan | `coreboys-fan-session`, HS256, 30-day lifetime, `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Signing requires `FAN_SESSION_SECRET`. See [`lib/fan-auth.ts`](../lib/fan-auth.ts). |
 | Staff | `coreboys-admin-session`, HS256, 12-hour lifetime, signed with `ADMIN_SESSION_SECRET`. Protected handlers resolve the current database role, member assignment, deactivation, and session version; elevated administrators also require TOTP. See [`lib/admin-auth.ts`](../lib/admin-auth.ts) and [`lib/admin-api.ts`](../lib/admin-api.ts). |
-| Preview visitor | `coreboys-site-access`, a signed seven-day access token. The production gate is enabled when both `SITE_ACCESS_CODE` and `SITE_ACCESS_COOKIE_SECRET` are configured. See [`middleware.ts`](../middleware.ts) and [`lib/site-access.ts`](../lib/site-access.ts). |
+| Preview visitor | The site is public. The optional preview gate requires `SITE_ACCESS_GATE_ENABLED=true` and both preview secrets; production deployment explicitly disables it. Legacy `/access` links redirect to the requested public page. See [`middleware.ts`](../middleware.ts) and [`lib/site-access.ts`](../lib/site-access.ts). |
+
+Public registration permits at most 100 successful account creations in a rolling
+hour across all replicas. A PostgreSQL transaction lock serializes the capacity
+check and account insert; failed or duplicate inserts do not consume a slot.
+At capacity, signup returns HTTP 429, a `Retry-After` header, and an explanatory
+traffic message shown by the signup form. Existing sign-in and per-IP/account
+abuse limits remain independent. See [`lib/fan-signup-rate-limit.ts`](../lib/fan-signup-rate-limit.ts).
 
 Provider account connections are handled under `app/api/oauth` and use
 `FAN_OAUTH_KEY` for stored connection secrets. A preview access token admits

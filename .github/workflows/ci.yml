@@ -32,6 +32,8 @@ jobs:
       - run: pnpm test
       - name: Verify guest enrollment metadata against isolated PostgreSQL
         run: node scripts/test-face-people-sql.mjs
+      - name: Verify global signup capacity against isolated PostgreSQL
+        run: node scripts/test-fan-signup-sql.mjs
   expo-navigation:
     runs-on: ubuntu-latest
     timeout-minutes: 15

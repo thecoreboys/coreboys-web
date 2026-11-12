@@ -6,7 +6,8 @@
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { query } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
+import { assertFanSignupCapacity } from "@/lib/fan-signup-rate-limit";
 
 const BCRYPT_ROUNDS = 10;
 
@@ -67,13 +68,16 @@ export async function createFanUser(input: SignupInput): Promise<FanUserPublic> 
   const id = randomUUID();
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
   try {
-    const { rows } = await query<FanUserRow>(
-      `INSERT INTO fan_users (id, email, password_hash, display_name, consent, consent_at)
-       VALUES ($1, $2, $3, $4, true, now())
-       RETURNING id, email, password_hash, display_name, email_verified, created_at`,
-      [id, input.email, passwordHash, input.displayName],
-    );
-    return toPublic(rows[0]!);
+    return await withTransaction(async (client) => {
+      await assertFanSignupCapacity(client);
+      const { rows } = await client.query<FanUserRow>(
+        `INSERT INTO fan_users (id, email, password_hash, display_name, consent, consent_at, created_at)
+         VALUES ($1, $2, $3, $4, true, statement_timestamp(), statement_timestamp())
+         RETURNING id, email, password_hash, display_name, email_verified, created_at`,
+        [id, input.email, passwordHash, input.displayName],
+      );
+      return toPublic(rows[0]!);
+    });
   } catch (err: unknown) {
     // 23505 = unique_violation (email already taken)
     if (typeof err === "object" && err !== null && (err as { code?: string }).code === "23505") {
