@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -9,10 +10,11 @@ import { StudioProfileEditor } from "@/components/studio/StudioProfileEditor";
 import { SignOutButton } from "@/components/admin/AuthGate";
 import { PageHeader } from "@/components/ui/PageHeader";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/studio", {
   title: "Community Studio",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 export const dynamic = "force-dynamic";
 
 export default async function StudioPage({

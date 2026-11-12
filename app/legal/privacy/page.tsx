@@ -1,12 +1,13 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { LegalLayout } from "@/components/legal/LegalLayout";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/legal/privacy", {
   title: "Privacy policy",
-  description: "What thecoreboys.com collects, why, and what you can do about it.",
+  description: "Learn how the independent CORE fan site handles account data, connected services, privacy choices, and requests about your information.",
   alternates: { canonical: "/legal/privacy" },
   robots: { index: true, follow: true },
-};
+});
 
 export default function PrivacyPage() {
   return (

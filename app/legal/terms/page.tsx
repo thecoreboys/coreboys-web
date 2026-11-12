@@ -1,12 +1,13 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { LegalLayout } from "@/components/legal/LegalLayout";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/legal/terms", {
   title: "Terms of service",
-  description: "The terms governing use of thecoreboys.com.",
+  description: "Read the terms for using the independent CORE fan site, including accounts, community contributions, and third-party creator content.",
   alternates: { canonical: "/legal/terms" },
   robots: { index: true, follow: true },
-};
+});
 
 export default function TermsPage() {
   return (

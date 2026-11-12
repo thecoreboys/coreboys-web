@@ -1,12 +1,14 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { TalentManager } from "@/components/admin/TalentManager";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/admin/talents", {
   title: "Admin · Talents",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export default function AdminTalentsPage() {
   return (

@@ -1,22 +1,16 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { LinksClient } from "./LinksClient";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { MEMBERS } from "@/lib/members";
 import { GROUP_SOCIALS } from "@coreboys/shared";
 
-export const metadata: Metadata = {
-  title: "Links",
-  description:
-    "Every Core Boys channel — Marlon, StableRonaldo, Adapt, JasonTheWeen, Lacy, Silky — plus the org socials. Live status updates every 60s.",
+export const metadata: Metadata = withPageMetadata("/links", {
+  title: "Creator Social Links",
+  description: "Find Twitch, YouTube, TikTok, Instagram, and X links for StableRonaldo, JasonTheWeen, Lacy, Marlon, Silky, Adapt, and CORE.",
   alternates: { canonical: "/links" },
-  openGraph: {
-    title: "CORE — links",
-    description:
-      "Every Core Boys channel — live status, socials, and group accounts in one place.",
-    url: "/links",
-    type: "website",
-  },
-};
+  openGraph: { type: "website" },
+});
 
 /**
  * /links — the linktree-style hub. Server-renders the static composition;

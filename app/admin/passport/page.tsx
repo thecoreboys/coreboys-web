@@ -1,13 +1,15 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { PassportControlRoom } from "@/components/admin/passport/PassportControlRoom";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/admin/passport", {
   title: "Admin · CORE Passport",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export const dynamic = "force-dynamic";
 

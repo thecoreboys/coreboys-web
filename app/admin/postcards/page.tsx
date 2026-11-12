@@ -1,12 +1,14 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { PostcardReviewQueue } from "@/components/admin/PostcardReviewQueue";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/admin/postcards", {
   title: "Admin · Postcard review",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export default function AdminPostcardsPage() {
   return (

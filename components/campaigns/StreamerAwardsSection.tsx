@@ -108,20 +108,7 @@ export function StreamerAwardsSection({ initialNow }: { initialNow: number }) {
       onFocusCapture={(event) => { if (!(event.target as HTMLElement).closest("[data-awards-rotation]")) setRotationEnabled(false); }}>
       <div className={styles.frame}>
         <header className={styles.header}>
-          <div className={styles.intro}>
-            <p className={styles.eyebrow}>2026 <span>CORE nominees</span></p>
-            <h2 id="streamer-awards-heading">The Streamer Awards</h2>
-          </div>
-          <div className={styles.countdown}>
-            <div className={styles.clock} role="timer" aria-live="off" aria-label={`${countdown.days} days, ${countdown.hours} hours, ${countdown.minutes} minutes, ${countdown.seconds} seconds remaining`}>
-              {([
-                ["Days", countdown.days], ["Hours", countdown.hours], ["Min", countdown.minutes], ["Sec", countdown.seconds],
-              ] as const).map(([label, value]) => (
-                <div key={label} className={styles.unit} aria-hidden="true"><span>{pad(value)}</span><small>{label}</small></div>
-              ))}
-            </div>
-            <time dateTime={STREAMER_AWARDS_ENDS_AT} className={styles.deadline}>Nov 12 · 5 PM PT / 8 PM ET</time>
-          </div>
+          <h2 id="streamer-awards-heading">The Streamer Awards <span className={styles.edition}>2026</span></h2>
         </header>
 
         <div id="streamer-awards-nominees" ref={carouselRef} className={styles.viewport} aria-live={rotationEnabled && motionAllowed ? "off" : "polite"} data-lenis-prevent>
@@ -132,15 +119,17 @@ export function StreamerAwardsSection({ initialNow }: { initialNow: number }) {
               onClick={(event) => { openerRef.current = event.currentTarget; setSelected(index); }}
               aria-label={`View ${nominee.name} — ${nominee.category} nomination`}>
               <span className={styles.artwork}>
-                <SiteImage src={streamerAwardsImage(nominee.image)} alt={`${nominee.name}, nominated for ${nominee.category} at The Streamer Awards 2026`} width={1122} height={1402} sizes="(max-width: 600px) 70vw, (max-width: 1200px) 28vw, 272px" loading="lazy" />
+                <SiteImage src={streamerAwardsImage(nominee.image)} alt={`${nominee.name}, nominated for ${nominee.category} at The Streamer Awards 2026`} width={1122} height={1402} sizes="(max-width: 760px) 63vw, (max-width: 935px) 224px, (max-width: 1334px) 24vw, 320px" loading="lazy" />
                 <span className={styles.enlarge} aria-hidden><Maximize2 size={15} /></span>
               </span>
-              <span className={styles.cardCopy}><small>{nominee.category}</small><strong>{nominee.name}</strong></span>
             </button>
           ))}
           </div>
         </div>
         <div className={styles.controls}>
+          <time dateTime={STREAMER_AWARDS_ENDS_AT} className={styles.countdown} role="timer" aria-live="off" title="November 12 · 5 PM PT / 8 PM ET" aria-label={`${countdown.days} days, ${countdown.hours} hours, ${countdown.minutes} minutes, ${countdown.seconds} seconds remaining`}>
+            <span aria-hidden="true">{countdown.days ? `${countdown.days}d ` : ""}{pad(countdown.hours)}:{pad(countdown.minutes)}:{pad(countdown.seconds)}</span>
+          </time>
           <button type="button" onClick={() => scroll(-1)} disabled={!edges.previous} aria-label="Previous nominees" aria-controls="streamer-awards-nominees"><ArrowLeft size={17} aria-hidden /></button>
           {motionAllowed && (edges.previous || edges.next) ? <button type="button" data-awards-rotation onClick={() => setRotationEnabled((enabled) => !enabled)} aria-label={rotationEnabled ? "Pause carousel" : "Play carousel"} aria-controls="streamer-awards-nominees">{rotationEnabled ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}</button> : null}
           <button type="button" onClick={() => scroll(1)} disabled={!edges.next} aria-label="Next nominees" aria-controls="streamer-awards-nominees"><ArrowRight size={17} aria-hidden /></button>

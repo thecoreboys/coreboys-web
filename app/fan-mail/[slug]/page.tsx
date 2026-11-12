@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const member = MAIL_MEMBERS_BY_SLUG[slug];
   if (!member) return {};
-  return {
+  return withPageMetadata(`/send-to-${member.slug}`, {
     title: `Send to ${member.displayName}`,
     description: `Mailing address for ${member.displayName} of CORE.`,
     alternates: {
@@ -24,11 +25,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     },
     openGraph: {
       title: `Send mail to ${member.displayName}`,
-      description: "Old-school mail still hits different.",
+      description: `Published mailing information and fan-mail guidelines for ${member.displayName} of The Core Boys.`,
       url: `/send-to-${member.slug}`,
       type: "website",
     },
-  };
+  });
 }
 
 /**

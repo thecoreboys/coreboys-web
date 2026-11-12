@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { MultiviewEntry } from "@/components/watch/MultiviewEntry";
@@ -5,11 +6,11 @@ import { getHomeWatchCatalog, getWatchCatalog } from "@/lib/watch/catalog";
 import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
 import { multiviewRequestedReferences, projectMultiviewCatalog } from "@/lib/watch/multiview-catalog";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/chat", {
   title: "Chat",
-  description: "Every CORE Twitch chat in one calm, customizable room.",
+  description: "Follow CORE Twitch chats together, switch between creator chatrooms, and watch the conversation alongside your favorite streams.",
   alternates: { canonical: "/chat" },
-};
+});
 
 export const dynamic = "force-dynamic";
 

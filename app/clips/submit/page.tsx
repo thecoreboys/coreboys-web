@@ -1,14 +1,15 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { MEMBERS } from "@/lib/members";
 import { fetchUsersByLogin } from "@/lib/twitch";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { ClipSubmitForm } from "@/components/clips/ClipSubmitForm";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/clips/submit", {
   title: "Save a clip draft",
-  description: "Prepare a clip draft from Twitch, YouTube, TikTok, or Instagram on your device.",
+  description: "Prepare a clip draft from Twitch, YouTube, TikTok, or Instagram on your device, with tools to organize creator moments before sharing.",
   alternates: { canonical: "/clips/submit" },
-};
+});
 
 export default async function ClipSubmitPage() {
   let avatars: Record<string, string> = {};

@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "@untitledui/icons";
@@ -5,10 +6,11 @@ import { AuthGate } from "@/components/admin/AuthGate";
 import { ClipNewForm } from "@/components/admin/ClipNewForm";
 import { MEMBERS } from "@/lib/members";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/admin/clips/new", {
   title: "Add clip — Admin",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export default function NewClipPage() {
   return (

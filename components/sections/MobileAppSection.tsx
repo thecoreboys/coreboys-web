@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, MessageCircle, MonitorPlay, Moon } from "lucide-react";
+import { ArrowUpRight, MessageCircle, MonitorPlay } from "lucide-react";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import Apple from "@/components/foundations/social-icons/apple";
@@ -101,7 +101,6 @@ export function MobileAppSection() {
           <div className={styles.connected} aria-hidden="true">
             <span className={styles.connectedDot} /> Desktop connected
           </div>
-          <figcaption className={styles.bedMode}><Moon size={16} aria-hidden="true" /> Bed mode: on.</figcaption>
         </figure>
       </div>
     </section>

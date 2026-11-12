@@ -1,19 +1,15 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { MailCard } from "@/components/fan-mail/MailCard";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { MAIL_MEMBERS } from "@/lib/fan-mail";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/fan-mail", {
   title: "Fan mail",
-  description: "Mailing addresses for CORE members.",
+  description: "Find published mailing information for The Core Boys, with member fan-mail pages and guidance for sending letters and packages.",
   alternates: { canonical: "/fan-mail" },
-  openGraph: {
-    title: "CORE — Fan mail",
-    description: "Mailing addresses for CORE members.",
-    url: "/fan-mail",
-    type: "website",
-  },
-};
+  openGraph: { type: "website" },
+});
 
 /**
  * /fan-mail — canonical hub. Every member is rendered as an anchored

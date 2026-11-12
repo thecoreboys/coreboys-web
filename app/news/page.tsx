@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
@@ -5,11 +6,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { BrowserDateTime } from "@/components/ui/BrowserDateTime";
 import { getPublishedArticles } from "@/lib/articles";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/news", {
   title: "News",
-  description: "CORE news, creator announcements, and event recaps.",
+  description: "Read CORE creator announcements, stream updates, event recaps, and news about The Core Boys on the independent CORE fan site.",
   alternates: { canonical: "/news" },
-};
+});
 
 export const dynamic = "force-dynamic";
 

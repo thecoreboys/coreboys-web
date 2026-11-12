@@ -1,3 +1,4 @@
+import { creatorShareImage, withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { after } from "next/server";
 import { notFound } from "next/navigation";
@@ -76,11 +77,13 @@ export async function generateMetadata({ params, searchParams }: RouteProps): Pr
   const channel = resolveNetworkChannel(slug);
   if (!channel) return {};
   const mode = selectedMode(query.mode, channel);
-  return {
+  const member = channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] : undefined;
+  return withPageMetadata(channelHref(channel, mode), {
     title: modeTitle(channel, mode),
     description: modeDescription(channel, mode),
     alternates: { canonical: channelHref(channel, mode) },
-  };
+    keywords: [channel.host, "CORE community", "creator videos", "live streams"],
+  }, member ? creatorShareImage(member.slug, member.stageName) : undefined);
 }
 
 export default async function ChannelPage({ params, searchParams }: RouteProps) {

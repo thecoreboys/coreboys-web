@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { FileX02 } from "@untitledui/icons";
 import { listPublishedPosts, getPublishedPost } from "@/lib/blog";
@@ -11,11 +12,12 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;
-  return {
+  return withPageMetadata(`/author/${encodeURIComponent(id)}`, {
     title: `Author archive`,
-    description: `Posts by author ${id}.`,
+    description: "Browse the CORE article archive and find published creator announcements and news.",
     alternates: { canonical: `/author/${id}` },
-  };
+    robots: { index: false, follow: true },
+  });
 }
 
 /**

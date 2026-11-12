@@ -1,6 +1,13 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentStaff } from "@/lib/admin-api";
+import { withPageMetadata } from "@/lib/seo";
+
+export const metadata = withPageMetadata("/admin", {
+  title: "CORE Administration",
+  description: "Private CORE administration. Staff sign-in is required.",
+  robots: { index: false, follow: false },
+});
 
 /**
  * Server-side gate for /admin/* pages, plus the layout chrome shared

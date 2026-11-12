@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { GROUP } from "@/lib/group";
 import { MEMBERS } from "@/lib/members";
@@ -15,12 +16,11 @@ function youTubeIdOf(item: FeedItem): string {
   return m?.[1] ?? "";
 }
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/videos", {
   title: "Videos",
-  description:
-    "The latest YouTube videos from the CORE org channel and every member — all in one place.",
+  description: "Watch the latest YouTube videos and longer streams from The Core Boys, including StableRonaldo, JasonTheWeen, Lacy, Marlon, Silky, and Adapt.",
   alternates: { canonical: "/videos" },
-};
+});
 
 // Keep the feed fresh. RSS needs no API key, so this returns real videos
 // on every revalidate window without burning credits.

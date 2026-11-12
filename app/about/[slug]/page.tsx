@@ -1,3 +1,4 @@
+import { creatorShareImage, withPageMetadata } from "@/lib/seo";
 import type { Metadata, Route } from "next";
 import { notFound, redirect } from "next/navigation";
 import Image from "@/components/ui/SiteImage";
@@ -40,7 +41,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const member = await getMemberWithProfileOverrides(slug);
   if (!member) return {};
-  return {
+  return withPageMetadata(`/channels/${member.slug}`, {
     title: member.stageName,
     description: member.bio,
     alternates: { canonical: `/channels/${member.slug}` },
@@ -50,7 +51,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       type: "profile",
       url: `/channels/${member.slug}`,
     },
-  };
+  }, creatorShareImage(member.slug, member.stageName));
 }
 
 const SOCIAL_ORDER: PlatformKey[] = ["twitch", "youtube", "tiktok", "instagram", "x", "snapchat"];

@@ -1,6 +1,11 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { CoreOriginalsManager } from "@/components/admin/CoreOriginalsManager";
-export const metadata: Metadata = { title: "CORE Originals · Admin", robots: { index: false, follow: false } };
+export const metadata: Metadata = withPageMetadata("/admin/originals", {
+  title: "CORE Originals · Admin",
+  robots: { index: false, follow: false },
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 export default function CoreOriginalsAdminPage() { return <AuthGate><div className="min-h-[var(--page-min-height)] bg-secondary pb-24"><AdminPageHeader eyebrow="CORE Originals" title="Events, series & challenges" supporting="Create collections, control the home posters, add approved content, and review catalog recommendations before they go live." /><div className="mx-auto max-w-container px-6 md:px-8"><CoreOriginalsManager /></div></div></AuthGate>; }

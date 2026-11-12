@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { query } from "@/lib/db";
@@ -16,10 +17,11 @@ type Params = { params: Promise<{ handle: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { handle } = await params;
-  return {
+  return withPageMetadata(`/u/${encodeURIComponent(handle.toLowerCase())}`, {
     title: `@${handle} — CORE fan`,
+    description: `View the public CORE fan card for @${handle}, including the account's shared profile and milestones.`,
     robots: { index: false, follow: false },
-  };
+  });
 }
 
 export default async function PublicFanCardPage({ params }: Params) {

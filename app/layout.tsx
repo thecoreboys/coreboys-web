@@ -1,3 +1,4 @@
+import { withPageMetadata, SITE_URL, SITE_DESCRIPTION } from "@/lib/seo";
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
@@ -71,63 +72,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
-
-// Resolved against `metadataBase` below so Twitter / Discord / Slack
-// always see a fully-qualified URL. Dimensions match the file under
-// public/embed-preview.png (1615 × 907) — Twitter and Discord both
-// honor declared dimensions and clip otherwise, so keep these accurate.
-const embedImage = {
-  url: "/embed-preview.png",
-  width: 1615,
-  height: 907,
-  alt: "CORE — Six creators. One core.",
-  type: "image/png",
-};
-
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "CORE | The Core Boys — Live creators, shows, and videos",
-    template: "%s — CORE",
-  },
-  description:
-    "An independent fan site for The Core Boys: discover live streams, videos, Shorts, and shows from Marlon, StableRonaldo, Adapt, JasonTheWeen, Lacy, and Silky.",
-  keywords: [
-    "CORE",
-    "The Core Boys",
-    "CORE Crew",
-    "CoreCrew",
-    "creator network",
-    "livestreams",
-    "Twitch creators",
-    "FaZe creators",
-    "Shorts",
-    "Reels",
-  ],
+export const metadata: Metadata = withPageMetadata("/", {
+  metadataBase: new URL(SITE_URL),
+  title: { default: "The Core Boys | Live Streams, Clips & Videos", template: "%s | CORE" },
+  description: SITE_DESCRIPTION,
   applicationName: "CORE",
   category: "entertainment",
   publisher: "CORE TV — independent fan site",
   referrer: "origin-when-cross-origin",
-  alternates: { canonical: siteUrl },
-  // Favicon comes from the file convention at `app/icon.png` — Next.js
-  // emits the <link rel="icon"> automatically.
-  openGraph: {
-    title: "The Core Boys | CORE TV",
-    description: "An independent fan site for The Core Boys: live streams, videos, Shorts, and shows.",
-    url: siteUrl,
-    siteName: "CORE",
-    type: "website",
-    images: [embedImage],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "The Core Boys | CORE TV",
-    description: "An independent fan site for The Core Boys: live streams, videos, Shorts, and shows.",
-    images: [{ url: embedImage.url, alt: embedImage.alt }],
-  },
-  robots: { index: true, follow: true },
-};
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
+});
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const requestHeaders = await headers();

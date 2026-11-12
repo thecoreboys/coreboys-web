@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Plus } from "@untitledui/icons";
 import { AuthGate } from "@/components/admin/AuthGate";
@@ -5,10 +6,11 @@ import { ArticlesTable } from "@/components/admin/ArticlesTable";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { Button } from "@/components/base/buttons/button";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/admin/articles", {
   title: "Admin · Articles",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export default function AdminArticlesPage() {
   return (

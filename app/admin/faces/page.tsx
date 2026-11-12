@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -6,10 +7,11 @@ import type { FaceCanonicalPerson } from "@/components/admin/faces/types";
 import { getCrewPortrait } from "@/lib/asset-index";
 import { CREW, MEMBERS } from "@/lib/members";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/admin/faces", {
   title: "Admin · On-screen people",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export const dynamic = "force-dynamic";
 

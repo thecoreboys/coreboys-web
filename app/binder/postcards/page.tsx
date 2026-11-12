@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -7,12 +8,12 @@ import { getCurrentFanUserId } from "@/lib/fan-auth";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/binder/postcards", {
   title: "Postcard binder",
   description: "Your private collection of server-issued CORE postcards.",
   alternates: { canonical: "/binder/postcards" },
   robots: { index: false, follow: false },
-};
+});
 
 export default async function PostcardBinderPage() {
   if (!(await getCurrentFanUserId())) redirect("/login?next=/binder/postcards");

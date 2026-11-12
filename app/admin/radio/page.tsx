@@ -1,10 +1,15 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { RadioControlRoom } from "@/components/admin/RadioControlRoom";
 import { getDjCoraElevenLabsVoiceId } from "@/lib/radio/dj-cora-voice";
 
-export const metadata: Metadata = { title: "DJ Cora · Admin", robots: { index: false, follow: false } };
+export const metadata: Metadata = withPageMetadata("/admin/radio", {
+  title: "DJ Cora · Admin",
+  robots: { index: false, follow: false },
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export default function RadioAdminPage() {
   const elevenLabsVoiceId = getDjCoraElevenLabsVoiceId();

@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import "../watch/watch.css";
 import { WatchChrome } from "@/components/watch/WatchChromeServer";
@@ -7,11 +8,11 @@ import { buildNetworkLineup, resolveNetworkChannel } from "@/lib/watch/channels"
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/tonight", {
   title: "Tonight on CORE",
-  description: "Live rooms, scheduled starts, reminders, and the continuous CORE house rotation.",
+  description: "Find live streams, upcoming broadcasts, reminders, and always-on CORE programming. See what is playing tonight with The Core Boys.",
   alternates: { canonical: "/tonight" },
-};
+});
 
 export default async function TonightRoute() {
   const catalog = await getHomeWatchCatalog();

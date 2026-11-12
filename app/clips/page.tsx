@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { MEMBERS } from "@/lib/members";
 import { getPublicClips } from "@/lib/clips-server";
@@ -6,11 +7,11 @@ import { ClipsPageClient, type MemberLite } from "@/components/clips/ClipsPageCl
 import { ClipsHeader } from "@/components/clips/ClipsHeader";
 import { CampaignSection } from "@/components/campaigns/CampaignSection";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/clips", {
   title: "Clips",
-  description: "Viral clips, recaps, and moments across Twitch, YouTube, TikTok, and Instagram.",
+  description: "Catch up on CORE stream highlights, funny moments, and clips from Twitch, YouTube, TikTok, and Instagram in one place.",
   alternates: { canonical: "/clips" },
-};
+});
 
 export const revalidate = 600;
 

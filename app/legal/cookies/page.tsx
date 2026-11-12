@@ -1,14 +1,15 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { XEmbedSettings } from "@/components/legal/XEmbedSettings";
 import { LegalLayout } from "@/components/legal/LegalLayout";
 import { CookieSettingsLink } from "@/components/legal/CookieSettingsLink";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/legal/cookies", {
   title: "Cookie policy",
-  description: "Which cookies thecoreboys.com sets and how to manage them.",
+  description: "Understand the cookies used for CORE accounts, site preferences, and optional analytics, and learn how to manage your choices.",
   alternates: { canonical: "/legal/cookies" },
   robots: { index: true, follow: true },
-};
+});
 
 export default function CookiesPage() {
   return (

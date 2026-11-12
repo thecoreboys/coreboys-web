@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { MEMBERS, CREW } from "@/lib/members";
 import {
@@ -19,11 +20,11 @@ import {
   type PhotoMetaLite,
 } from "@/components/media/MediaGallery";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/media", {
   title: "Photos",
-  description: "CORE photo gallery — searchable, taggable, sorted newest first.",
+  description: "Browse photos of The Core Boys, from streams and group moments to creator galleries. Search the CORE photo archive by member.",
   alternates: { canonical: "/media" },
-};
+});
 
 // Dynamic: the "From our Instagram" section reads the admin session
 // cookie to decide whether to show its connect prompt. IG media fetches

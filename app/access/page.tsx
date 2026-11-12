@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata, Route } from "next";
 import { redirect } from "next/navigation";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
@@ -7,10 +8,10 @@ import { AccessGateIntro } from "./AccessGateIntro";
 import { AccessGateForm } from "./AccessGateForm";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/access", {
   title: "Private preview",
   robots: { index: false, follow: false, noarchive: true },
-};
+});
 
 export default async function AccessPage({
   searchParams,

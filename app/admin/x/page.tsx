@@ -1,9 +1,14 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { XNominationsReviewer } from "@/components/admin/XNominationsReviewer";
 
-export const metadata: Metadata = { title: "Admin · X", robots: { index: false, follow: false } };
+export const metadata: Metadata = withPageMetadata("/admin/x", {
+  title: "Admin · X",
+  robots: { index: false, follow: false },
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export default function AdminXPage() {
   return (

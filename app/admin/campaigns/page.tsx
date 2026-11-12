@@ -1,9 +1,14 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { CampaignManager } from "@/components/admin/CampaignManager";
 
-export const metadata: Metadata = { title: "Clipping campaigns · Admin", robots: { index: false, follow: false } };
+export const metadata: Metadata = withPageMetadata("/admin/campaigns", {
+  title: "Clipping campaigns · Admin",
+  robots: { index: false, follow: false },
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export default function CampaignsAdminPage() {
   return <AuthGate><div className="min-h-[var(--page-min-height)] bg-secondary pb-24">

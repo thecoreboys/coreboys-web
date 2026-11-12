@@ -1,12 +1,13 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { PricingExperience } from "@/components/marketing/PricingExperience";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/upgrade", {
   title: "Support the Site",
   description:
     "Choose a monthly CORE membership amount to help pay for the independent site. Public content remains free.",
   robots: { index: false, follow: false },
-};
+});
 
 export default async function UpgradePage({
   searchParams,

@@ -1,13 +1,14 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { NotificationPreviewSurface } from "@/components/notifications/NotificationContentPreview";
 import { notificationPreviewDataFromSearchParams } from "@/lib/notification-target";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/preview", {
   title: "Content preview",
   description: "Preview shared creator content inside CORE.",
   robots: { index: false, follow: false },
-};
+});
 
 export default async function PreviewPage({
   searchParams,

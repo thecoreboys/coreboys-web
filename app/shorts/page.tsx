@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import "../watch/watch.css";
 import { WatchChrome } from "@/components/watch/WatchChromeServer";
@@ -12,11 +13,11 @@ export const dynamic = "force-dynamic";
 // a viewer's session.
 const INITIAL_SHORTS_BATCH = 48;
 
-export const metadata: Metadata = {
-  title: "CORE Shorts",
-  description: "Shorts, Reels, and TikToks from across the CORE house.",
+export const metadata: Metadata = withPageMetadata("/shorts", {
+  title: "Shorts, Reels & TikToks",
+  description: "Browse YouTube Shorts, TikToks, and Instagram Reels from The Core Boys. Catch up on short videos from every CORE creator.",
   alternates: { canonical: "/shorts" },
-};
+});
 
 export default async function ShortsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;

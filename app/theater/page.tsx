@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { TheaterStage } from "@/components/watch/TheaterStage";
@@ -7,11 +8,11 @@ import { platformForPlayback } from "@/lib/watch/playable";
 import type { WatchKind } from "@/lib/watch/types";
 import "../watch/watch.css";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/theater", {
   title: "Theater",
-  description: "One stage for Twitch, YouTube, VODs, and clips.",
+  description: "Watch CORE Twitch and YouTube streams, replays, and clips in Theater, with live chat and videos to watch next.",
   alternates: { canonical: "/theater" },
-};
+});
 
 export const dynamic = "force-dynamic";
 

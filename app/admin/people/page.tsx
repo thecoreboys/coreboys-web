@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "@/components/ui/SiteImage";
@@ -8,10 +9,11 @@ import { AuthGate } from "@/components/admin/AuthGate";
 import { PeopleEditorClient } from "@/components/admin/PeopleEditor";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/admin/people", {
   title: "Admin · People",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export const revalidate = 600;
 

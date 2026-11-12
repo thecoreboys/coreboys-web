@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getHomeWatchCatalog } from "@/lib/watch/catalog";
@@ -14,20 +15,13 @@ import "./watch/watch.css";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "CORE | The Core Boys",
-  description:
-    "An independent fan site for The Core Boys, bringing together live streams, videos, Shorts, Reels, and shows.",
-  keywords: ["CORE", "The Core Boys", "CORE Crew", "CoreCrew", "FaZe creators", "live streams"],
+export const metadata: Metadata = withPageMetadata("/", {
+  title: { absolute: "The Core Boys | Live Streams, Clips & Videos" },
+  description: "Watch live streams, videos, clips, and shows from StableRonaldo, JasonTheWeen, Lacy, Marlon, Silky, and Adapt on the independent CORE fan site.",
+  keywords: ["The Core Boys", "CORE", "live streams", "videos", "stream highlights"],
   alternates: { canonical: "/" },
-  openGraph: {
-    title: "CORE | The Core Boys",
-    description:
-      "An independent fan site for The Core Boys, with live streams, videos, Shorts, and shows.",
-    url: "/",
-    type: "website",
-  },
-};
+  openGraph: { type: "website" },
+});
 
 async function OriginalsSection() {
   const snapshot = await getCoreOriginalSnapshot().catch(() => ({ originals: [], items: [] }));

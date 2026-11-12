@@ -31,6 +31,7 @@ import { XPostPoster } from "./XPostPoster";
 import { DragScrollRail } from "./DragScrollRail";
 import { DeferredHomeRail } from "./DeferredHomeRail";
 import { WatchSelect } from "./WatchSelect";
+import { PosterActionSheet } from "./PosterActionSheet";
 const CardMotionPreview = dynamic(() => import("./CardMotionPreview").then((module) => module.CardMotionPreview), { ssr: false });
 import { useWatchContextMenu } from "./WatchContextMenu";
 
@@ -176,6 +177,7 @@ export function PosterCard({
   const [previewClosing, setPreviewClosing] = useState(false);
   const [previewKeyboard, setPreviewKeyboard] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const openTimer = useRef<number | null>(null);
   const closeTimer = useRef<number | null>(null);
   const actionHovered = useRef(false);
@@ -185,6 +187,7 @@ export function PosterCard({
   const suppressKeyboardOpenRef = useRef(false);
   const restoreFocusFrame = useRef<number | null>(null);
   const cardRef = useRef<HTMLElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const reactId = useId();
   const previewPanelId = `watch-preview-${reactId.replace(/[^a-z0-9_-]/gi, "")}`;
   const { map, trackHover, markWatched } = useWatchProgress();
@@ -374,6 +377,7 @@ export function PosterCard({
 
   function showPreview(keyboard = false) {
     cancelClose();
+    if (feedbackOpen || mobileActionsOpen) return;
     // The Watch accessibility panel can stop previews entirely. Check at the
     // moment a card is entered so the preference takes effect without a reload.
     if (document.documentElement.dataset.watchAutoplay === "off") return;
@@ -519,6 +523,49 @@ export function PosterCard({
     setSaved(toggleMyList(item.id).includes(item.id));
   }
 
+  function closeFeedbackMenu() {
+    setFeedbackOpen(false);
+    setMobileActionsOpen(false);
+  }
+
+  function restoreMoreActionFocus() {
+    if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
+    suppressKeyboardOpenRef.current = true;
+    moreButtonRef.current?.focus({ preventScroll: true });
+  }
+
+  const feedbackActions = (
+    <>
+      <button type="button" className="watch-poster-mobile-save" disabled={dvrLoading} aria-pressed={Boolean(user && dvrSaved)} onClick={() => { closeFeedbackMenu(); togglePosterSave(); }}>
+        {dvrSaved ? "✓" : "+"} <span>{dvrSaved ? "Remove from DVR" : "Save to DVR"}</span>
+      </button>
+      {onToggleQueue && activeQueueName ? (
+        <button type="button" aria-pressed={inActiveQueue} onClick={() => { onToggleQueue(item); closeFeedbackMenu(); }}>
+          {inActiveQueue ? "✓" : "+"} <span>{inActiveQueue ? `In ${activeQueueName}` : `Add to ${activeQueueName}`}</span>
+        </button>
+      ) : null}
+      {!isPhoto && !live && playable && !done ? (
+        <button
+          type="button"
+          title="Completes the progress bar without adding watch time"
+          onClick={() => {
+            markWatched(item.id, item.kind, item.memberSlug, durationSeconds);
+            closeFeedbackMenu();
+          }}
+        >
+          ✓ <span>Mark as watched</span>
+        </button>
+      ) : null}
+      {onFeedback && !isPhoto ? (
+        <>
+          <button type="button" aria-pressed={feedback === "like"} onClick={() => { onFeedback(item, feedback === "like" ? null : "like"); closeFeedbackMenu(); }}>♥ <span>Like</span></button>
+          <button type="button" aria-pressed={feedback === "dislike"} onClick={() => { onFeedback(item, feedback === "dislike" ? null : "dislike"); closeFeedbackMenu(); }}>↓ <span>Less like this</span></button>
+          <button type="button" aria-pressed={feedback === "not_interested"} onClick={() => { onFeedback(item, "not_interested"); closeFeedbackMenu(); }}>× <span>Not interested</span></button>
+        </>
+      ) : null}
+    </>
+  );
+
   return (
     <article
       ref={cardRef}
@@ -557,7 +604,7 @@ export function PosterCard({
           return;
         }
         if (event.key === "Escape") {
-          setFeedbackOpen(false);
+          closeFeedbackMenu();
           hidePreview();
         }
       }}
@@ -703,14 +750,16 @@ export function PosterCard({
             title="More actions"
             description="Like, hide, or organize this title."
             placement="top"
-            isDisabled={feedbackOpen}
+            isDisabled={feedbackOpen || mobileActionsOpen}
           >
             <button
+              ref={moreButtonRef}
               type="button"
               data-no-drag
               className={`watch-poster-more ${!((onFeedback && !isPhoto) || (onToggleQueue && activeQueueName) || (!isPhoto && !live && Boolean(playable))) ? "watch-poster-more--mobile-only" : ""}`}
               aria-label={`More actions for ${item.title}`}
-              aria-expanded={feedbackOpen}
+              aria-expanded={feedbackOpen || mobileActionsOpen}
+              aria-controls={mobileActionsOpen ? `${previewPanelId}-actions` : undefined}
               onFocus={cancelPreviewOpen}
               onMouseEnter={enterCardAction}
               onMouseLeave={leaveCardAction}
@@ -720,7 +769,14 @@ export function PosterCard({
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                setFeedbackOpen((value) => !value);
+                cancelPreviewOpen();
+                hidePreview();
+                if (window.matchMedia("(max-width: 767px), (hover: none) and (pointer: coarse)").matches) {
+                  setFeedbackOpen(false);
+                  setMobileActionsOpen(true);
+                } else {
+                  setFeedbackOpen((value) => !value);
+                }
               }}
             >
               <span aria-hidden>•••</span>
@@ -728,34 +784,18 @@ export function PosterCard({
           </Tooltip>
           {feedbackOpen ? (
             <div data-no-drag className="watch-poster-feedback-menu" role="group" aria-label={`Actions for ${item.title}`}>
-              <button type="button" className="watch-poster-mobile-save" disabled={dvrLoading} aria-pressed={Boolean(user && dvrSaved)} onClick={() => { togglePosterSave(); setFeedbackOpen(false); }}>
-                {dvrSaved ? "✓" : "+"} <span>{dvrSaved ? "Remove from DVR" : "Save to DVR"}</span>
-              </button>
-              {onToggleQueue && activeQueueName ? (
-                <button type="button" aria-pressed={inActiveQueue} onClick={() => { onToggleQueue(item); setFeedbackOpen(false); }}>
-                  {inActiveQueue ? "✓" : "+"} <span>{inActiveQueue ? `In ${activeQueueName}` : `Add to ${activeQueueName}`}</span>
-                </button>
-              ) : null}
-              {!isPhoto && !live && playable && !done ? (
-                <button
-                  type="button"
-                  title="Completes the progress bar without adding watch time"
-                  onClick={() => {
-                    markWatched(item.id, item.kind, item.memberSlug, durationSeconds);
-                    setFeedbackOpen(false);
-                  }}
-                >
-                  ✓ <span>Mark as watched</span>
-                </button>
-              ) : null}
-              {onFeedback && !isPhoto ? (
-                <>
-                  <button type="button" aria-pressed={feedback === "like"} onClick={() => { onFeedback(item, feedback === "like" ? null : "like"); setFeedbackOpen(false); }}>♥ <span>Like</span></button>
-                  <button type="button" aria-pressed={feedback === "dislike"} onClick={() => { onFeedback(item, feedback === "dislike" ? null : "dislike"); setFeedbackOpen(false); }}>↓ <span>Less like this</span></button>
-                  <button type="button" aria-pressed={feedback === "not_interested"} onClick={() => { onFeedback(item, "not_interested"); setFeedbackOpen(false); }}>× <span>Not interested</span></button>
-                </>
-              ) : null}
+              {feedbackActions}
             </div>
+          ) : null}
+          {mobileActionsOpen ? (
+            <PosterActionSheet
+              id={`${previewPanelId}-actions`}
+              title={item.title}
+              onClose={closeFeedbackMenu}
+              onRestoreFocus={restoreMoreActionFocus}
+            >
+              {feedbackActions}
+            </PosterActionSheet>
           ) : null}
         </>
       }

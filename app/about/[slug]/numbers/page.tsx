@@ -1,3 +1,4 @@
+import { creatorShareImage, withPageMetadata } from "@/lib/seo";
 import type { Metadata, Route } from "next";
 import { notFound } from "next/navigation";
 import Image from "@/components/ui/SiteImage";
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const member = await getMemberWithProfileOverrides(slug);
   if (!member) return {};
-  return {
+  return withPageMetadata(`/about/${member.slug}/numbers`, {
     title: `${member.stageName} — Numbers`,
     description: `Audience and reach for ${member.stageName}, member of CORE.`,
     alternates: { canonical: `/about/${member.slug}/numbers` },
@@ -45,7 +46,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       url: `/about/${member.slug}/numbers`,
       type: "profile",
     },
-  };
+  }, creatorShareImage(member.slug, member.stageName));
 }
 
 export default async function MemberNumbersPage({ params }: Params) {

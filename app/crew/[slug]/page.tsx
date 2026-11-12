@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "@/components/ui/SiteImage";
@@ -30,11 +31,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const c = CREW.find((x) => x.slug === slug);
   if (!c) return {};
-  return {
+  return withPageMetadata(`/crew/${c.slug}`, {
     title: `${c.name} · Crew`,
     description: `${c.name}, ${getCrewRoleLabel(c)}, working with ${c.worksWith.map((s) => MEMBERS_BY_SLUG[s]?.stageName).filter(Boolean).join(", ")}.`,
     alternates: { canonical: `/crew/${c.slug}` },
-  };
+    openGraph: { type: "profile", images: getCrewPortrait(c.slug) ? [{ url: getCrewPortrait(c.slug)!, alt: `${c.name}, ${getCrewRoleLabel(c)} with CORE.` }] : undefined },
+    twitter: { card: "summary" },
+  });
 }
 
 /**

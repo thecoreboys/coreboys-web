@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { GuideGrid } from "@/components/watch/GuideGridServer";
@@ -8,11 +9,11 @@ import { guideLiveCatalog } from "@/lib/watch/guide-live-catalog";
 import "../watch/watch.css";
 import "./guide.css";
 
-export const metadata: Metadata = {
-  title: "Guide",
-  description: "Live streams, upcoming shows, and replays from The Core Boys.",
+export const metadata: Metadata = withPageMetadata("/guide", {
+  title: "Live Stream Guide",
+  description: "See who is live, find upcoming broadcasts, and browse past streams from The Core Boys with the CORE stream guide.",
   alternates: { canonical: "/guide" },
-};
+});
 
 export const dynamic = "force-dynamic";
 

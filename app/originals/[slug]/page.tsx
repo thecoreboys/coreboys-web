@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { cache } from "react";
 import Link from "next/link";
@@ -12,7 +13,12 @@ const loadOriginal = cache(getCoreOriginal);
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadOriginal(slug).catch(() => null);
-  return result ? { title: `${result.original.title} · CORE Originals`, description: result.original.summary ?? undefined } : { title: "CORE Originals" };
+  return withPageMetadata(`/originals/${encodeURIComponent(slug)}`, result ? {
+    title: `${result.original.title} · CORE Originals`,
+    description: result.original.summary || `Watch ${result.original.title} from CORE Originals. Browse episodes and creator moments from The Core Boys.`,
+    openGraph: { images: [{ url: result.original.posterUrl, alt: `${result.original.title} — CORE Originals` }] },
+    keywords: [result.original.title, "CORE Originals", "episodes"],
+  } : { title: "CORE Originals", robots: { index: false, follow: false } });
 }
 
 export default async function CoreOriginalPage({ params }: { params: Promise<{ slug: string }> }) {

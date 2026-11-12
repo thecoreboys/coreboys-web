@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail01, ArrowRight } from "@untitledui/icons";
@@ -12,11 +13,11 @@ import { FanZonePulse } from "@/components/fanzone/FanZonePulse";
 import { FanZoneNav } from "@/components/fanzone/FanZoneNav";
 import { CommunitiesHub } from "@/components/fanzone/CommunitiesHub";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/fanzone", {
   title: "Fanzone",
-  description: "Join CORE communities, follow live updates, share ideas, send fan mail, submit fan work, and vote in community polls.",
+  description: "Explore CORE fan communities, creator updates, community polls, fan art, ideas, and fan mail for The Core Boys.",
   alternates: { canonical: "/fanzone" },
-};
+});
 
 // Render at request time, not at build. The PO box cards depend on
 // Twitch profile pics fetched via TWITCH_CLIENT_* envs which are

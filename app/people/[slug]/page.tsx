@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
+import { withPageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicFaceGuestProfile } from "@/lib/face-recognition-store";
 import { FacePersonSlugSchema } from "@/lib/face-people";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Guest creator · CORE", robots: { index: false, follow: false } };
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  return withPageMetadata(`/people/${encodeURIComponent(slug)}`, {
+    title: "Guest creator · CORE",
+    description: "Public guest creator information from CORE streams and community appearances.",
+    robots: { index: false, follow: false },
+  });
+}
 
 export default async function GuestCreatorPage({ params }: { params: Promise<{ slug: string }> }) {
   const parsed = FacePersonSlugSchema.safeParse((await params).slug);

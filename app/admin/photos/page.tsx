@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Database01, HardDrive, Folder, Image01 } from "@untitledui/icons";
 import { MEMBERS, CREW } from "@/lib/members";
@@ -15,10 +16,11 @@ import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-ic
 import { Badge } from "@/components/base/badges/badges";
 import { BrowserDateTime } from "@/components/ui/BrowserDateTime";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/admin/photos", {
   title: "Admin · Photos",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 
 export const revalidate = 600;
 

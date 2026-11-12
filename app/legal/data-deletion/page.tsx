@@ -1,14 +1,14 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalLayout } from "@/components/legal/LegalLayout";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/legal/data-deletion", {
   title: "Data deletion",
-  description:
-    "How to disconnect a platform or request deletion of data held by thecoreboys.com.",
+  description: "Learn how to disconnect a platform, request account deletion, and remove information held by the independent CORE fan site.",
   alternates: { canonical: "/legal/data-deletion" },
   robots: { index: true, follow: true },
-};
+});
 
 type PageProps = {
   searchParams: Promise<{ code?: string | string[] }>;

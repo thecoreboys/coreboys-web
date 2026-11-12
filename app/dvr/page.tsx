@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -13,12 +14,12 @@ import "../watch/watch.css";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/dvr", {
   title: "DVR",
   description: "Your private saved titles, folders, notes, and watch progress. Saving a title does not record its video.",
   alternates: { canonical: "/dvr" },
   robots: { index: false, follow: false },
-};
+});
 
 export default async function DvrRoute() {
   const userId = await getCurrentFanUserId();

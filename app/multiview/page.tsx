@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Suspense } from "react";
@@ -9,11 +10,11 @@ import { buildMultiviewLiveRoom, restrictCatalogForLiveRoom } from "@/lib/watch/
 import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
 import { multiviewRequestedReferences, projectMultiviewCatalog } from "@/lib/watch/multiview-catalog";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/multiview", {
   title: "Multiview",
-  description: "Build a custom CORE watch room with multiple live streams, videos, and combined chat.",
+  description: "Watch multiple CORE streams together, choose your main video, and follow Twitch chat. Build your own Multiview room on desktop.",
   alternates: { canonical: "/multiview" },
-};
+});
 
 export const dynamic = "force-dynamic";
 

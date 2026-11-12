@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -8,10 +9,11 @@ import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { MEMBER_SLUGS } from "@/lib/staff-accounts";
 import { staffMemberScope } from "@/lib/staff-policy";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/studio/postcards", {
   title: "Postcard Studio",
   robots: { index: false, follow: false },
-};
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 export const dynamic = "force-dynamic";
 
 export default async function StudioPostcardsPage({

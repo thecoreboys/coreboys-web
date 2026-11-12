@@ -1,4 +1,4 @@
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
+import { absoluteSiteUrl, CORE_SHARE_IMAGE, SITE_DESCRIPTION, SITE_URL as SITE, serializeJsonLd } from "@/lib/seo";
 
 /** Describe the site without presenting the independent fan project as the creators' official organization. */
 export function OrganizationJsonLd() {
@@ -9,12 +9,14 @@ export function OrganizationJsonLd() {
     name: "CORE TV",
     alternateName: "The Core Boys fan site",
     url: SITE,
-    description: "An independent fan site for The Core Boys, with live streams, videos, Shorts, and shows.",
+    description: SITE_DESCRIPTION,
+    inLanguage: "en-US",
+    image: { "@type": "ImageObject", url: absoluteSiteUrl(CORE_SHARE_IMAGE.url), width: CORE_SHARE_IMAGE.width, height: CORE_SHARE_IMAGE.height },
   };
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
     />
   );
 }

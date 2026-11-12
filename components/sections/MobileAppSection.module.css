@@ -61,11 +61,9 @@
 .screen { position: absolute; z-index: 1; inset: 2.1% 5.8%; overflow: hidden; border-radius: 15% / 7%; background: #08080a; }
 .screenImage { object-fit: cover; object-position: top; }
 .phoneFrame { position: absolute; z-index: 2; top: -1.7%; left: -29.15%; width: 158.3%; max-width: none; height: 103.4%; pointer-events: none; }
-.connected, .bedMode { position: absolute; z-index: 3; display: inline-flex; align-items: center; gap: .6rem; padding: .8rem 1rem; border: 1px solid #ffffff26; border-radius: 999px; background: #17121fe8; color: #f2eafc; box-shadow: 0 6px 24px #0004; font-size: .75rem; font-weight: 550; line-height: 1.2; backdrop-filter: blur(12px); }
+.connected { position: absolute; z-index: 3; display: inline-flex; align-items: center; gap: .6rem; padding: .8rem 1rem; border: 1px solid #ffffff26; border-radius: 999px; background: #17121fe8; color: #f2eafc; box-shadow: 0 6px 24px #0004; font-size: .75rem; font-weight: 550; line-height: 1.2; backdrop-filter: blur(12px); }
 .connected { top: 3%; left: -2%; transform: rotate(-4deg); }
 .connectedDot { width: 7px; height: 7px; border-radius: 50%; background: #77e6b7; box-shadow: 0 0 12px #77e6b780; }
-.bedMode { right: -2%; bottom: 2%; transform: rotate(-4deg); }
-.bedMode > svg { color: #d6b7ff; }
 
 @media (min-width: 1600px) { .visual { height: 650px; } .phone { width: 320px; } }
 @media (max-width: 1100px) {
@@ -91,7 +89,6 @@
   .visual { height: 525px; margin-top: 1.5rem; }
   .phone { width: 240px; max-width: 87%; }
   .connected { top: 0; left: -.4rem; padding: .7rem .85rem; font-size: .7rem; }
-  .bedMode { right: -.4rem; bottom: 0; padding: .7rem .85rem; font-size: .7rem; }
 }
 @media (max-width: 380px) {
   .card { padding-inline: 1.2rem; }

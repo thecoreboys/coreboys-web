@@ -1,3 +1,5 @@
+import { creatorShareImage, withPageMetadata } from "@/lib/seo";
+import { MEMBERS_BY_SLUG } from "@/lib/members";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -101,11 +103,12 @@ export async function generateMetadata({ params }: Pick<RouteProps, "params">): 
   const { slug } = await params;
   const channel = resolveNetworkChannel(slug);
   if (!channel) return {};
-  return {
+  const member = channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] : undefined;
+  return withPageMetadata(`/channels/${channel.slug}/x`, {
     title: `${channel.host} X post archive`,
     description: `Browse saved X posts from ${channel.host}, newest first.`,
     alternates: { canonical: `/channels/${channel.slug}/x` },
-  };
+  }, member ? creatorShareImage(member.slug, member.stageName) : undefined);
 }
 
 export default async function ChannelXArchivePage({ params, searchParams }: RouteProps) {

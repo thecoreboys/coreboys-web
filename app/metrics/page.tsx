@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { BarChartSquare02 } from "@untitledui/icons";
 import { MEMBERS } from "@/lib/members";
@@ -9,12 +10,13 @@ import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { PublicMetricsDashboard } from "@/components/metrics/PublicMetricsDashboard";
 import { getMetricsDashboard } from "@/lib/metrics-dashboard";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/metrics", {
   title: "Metrics",
   description:
     "Who went live, how long they stayed, and reach across every CORE platform.",
   alternates: { canonical: "/metrics" },
-};
+  robots: { index: false, follow: false },
+});
 
 export const dynamic = "force-dynamic";
 

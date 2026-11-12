@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { TimelineArchive } from "@/components/watch/TimelineArchive";
@@ -5,11 +6,11 @@ import { getWatchCatalog } from "@/lib/watch/catalog";
 import { PageHeader } from "@/components/ui/PageHeader";
 import "../watch/watch.css";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/timeline", {
   title: "Timeline",
-  description: "Recent CORE videos, photos, and posts by creator and publication date.",
+  description: "Catch up on recent CORE videos, photos, and social posts in order, with filters for your favorite creators and platforms.",
   alternates: { canonical: "/timeline" },
-};
+});
 export const dynamic = "force-dynamic";
 
 export default async function TimelinePage() {

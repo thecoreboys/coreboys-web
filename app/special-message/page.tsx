@@ -1,3 +1,4 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
@@ -7,25 +8,12 @@ import { PanoramaViewer } from "./PanoramaViewer";
 import { StoryProgress } from "./StoryProgress";
 import styles from "./special-message.module.css";
 
-export const metadata: Metadata = {
-  title: "A Personal Message",
-  description: "A letter from Michael about how he got started, why he built CORE Watch, and what he’d like to do with CORE.",
+export const metadata: Metadata = withPageMetadata("/special-message", {
+  title: "A Personal Message from Michael",
+  description: "A personal letter from Michael about building CORE Watch, the creators who inspired him, and why he would love to work with The Core Boys.",
   alternates: { canonical: "/special-message" },
-  openGraph: {
-    title: "A Personal Message",
-    description: "A letter from Michael about how he got started and why he built CORE Watch.",
-    url: "/special-message",
-    type: "article",
-    images: [
-      {
-        url: "/special-message/core-huddle.webp",
-        width: 1600,
-        height: 1600,
-        alt: "CORE members and friends looking down toward the camera.",
-      },
-    ],
-  },
-};
+  openGraph: { type: "article" },
+});
 
 const creators = [
   {

@@ -1,8 +1,13 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { TranscriptManager } from "@/components/admin/TranscriptManager";
 import { CreatorTagManager } from "@/components/admin/CreatorTagManager";
-export const metadata: Metadata = { title: "Media intelligence · Admin", robots: { index: false, follow: false } };
+export const metadata: Metadata = withPageMetadata("/admin/media-intelligence", {
+  title: "Media intelligence · Admin",
+  robots: { index: false, follow: false },
+  description: "Private CORE staff tools. Staff sign-in is required to manage site content and settings.",
+});
 export default function MediaIntelligencePage() {
   return <div className="min-h-[var(--page-min-height)] bg-secondary pb-24">
     <AdminPageHeader eyebrow="Media intelligence" title="Media & creator tags" supporting="Review transcripts, maintain creator profiles, and publish tags for specific video moments." />

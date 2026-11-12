@@ -1,3 +1,4 @@
+import { creatorShareImage, withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "@/components/ui/SiteImage";
@@ -24,12 +25,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const member = MEMBERS_BY_SLUG[slug];
   if (!member) return {};
-  return {
+  return withPageMetadata(`/monitor/${member.slug}`, {
     title: `${member.stageName} — Live monitor`,
     description: `Real-time bitrate, buffer, latency, and chat for ${member.stageName}'s stream.`,
     alternates: { canonical: `/monitor/${member.slug}` },
     robots: { index: false, follow: false },
-  };
+  }, creatorShareImage(member.slug, member.stageName));
 }
 
 export default async function MonitorPage({ params }: Params) {

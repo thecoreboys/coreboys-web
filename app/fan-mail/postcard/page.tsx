@@ -1,13 +1,15 @@
+import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Lock01 } from "@untitledui/icons";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withPageMetadata("/fan-mail/postcard", {
   title: "Postcard studio paused",
-  description: "The online postcard studio is temporarily unavailable.",
+  description: "The online CORE postcard studio is paused. Find current fan-mail information and other ways to connect with The Core Boys.",
   alternates: { canonical: "/fan-mail/postcard" },
-};
+  robots: { index: false, follow: false },
+});
 
 export const dynamic = "force-dynamic";
 
