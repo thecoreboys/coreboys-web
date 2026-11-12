@@ -1,0 +1,103 @@
+.section { margin-inline: 2.5rem; scroll-margin-top: calc(var(--site-header-h, 8rem) + 1.5rem); }
+.card {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 2rem;
+  min-height: 690px;
+  overflow: hidden;
+  padding: clamp(2rem, 4.5vw, 4.5rem);
+  border: 1px solid #ffffff1f;
+  border-radius: 28px;
+  background: #100d19;
+  color: #fff;
+}
+.scene { z-index: -3; object-fit: cover; object-position: center; }
+.card::before {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, #0e0b15fa 0%, #0e0b15f2 34%, #0e0b15a6 56%, #0e0b1508 100%);
+}
+.pattern {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(#f1bcff3b .65px, transparent .65px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(135deg, #0009, transparent 42%, transparent 70%, #0007);
+}
+.copy { position: relative; z-index: 2; min-width: 0; }
+.appIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; margin-bottom: 1.65rem; font-size: .875rem; font-weight: 650; }
+.appIdentity > img { width: 40px; height: 40px; border: 1px solid #ffffff24; border-radius: 10px; }
+.forIphone { margin-left: .25rem; color: #bcb5cd; font-size: .8rem; font-weight: 450; }
+.invite { background: #ffffff0d; color: #e8dff0; --tw-ring-color: #ffffff29; }
+.heading { margin: 0; font-size: clamp(2.3rem, 3.85vw, 4.25rem); font-weight: 650; line-height: 1.06; letter-spacing: -.055em; text-wrap: balance; }
+.heading > span { background: linear-gradient(110deg, #ffc9b1 0%, #ff98cb 45%, #c9a4ff 100%); background-clip: text; -webkit-text-fill-color: transparent; }
+.description { max-width: 37ch; margin: 1.35rem 0 0; color: #c8c1d5; font-size: 1rem; line-height: 1.75; }
+.features { display: grid; gap: 1.15rem; margin-top: 1.75rem; }
+.feature { display: flex; align-items: flex-start; gap: .8rem; max-width: 26rem; }
+.featureIcon { display: grid; flex: none; place-items: center; width: 42px; height: 42px; border: 1px solid #ffb2cc33; border-radius: 12px; background: #fb87b914; color: #ffa9cb; }
+.chatIcon { border-color: #cbb0ff33; background: #bb9aff14; color: #ceb5ff; }
+.feature h3 { margin: 0; font-size: .9375rem; font-weight: 650; line-height: 1.45; letter-spacing: -.015em; }
+.feature p { margin: .25rem 0 0; color: #b6aec7; font-size: .85rem; line-height: 1.6; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: .9rem 1.35rem; margin-top: 1.8rem; }
+.storeButton { min-height: 54px; gap: .65rem; padding: .5rem 1rem; border: 1px solid #ffffff52; border-radius: 12px; background: #08080be6; color: #fff; text-decoration: none; }
+.storeButton:hover { border-color: #ffffffa3; background: #24202c; color: #fff; }
+.storeButton > svg { flex: none; }
+.storeLabel { display: grid; gap: 1px; text-align: left; line-height: 1.15; }
+.storeLabel > span { font-size: 10px; font-weight: 450; letter-spacing: .015em; }
+.storeLabel > strong { font-size: 21px; font-weight: 600; letter-spacing: -.035em; }
+.remoteLink { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 44px; color: #eee7f7; font-size: .85rem; font-weight: 550; text-decoration: none; text-underline-offset: 4px; }
+.remoteLink:hover { color: #fff; text-decoration: underline; }
+.card :is(a, button):focus-visible { outline: 2px solid #ffb0d5; outline-offset: 4px; }
+.accountNote { margin: 1rem 0 0; color: #a89eb9; font-size: .75rem; line-height: 1.6; }
+.visual { position: relative; min-width: 0; height: 570px; margin: 0; }
+.phone { position: absolute; top: 50%; left: 50%; width: min(72%, 300px); aspect-ratio: 686 / 1400; transform: translate(-50%, -50%) rotate(7deg); filter: drop-shadow(0 25px 35px #0009); }
+.screen { position: absolute; z-index: 1; inset: 2.1% 5.8%; overflow: hidden; border-radius: 15% / 7%; background: #08080a; }
+.screenImage { object-fit: cover; object-position: top; }
+.phoneFrame { position: absolute; z-index: 2; top: -1.7%; left: -29.15%; width: 158.3%; max-width: none; height: 103.4%; pointer-events: none; }
+.connected, .bedMode { position: absolute; z-index: 3; display: inline-flex; align-items: center; gap: .6rem; padding: .8rem 1rem; border: 1px solid #ffffff26; border-radius: 999px; background: #17121fe8; color: #f2eafc; box-shadow: 0 6px 24px #0004; font-size: .75rem; font-weight: 550; line-height: 1.2; backdrop-filter: blur(12px); }
+.connected { top: 3%; left: -2%; transform: rotate(-4deg); }
+.connectedDot { width: 7px; height: 7px; border-radius: 50%; background: #77e6b7; box-shadow: 0 0 12px #77e6b780; }
+.bedMode { right: -2%; bottom: 2%; transform: rotate(-4deg); }
+.bedMode > svg { color: #d6b7ff; }
+
+@media (min-width: 1600px) { .visual { height: 650px; } .phone { width: 320px; } }
+@media (max-width: 1100px) {
+  .card { gap: 1rem; padding: 2rem; }
+  .heading { font-size: clamp(2.25rem, 4vw, 3rem); }
+  .phone { width: 86%; max-width: 275px; }
+  .connected { left: -7%; }
+}
+@media (max-width: 767px) {
+  .section { margin-inline: 1.25rem; }
+  .card { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 1.4rem 1.5rem; border-radius: 22px; }
+  .scene { object-position: 71% center; }
+  .card::before { background: linear-gradient(180deg, #0e0b15fc 0%, #0e0b15f5 39%, #0e0b15bb 57%, #0e0b151a 100%); }
+  .appIdentity { gap: .5rem; margin-bottom: 1.4rem; }
+  .forIphone { display: none; }
+  .heading { font-size: clamp(2.15rem, 7.5vw, 3.5rem); }
+  .desktopBreak { display: none; }
+  .description { max-width: 40ch; margin-top: 1.1rem; font-size: .9375rem; line-height: 1.7; }
+  .features { gap: 1rem; margin-top: 1.5rem; }
+  .feature p { font-size: .8125rem; }
+  .actions { column-gap: 1rem; margin-top: 1.5rem; }
+  .remoteLink { font-size: .8rem; }
+  .visual { height: 525px; margin-top: 1.5rem; }
+  .phone { width: 240px; max-width: 87%; }
+  .connected { top: 0; left: -.4rem; padding: .7rem .85rem; font-size: .7rem; }
+  .bedMode { right: -.4rem; bottom: 0; padding: .7rem .85rem; font-size: .7rem; }
+}
+@media (max-width: 380px) {
+  .card { padding-inline: 1.2rem; }
+  .heading { font-size: 2.1rem; }
+  .actions { align-items: flex-start; flex-direction: column; gap: .5rem; }
+  .visual { height: 485px; }
+  .phone { width: 220px; }
+}
+@media (forced-colors: active) { .heading > span { background: none; -webkit-text-fill-color: currentColor; } }
