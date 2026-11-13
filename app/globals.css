@@ -565,8 +565,7 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
   -webkit-text-stroke: 0;
 }
 
-/* CORE's station identity: Barlow Condensed 700 italic. Scoped to the real
-   wordmark rather than generic UI labels. */
+/* CORE's station identity pairs Barlow Condensed with the six-spoke O. */
 .core-wordmark {
   display: inline-block;
   font-family: var(--font-core-wordmark), "Barlow Condensed", Impact, sans-serif;
@@ -576,6 +575,14 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
   letter-spacing: -0.045em;
   line-height: .82;
   white-space: nowrap;
+}
+
+.core-wordmark__symbol {
+  display: inline-block;
+  width: .75em;
+  height: .75em;
+  margin-inline: .015em .005em;
+  vertical-align: -.015em;
 }
 
 @theme {
