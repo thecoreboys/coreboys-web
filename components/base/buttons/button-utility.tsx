@@ -7,13 +7,10 @@ import type { ButtonProps as AriaButtonProps, LinkProps as AriaLinkProps } from 
 import { Button as AriaButton, Link as AriaLink } from "react-aria-components";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { cx } from "@/utils/cx";
+import { BUTTON_UTILITY_ICON, BUTTON_UTILITY_ROOT, buttonUtilityStyles } from "./button-styles";
 import { isReactComponent } from "@/utils/is-react-component";
 
-export const styles = {
-    secondary:
-        "bg-[color:var(--ui-surface)] text-fg-quaternary ring-1 ring-[color:var(--ui-line)] ring-inset hover:bg-primary_hover hover:text-fg-quaternary_hover",
-    tertiary: "text-fg-quaternary hover:bg-primary_hover hover:text-fg-quaternary_hover",
-};
+export const styles = buttonUtilityStyles;
 
 /**
  * Common props shared between button and anchor variants
@@ -92,11 +89,11 @@ export const ButtonUtility = ({
             aria-label={tooltip}
             {...props}
             className={cx(
-                "group relative inline-flex min-h-10 min-w-10 max-sm:min-h-11 max-sm:min-w-11 cursor-pointer items-center justify-center rounded-xl p-2 outline-focus-ring transition duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                BUTTON_UTILITY_ROOT,
                 styles[color],
 
                 // Icon styles
-                "*:data-icon:pointer-events-none *:data-icon:shrink-0 *:data-icon:text-current *:data-icon:transition-inherit-all",
+                BUTTON_UTILITY_ICON,
                 size === "xs" ? "*:data-icon:size-4" : "*:data-icon:size-5",
 
                 className,
