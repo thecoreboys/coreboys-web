@@ -6,6 +6,11 @@ import styles from "./StreamerAwardsWinner.module.css";
 export function StreamerAwardsWinner() {
   return (
     <section id="streamer-awards" className={`watch-billboard ${styles.section}`} aria-labelledby="streamer-awards-winner-heading" data-awards-winner>
+      {/* A soft, heavily blurred wash of the artwork gives the section depth.
+          A tiny, low-quality copy is enough because it is never seen sharp. */}
+      <div className={styles.backdrop} aria-hidden="true">
+        <Image src={artwork} alt="" fill sizes="40vw" quality={25} loading="lazy" />
+      </div>
       <div className={styles.copy}>
         <p>The Streamer Awards 2026</p>
         <h2 id="streamer-awards-winner-heading">Content Org of the Year</h2>

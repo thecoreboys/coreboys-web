@@ -6,6 +6,22 @@
   min-width: 0;
   padding: 3rem clamp(1.25rem, 5vw, 5rem) 5rem;
   scroll-margin-top: calc(var(--site-header-h, 8rem) + 1rem);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* Blurred ambient copy of the artwork behind the whole section. */
+.backdrop { position: absolute; z-index: -1; inset: 0; pointer-events: none; }
+.backdrop img { object-fit: cover; opacity: .5; filter: blur(64px) saturate(1.35); transform: scale(1.25); }
+.backdrop::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    radial-gradient(ellipse 70% 80% at 68% 50%, transparent 0%, #08080acc 72%, #08080a 100%),
+    linear-gradient(90deg, #08080af0 0%, #08080a99 38%, transparent 70%),
+    linear-gradient(180deg, #08080a 0%, transparent 18%, transparent 82%, #08080a 100%);
 }
 :global(.watch-os) .section::after { display: none; }
 .copy { color: #f2eee5; }
@@ -20,7 +36,7 @@
   border: 1px solid #c2a46f55;
   border-radius: .3rem;
   background: #09090b;
-  box-shadow: 0 18px 50px #00000026;
+  box-shadow: 0 30px 90px #000000a6, 0 0 0 1px #c2a46f22, 0 0 80px #c2a46f1f;
 }
 
 .artwork { position: relative; display: block; color: #f2eee5; }
