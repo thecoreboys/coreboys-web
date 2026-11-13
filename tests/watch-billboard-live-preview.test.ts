@@ -26,7 +26,7 @@ test("hero keeps source fallbacks and accessible rotation separate from its prev
   assert.match(carousel, /slides\.length < 2 \|\| interactionPaused \|\| reducedMotion/);
   assert.match(carousel, /onFocusCapture=\{\(\) => setFocusPaused\(true\)\}/);
   assert.match(carousel, /onMouseEnter=\{\(\) => setHoverPaused\(true\)\}/);
-  assert.match(carousel, /aria-selected=\{slideIndex === index\}/);
+  assert.match(carousel, /aria-selected=\{slideIndex === activeIndex\}/);
   assert.doesNotMatch(carousel, /player\.play\(|playInPlayer|autoplay|autoPlay/);
   assert.match(homeHero, /const fallbackHref = item\.sourceUrl \|\| item\.href/);
   assert.match(homeHero, /href=\{\(fallbackOnly \? fallbackHref : "#"\)/);

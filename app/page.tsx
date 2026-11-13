@@ -9,8 +9,9 @@ import { EventsSeriesChallengesRail } from "@/components/watch/WatchHome";
 import { PatreonLockedShelf } from "@/components/watch/PatreonLockedShelf";
 import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
 import { projectHomeCatalog } from "@/lib/watch/home-catalog";
-import { StreamerAwardsSection } from "@/components/campaigns/StreamerAwardsSection";
-import { streamerAwardsCountdown } from "@/lib/streamer-awards";
+import { StreamerAwardsWinner } from "@/components/campaigns/StreamerAwardsWinner";
+import { STREAMER_AWARDS_WINNER_ENDS_AT_MS } from "@/lib/streamer-awards";
+import { isBillboardFeatureActive } from "@/lib/watch/billboard-features";
 import { getWeeklyTopClips } from "@/lib/watch/weekly-top-clips";
 import { WeeklyTopClips } from "@/components/watch/WeeklyTopClips";
 import "./watch/watch.css";
@@ -40,19 +41,12 @@ async function WeeklyTopClipsSection() {
   return <WeeklyTopClips clips={clips} />;
 }
 
-function AwardsSection() {
-  const initialNow = Date.now();
-  // The dynamic homepage stops sending the section after the cutoff. The
-  // client also removes it for anyone who already has the homepage open.
-  return streamerAwardsCountdown(initialNow) ? <StreamerAwardsSection initialNow={initialNow} /> : null;
-}
-
 export default async function HomePage() {
   const catalog = await getHomeWatchCatalog();
 
   return (
     <WatchHomeEntry catalog={compactWatchCatalog(projectHomeCatalog(catalog))}
-      awards={<AwardsSection />}
+      awards={isBillboardFeatureActive(STREAMER_AWARDS_WINNER_ENDS_AT_MS, Date.now()) ? <StreamerAwardsWinner /> : undefined}
       mostWatched={<Suspense key="most-watched" fallback={null}><WeeklyTopClipsSection /></Suspense>}
       patreon={<Suspense key="patreon" fallback={<p role="status" className="px-5 text-sm text-secondary">Loading Patreon previews…</p>}><PatreonSection /></Suspense>}
       originals={<Suspense key="originals" fallback={<div className="min-h-56 px-5" role="status">Loading CORE Originals…</div>}><OriginalsSection /></Suspense>}

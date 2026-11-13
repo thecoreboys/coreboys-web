@@ -315,6 +315,7 @@
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 1rem;
   background: #050506;
+  color: #fff;
   box-shadow: 0 24px 72px rgba(0,0,0,.5), 0 0 0 1px color-mix(in srgb, var(--channel-accent) 14%, transparent);
   transition: border-color .18s ease, box-shadow .22s ease, transform .22s cubic-bezier(.22,1,.36,1);
 }
@@ -1332,7 +1333,7 @@
   .networkNav { justify-content: flex-start; gap: .52rem; padding-block: .58rem; }
   .dialLabel { display: none; }
   .networkNav a { min-height: 2.75rem; min-width: 2.75rem; justify-content: center; padding-inline: .48rem; }
-  .networkNav a span { display: none; }
+  .networkNav a > span:not(.dialCoreWordmark) { display: none; }
   .networkNav a .dialCoreWordmark { display: block; }
   .networkNav a img { width: 1.65rem; height: 1.65rem; }
   .hero { min-height: 42rem; }
@@ -1406,3 +1407,87 @@ html[data-watch-motion="calm"] .homeChannelArtwork { transition-duration: .01ms;
     transition-duration: var(--motion-press, 90ms);
   }
 }
+/* Channel chrome follows the site palette. Video/poster overlays retain
+   their own dark canvas so their captions and provider controls stay legible. */
+:global(html[data-theme="light"]) .page {
+  --channel-ink: color-mix(in srgb, var(--channel-accent) 35%, #17171b 65%);
+  background: radial-gradient(70rem 36rem at 12% 5%, color-mix(in srgb, var(--channel-accent) 8%, transparent), transparent 62%), var(--bg);
+  color: var(--ink);
+}
+:global(html[data-theme="light"]) .networkNav,
+:global(html[data-theme="light"]) .sectionNav { border-color: var(--rule); background: color-mix(in srgb, var(--bg-elev) 96%, transparent); color: var(--ink); }
+:global(html[data-theme="light"]) .dialLabel { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .networkDial { border-color: var(--rule-strong); background: var(--surface); box-shadow: inset 0 1px var(--bg-elev); }
+:global(html[data-theme="light"]) .networkNav a { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .networkNav a .dialCoreWordmark { color: var(--ink); text-shadow: none; }
+:global(html[data-theme="light"]) .networkNav a:hover { border-color: var(--rule-strong); background: var(--bg-elev); color: var(--ink); box-shadow: 0 2px 6px #1818200a; }
+:global(html[data-theme="light"]) .networkNav a[aria-current="page"] { border-color: var(--channel-ink); background: color-mix(in srgb, var(--channel-accent) 10%, var(--bg-elev)); color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--channel-accent) 12%, transparent); }
+:global(html[data-theme="light"]) .networkNav a[aria-current="page"] .dialCoreWordmark { color: var(--ink); text-shadow: none; }
+:global(html[data-theme="light"]) .networkNav a:focus-visible { outline: 2px solid var(--channel-ink); outline-offset: 3px; }
+:global(html[data-theme="light"]) .sectionTabs button { border-color: var(--rule-strong); background: var(--bg-elev); color: var(--ink-dim); }
+:global(html[data-theme="light"]) .sectionTabs small { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .sectionTabs button:hover { border-color: var(--channel-ink); background: var(--surface); color: var(--ink); }
+:global(html[data-theme="light"]) .sectionTabs button[aria-selected="true"] { border-color: var(--channel-ink); background: color-mix(in srgb, var(--channel-accent) 10%, var(--bg-elev)); color: var(--ink); }
+:global(html[data-theme="light"]) .sectionTabs button[aria-selected="true"] > svg { color: var(--channel-ink); }
+:global(html[data-theme="light"]) .sectionTabs button[aria-selected="true"] small { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .sectionTabs button:focus-visible { outline-color: var(--channel-ink); }
+
+:global(html[data-theme="light"]) .heroMedia img { opacity: .48; }
+:global(html[data-theme="light"]) .heroMedia > span { background: linear-gradient(90deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 92%, transparent) 34%, color-mix(in srgb, var(--bg) 48%, transparent) 78%), linear-gradient(0deg, var(--bg) 0%, transparent 70%); }
+:global(html[data-theme="light"]) .heroBug { opacity: .08; filter: grayscale(1) brightness(.25); }
+:global(html[data-theme="light"]) .heroCoreWordmark { color: var(--ink); text-shadow: none; filter: none; }
+:global(html[data-theme="light"]) .identityCoreWordmark { color: var(--ink); text-shadow: none; }
+:global(html[data-theme="light"]) .identityLogo { padding: .35rem; border-radius: .6rem; background: #131316; filter: drop-shadow(0 4px 8px #18182018); }
+:global(html[data-theme="light"]) .page :is(.eyebrow, .heroCopy > p, .nowTitle small, .loopBadge, .sectionHeading > svg) { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .nowTitle > span { color: var(--channel-ink); }
+:global(html[data-theme="light"]) .birthdayHeroLabel { border-color: color-mix(in srgb, var(--channel-accent) 40%, var(--rule)); background: color-mix(in srgb, var(--channel-accent) 10%, var(--bg-elev)); color: var(--ink); box-shadow: 0 2px 8px #1818200c; }
+:global(html[data-theme="light"]) .modeTabs a { border-color: var(--rule-strong); background: var(--bg-elev); color: var(--ink-dim); }
+:global(html[data-theme="light"]) .modeTabs a[aria-current="page"] { border-color: var(--channel-ink); background: color-mix(in srgb, var(--channel-accent) 10%, var(--bg-elev)); color: var(--ink); }
+:global(html[data-theme="light"]) .tuneButton { background: var(--ink); color: var(--bg-elev); }
+:global(html[data-theme="light"]) .tuneButton:hover { background: var(--channel-ink); }
+:global(html[data-theme="light"]) .heroPreview { border-color: var(--rule-strong); box-shadow: 0 18px 42px #18182024; }
+:global(html[data-theme="light"]) .heroPreviewControls > a { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .heroPreviewControls > a:hover { color: var(--ink); }
+:global(html[data-theme="light"]) .heroPreviewControls :is(.heroPreviewSound, .heroPreviewRetry) { border-color: var(--rule-strong); background: var(--bg-elev); color: var(--ink); }
+:global(html[data-theme="light"]) .heroPreviewControls :is(.heroPreviewSound, .heroPreviewRetry):hover { border-color: var(--channel-ink); background: var(--surface); }
+:global(html[data-theme="light"]) .heroPreviewControls :is(a, button):focus-visible { outline-color: var(--channel-ink); }
+
+:global(html[data-theme="light"]) .page :is(.schedule, .continuousGuide, .airtimeHistory, .teamCard, .teamEmpty, .connectedAccount, .businessContact, .profileLink, .creatorGalleryLink, .mailAction) { border-color: var(--rule); background: var(--bg-elev); color: var(--ink); }
+:global(html[data-theme="light"]) .page :is(.teamCard, .connectedAccount, .businessContact, .profileLink, .creatorGalleryLink, .mailAction):is(:hover, :focus-visible) { border-color: var(--rule-strong); background: var(--surface); color: var(--ink); }
+:global(html[data-theme="light"]) .page :is(.teamCard, .connectedAccount, .businessContact, .profileLink, .creatorGalleryLink, .mailAction):focus-visible { outline: 2px solid var(--channel-ink); outline-offset: 3px; }
+:global(html[data-theme="light"]) .page :is(.creatorGallery, .teamSection, .mailSection) { border-color: var(--rule); }
+:global(html[data-theme="light"]) .creatorGallery { background: radial-gradient(38rem 16rem at 12% 0%, color-mix(in srgb, var(--channel-accent) 6%, transparent), transparent 72%), var(--surface); }
+:global(html[data-theme="light"]) .page :is(.teamCardCopy small, .teamCardArrow, .teamEmpty p, .teamJumpLink, .mailCopy p, .creatorProfileMeta dt, .creatorProfileMeta dd, .xCommunityIntro p, .shortsRailLink, .businessContact small, .businessContact > svg, .connectedAccount small, .connectedAccount > svg) { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .page :is(.teamEmpty a, .officialProfilesLabel, .businessContact strong, .connectedAccount strong) { color: var(--ink); }
+:global(html[data-theme="light"]) .page :is(.teamPortrait, .mailIcon, .businessContactIcon, .channelHubPortrait) { border-color: var(--rule-strong); background: var(--surface); color: var(--ink); }
+:global(html[data-theme="light"]) .teamPortrait > span { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .page :is(.teamCard:hover .teamCardArrow, .teamJumpLink:hover, .shortsRailLink:hover) { color: var(--ink); }
+:global(html[data-theme="light"]) .xCommunityLink { border-color: color-mix(in srgb, var(--channel-accent) 45%, var(--rule)); background: color-mix(in srgb, var(--channel-accent) 8%, var(--bg-elev)); color: var(--ink); }
+:global(html[data-theme="light"]) .xCommunityLink:hover { border-color: var(--channel-ink); background: color-mix(in srgb, var(--channel-accent) 14%, var(--bg-elev)); }
+
+:global(html[data-theme="light"]) .schedule li + li { border-color: var(--rule); }
+:global(html[data-theme="light"]) .schedule button:hover { background: var(--surface); }
+:global(html[data-theme="light"]) .page :is(.schedule time, .queueCopy small, .queueAction) { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .page .currentProgram time { color: var(--channel-ink); }
+:global(html[data-theme="light"]) .currentProgram { background: color-mix(in srgb, var(--channel-accent) 8%, var(--surface)); box-shadow: inset 3px 0 var(--channel-ink); }
+:global(html[data-theme="light"]) .schedule button:hover .queueAction { color: var(--ink); }
+:global(html[data-theme="light"]) .airtimeHistory :global(.guide-history-sticky) { background: var(--bg-elev); }
+:global(html[data-theme="light"]) .continuousGuide { box-shadow: 0 12px 30px #1818200c; }
+:global(html[data-theme="light"]) .continuousGuideToolbar { border-color: var(--rule); color: var(--ink-dim); }
+:global(html[data-theme="light"]) .continuousGuideToolbar span:first-child { color: var(--ink); }
+:global(html[data-theme="light"]) .continuousGuideToolbar svg { color: var(--channel-ink); }
+:global(html[data-theme="light"]) .continuousGuideHead { border-color: var(--rule); background: var(--surface); }
+:global(html[data-theme="light"]) .page :is(.continuousGuideHead > span, .continuousGuideHead time, .continuousGuideLabel) { border-color: var(--rule); color: var(--ink-dim); }
+:global(html[data-theme="light"]) .continuousGuideTrack { background-image: linear-gradient(90deg, var(--rule) 1px, transparent 1px); }
+:global(html[data-theme="light"]) .continuousGuideCard { border-color: var(--rule); background: var(--bg-elev); color: var(--ink); }
+:global(html[data-theme="light"]) .continuousGuideCard:is(:hover, :focus-visible) { border-color: var(--channel-ink); background: var(--surface); }
+:global(html[data-theme="light"]) .continuousGuideCurrent { border-color: var(--channel-ink); background: color-mix(in srgb, var(--channel-accent) 10%, var(--bg-elev)); box-shadow: inset 3px 0 var(--channel-ink); }
+:global(html[data-theme="light"]) .continuousGuideCopy :is(small, em, span) { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .continuousGuideCopy b { color: var(--channel-ink); }
+:global(html[data-theme="light"]) .continuousGuideLiveMarker { background: var(--channel-ink); }
+:global(html[data-theme="light"]) .continuousGuideLiveMarker::before { background: var(--channel-ink); color: var(--bg-elev); }
+:global(html[data-theme="light"]) .page :is(.continuousGuideLabel i, .continuousGuideNow) { background: var(--channel-ink); }
+:global(html[data-theme="light"]) .emptyState { border-color: var(--rule-strong); background: var(--bg-elev); color: var(--ink-dim); }
+:global(html[data-theme="light"]) .channelTile:not(.homeChannelTile) { border-color: var(--rule); background: linear-gradient(120deg, color-mix(in srgb, var(--channel-accent) 8%, var(--bg-elev)), var(--bg-elev)); color: var(--ink); }
+:global(html[data-theme="light"]) .channelTile:not(.homeChannelTile):hover { border-color: color-mix(in srgb, var(--channel-accent) 55%, #17171b); }
+:global(html[data-theme="light"]) .channelTile:not(.homeChannelTile) :is(small, svg) { color: var(--ink-dim); }

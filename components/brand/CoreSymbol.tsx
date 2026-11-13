@@ -1,8 +1,36 @@
 import React from "react";
 
-/** Supplied CORE emblem, traced from its white silhouette without redrawing it. */
-export function CoreSymbolArt(props: React.SVGProps<SVGPathElement> = {}) {
-  return <path fill="currentColor" fillRule="evenodd" {...props} d="M31.83 1L32.31 1L32.51 1.48L35.37 26.09L58 16.43L58.95 16.43L58.62 17.25L38.9 31.8L39.04 32.34L58.75 46.82L58.89 47.57L57.87 47.57L35.37 37.91L32.51 62.46L32.17 63L31.56 62.8L28.64 37.98L28.16 37.91L5.72 47.7L5.04 47.5L5.25 46.89L25.17 32.14L25.03 31.73L5.32 17.25L5.11 16.43L5.72 16.3L28.57 26.15L31.49 1.75L31.83 1ZM24.76 5.35L30.4 5.62L30.33 6.51L24.83 7.93L20.27 9.97L14.83 13.64L10.62 17.86L9.94 17.66L12.46 12.15L14.36 9.23L15.85 7.73L19.59 5.96L24.76 5.35ZM37.06 5.49L44.07 5.89L47.53 7.39L49.1 8.82L51.34 11.95L54.06 17.59L53.31 17.79L48.76 13.17L43.52 9.7L38.36 7.53L33.6 6.44L33.53 5.76L37.06 5.49ZM8.31 20.17L8.99 20.65L7.22 26.63L6.81 33.29L7.49 38.25L9.12 43.22L8.65 43.83L6.61 41.92L4.3 38.25L3.07 35.13L2.73 32.75L2.94 30.16L3.82 27.51L6 23.37L8.31 20.17ZM55.42 20.17L56.85 21.6L59.23 25.54L60.66 28.67L61.27 31.39L61.2 33.97L60.18 37.23L57.87 41.11L55.49 43.83L54.88 43.15L56.78 36.9L57.19 30.44L56.44 25.07L55.01 20.78L55.42 20.17ZM10.62 46.07L14.83 50.29L18.57 53.08L24.42 55.93L30.4 57.36L30.54 58.17L27.48 58.85L22.99 58.92L20 58.38L17.42 57.22L15.04 55.25L12.59 51.78L10.21 47.02L10.08 46.34L10.62 46.07ZM53.24 46.07L53.99 46.28L54.06 46.62L51.75 52.05L49.84 54.98L47.47 57.02L45.56 57.9L42.57 58.45L36.66 58.51L33.46 58.04L33.6 57.42L39.51 56.07L45.02 53.48L49.37 50.29L53.24 46.07Z" />;
+/**
+ * A circular CORE rim with the star’s top point centered at twelve o’clock.
+ * `fill` paints the emblem body (rim and star); `stroke` optionally outlines
+ * the star, so layered renderings such as the loading mark can reuse it.
+ */
+export function CoreSymbolArt({
+  fill = "currentColor",
+  stroke,
+  strokeWidth,
+  strokeLinejoin = "round",
+  transform,
+}: {
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: string | number;
+  strokeLinejoin?: React.SVGProps<SVGPathElement>["strokeLinejoin"];
+  transform?: string;
+} = {}) {
+  return (
+    <g transform={`${transform ? `${transform} ` : ""}translate(32 32)`}>
+      <circle r="28" fill="none" stroke={fill} strokeWidth="5" />
+      <path
+        transform="rotate(-30.5) scale(.95)"
+        d="M32.499 .284C-2.565 7.478 5.297-5.869 16.004 28.287C-7.759 1.517 7.731 1.652-16.495 28.003C-5.193-5.961 2.434 7.522-32.499-.284C2.565-7.478-5.297 5.869-16.004-28.287C7.759-1.517-7.731-1.652 16.495-28.003C5.193 5.961-2.434-7.522 32.499 .284Z"
+        fill={fill}
+        stroke={stroke ?? fill}
+        strokeWidth={strokeWidth ?? 2}
+        strokeLinejoin={strokeLinejoin}
+      />
+    </g>
+  );
 }
 
 export function CoreSymbol({ className }: { className?: string }) {
