@@ -11,7 +11,7 @@ export const REMOTE_CONTROLS = ["main-sound-on", "main-sound-off", "mute-all", "
 /** Control commands share the command column with source keys under this prefix. */
 export const REMOTE_CONTROL_PREFIX = "control:";
 export const REMOTE_LAYOUTS = [
-  "theater-first", "solo", "split", "quad", "main-three", "three-two", "portrait-wall", "chat-first", "freeform",
+  "auto", "focus-side", "grid", "theater-first", "solo", "split", "quad", "main-three", "three-two", "portrait-wall", "chat-first", "freeform",
 ] as const satisfies readonly RoomLayoutPreset[];
 
 export type RemotePlatform = "twitch" | "youtube";

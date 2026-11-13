@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronDown, Copy, Maximize2, Minimize2, MonitorPlay, MoreHorizontal, Share2, Theater, Volume2, VolumeOff, VolumeX, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, Maximize2, Minimize2, MonitorPlay, MoreHorizontal, Share2, Theater, Volume2, VolumeOff, VolumeX, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
@@ -17,6 +17,7 @@ import {
   type RemoteControl, type RemoteHostState, type RemotePlatform, type RemoteSession, type RemoteSource,
 } from "@/lib/watch/multiview-remote";
 import "./MultiviewRemote.css";
+import { WatchSelect } from "@/components/watch/WatchSelect";
 
 type ChatMode = RemotePlatform | "both";
 const chatLabels: Record<ChatMode, string> = { both: "Both chats", twitch: "Twitch", youtube: "YouTube" };
@@ -281,7 +282,7 @@ function ConnectedRemote({
           <summary aria-label="Remote options" title={device + " connected"} className="relative grid size-11 cursor-pointer list-none place-items-center rounded-xl text-[color:var(--ink-dim)] hover:bg-[color:var(--ui-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"><MoreHorizontal className="size-5" aria-hidden /><span className="absolute right-2 top-2 size-1 rounded-full bg-emerald-500" aria-hidden /></summary>
           <div className="absolute right-0 top-full z-30 mt-1 w-64 rounded-2xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-2 shadow-2xl">
             <p className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[color:var(--ink-dim)]"><MonitorPlay className="size-4 text-emerald-500" aria-hidden />{device} connected</p>
-            {sessions.length > 1 ? <label className="block p-2 text-xs font-semibold text-[color:var(--ink-dim)]">Computer to control<div className="relative mt-2"><select aria-label="Computer to control" value={session.id} onChange={(event) => changeSession(event.target.value)} className="min-h-11 w-full appearance-none rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg)] py-2 pl-3 pr-8 text-sm text-[color:var(--ink)]">{sessions.map((entry) => <option key={entry.id} value={entry.id}>{deviceLabel(entry, sessions)}</option>)}</select><ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2" aria-hidden /></div></label> : null}
+            {sessions.length > 1 ? <div className="p-2"><p className="mb-2 text-xs font-semibold text-[color:var(--ink-dim)]">Computer to control</p><WatchSelect ariaLabel="Computer to control" value={session.id} onChange={changeSession} options={sessions.map((entry) => ({ id: entry.id, label: deviceLabel(entry, sessions) }))} /></div> : null}
             <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onOpenComputer(); }} className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl px-3 text-left text-xs font-semibold hover:bg-[color:var(--ui-hover)]"><Share2 className="size-4 shrink-0" aria-hidden />Open on another computer</button>
             <Link prefetch={false} href="/special-message" className="mt-1 block rounded-xl border-t border-[color:var(--rule)] px-3 py-3 text-[11px] text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]">Unofficial fan site · Read note</Link>
           </div>

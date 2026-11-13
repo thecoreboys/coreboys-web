@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { useEffect, useState } from "react";
 import { X_COMMUNITY_KEYS, type XCommunityKey, type XNominationPublic } from "@/lib/x/types";
 import styles from "./XCommunityShelf.module.css";
+import { WatchSelect } from "@/components/watch/WatchSelect";
 
 const LABEL: Record<XCommunityKey, string> = {
   core: "CORE",
@@ -74,12 +75,10 @@ export function XPostNominationForm({
           <span>Direct post URL</span>
           <input type="url" value={postUrl} onChange={(event) => setPostUrl(event.target.value)} placeholder="https://x.com/name/status/…" maxLength={300} required />
         </label>
-        <label>
+        <div className={styles.selectField}>
           <span>Community</span>
-          <select value={communityKey} onChange={(event) => setCommunityKey(event.target.value as XCommunityKey)}>
-            {X_COMMUNITY_KEYS.map((key) => <option key={key} value={key}>{LABEL[key]}</option>)}
-          </select>
-        </label>
+          <WatchSelect ariaLabel="Community" value={communityKey} onChange={(value) => setCommunityKey(value as XCommunityKey)} options={X_COMMUNITY_KEYS.map((key) => ({ id: key, label: LABEL[key] }))} />
+        </div>
       </div>
       {!compact ? (
         <label>

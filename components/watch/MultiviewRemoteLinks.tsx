@@ -45,7 +45,7 @@ export function MultiviewRemoteBanner() {
       <div className="mx-auto flex max-w-container items-center gap-1 px-4 sm:px-6">
         <Link prefetch={false} href={{ pathname: MULTIVIEW_REMOTE_PATH }} className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 py-2 text-sm font-semibold">
           <MonitorPlay className="size-4 shrink-0 text-indigo-200" aria-hidden />
-          <span>Control Multiview Session</span>
+          <span>Control your Multiview from this phone</span>
           <ArrowUpRight className="ml-auto size-4 shrink-0 text-indigo-200" aria-hidden />
         </Link>
         <button

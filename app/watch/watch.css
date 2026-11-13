@@ -5150,6 +5150,12 @@ html[data-watch-density="theater"] .watch-poster.format-short { width: min(11rem
 .watch-experience-panel label b, .watch-experience-row-toggle b, .watch-experience-leanback b { color:var(--ink); font-size:.66rem; font-weight:800; }
 .watch-experience-panel label small, .watch-experience-row-toggle small, .watch-experience-leanback small { color:var(--ink-faint); font-size:.58rem; font-weight:600; line-height:1.32; }
 .watch-experience-panel select { width:100%; min-height:2.25rem; border:1px solid rgba(255,255,255,.12); border-radius:.55rem; padding:0 .5rem; background:#141419; color:var(--ink); font-size:.67rem; font-weight:700; }
+/* Settings rows that use the shared dropdown (a <div>, so the label text does not steal its clicks). */
+.watch-experience-panel .watch-experience-field { display:grid; grid-template-columns:minmax(0,1fr) minmax(8.45rem, 11rem); align-items:center; gap:.65rem; padding:.42rem 0; color:var(--ink-dim); font-size:.68rem; font-weight:700; }
+.watch-experience-field > span { display:grid; gap:.13rem; min-width:0; }
+.watch-experience-field b { color:var(--ink); font-size:.66rem; font-weight:800; }
+.watch-experience-field small { color:var(--ink-faint); font-size:.58rem; font-weight:600; line-height:1.32; }
+.watch-experience-field button p { font-size:.72rem !important; }
 .watch-experience-presets { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.18rem; }
 .watch-experience-presets button, .watch-experience-row-toggle, .watch-experience-leanback, .watch-experience-footer button { border:1px solid rgba(255,255,255,.1); border-radius:.58rem; background:rgba(255,255,255,.025); color:var(--ink-dim); cursor:pointer; }
 .watch-experience-presets button { min-height:1.85rem; padding:.35rem .5rem; font-size:.61rem; font-weight:780; }
@@ -5195,7 +5201,7 @@ html[data-watch-text-size="large"] .watch-os { font-size:112%; }
   .watch-experience { left: .75rem; bottom: max(.75rem, env(safe-area-inset-bottom)); }
   .watch-experience-backdrop { padding:.75rem; }
   .watch-experience-panel { width:100%; max-height:calc(100dvh - 1.5rem); padding:.85rem; }
-  .watch-experience-panel label, .watch-experience-row-toggle { grid-template-columns:minmax(0,1fr) 8.15rem; }
+  .watch-experience-panel label, .watch-experience-panel .watch-experience-field, .watch-experience-row-toggle { grid-template-columns:minmax(0,1fr) 8.15rem; }
 }
 
 html[data-watch-motion="calm"] .watch-os *,

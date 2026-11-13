@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Accessibility, Check, Maximize2, RotateCcw, Settings2, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePlayerOptional } from "@/components/providers/PlayerProvider";
+import { WatchSelect } from "@/components/watch/WatchSelect";
 
 type MotionMode = "calm" | "standard" | "cinematic";
 type DensityMode = "compact" | "balanced" | "theater";
@@ -334,24 +335,18 @@ export function WatchExperienceControls() {
 
           <fieldset className="watch-experience-group">
             <legend>Viewing</legend>
-            <label>
+            <div className="watch-experience-field">
               <span><b>Motion</b><small>How lively page transitions feel.</small></span>
-              <select aria-label="Motion" value={preferences.motion} onChange={(event) => update({ motion: event.target.value as MotionMode })}>
-                <option value="calm">Calm</option><option value="standard">Standard</option><option value="cinematic">Cinematic</option>
-              </select>
-            </label>
-            <label>
+              <WatchSelect compact tone="dark" ariaLabel="Motion" value={preferences.motion} onChange={(value) => update({ motion: value as MotionMode })} options={[{ id: "calm", label: "Calm" }, { id: "standard", label: "Standard" }, { id: "cinematic", label: "Cinematic" }]} />
+            </div>
+            <div className="watch-experience-field">
               <span><b>Layout</b><small>Comfortable browsing density.</small></span>
-              <select aria-label="Layout density" value={preferences.density} onChange={(event) => update({ density: event.target.value as DensityMode })}>
-                <option value="compact">Compact guide</option><option value="balanced">Balanced</option><option value="theater">Large-screen TV</option>
-              </select>
-            </label>
-            <label>
+              <WatchSelect compact tone="dark" ariaLabel="Layout density" value={preferences.density} onChange={(value) => update({ density: value as DensityMode })} options={[{ id: "compact", label: "Compact guide" }, { id: "balanced", label: "Balanced" }, { id: "theater", label: "Large-screen TV" }]} />
+            </div>
+            <div className="watch-experience-field">
               <span><b>Station glow</b><small>Color around the channel you browse.</small></span>
-              <select aria-label="Station glow" value={preferences.theme} onChange={(event) => update({ theme: event.target.value as StationTheme })}>
-                <option value="auto">Follow what I browse</option><option value="core">CORE</option><option value="stable">Stable</option><option value="flock">Flock</option><option value="thugs">Thugs</option><option value="m3">M3</option><option value="nms">NMS</option><option value="slg">SLG</option>
-              </select>
-            </label>
+              <WatchSelect compact tone="dark" ariaLabel="Station glow" value={preferences.theme} onChange={(value) => update({ theme: value as StationTheme })} options={[{ id: "auto", label: "Follow what I browse" }, { id: "core", label: "CORE" }, { id: "stable", label: "Stable" }, { id: "flock", label: "Flock" }, { id: "thugs", label: "Thugs" }, { id: "m3", label: "M3" }, { id: "nms", label: "NMS" }, { id: "slg", label: "SLG" }]} />
+            </div>
             <button type="button" className="watch-experience-row-toggle" aria-pressed={preferences.ambient} onClick={() => update({ ambient: !preferences.ambient })}>
               <span><b>Ambient artwork</b><small>Use artwork colors behind Watch.</small></span><b>{preferences.ambient ? "On" : "Off"}</b>
             </button>
@@ -359,52 +354,38 @@ export function WatchExperienceControls() {
 
           <fieldset className="watch-experience-group">
             <legend>Navigation</legend>
-            <label>
+            <div className="watch-experience-field">
               <span><b>Cursor theme</b><small>Choose a familiar or community pointer.</small></span>
-              <select aria-label="Cursor theme" value={preferences.cursorTheme} onChange={(event) => update({ cursorTheme: event.target.value as CursorTheme })}>
-                <option value="station">Match community</option><option value="mono">Studio white</option><option value="gold">Cinema gold</option><option value="core">CORE signal</option><option value="flock">Flock sunset</option><option value="stable">Stable blue glass</option><option value="thugs">Thugs ink</option><option value="m3">M3 chrome</option><option value="nms">NMS electric</option><option value="slg">SLG gold</option>
-              </select>
-            </label>
-            <label>
+              <WatchSelect compact tone="dark" ariaLabel="Cursor theme" value={preferences.cursorTheme} onChange={(value) => update({ cursorTheme: value as CursorTheme })} options={[{ id: "station", label: "Match community" }, { id: "mono", label: "Studio white" }, { id: "gold", label: "Cinema gold" }, { id: "core", label: "CORE signal" }, { id: "flock", label: "Flock sunset" }, { id: "stable", label: "Stable blue glass" }, { id: "thugs", label: "Thugs ink" }, { id: "m3", label: "M3 chrome" }, { id: "nms", label: "NMS electric" }, { id: "slg", label: "SLG gold" }]} />
+            </div>
+            <div className="watch-experience-field">
               <span><b>Cursor effects</b><small>Keep the pointer expressive or quiet.</small></span>
-              <select aria-label="Cursor effects" value={preferences.cursorFx} onChange={(event) => update({ cursorFx: event.target.value as CursorFx })}>
-                <option value="signature">Signature effects</option><option value="quiet">Quiet motion</option>
-              </select>
-            </label>
-            <label>
+              <WatchSelect compact tone="dark" ariaLabel="Cursor effects" value={preferences.cursorFx} onChange={(value) => update({ cursorFx: value as CursorFx })} options={[{ id: "signature", label: "Signature effects" }, { id: "quiet", label: "Quiet motion" }]} />
+            </div>
+            <div className="watch-experience-field">
               <span><b>Cursor size</b><small>Make the pointer easier to find.</small></span>
-              <select aria-label="Cursor size" value={preferences.cursorSize} onChange={(event) => update({ cursorSize: event.target.value as CursorSize })}>
-                <option value="standard">Standard</option><option value="large">Large</option>
-              </select>
-            </label>
-            <label>
+              <WatchSelect compact tone="dark" ariaLabel="Cursor size" value={preferences.cursorSize} onChange={(value) => update({ cursorSize: value as CursorSize })} options={[{ id: "standard", label: "Standard" }, { id: "large", label: "Large" }]} />
+            </div>
+            <div className="watch-experience-field">
               <span><b>Helpful hints</b><small>Explain controls when you pause over them.</small></span>
-              <select aria-label="Cursor hints" value={preferences.cursorHints} onChange={(event) => update({ cursorHints: event.target.value as CursorHints })}>
-                <option value="smart">Smart</option><option value="off">Off</option>
-              </select>
-            </label>
+              <WatchSelect compact tone="dark" ariaLabel="Cursor hints" value={preferences.cursorHints} onChange={(value) => update({ cursorHints: value as CursorHints })} options={[{ id: "smart", label: "Smart" }, { id: "off", label: "Off" }]} />
+            </div>
           </fieldset>
 
           <fieldset className="watch-experience-group">
             <legend>Accessibility</legend>
-            <label>
+            <div className="watch-experience-field">
               <span><b>Text size</b><small>Scale key Watch text for readability.</small></span>
-              <select aria-label="Text size" value={preferences.textSize} onChange={(event) => update({ textSize: event.target.value as TextSize })}>
-                <option value="standard">Standard</option><option value="large">Large</option>
-              </select>
-            </label>
-            <label>
+              <WatchSelect compact tone="dark" ariaLabel="Text size" value={preferences.textSize} onChange={(value) => update({ textSize: value as TextSize })} options={[{ id: "standard", label: "Standard" }, { id: "large", label: "Large" }]} />
+            </div>
+            <div className="watch-experience-field">
               <span><b>Contrast</b><small>Increase separation between controls.</small></span>
-              <select aria-label="Contrast" value={preferences.contrast} onChange={(event) => update({ contrast: event.target.value as ContrastMode })}>
-                <option value="standard">Standard</option><option value="high">High contrast</option><option value="oled">OLED black</option>
-              </select>
-            </label>
-            <label>
+              <WatchSelect compact tone="dark" ariaLabel="Contrast" value={preferences.contrast} onChange={(value) => update({ contrast: value as ContrastMode })} options={[{ id: "standard", label: "Standard" }, { id: "high", label: "High contrast" }, { id: "oled", label: "OLED black" }]} />
+            </div>
+            <div className="watch-experience-field">
               <span><b>Reduce motion</b><small>Follow your device or minimize animation.</small></span>
-              <select aria-label="Reduced motion" value={preferences.reducedMotion} onChange={(event) => update({ reducedMotion: event.target.value as ReducedMotion })}>
-                <option value="system">Use device setting</option><option value="on">Reduce motion</option>
-              </select>
-            </label>
+              <WatchSelect compact tone="dark" ariaLabel="Reduced motion" value={preferences.reducedMotion} onChange={(value) => update({ reducedMotion: value as ReducedMotion })} options={[{ id: "system", label: "Use device setting" }, { id: "on", label: "Reduce motion" }]} />
+            </div>
             <div className="watch-experience-checks" aria-label="Accessibility status">
               <span><Check aria-hidden /> Keyboard ready</span>
               <span><Check aria-hidden /> {preferences.reducedMotion === "on" ? "Motion reduced" : "Motion follows device"}</span>
@@ -414,12 +395,10 @@ export function WatchExperienceControls() {
 
           <fieldset className="watch-experience-group">
             <legend>Audio &amp; playback</legend>
-            <label>
+            <div className="watch-experience-field">
               <span><b>Autoplay previews</b><small>Preview content silently, or not at all.</small></span>
-              <select aria-label="Autoplay previews" value={preferences.autoplay} onChange={(event) => update({ autoplay: event.target.value as AutoplayMode })}>
-                <option value="muted">Muted previews</option><option value="off">Off</option>
-              </select>
-            </label>
+              <WatchSelect compact tone="dark" ariaLabel="Autoplay previews" value={preferences.autoplay} onChange={(value) => update({ autoplay: value as AutoplayMode })} options={[{ id: "muted", label: "Muted previews" }, { id: "off", label: "Off" }]} />
+            </div>
             <button type="button" className="watch-experience-row-toggle" aria-pressed={preferences.sound} onClick={() => update({ sound: !preferences.sound })}>
               <span><b>Interface sound</b><small>Optional soft feedback after a click.</small></span>{preferences.sound ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}<b>{preferences.sound ? "On" : "Off"}</b>
             </button>

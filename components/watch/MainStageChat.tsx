@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ArrowLeft, ExternalLink, Link2, MessageSquare, Settings2 } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, ExternalLink, Link2, MessageSquare, RotateCcw, Settings2 } from "lucide-react";
 import { ChatDock, EMPTY_CHAT_FILTERS, type ChatFeedFilters, type ChatSessionChannel } from "@/components/live/chat";
+import { WatchSelect } from "@/components/watch/WatchSelect";
 import { useDialogFocus } from "@/hooks/useDialogFocus";
 import { DEFAULT_CHAT_DOCK_SIZE } from "@/lib/watch/workspace";
 
@@ -10,10 +11,28 @@ import { DEFAULT_CHAT_DOCK_SIZE } from "@/lib/watch/workspace";
 export type RoomChatView = "main" | "combined" | "columns";
 
 const ROOM_CHAT_VIEWS: Array<{ id: RoomChatView; label: string; description: string }> = [
-  { id: "main", label: "Main", description: "Chat for the main stage" },
-  { id: "combined", label: "All", description: "Every stream's chat in one feed" },
-  { id: "columns", label: "Each", description: "A separate chat per stream" },
+  { id: "main", label: "Main view", description: "Chat for the stream in the main view" },
+  { id: "combined", label: "All in one", description: "Every stream’s chat mixed into one feed" },
+  { id: "columns", label: "Side by side", description: "A separate chat column for each stream" },
 ];
+
+const TEXT_SIZES = [
+  { value: 0.85, label: "Small" },
+  { value: 1, label: "Default" },
+  { value: 1.2, label: "Large" },
+  { value: 1.45, label: "Huge" },
+] as const;
+
+const COLUMN_WIDTHS = [
+  { value: 300, label: "Narrow" },
+  { value: 368, label: "Standard" },
+  { value: 440, label: "Wide" },
+  { value: 520, label: "Widest" },
+] as const;
+
+function closest<T extends { value: number }>(choices: readonly T[], value: number) {
+  return choices.reduce((best, choice) => Math.abs(choice.value - value) < Math.abs(best.value - value) ? choice : best);
+}
 
 type MainStageChatProps = {
   channels: ChatSessionChannel[];
@@ -44,12 +63,14 @@ export function MainStageChat(props: MainStageChatProps) {
     <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#101014]" aria-label="Main stage Twitch chat">
       <div inert={settingsOpen} className="flex min-h-0 flex-1 flex-col">
         <header className="flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3">
-          <span className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold text-white/85"><MessageSquare className="size-4 shrink-0 text-violet-300" aria-hidden />Twitch chat</span>
-          {view === "main" ? (
-            <span className={`inline-flex min-w-0 items-center gap-1 text-[10px] ${followsMain ? "text-emerald-300/85" : "text-white/45"}`} aria-live="polite"><Link2 className="size-3 shrink-0" aria-hidden /><span className="truncate">{followsMain ? "Follows main" : "Browsing"}</span></span>
-          ) : (
-            <span className="truncate text-[10px] text-white/50" aria-live="polite">{roomChannels.length} chats</span>
-          )}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold text-white/90"><MessageSquare className="size-4 shrink-0 text-violet-300" aria-hidden /><span className="truncate">{view === "main" && selectedChannel ? selectedChannel.displayName : "Twitch chat"}</span></span>
+            {view === "main" ? (
+              <span className={`ml-6 inline-flex min-w-0 items-center gap-1 text-[10px] ${followsMain ? "text-emerald-300/85" : "text-amber-200/80"}`} aria-live="polite"><Link2 className="size-3 shrink-0" aria-hidden /><span className="truncate">{followsMain ? "Following the main view" : "Browsing another chat"}</span></span>
+            ) : (
+              <span className="ml-6 truncate text-[10px] text-white/50" aria-live="polite">{roomChannels.length} chats {view === "combined" ? "in one feed" : "side by side"}</span>
+            )}
+          </span>
           <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Chat settings" aria-haspopup="dialog" className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl text-white/60 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Settings2 className="size-4" aria-hidden /></button>
         </header>
         {multiChat && onViewChange ? (
@@ -62,7 +83,7 @@ export function MainStageChat(props: MainStageChatProps) {
                 aria-checked={view === option.id}
                 title={option.description}
                 onClick={() => onViewChange(option.id)}
-                className={`min-h-9 cursor-pointer rounded-[0.6rem] px-2 text-[11px] font-semibold transition focus-visible:outline-2 focus-visible:outline-white ${view === option.id ? "bg-white text-[#101014]" : "text-white/60 hover:bg-white/8 hover:text-white"}`}
+                className={`min-h-9 cursor-pointer truncate rounded-[0.6rem] px-1.5 text-[11px] font-semibold transition focus-visible:outline-2 focus-visible:outline-white ${view === option.id ? "bg-white text-[#101014] shadow-sm" : "text-white/60 hover:bg-white/8 hover:text-white"}`}
               >
                 {option.label}
               </button>
@@ -84,7 +105,7 @@ export function MainStageChat(props: MainStageChatProps) {
             className="min-h-0 flex-1 p-2"
           />
         ) : <>
-        {!followsMain ? <button type="button" onClick={() => onSelectChannel(null)} className="min-h-10 shrink-0 border-b border-white/8 px-3 text-left text-xs font-medium text-emerald-300 transition hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-white">Return to main stage chat</button> : null}
+        {!followsMain ? <button type="button" onClick={() => onSelectChannel(null)} className="flex min-h-10 shrink-0 items-center gap-2 border-b border-white/8 px-3 text-left text-xs font-medium text-emerald-300 transition hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-white"><Link2 className="size-3.5" aria-hidden />Back to the main view’s chat</button> : null}
         {selectedChannel ? (
           <ChatDock
             key={selectedChannel.login}
@@ -102,7 +123,7 @@ export function MainStageChat(props: MainStageChatProps) {
           />
         ) : (
           <div className="grid min-h-0 flex-1 place-items-center p-6 text-center">
-            <div className="max-w-64"><MessageSquare className="mx-auto size-6 text-white/25" aria-hidden /><p className="mt-3 text-sm font-semibold text-white/75">Chat follows your main stage</p><p className="mt-2 text-xs leading-5 text-white/45">Choose a live stream with a linked Twitch channel. Its chat will appear here automatically.</p></div>
+            <div className="max-w-64"><MessageSquare className="mx-auto size-6 text-white/25" aria-hidden /><p className="mt-3 text-sm font-semibold text-white/75">Chat follows your main view</p><p className="mt-2 text-xs leading-5 text-white/45">Put a live Twitch stream in the main view and its chat appears here.</p></div>
           </div>
         )}
         </>}
@@ -126,35 +147,73 @@ function MainStageChatSettings({
         <button type="button" onClick={onClose} aria-label="Back to chat" className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl text-white/65 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="size-4" aria-hidden /></button>
         <h2 id="main-chat-settings-title" className="text-sm font-semibold text-white">Chat settings</h2>
       </header>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-4" data-lenis-prevent>
-        <label className="block text-xs font-semibold text-white/80">Channel
-          <select aria-label="Chat channel" value={followsMain ? "" : selectedLogin ?? ""} onChange={(event) => onSelectChannel(event.target.value || null)} className="mt-2 min-h-11 w-full cursor-pointer rounded-xl border border-white/15 bg-[#202025] px-3 text-xs text-white outline-none focus-visible:ring-2 focus-visible:ring-white/70">
-            <option value="">Follow main stage</option>
-            {channels.map((channel) => <option key={channel.login} value={channel.login}>{channel.displayName}</option>)}
-          </select>
-          <span className="mt-2 block text-[11px] font-normal leading-5 text-white/45">Switches automatically with the main stage, including phone controls. Browsing another chat lasts until the main stream changes.</span>
-        </label>
-        <label className="block text-xs font-semibold text-white/80"><span className="flex items-center justify-between">Text size <span className="font-normal tabular-nums text-white/50">{Math.round(textScale * 100)}%</span></span>
-          <input aria-label="Chat text size" type="range" min={0.7} max={1.8} step={0.05} value={textScale} onChange={(event) => onTextScaleChange(Number(event.target.value))} className="mt-3 h-6 w-full cursor-pointer accent-white" />
-        </label>
-        <div className="space-y-4">
-          <ChatSettingToggle label="Show timestamps" checked={showTimestamps} onChange={onTimestampsChange} />
-          <ChatSettingToggle label="Hide bots" checked={Boolean(filters.hideBots)} onChange={(hideBots) => onFiltersChange({ ...filters, hideBots })} />
-          <ChatSettingToggle label="Emotes only" checked={Boolean(filters.emotesOnly)} onChange={(emotesOnly) => onFiltersChange({ ...filters, emotesOnly })} />
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3" data-lenis-prevent>
+        <ChatSettingSection title="Channel">
+          <WatchSelect
+            ariaLabel="Chat channel"
+            tone="dark"
+            value={followsMain ? FOLLOW_MAIN : selectedLogin ?? FOLLOW_MAIN}
+            onChange={(value) => onSelectChannel(value === FOLLOW_MAIN ? null : value)}
+            options={[
+              { id: FOLLOW_MAIN, label: "Follow the main view" },
+              ...channels.map((channel) => ({ id: channel.login, label: channel.displayName })),
+            ]}
+          />
+          <p className="text-[11px] leading-5 text-white/45">Following switches chat whenever the main view changes, including from your phone. Picking a channel holds it until the main view changes.</p>
+        </ChatSettingSection>
+        <ChatSettingSection title="Display">
+          <ChatSegmented label="Text size" value={closest(TEXT_SIZES, textScale).value} choices={TEXT_SIZES} onChange={onTextScaleChange} />
+          <div className="hidden lg:block"><ChatSegmented label="Chat width" value={closest(COLUMN_WIDTHS, width).value} choices={COLUMN_WIDTHS} onChange={onWidthChange} /></div>
+          <ChatSettingToggle label="Show timestamps" description="The time next to each message" checked={showTimestamps} onChange={onTimestampsChange} />
+        </ChatSettingSection>
+        <ChatSettingSection title="Filters">
+          <ChatSettingToggle label="Hide bots" description="Skip messages from known chat bots" checked={Boolean(filters.hideBots)} onChange={(hideBots) => onFiltersChange({ ...filters, hideBots })} />
+          <ChatSettingToggle label="Emotes only" description="Only show messages made of emotes" checked={Boolean(filters.emotesOnly)} onChange={(emotesOnly) => onFiltersChange({ ...filters, emotesOnly })} />
+          <label className="block pt-1 text-xs font-medium text-white/80">Muted words
+            <input aria-label="Muted chat words" value={(filters.mutedTerms ?? []).join(",")} onChange={(event) => onFiltersChange({ ...filters, mutedTerms: event.target.value.split(",") })} placeholder="spoilers, giveaway" className="mt-2 min-h-11 w-full rounded-xl border border-white/14 bg-[#202026] px-3 text-sm text-white outline-none transition placeholder:text-white/30 hover:border-white/25 focus-visible:ring-2 focus-visible:ring-white/70" />
+            <span className="mt-1.5 block text-[11px] font-normal text-white/40">Hide messages with these words. Separate them with commas.</span>
+          </label>
+        </ChatSettingSection>
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1 pt-1">
+          <button type="button" onClick={() => { onSelectChannel(null); onTextScaleChange(1); onTimestampsChange(false); onWidthChange(DEFAULT_CHAT_DOCK_SIZE.side); onFiltersChange(EMPTY_CHAT_FILTERS); }} className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-2 text-xs font-semibold text-white/60 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-white"><RotateCcw className="size-3.5" aria-hidden />Reset to defaults</button>
+          {selectedLogin ? <a href={`https://www.twitch.tv/${encodeURIComponent(selectedLogin)}/chat`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-xs font-medium text-white/55 hover:text-white focus-visible:outline-2 focus-visible:outline-white">Open on Twitch <ExternalLink className="size-3" aria-hidden /></a> : null}
         </div>
-        <label className="block text-xs font-semibold text-white/80">Muted words
-          <input aria-label="Muted chat words" value={(filters.mutedTerms ?? []).join(",")} onChange={(event) => onFiltersChange({ ...filters, mutedTerms: event.target.value.split(",") })} placeholder="Separate words with commas" className="mt-2 min-h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-xs text-white outline-none placeholder:text-white/30 focus-visible:ring-2 focus-visible:ring-white/70" />
-        </label>
-        <label className="hidden text-xs font-semibold text-white/80 lg:block"><span className="flex items-center justify-between">Column width <span className="font-normal tabular-nums text-white/50">{width}px</span></span>
-          <input aria-label="Chat column width" type="range" min={280} max={520} step={8} value={width} onChange={(event) => onWidthChange(Number(event.target.value))} className="mt-3 h-6 w-full cursor-pointer accent-white" />
-        </label>
-        <button type="button" onClick={() => { onSelectChannel(null); onTextScaleChange(1); onTimestampsChange(false); onWidthChange(DEFAULT_CHAT_DOCK_SIZE.side); onFiltersChange(EMPTY_CHAT_FILTERS); }} className="min-h-11 w-full cursor-pointer rounded-xl border border-white/12 px-3 text-xs font-semibold text-white/65 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-white">Reset chat settings</button>
-        {selectedLogin ? <a href={`https://www.twitch.tv/${encodeURIComponent(selectedLogin)}/chat`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 text-xs font-medium text-white/55 hover:text-white focus-visible:outline-2 focus-visible:outline-white">Open chat on Twitch <ExternalLink className="size-3" aria-hidden /></a> : null}
       </div>
     </section>
   );
 }
 
-function ChatSettingToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return <label className="flex min-h-8 cursor-pointer items-center justify-between gap-3 text-xs font-medium text-white/75"><span>{label}</span><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="size-4 cursor-pointer accent-white" /></label>;
+const FOLLOW_MAIN = "__follow-main__";
+
+function ChatSettingSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3 rounded-2xl bg-white/[0.035] p-3 ring-1 ring-inset ring-white/8">
+      <h3 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/45">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function ChatSegmented<T extends number>({ label, value, choices, onChange }: { label: string; value: T; choices: ReadonlyArray<{ value: T; label: string }>; onChange: (value: T) => void }) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium text-white/80">{label}</p>
+      <div role="radiogroup" aria-label={label} className="grid gap-0.5 rounded-xl bg-black/30 p-0.5 ring-1 ring-inset ring-white/10" style={{ gridTemplateColumns: `repeat(${choices.length}, minmax(0, 1fr))` }}>
+        {choices.map((choice) => (
+          <button key={choice.label} type="button" role="radio" aria-checked={value === choice.value} onClick={() => onChange(choice.value)} className={`min-h-9 cursor-pointer truncate rounded-[0.6rem] px-1 text-[11px] font-semibold transition focus-visible:outline-2 focus-visible:outline-white ${value === choice.value ? "bg-white text-[#101014] shadow-sm" : "text-white/60 hover:bg-white/8 hover:text-white"}`}>{choice.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChatSettingToggle({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+      <span className="min-w-0"><span className="block text-xs font-medium text-white/85">{label}</span><span className="block text-[11px] text-white/40">{description}</span></span>
+      <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${checked ? "bg-emerald-400" : "bg-white/15"}`} aria-hidden>
+        <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] ${checked ? "left-[18px]" : "left-0.5"}`} />
+      </span>
+    </button>
+  );
 }

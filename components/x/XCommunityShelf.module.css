@@ -42,6 +42,7 @@
 .formGrid { display:grid; grid-template-columns:minmax(0,2fr) minmax(8rem,1fr); gap:.58rem; }
 .nominationForm label { display:flex; flex-direction:column; gap:.3rem; color:var(--ink-dim); font-size:.61rem; font-weight:660; }
 .nominationForm label small { font-weight:520; }
+.selectField { display:flex; flex-direction:column; gap:.3rem; color:var(--ink-dim); font-size:.61rem; font-weight:660; }
 .nominationForm input[type="url"],.nominationForm select,.nominationForm textarea { width:100%; border:1px solid color-mix(in srgb,var(--ink) 13%,transparent); border-radius:.65rem; background:color-mix(in srgb,var(--ink) 4%,var(--bg)); color:var(--ink); padding:.62rem .68rem; font-size:.69rem; outline:none; }
 .nominationForm input:focus,.nominationForm select:focus,.nominationForm textarea:focus { border-color:color-mix(in srgb,var(--ink) 48%,transparent); box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 8%,transparent); }
 .nominationForm textarea { min-height:5rem; resize:vertical; }

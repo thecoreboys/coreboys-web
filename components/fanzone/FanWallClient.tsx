@@ -30,6 +30,7 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 import { cx } from "@/utils/cx";
 import { FilterSelect } from "@/components/ui/FilterSelect";
+import { WatchSelect } from "@/components/watch/WatchSelect";
 
 type MemberOption = {
   slug: string;
@@ -437,15 +438,10 @@ function ReportDialog({ photoId, open, onOpenChange }: { photoId: string; open: 
           <div className="mt-6 rounded-xl border border-success_subtle bg-success-primary p-4 text-sm font-medium text-success-primary">Report received. Thank you.</div>
         ) : (
           <div className="mt-6 space-y-4">
-            <label className="block text-sm font-medium text-secondary">Reason
-              <select value={reason} onChange={(event) => setReason(event.target.value)} className={cx(nativeSelectClass, "mt-1.5")}>
-                <option value="privacy">Privacy / removal request</option>
-                <option value="copyright">Copyright or ownership</option>
-                <option value="unsafe">Unsafe or inappropriate</option>
-                <option value="spam">Spam or impersonation</option>
-                <option value="other">Something else</option>
-              </select>
-            </label>
+            <div className="text-sm font-medium text-secondary">
+              <p className="mb-1.5">Reason</p>
+              <WatchSelect ariaLabel="Reason" value={reason} onChange={setReason} options={REPORT_REASONS} />
+            </div>
             <label className="block text-sm font-medium text-secondary">Details <span className="font-normal text-quaternary">(optional)</span>
               <textarea value={details} onChange={(event) => setDetails(event.target.value.slice(0, 500))} rows={4} className={cx(nativeSelectClass, "mt-1.5 resize-y py-2.5")} />
             </label>
@@ -537,6 +533,13 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
   return <button type="button" onClick={onClick} aria-pressed={active} className={cx("inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand", active ? "bg-primary text-primary shadow-xs ring-1 ring-inset ring-secondary" : "text-tertiary hover:text-primary")}>{children}</button>;
 }
 
+const REPORT_REASONS = [
+  { id: "privacy", label: "Privacy / removal request" },
+  { id: "copyright", label: "Copyright or ownership" },
+  { id: "unsafe", label: "Unsafe or inappropriate" },
+  { id: "spam", label: "Spam or impersonation" },
+  { id: "other", label: "Something else" },
+];
 const nativeSelectClass = "min-h-10 w-full rounded-lg border border-secondary bg-primary px-3 text-sm text-primary outline-none focus:border-brand focus:ring-1 focus:ring-brand";
 const actionClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-secondary bg-secondary px-3 text-sm font-semibold text-secondary transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50";
 

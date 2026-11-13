@@ -47,9 +47,11 @@ type TileSwapApi = {
   begin: (event: ReactPointerEvent<HTMLElement>, sourceId: string, meta: TileSwapMeta, options?: { hold?: boolean }) => void;
   /** Arrow-key alternative for the drag handle. */
   keyboard: (event: ReactKeyboardEvent<HTMLElement>, sourceId: string, title: string) => void;
+  /** Menu alternative: swap two views directly, with the same settle animation. */
+  swapWith: (sourceId: string, targetId: string, announcement: string) => void;
 };
 
-const noop: TileSwapApi = { begin: () => {}, keyboard: () => {} };
+const noop: TileSwapApi = { begin: () => {}, keyboard: () => {}, swapWith: () => {} };
 const TileSwapContext = createContext<TileSwapApi>(noop);
 
 export function useTileSwap() {
@@ -192,7 +194,7 @@ export function TileSwapProvider({
     setState(current.sourceId, "source");
     setGhost(current.meta);
     buzz(10);
-    setAnnouncement(`Picked up ${current.meta.title}. Drop it on another player to swap. Escape cancels.`);
+    setAnnouncement(`Picked up ${current.meta.title}. Drop it on another view to swap places. Escape cancels.`);
     updateTarget(current.x, current.y);
     schedule();
   }, [schedule, setState, updateTarget]);
@@ -318,7 +320,14 @@ export function TileSwapProvider({
     setAnnouncement(`Moved ${title} to position ${index + (forward ? 2 : 0)} of ${tiles.length}.`);
   }, [settle]);
 
-  const api = useMemo<TileSwapApi>(() => ({ begin, keyboard }), [begin, keyboard]);
+  const swapWith = useCallback<TileSwapApi["swapWith"]>((sourceId, targetId, message) => {
+    if (sourceId === targetId) return;
+    onSwapRef.current(sourceId, targetId);
+    settle([sourceId, targetId]);
+    setAnnouncement(message);
+  }, [settle]);
+
+  const api = useMemo<TileSwapApi>(() => ({ begin, keyboard, swapWith }), [begin, keyboard, swapWith]);
 
   return (
     <TileSwapContext.Provider value={api}>

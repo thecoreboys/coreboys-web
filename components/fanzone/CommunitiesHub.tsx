@@ -33,6 +33,7 @@ import type {
 } from "@/lib/fanzone-community-types";
 import { XCommunityShelf } from "@/components/x/XCommunityShelf";
 import { XPostNominationForm } from "@/components/x/XPostNominationForm";
+import { WatchSelect } from "@/components/watch/WatchSelect";
 
 const REMEMBERED_KEY = "coreboys:fanzone-community";
 type View = "today" | "participate" | "calendar";
@@ -495,7 +496,7 @@ function IdeasPanel({ data, busy, onChanged, setBusy, setError }: PanelProps) {
     <section className="rounded-2xl border border-secondary bg-primary p-5">
       <div className="flex items-start justify-between gap-3"><div className="flex items-start gap-3"><Lightbulb className="mt-0.5 size-5 text-brand-secondary" /><div><h4 className="font-semibold text-primary">Ideas & voting</h4><p className="mt-1 text-xs leading-relaxed text-tertiary">Structured suggestions are reviewed before community voting opens.</p></div></div><button type="button" onClick={() => setOpen((value) => !value)} className={secondaryButtonClass}>{open ? "Close" : "New idea"}</button></div>
       {open ? <form onSubmit={submit} className="mt-4 space-y-3 rounded-xl bg-secondary p-4">
-        <div className="grid gap-3 sm:grid-cols-[140px_1fr]"><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className={inputClass}><option value="content">Content</option><option value="event">Event</option><option value="site">Site</option><option value="community">Community</option><option value="other">Other</option></select><input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} maxLength={100} placeholder="Short title" className={inputClass} /></div>
+        <div className="grid gap-3 sm:grid-cols-[140px_1fr]"><WatchSelect ariaLabel="Idea category" value={form.category} onChange={(category) => setForm({ ...form, category })} options={[{ id: "content", label: "Content" }, { id: "event", label: "Event" }, { id: "site", label: "Site" }, { id: "community", label: "Community" }, { id: "other", label: "Other" }]} /><input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} maxLength={100} placeholder="Short title" className={inputClass} /></div>
         <textarea value={form.problem} onChange={(event) => setForm({ ...form, problem: event.target.value })} maxLength={500} rows={2} placeholder="What could be better?" className={textareaClass} />
         <textarea value={form.proposal} onChange={(event) => setForm({ ...form, proposal: event.target.value })} maxLength={800} rows={3} placeholder="What do you propose?" className={textareaClass} />
         <div className="flex justify-end"><button type="submit" disabled={busy !== null || !form.title.trim() || !form.problem.trim() || !form.proposal.trim()} className={primaryButtonClass}>Submit for review</button></div>

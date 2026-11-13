@@ -64,7 +64,7 @@ test("multiview collapses same-creator Twitch and YouTube simulcasts and offers 
   assert.match(stage, /uniqueCrossPlatformLiveSources\(currentLive\)/);
   assert.match(stage, /groupCrossPlatformLiveSources/);
   assert.match(stage, /player\.replaceTile\(selectedTileId, item\)/);
-  assert.match(stage, /Make \$\{group\.memberLabel\} on \$\{platformLabel\(item\)\} the main stage/);
+  assert.match(stage, /Make \$\{group\.memberLabel\} on \$\{platformLabel\(item\)\} the main view/);
   assert.match(stage, /Older saved rooms can already contain both sides of a YouTube\/Twitch/);
   assert.match(stage, /openTiles\.find\(\(tile\) => tile\.pinned\)/);
   assert.match(stage, /player\.removeTile\(tile\.id\)/);
