@@ -1,5 +1,8 @@
 import Image from "next/image";
+import Link from "next/link";
+import type { Route } from "next";
 import type { CSSProperties } from "react";
+import { ArrowRight } from "@untitledui/icons";
 import { CopyAddress } from "./CopyAddress";
 import { clipboardPayloadFor, type MailMember } from "@/lib/fan-mail";
 import {
@@ -13,8 +16,10 @@ import {
  * consistent, while each creator gets the visual language defined by the
  * postcard identity catalog. Decorative branding is presented as a creator
  * seal and is explicitly identified as non-postage.
+ *
+ * Pass `pageHref` to add a link to the creator's own fan-mail page.
  */
-export function MailCard({ member }: { member: MailMember }) {
+export function MailCard({ member, pageHref }: { member: MailMember; pageHref?: string }) {
   const identity = postcardIdentityFor(member.slug);
   const payload = clipboardPayloadFor(member);
 
@@ -54,7 +59,7 @@ export function MailCard({ member }: { member: MailMember }) {
       <div className="relative z-10 p-5 sm:p-7">
         <IdentityHero identity={identity} />
 
-        <AddressPanel identity={identity} member={member} payload={payload} />
+        <AddressPanel identity={identity} member={member} payload={payload} pageHref={pageHref} />
       </div>
     </article>
   );
@@ -216,7 +221,7 @@ function CreatorSeal({ identity, className = "" }: { identity: PostcardIdentity;
   );
 }
 
-function AddressPanel({ identity, member, payload }: { identity: PostcardIdentity; member: MailMember; payload: string }) {
+function AddressPanel({ identity, member, payload, pageHref }: { identity: PostcardIdentity; member: MailMember; payload: string; pageHref?: string }) {
   return (
     <div
       className={`mt-7 ${ADDRESS_PANEL_CLASSES[identity.archetype]}`}
@@ -240,8 +245,18 @@ function AddressPanel({ identity, member, payload }: { identity: PostcardIdentit
           {member.note}
         </p>
       ) : null}
-      <div className="mt-5"><CopyAddress payload={payload} /></div>
-      <p className="mt-3 text-sm leading-relaxed" style={{ color: identity.palette.mutedInk }}>Check the creator’s latest mailing instructions before sending. Online postcard printing is currently paused.</p>
+      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <CopyAddress payload={payload} />
+        {pageHref ? (
+          <Link
+            href={pageHref as Route}
+            className="inline-flex min-h-11 items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] underline decoration-2 underline-offset-4 transition-opacity hover:opacity-75"
+            style={{ color: identity.palette.ink, textDecorationColor: identity.palette.secondary }}
+          >
+            {member.displayName}’s page <ArrowRight className="size-3.5" aria-hidden />
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 }
