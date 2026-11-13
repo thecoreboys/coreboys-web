@@ -259,11 +259,11 @@ function stableHash(value: string): number {
  * and shared player sessions all observe the same 24/7 order.
  */
 function stableShuffle(items: readonly WatchItem[], seed: string): WatchItem[] {
-  return unique(items).sort((a, b) => {
-    const aKey = contentKey(a);
-    const bKey = contentKey(b);
-    return stableHash(`${seed}:${aKey}`) - stableHash(`${seed}:${bKey}`) || aKey.localeCompare(bKey);
-  });
+  // Hash each item once instead of on every comparison (same order).
+  return unique(items)
+    .map((item) => { const key = contentKey(item); return { item, key, hash: stableHash(`${seed}:${key}`) }; })
+    .sort((a, b) => a.hash - b.hash || a.key.localeCompare(b.key))
+    .map((entry) => entry.item);
 }
 
 function shuffledSourceMix(items: readonly WatchItem[], seed: string): WatchItem[] {
@@ -274,9 +274,10 @@ function shuffledSourceMix(items: readonly WatchItem[], seed: string): WatchItem
     bucket.push(item);
     buckets.set(source, bucket);
   }
-  const keys = [...buckets.keys()].sort(
-    (a, b) => stableHash(`${seed}:source:${a}`) - stableHash(`${seed}:source:${b}`) || a.localeCompare(b),
-  );
+  const keys = [...buckets.keys()]
+    .map((key) => ({ key, hash: stableHash(`${seed}:source:${key}`) }))
+    .sort((a, b) => a.hash - b.hash || a.key.localeCompare(b.key))
+    .map((entry) => entry.key);
   const queues = keys.map((key) => stableShuffle(buckets.get(key) ?? [], `${seed}:${key}`));
   const output: WatchItem[] = [];
   for (let depth = 0; ; depth += 1) {

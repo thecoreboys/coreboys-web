@@ -27,7 +27,7 @@ import { selectWatchHomeXPosts, selectWatchHomeXSpaces } from "@/lib/watch/x-pos
 import { selectShortFormRailItems } from "@/lib/watch/short-form";
 import { groupCrossPlatformLiveSources } from "@/lib/watch/live-source-groups";
 import { BillboardCarousel } from "./Billboard";
-import { NetworkChannelRail } from "./NetworkChannelPage";
+import { NetworkChannelRail } from "./NetworkChannelRail";
 import { Shelf } from "./PosterCard";
 import { DragScrollRail } from "./DragScrollRail";
 import { GuideNowStrip } from "./GuideNowStrip";

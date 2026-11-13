@@ -9,8 +9,25 @@ export type ContentIdentityInput = {
 };
 const providers = new Set<string>(["x", "youtube", "instagram", "tiktok", "twitch"]);
 
-function platformUrl(raw: string | undefined): { provider: ContentProvider; id: string; url: string } | null {
+type PlatformUrl = { provider: ContentProvider; id: string; url: string };
+
+// Availability checks run over every catalog item on every server render, and
+// `new URL` dominated those renders. The parse is pure on the string and the
+// same permalinks recur on every request, so remember results (bounded).
+const PLATFORM_URL_CACHE_LIMIT = 50_000;
+const platformUrlCache = new Map<string, Readonly<PlatformUrl> | null>();
+
+function platformUrl(raw: string | undefined): Readonly<PlatformUrl> | null {
   if (!raw) return null;
+  const known = platformUrlCache.get(raw);
+  if (known !== undefined) return known;
+  const parsed = parsePlatformUrl(raw);
+  if (platformUrlCache.size >= PLATFORM_URL_CACHE_LIMIT) platformUrlCache.clear();
+  platformUrlCache.set(raw, parsed ? Object.freeze(parsed) : null);
+  return parsed;
+}
+
+function parsePlatformUrl(raw: string): PlatformUrl | null {
   try {
     const parsed = new URL(raw);
     if (!/^https?:$/.test(parsed.protocol)) return null;
@@ -68,7 +85,8 @@ function inferredProvider(value: string | undefined): ContentProvider | undefine
 
 function normalizeId(provider: ContentProvider, raw: string | undefined): string | null {
   if (!raw || raw.length > 500) return null;
-  let id = raw.trim().replace(new RegExp(`^${provider}:`), "");
+  let id = raw.trim();
+  if (id.startsWith(`${provider}:`)) id = id.slice(provider.length + 1);
   if (id.startsWith(`clip-${provider}-`)) id = (provider === "twitch" ? "clip:" : "") + id.slice(`clip-${provider}-`.length);
   if (provider === "youtube") return /^[\w-]{11}$/.test(id = id.replace(/^yt-/, "")) ? id : null;
   if (provider === "x") return /^(\d+)(?:[-_:].*)?$/.exec(id.replace(/^x-/, ""))?.[1] ?? null;
@@ -81,6 +99,18 @@ function normalizeId(provider: ContentProvider, raw: string | undefined): string
 
 /** Multiple aliases join numeric Instagram IDs to shortcodes and media cards to their parent post. */
 export function contentIdentityKeys(input: ContentIdentityInput): string[] {
+  // Catalog items are immutable snapshots that are re-checked on every render;
+  // reuse their keys. A copy keeps callers from changing the cached list.
+  const cached = identityKeyCache.get(input);
+  if (cached) return cached.slice();
+  const keys = computeContentIdentityKeys(input);
+  identityKeyCache.set(input, keys);
+  return keys.slice();
+}
+
+const identityKeyCache = new WeakMap<ContentIdentityInput, string[]>();
+
+function computeContentIdentityKeys(input: ContentIdentityInput): string[] {
   const urls = [input.sourceUrl, input.url, input.href].flatMap((raw) => { const parsed = platformUrl(raw); return parsed ? [parsed] : []; });
   const explicit = input.provider ?? input.platform;
   // Editorial items may embed a genuine provider source. Only its validated

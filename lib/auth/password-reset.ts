@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { safeAuthNext } from "./safe-next";
 
 export const PASSWORD_RESET_TTL_MINUTES = 30;
 export const PASSWORD_RESET_COOLDOWN_SECONDS = 60;
@@ -11,10 +12,7 @@ export const newPasswordSchema = z.string()
   .max(200, "Use 200 characters or fewer for your new password.")
   .refine((value) => new TextEncoder().encode(value).length <= 72, "Your password is too long. Try a shorter password.");
 
-export function safeAuthNext(value: string | null | undefined, fallback = "/"): string {
-  return value && value.startsWith("/") && !value.startsWith("//") && !/[\\\u0000-\u001f\u007f]/.test(value)
-    ? value : fallback;
-}
+export { safeAuthNext };
 
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address.").max(254),

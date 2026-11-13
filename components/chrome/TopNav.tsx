@@ -10,6 +10,7 @@ import useSWR from "swr";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Award,
+  Bell,
   Bookmark,
   History,
   ChevronDown,
@@ -23,8 +24,9 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { ButtonUtility } from "@/components/base/buttons/button-utility";
-import { Button } from "@/components/base/buttons/button";
+// Class tables only: the react-aria button components would add react-aria to
+// every page, because TopNav is part of the root layout.
+import { buttonClassName, buttonUtilityClassName } from "@/components/base/buttons/button-styles";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { openAuthModal } from "@/lib/auth/modal";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
@@ -36,9 +38,23 @@ import { countLiveCreators } from "@/lib/watch/live-source-groups";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
 import type { UnifiedLiveEntry, UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
 import { OPEN_CONTRIBUTOR_FORM_EVENT, OPEN_RADIO_CONTROLS_EVENT } from "@/lib/site-utility-events";
+
+// Only signed-in fans see the bell, and the account loads on the client, so
+// signed-out visitors never download the notification center.
+function NotificationBellPlaceholder() {
+  return (
+    <span aria-hidden className="grid size-10 place-items-center rounded-lg text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--rule)]">
+      <Bell className="size-[18px]" />
+    </span>
+  );
+}
+
+const NotificationBell = dynamic(
+  () => import("@/components/notifications/NotificationBell").then((module) => module.NotificationBell),
+  { ssr: false, loading: NotificationBellPlaceholder },
+);
 
 const LiveNowModal = dynamic(
   () => import("@/components/live/LiveNowModal").then((module) => module.LiveNowModal),
@@ -545,9 +561,9 @@ export function TopNav() {
             </div>
             </>
           ) : (
-            <Button onPress={() => openAuth()} color="secondary" size="sm">
-              Sign in
-            </Button>
+            <button type="button" onClick={() => openAuth()} className={buttonClassName("sm", "secondary")}>
+              <span data-text className="transition-inherit-all px-0.5">Sign in</span>
+            </button>
           )}
         </div>
 
@@ -569,17 +585,17 @@ export function TopNav() {
           ) : null}
           <ThemeToggle />
           {user ? <NotificationBell variant="mobile" /> : null}
-          <ButtonUtility
+          <button
             ref={mobileTriggerRef}
-            size="sm"
-            color="tertiary"
+            type="button"
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
             aria-controls="mobile-navigation"
             onClick={() => setOpen((v) => !v)}
-            icon={open ? X : Menu}
-            className="min-h-11 min-w-11 shrink-0"
-          />
+            className={buttonUtilityClassName("sm", "tertiary", "min-h-11 min-w-11 shrink-0")}
+          >
+            {open ? <X data-icon /> : <Menu data-icon />}
+          </button>
         </div>
       </div>
 
@@ -594,9 +610,9 @@ export function TopNav() {
               </div>
             ) : null}
             {!authLoading && !user ? (
-              <Button color="secondary" size="lg" className="mb-5 w-full" onPress={() => { setOpen(false); openAuth(); }}>
-                Sign in
-              </Button>
+              <button type="button" className={buttonClassName("lg", "secondary", "mb-5 w-full")} onClick={() => { setOpen(false); openAuth(); }}>
+                <span data-text className="transition-inherit-all px-0.5">Sign in</span>
+              </button>
             ) : null}
             <p className="text-xs font-medium text-[color:var(--ink-dim)]">Networks</p>
             <ul className="mt-3 grid grid-cols-2 gap-2">

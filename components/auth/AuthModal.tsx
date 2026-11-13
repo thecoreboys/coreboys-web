@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { AUTH_MODAL_EVENT, type AuthModalMode, type AuthModalRequest } from "@/lib/auth/modal";
-import { safeAuthNext } from "@/lib/auth/password-reset";
+import { safeAuthNext } from "@/lib/auth/safe-next";
 import { dialogTabBoundary, visibleDialogControls } from "@/lib/auth/modal-focus";
 
 // Keep the global event/link listeners immediate while requesting the form
