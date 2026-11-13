@@ -565,7 +565,7 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
   -webkit-text-stroke: 0;
 }
 
-/* CORE's station identity pairs Barlow Condensed with the six-spoke O. */
+/* CORE's station identity pairs Barlow Condensed with its star and ring O. */
 .core-wordmark {
   display: inline-block;
   font-family: var(--font-core-wordmark), "Barlow Condensed", Impact, sans-serif;

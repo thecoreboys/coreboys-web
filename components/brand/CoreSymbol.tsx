@@ -1,4 +1,20 @@
-/** The CORE ring has six subtle star points, with one pointing straight up. */
+import React from "react";
+
+/** The supplied CORE mark has a tapered, filled star inside a rounded rim. */
+export function CoreSymbolArt() {
+  return (
+    <g transform="translate(32 32) rotate(5.25) scale(.808 1)" fill="currentColor">
+      <circle r="28" fill="none" stroke="currentColor" strokeWidth="5" />
+      <path
+        d="M32.499 .284C-2.565 7.478 5.297-5.869 16.004 28.287C-7.759 1.517 7.731 1.652-16.495 28.003C-5.193-5.961 2.434 7.522-32.499-.284C2.565-7.478-5.297 5.869-16.004-28.287C7.759-1.517-7.731-1.652 16.495-28.003C5.193 5.961-2.434-7.522 32.499 .284Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+    </g>
+  );
+}
+
 export function CoreSymbol({ className }: { className?: string }) {
   return (
     <svg
@@ -9,13 +25,8 @@ export function CoreSymbol({ className }: { className?: string }) {
       height="64"
       viewBox="0 0 64 64"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="3.5"
-      strokeLinecap="round"
-      strokeLinejoin="miter"
     >
-      <path d="M32 2Q47.51 5.137 57.981 17Q63.019 32 57.981 47Q47.51 58.863 32 62Q16.49 58.863 6.019 47Q.981 32 6.019 17Q16.49 5.137 32 2Z" />
-      <path d="M32 2v60M6.019 17l51.962 30M6.019 47l51.962-30" />
+      <CoreSymbolArt />
     </svg>
   );
 }
