@@ -5,7 +5,15 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Poin
 import { createPortal } from "react-dom";
 import Image from "@/components/ui/SiteImage";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { clearPlayerSurface } from "@/lib/watch/player-clearance";
+import {
+  DEFAULT_RADIO_WIDGET_ANCHOR,
+  anchorToPosition,
+  clearRadioWidgetObstacles,
+  parseRadioWidgetAnchor,
+  snapRadioWidgetAnchor,
+  type RadioWidgetAnchor,
+  type RadioWidgetBounds,
+} from "@/lib/watch/radio-widget-position";
 import { audioFadeProgress } from "@/lib/radio/fade";
 import {
   RADIO_CUE_LIFECYCLE_EVENT,
@@ -41,7 +49,11 @@ const FADE_MS = 180;
 const GESTURE_GRACE_MS = 4_000;
 const MAX_QUEUE_DEPTH = 2;
 const LIVE_TAKEOVER_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1_000;
-const RADIO_WIDGET_PLACEMENT_KEY = "core:radio-widget-placement:v1";
+// v2 stores an edge/corner anchor; v1 pixel positions could leave the widget
+// stranded mid-screen, so they are deliberately not read.
+const RADIO_WIDGET_PLACEMENT_KEY = "core:radio-widget-placement:v2";
+/** Floating surfaces the dial steps around (the docked or dragged mini player). */
+const RADIO_WIDGET_OBSTACLES = "section[data-mini-player]";
 const WIDGET_INSET = 12;
 const EDGE_HIDE_THRESHOLD = 56;
 
@@ -50,6 +62,12 @@ type WidgetEdge = "left" | "right" | "top" | "bottom";
 type WidgetPlacement = {
   x: number;
   y: number;
+  hiddenEdge: WidgetEdge | null;
+  edgeOffset: number | null;
+};
+
+type StoredWidgetPlacement = {
+  anchor: RadioWidgetAnchor;
   hiddenEdge: WidgetEdge | null;
   edgeOffset: number | null;
 };
@@ -136,13 +154,13 @@ function isWidgetEdge(value: unknown): value is WidgetEdge {
   return value === "left" || value === "right" || value === "top" || value === "bottom";
 }
 
-function readWidgetPlacement(): WidgetPlacement | null {
+function readWidgetPlacement(): StoredWidgetPlacement | null {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(RADIO_WIDGET_PLACEMENT_KEY) ?? "null") as Partial<WidgetPlacement> | null;
-    if (!parsed || !Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null;
+    const parsed = JSON.parse(window.localStorage.getItem(RADIO_WIDGET_PLACEMENT_KEY) ?? "null") as Partial<StoredWidgetPlacement> | null;
+    const anchor = parseRadioWidgetAnchor(parsed?.anchor);
+    if (!parsed || !anchor) return null;
     return {
-      x: Number(parsed.x),
-      y: Number(parsed.y),
+      anchor,
       hiddenEdge: isWidgetEdge(parsed.hiddenEdge) ? parsed.hiddenEdge : null,
       edgeOffset: Number.isFinite(parsed.edgeOffset) ? Number(parsed.edgeOffset) : null,
     };
@@ -151,7 +169,7 @@ function readWidgetPlacement(): WidgetPlacement | null {
   }
 }
 
-function saveWidgetPlacement(placement: WidgetPlacement) {
+function saveWidgetPlacement(placement: StoredWidgetPlacement) {
   try {
     window.localStorage.setItem(RADIO_WIDGET_PLACEMENT_KEY, JSON.stringify(placement));
   } catch {
@@ -159,18 +177,38 @@ function saveWidgetPlacement(placement: WidgetPlacement) {
   }
 }
 
-function clampVisiblePlacement(placement: WidgetPlacement, width: number, height: number) {
+/** The travel range for the widget's top-left corner: inset from every edge, below the header. */
+function widgetBounds(width: number, height: number): RadioWidgetBounds {
   const headerHeight = Number.parseFloat(
     window.getComputedStyle(document.documentElement).getPropertyValue("--site-header-h"),
   ) || 0;
-  const maxTop = Math.max(WIDGET_INSET, window.innerHeight - height - WIDGET_INSET);
-  const minTop = Math.min(maxTop, Math.max(WIDGET_INSET, headerHeight + WIDGET_INSET));
+  // clientWidth/Height exclude the page scrollbar, which innerWidth includes.
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+  const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+  const maxX = Math.max(WIDGET_INSET, viewportWidth - width - WIDGET_INSET);
+  const maxY = Math.max(WIDGET_INSET, viewportHeight - height - WIDGET_INSET);
   return {
-    x: clamp(placement.x, WIDGET_INSET, Math.max(WIDGET_INSET, window.innerWidth - width - WIDGET_INSET)),
-    y: clamp(placement.y, minTop, maxTop),
-    hiddenEdge: null,
-    edgeOffset: null,
-  } satisfies WidgetPlacement;
+    minX: WIDGET_INSET,
+    maxX,
+    minY: Math.min(maxY, Math.max(WIDGET_INSET, headerHeight + WIDGET_INSET)),
+    maxY,
+  };
+}
+
+/** Place the widget on its edge/corner anchor, stepping around the mini player. */
+function anchoredPlacement(anchor: RadioWidgetAnchor, width: number, height: number, self: Element | null): WidgetPlacement {
+  const bounds = widgetBounds(width, height);
+  const obstacles = [...document.querySelectorAll<HTMLElement>(RADIO_WIDGET_OBSTACLES)]
+    .filter((element) => element !== self && !self?.contains(element))
+    .filter((element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) !== 0
+        && rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight;
+    })
+    .map((element) => element.getBoundingClientRect());
+  const position = clearRadioWidgetObstacles(anchorToPosition(anchor, bounds), { width, height }, anchor, obstacles, bounds);
+  return { ...position, hiddenEdge: null, edgeOffset: null };
 }
 
 function hiddenWidgetPlacement(edge: WidgetEdge, edgeOffset: number, width: number, height: number) {
@@ -298,6 +336,7 @@ export function RadioAudioDirector({
   const rootRef = useRef<HTMLElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   const placementRef = useRef<WidgetPlacement | null>(null);
+  const storedPlacementRef = useRef<StoredWidgetPlacement | null>(null);
   const dragRef = useRef<WidgetDrag | null>(null);
   const activeRef = useRef<ActivePlayback | null>(null);
   const queueRef = useRef<QueuedPlayback[]>([]);
@@ -328,10 +367,16 @@ export function RadioAudioDirector({
   lifecycleRef.current = onLifecycle;
   reducedMotionRef.current = reducedMotion;
 
-  const updatePlacement = useCallback((next: WidgetPlacement, persist = false) => {
+  const updatePlacement = useCallback((next: WidgetPlacement) => {
     placementRef.current = next;
     setPlacement(next);
-    if (persist) saveWidgetPlacement(next);
+  }, []);
+
+  // The listener's deliberate choice (an edge/corner anchor, or tucked away
+  // behind an edge). Automatic clearance around the mini player never saves.
+  const commitPlacement = useCallback((next: StoredWidgetPlacement) => {
+    storedPlacementRef.current = next;
+    saveWidgetPlacement(next);
   }, []);
 
   useEffect(() => {
@@ -339,40 +384,20 @@ export function RadioAudioDirector({
 
     const placeWidget = () => {
       const root = rootRef.current;
-      if (!root) return;
+      if (!root || dragRef.current) return;
       const rect = root.getBoundingClientRect();
       const width = root.offsetWidth || rect.width;
       const height = root.offsetHeight || rect.height;
+      const stored = storedPlacementRef.current
+        ?? (storedPlacementRef.current = readWidgetPlacement() ?? { anchor: DEFAULT_RADIO_WIDGET_ANCHOR, hiddenEdge: null, edgeOffset: null });
+      // Desktop rests on an edge or in a corner (bottom-right by default), and
+      // keeps that anchor across resizes. Edge hiding remains available when
+      // the listener drags it past an edge.
+      const next = stored.hiddenEdge
+        ? hiddenWidgetPlacement(stored.hiddenEdge, stored.edgeOffset ?? (stored.hiddenEdge === "left" || stored.hiddenEdge === "right" ? window.innerHeight / 2 : window.innerWidth / 2), width, height)
+        : anchoredPlacement(stored.anchor, width, height, root);
       const current = placementRef.current;
-      const remembered = current ? null : readWidgetPlacement();
-      // Open visibly on desktop, retaining saved coordinates within the screen.
-      // Edge hiding remains available when the listener drags it away.
-      let next = current?.hiddenEdge
-        ? hiddenWidgetPlacement(current.hiddenEdge, current.edgeOffset ?? (current.hiddenEdge === "left" || current.hiddenEdge === "right" ? rect.top + height / 2 : rect.left + width / 2), width, height)
-        : clampVisiblePlacement(current ?? remembered ?? {
-          x: window.innerWidth - width - 16,
-          y: window.innerHeight - height - 16,
-          hiddenEdge: null,
-          edgeOffset: null,
-        }, width, height);
-      const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().bottom ?? 106;
-      const footer = document.querySelector(".site-footer")?.getBoundingClientRect();
-      const availableBottom = footer && footer.top > headerHeight + height + 32
-        ? Math.min(window.innerHeight, footer.top) : window.innerHeight;
-      if (!next.hiddenEdge) next.y = Math.min(next.y, availableBottom - height - 16);
-      const preview = document.querySelector<HTMLElement>(".watch-billboard-live-player.is-preview.is-twitch");
-      if (!next.hiddenEdge && preview?.offsetWidth) {
-        const player = preview.getBoundingClientRect();
-        if (player.bottom > 0 && player.top < window.innerHeight) {
-          const status = preview.querySelector(".watch-billboard-provider-status")?.getBoundingClientRect();
-          const protectedPlayer = { left: player.left, top: player.top, right: player.right,
-            bottom: Math.max(player.bottom, status?.bottom ?? player.bottom) };
-          next = { ...next, ...clearPlayerSurface(next, width, height, protectedPlayer,
-            { width: window.innerWidth, height: availableBottom, top: headerHeight }) };
-        }
-      }
-      // Automatic clearance is temporary; only deliberate dragging stores a position.
-      if (!current || current.x !== next.x || current.y !== next.y) updatePlacement(next);
+      if (!current || current.x !== next.x || current.y !== next.y || current.hiddenEdge !== next.hiddenEdge) updatePlacement(next);
     };
 
     const onResize = () => {
@@ -391,10 +416,24 @@ export function RadioAudioDirector({
     });
     const main = document.getElementById("main");
     if (main) observer.observe(main, { childList: true, subtree: true });
+    // The mini player docks, drags and resizes on its own; step around it.
+    const touchesObstacle = (node: Node) => node instanceof Element
+      && (node.matches(RADIO_WIDGET_OBSTACLES) || Boolean(node.querySelector(RADIO_WIDGET_OBSTACLES)));
+    const obstacleObserver = new MutationObserver((records) => {
+      if (records.some((record) => (record.type === "attributes" && record.target instanceof Element && record.target.matches(RADIO_WIDGET_OBSTACLES))
+        || [...record.addedNodes].some(touchesObstacle) || [...record.removedNodes].some(touchesObstacle))) onResize();
+    });
+    obstacleObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class", "data-mini-player"] });
+    const onTransitionEnd = (event: TransitionEvent) => {
+      if (event.target instanceof Element && event.target.matches(RADIO_WIDGET_OBSTACLES)) onResize();
+    };
+    document.addEventListener("transitionend", onTransitionEnd);
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onResize);
+      document.removeEventListener("transitionend", onTransitionEnd);
       observer.disconnect();
+      obstacleObserver.disconnect();
       window.cancelAnimationFrame(resizeFrame);
     };
   }, [portalTarget, updatePlacement]);
@@ -942,30 +981,43 @@ export function RadioAudioDirector({
       hiddenEdge: null,
       edgeOffset: null,
     };
+    // Tucking away behind an edge needs at least half the widget off screen;
+    // a shorter overshoot is just a drag toward that edge and snaps to it.
     const edgeCandidate = ([
-      { edge: "left" as const, overflow: -current.x },
-      { edge: "right" as const, overflow: current.x + drag.width - window.innerWidth },
-      { edge: "top" as const, overflow: -current.y },
-      { edge: "bottom" as const, overflow: current.y + drag.height - window.innerHeight },
-    ]).sort((a, b) => b.overflow - a.overflow)[0]!;
-
-    const next = edgeCandidate.overflow >= EDGE_HIDE_THRESHOLD
-      ? hiddenWidgetPlacement(
-          edgeCandidate.edge,
-          edgeCandidate.edge === "left" || edgeCandidate.edge === "right"
-            ? current.y + drag.height / 2
-            : current.x + drag.width / 2,
-          drag.width,
-          drag.height,
-        )
-      : clampVisiblePlacement(current, drag.width, drag.height);
+      { edge: "left" as const, overflow: -current.x, threshold: drag.width / 2 },
+      { edge: "right" as const, overflow: current.x + drag.width - window.innerWidth, threshold: drag.width / 2 },
+      { edge: "top" as const, overflow: -current.y, threshold: drag.height / 2 },
+      { edge: "bottom" as const, overflow: current.y + drag.height - window.innerHeight, threshold: drag.height / 2 },
+    ]).sort((a, b) => (b.overflow - b.threshold) - (a.overflow - a.threshold))[0]!;
 
     dragRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     setIsDragging(false);
-    updatePlacement(next, true);
+
+    if (edgeCandidate.overflow >= Math.max(EDGE_HIDE_THRESHOLD, edgeCandidate.threshold)) {
+      const hidden = hiddenWidgetPlacement(
+        edgeCandidate.edge,
+        edgeCandidate.edge === "left" || edgeCandidate.edge === "right"
+          ? current.y + drag.height / 2
+          : current.x + drag.width / 2,
+        drag.width,
+        drag.height,
+      );
+      commitPlacement({
+        anchor: storedPlacementRef.current?.anchor ?? DEFAULT_RADIO_WIDGET_ANCHOR,
+        hiddenEdge: hidden.hiddenEdge,
+        edgeOffset: hidden.edgeOffset,
+      });
+      updatePlacement(hidden);
+      return;
+    }
+
+    // Never rest mid-screen: release snaps to the nearest edge or corner.
+    const anchor = snapRadioWidgetAnchor(current, widgetBounds(drag.width, drag.height));
+    commitPlacement({ anchor, hiddenEdge: null, edgeOffset: null });
+    updatePlacement(anchoredPlacement(anchor, drag.width, drag.height, event.currentTarget));
   };
 
   const restoreWidget = useCallback(() => {
@@ -976,14 +1028,13 @@ export function RadioAudioDirector({
     const width = root.offsetWidth;
     const height = root.offsetHeight;
     const edgeOffset = currentPlacement.edgeOffset ?? (edge === "left" || edge === "right" ? window.innerHeight / 2 : window.innerWidth / 2);
-    const next = clampVisiblePlacement({
+    const anchor = snapRadioWidgetAnchor({
       x: edge === "left" ? WIDGET_INSET : edge === "right" ? window.innerWidth - width - WIDGET_INSET : edgeOffset - width / 2,
       y: edge === "top" ? WIDGET_INSET : edge === "bottom" ? window.innerHeight - height - WIDGET_INSET : edgeOffset - height / 2,
-      hiddenEdge: null,
-      edgeOffset: null,
-    }, width, height);
-    updatePlacement(next, true);
-  }, [updatePlacement]);
+    }, widgetBounds(width, height));
+    commitPlacement({ anchor, hiddenEdge: null, edgeOffset: null });
+    updatePlacement(anchoredPlacement(anchor, width, height, root));
+  }, [commitPlacement, updatePlacement]);
 
   useEffect(() => {
     const show = () => {
@@ -1006,7 +1057,8 @@ export function RadioAudioDirector({
     widgetExpandedRef.current = false;
     setMobileExpanded(false);
     if (compactScreen) document.querySelector<HTMLButtonElement>('[aria-controls="mobile-navigation"]')?.focus();
-    else toggleRef.current?.focus();
+    // The launcher is hidden while the panel is open; focus it once it shows.
+    else window.requestAnimationFrame(() => toggleRef.current?.focus());
   };
 
   const widgetStyle: CSSProperties | undefined = placement
@@ -1106,6 +1158,9 @@ export function RadioAudioDirector({
         type="button"
         ref={toggleRef}
         className={styles.mobileToggle}
+        // The open panel has its own Minimize button and rests in the same
+        // bottom-right corner, so the launcher steps aside instead of covering it.
+        style={widgetExpanded ? { visibility: "hidden", pointerEvents: "none" } : undefined}
         aria-label={mobileExpanded ? "Close DJ Cora controls" : "Show DJ Cora controls"}
         aria-expanded={mobileExpanded}
         aria-controls="dj-cora-panel"

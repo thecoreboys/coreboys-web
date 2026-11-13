@@ -6,12 +6,23 @@ const director = readFileSync(new URL("../components/watch/RadioAudioDirector.ts
 const styles = readFileSync(new URL("../components/watch/RadioAudioDirector.module.css", import.meta.url), "utf8");
 
 test("DJ Cora is draggable and saves its placement", () => {
-  assert.match(director, /core:radio-widget-placement:v1/);
+  assert.match(director, /core:radio-widget-placement:v2/);
   assert.match(director, /onPointerDown=\{startDragging\}/);
   assert.match(director, /onPointerMove=\{continueDragging\}/);
   assert.match(director, /saveWidgetPlacement\(next\)/);
+  assert.doesNotMatch(director, /core:radio-widget-placement:v1/);
   assert.match(styles, /cursor: grab/);
   assert.match(styles, /\.isDragging/);
+});
+
+test("DJ Cora rests bottom-right and snaps to an edge or corner on release", () => {
+  assert.match(director, /anchor: DEFAULT_RADIO_WIDGET_ANCHOR/);
+  assert.match(director, /snapRadioWidgetAnchor\(current, widgetBounds\(drag\.width, drag\.height\)\)/);
+  assert.match(director, /anchoredPlacement\(stored\.anchor, width, height, root\)/);
+  assert.match(director, /RADIO_WIDGET_OBSTACLES = "section\[data-mini-player\]"/);
+  // The hero Twitch preview hides the widget instead of pushing it mid-screen.
+  assert.doesNotMatch(director, /clearPlayerSurface|site-footer/);
+  assert.match(styles, /body:has\(\[data-twitch-clearance\]/);
 });
 
 test("dragging DJ Cora offscreen exposes an edge restore tab", () => {
