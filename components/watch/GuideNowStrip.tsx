@@ -125,47 +125,69 @@ export function GuideNowStrip({ network, limit = 6, title = "On now", headingId 
       {!data && error ? <p className={styles.empty} role="status">The guide is unavailable right now. <Link href="/guide" prefetch={false}>Open the full guide</Link></p> : null}
       {data && !rows.length ? <p className={styles.empty}>Nothing is airing on these channels right now. <Link href="/guide" prefetch={false}>See the full schedule</Link></p> : null}
 
-      {rows.length ? (
-        <ol className={styles.nowList}>
-          {rows.map((entry) => {
-            const { group, row, now, next } = entry;
-            const current = now ? cellProgram(now, nowMs) : null;
-            const live = current?.status === "live";
-            const nextProgram = next ? cellProgram(next, nowMs) : null;
-            const label = `${group.network.name} ${row.label}`;
-            return (
-              <li key={row.id} className={styles.nowRow} style={{ "--strip-accent": group.network.accent } as CSSProperties}>
-                <span className={styles.nowLogo} aria-hidden="true">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={group.network.artwork} alt="" />
-                </span>
-                <div className={styles.nowCopy}>
-                  <p className={styles.nowChannel}>
-                    <strong>{group.network.name}</strong>
-                    <span>{row.label}</span>
-                    {live ? <em className={styles.liveBadge}>Live</em> : now ? <em className={styles.onBadge}>On now</em> : null}
-                  </p>
-                  {now && current ? (
-                    <>
-                      <p className={styles.nowTitle}>{now.programs.length > 1 ? `${mixLabel(now)} · ${readableTitle(current.title)}` : readableTitle(current.title)}</p>
-                      {live ? null : <span className={styles.progress} aria-hidden="true"><i style={{ width: `${epgProgress(now, nowMs) * 100}%` }} /></span>}
-                    </>
-                  ) : <p className={styles.nowTitle}>Off air</p>}
-                  {nextProgram && next ? (
-                    <p className={styles.nextLine}><span>Next {clock(next.start)}</span>{next.programs.length > 1 ? mixLabel(next) : readableTitle(nextProgram.title)}</p>
-                  ) : null}
-                </div>
-                {now ? (
-                  <button type="button" className={styles.tune} onClick={() => tune(entry)} aria-label={`Watch ${label}: ${current ? readableTitle(current.title) : ""}`}>
-                    <Play size={15} fill="currentColor" aria-hidden="true" />
-                    <span>Watch</span>
-                  </button>
+      {rows.length ? (() => {
+        // Two clearly separate groups: creators streaming right now, and the
+        // always-on 24/7 channels (replays, or a relay of a live stream).
+        const onAir = rows.filter((entry) => entry.row.kind === "live" && entry.now && cellProgram(entry.now, nowMs).status === "live");
+        const rest = rows.filter((entry) => !onAir.includes(entry));
+        const renderRow = (entry: StripRow) => {
+          const { group, row, now, next } = entry;
+          const current = now ? cellProgram(now, nowMs) : null;
+          const live = current?.status === "live";
+          const continuous = row.kind === "continuous";
+          const kind = live && !continuous ? "on-air" : continuous ? (live ? "relay" : "replay") : "upcoming";
+          const nextProgram = next ? cellProgram(next, nowMs) : null;
+          const label = `${group.network.name} ${row.label}`;
+          return (
+            <li key={row.id} className={styles.nowRow} data-kind={kind} style={{ "--strip-accent": group.network.accent } as CSSProperties}>
+              <span className={styles.nowLogo} aria-hidden="true">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={group.network.artwork} alt="" />
+              </span>
+              <div className={styles.nowCopy}>
+                <p className={styles.nowChannel}>
+                  <strong>{group.network.name}</strong>
+                  {kind === "on-air" ? <em className={styles.onAirBadge}><i aria-hidden="true" />On air</em> : null}
+                  {kind === "relay" ? <em className={styles.relayBadge}>24/7 · Live relay</em> : null}
+                  {kind === "replay" ? <em className={styles.replayBadge}>24/7 · Replay</em> : null}
+                  {kind === "upcoming" ? <em className={styles.upcomingBadge}>Off air</em> : null}
+                </p>
+                {now && current ? (
+                  <>
+                    <p className={styles.nowTitle}>{now.programs.length > 1 ? `${mixLabel(now)} · ${readableTitle(current.title)}` : readableTitle(current.title)}</p>
+                    {live ? null : <span className={styles.progress} aria-hidden="true"><i style={{ width: `${epgProgress(now, nowMs) * 100}%` }} /></span>}
+                  </>
+                ) : <p className={styles.nowTitle}>Off air</p>}
+                {nextProgram && next ? (
+                  <p className={styles.nextLine}><span>{kind === "upcoming" ? "Live at" : "Next"} {clock(next.start)}</span>{next.programs.length > 1 ? mixLabel(next) : readableTitle(nextProgram.title)}</p>
                 ) : null}
-              </li>
-            );
-          })}
-        </ol>
-      ) : null}
+              </div>
+              {now ? (
+                <button type="button" className={styles.tune} onClick={() => tune(entry)} aria-label={`Watch ${label}: ${current ? readableTitle(current.title) : ""}`}>
+                  <Play size={15} fill="currentColor" aria-hidden="true" />
+                  <span>Watch</span>
+                </button>
+              ) : null}
+            </li>
+          );
+        };
+        return (
+          <div className={styles.nowGroups}>
+            {onAir.length ? (
+              <div>
+                <h3 className={styles.nowGroupTitle} data-kind="on-air"><i aria-hidden="true" />On air now <span>{onAir.length}</span></h3>
+                <ol className={styles.nowList}>{onAir.map(renderRow)}</ol>
+              </div>
+            ) : null}
+            {rest.length ? (
+              <div>
+                <h3 className={styles.nowGroupTitle}>24/7 channels <span>Replays and live relays</span></h3>
+                <ol className={styles.nowList}>{rest.map(renderRow)}</ol>
+              </div>
+            ) : null}
+          </div>
+        );
+      })() : null}
     </section>
   );
 }
