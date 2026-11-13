@@ -10,6 +10,8 @@ import { PatreonLockedShelf } from "@/components/watch/PatreonLockedShelf";
 import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
 import { projectHomeCatalog } from "@/lib/watch/home-catalog";
 import { StreamerAwardsWinner } from "@/components/campaigns/StreamerAwardsWinner";
+import { STREAMER_AWARDS_WINNER_ENDS_AT_MS } from "@/lib/streamer-awards";
+import { isBillboardFeatureActive } from "@/lib/watch/billboard-features";
 import "./watch/watch.css";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +39,7 @@ export default async function HomePage() {
 
   return (
     <WatchHomeEntry catalog={compactWatchCatalog(projectHomeCatalog(catalog))}
-      awards={<StreamerAwardsWinner />}
+      awards={isBillboardFeatureActive(STREAMER_AWARDS_WINNER_ENDS_AT_MS, Date.now()) ? <StreamerAwardsWinner /> : undefined}
       patreon={<Suspense key="patreon" fallback={<p role="status" className="px-5 text-sm text-secondary">Loading Patreon previews…</p>}><PatreonSection /></Suspense>}
       originals={<Suspense key="originals" fallback={<div className="min-h-56 px-5" role="status">Loading CORE Originals…</div>}><OriginalsSection /></Suspense>}
     />

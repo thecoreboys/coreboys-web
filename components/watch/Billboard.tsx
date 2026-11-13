@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ChevronDown, Volume2, VolumeX } from "lucide-react";
 import { setTwitchHeroSound } from "@/lib/watch/hero-audio";
 import { PREVIEW_AUDIO_CLAIM_EVENT } from "@/lib/watch/preview-audio";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { WatchItem } from "@/lib/watch/types";
 import { MY_LIST_EVENT, readMyList, redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -30,6 +30,7 @@ import {
 import { WatchThumb } from "./WatchThumb";
 import { advancingTwitchPlayback, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import { heroLiveIdentity, newlyLiveHero } from "@/lib/watch/hero-live-priority";
+import { buildBillboardSlides, isBillboardFeatureActive, type BillboardFeature } from "@/lib/watch/billboard-features";
 
 type BillboardTwitchInstance = {
   addEventListener: (name: string, callback: () => void) => void;
@@ -132,35 +133,55 @@ function uniqueBillboards(items: WatchItem[]) {
   });
 }
 
-export function BillboardCarousel({ items, headingLevel = "h1" }: { items: WatchItem[]; headingLevel?: "h1" | "h2" }) {
-  const slides = useMemo(() => uniqueBillboards(items), [items]);
+export function BillboardCarousel({ items, headingLevel = "h1", feature }: { items: WatchItem[]; headingLevel?: "h1" | "h2"; feature?: BillboardFeature<ReactNode> }) {
+  const mediaItems = useMemo(() => uniqueBillboards(items), [items]);
+  const [featureVisible, setFeatureVisible] = useState(Boolean(feature));
+  const slides = useMemo(() => buildBillboardSlides(mediaItems, featureVisible ? feature : undefined), [mediaItems, feature, featureVisible]);
   const [index, setIndex] = useState(0);
   const [focusPaused, setFocusPaused] = useState(false);
   const [hoverPaused, setHoverPaused] = useState(false);
   const [soundPaused, setSoundPaused] = useState(false);
   const reducedMotion = useReducedMotion();
   const interactionPaused = focusPaused || hoverPaused || soundPaused;
-  const seenLive = useRef(new Set(slides.map(heroLiveIdentity).filter((key): key is string => Boolean(key))));
+  const seenLive = useRef(new Set(mediaItems.map(heroLiveIdentity).filter((key): key is string => Boolean(key))));
   const pendingLive = useRef<string | null>(null);
+  const previousSlides = useRef(slides);
+  const featureId = feature?.id;
+  const featureExpiresAt = feature?.expiresAt;
 
   useEffect(() => {
-    setIndex((current) => (slides.length ? current % slides.length : 0));
-  }, [slides.length]);
+    if (!featureId || featureExpiresAt === undefined) { setFeatureVisible(false); return; }
+    const sync = () => setFeatureVisible(isBillboardFeatureActive(featureExpiresAt, Date.now()));
+    sync();
+    const timer = window.setTimeout(sync, Math.min(Math.max(0, featureExpiresAt - Date.now()), 2_147_483_647));
+    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("pageshow", sync);
+    return () => { window.clearTimeout(timer); document.removeEventListener("visibilitychange", sync); window.removeEventListener("pageshow", sync); };
+  }, [featureId, featureExpiresAt]);
 
   useEffect(() => {
-    const next = newlyLiveHero(seenLive.current, slides);
+    const previous = previousSlides.current;
+    previousSlides.current = slides;
+    setIndex((current) => {
+      const nextIndex = slides.findIndex((slide) => slide.id === previous[current]?.id);
+      return nextIndex >= 0 ? nextIndex : Math.min(current, Math.max(0, slides.length - 1));
+    });
+  }, [slides]);
+
+  useEffect(() => {
+    const next = newlyLiveHero(seenLive.current, mediaItems);
     if (next) pendingLive.current = next;
-    seenLive.current = new Set(slides.map(heroLiveIdentity).filter((key): key is string => Boolean(key)));
+    seenLive.current = new Set(mediaItems.map(heroLiveIdentity).filter((key): key is string => Boolean(key)));
     if (interactionPaused || !pendingLive.current) return;
-    const target = slides.findIndex((item) => heroLiveIdentity(item) === pendingLive.current);
+    const target = slides.findIndex((slide) => slide.kind === "media" && heroLiveIdentity(slide.item) === pendingLive.current);
     pendingLive.current = null;
     if (target >= 0) setIndex(target);
-  }, [slides, interactionPaused]);
+  }, [slides, mediaItems, interactionPaused]);
 
   useEffect(() => {
     if (slides.length < 2 || interactionPaused || reducedMotion) return;
     const active = slides[index] ?? slides[0];
-    const delay = active?.kind === "live" ? 30_000 : 12_000;
+    const delay = active?.kind === "media" && active.item.kind === "live" ? 30_000 : 12_000;
     const timer = window.setTimeout(() => {
       setIndex((current) => (current + 1) % slides.length);
     }, delay);
@@ -168,7 +189,7 @@ export function BillboardCarousel({ items, headingLevel = "h1" }: { items: Watch
   }, [index, interactionPaused, reducedMotion, slides]);
 
   if (!slides.length) return null;
-  const item = slides[index] ?? slides[0]!;
+  const slide = slides[index] ?? slides[0]!;
 
   return (
     <div
@@ -182,15 +203,15 @@ export function BillboardCarousel({ items, headingLevel = "h1" }: { items: Watch
         }
       }}
     >
-      <div key={item.id} className="watch-billboard-slide">
-        <Billboard item={item} headingLevel={headingLevel} onSoundChange={setSoundPaused} />
+      <div key={slide.id} className="watch-billboard-slide">
+        {slide.kind === "feature" ? slide.content : <Billboard item={slide.item} headingLevel={headingLevel} onSoundChange={setSoundPaused} />}
       </div>
 
       {slides.length > 1 ? (
-        <div className="watch-billboard-navigation"><div className="watch-billboard-controls" aria-label="Featured videos and live channels">
+        <div className="watch-billboard-navigation"><div className="watch-billboard-controls" aria-label="Featured content">
           <Tooltip
             title="Previous feature"
-            description="Show the previous featured video or live channel."
+            description="Show the previous featured item."
             placement="top"
           >
             <button
@@ -223,7 +244,7 @@ export function BillboardCarousel({ items, headingLevel = "h1" }: { items: Watch
           </div>
           <Tooltip
             title="Next feature"
-            description="Show the next featured video or live channel."
+            description="Show the next featured item."
             placement="top"
           >
             <button
