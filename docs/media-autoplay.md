@@ -21,3 +21,10 @@ Twitch starts a muted embed only when the player is at least 400×300 CSS px and
 - **Narrower phones:** most iPhones are 375–393px wide, too narrow for Twitch. Both heroes keep the poster there, and the channel hero says "Tap to tune in" instead of waiting.
 - **Mini player and small surfaces:** the mini player (at most 400×225), card tiles and portrait clip popups are below the minimum. They can continue a stream that is already playing, but cannot start one muted.
 - **Content gates:** mature-content interstitials and some ads still need a click.
+- **Floating widgets:** while a hero Twitch preview is on screen it carries `data-twitch-clearance`, and the DJ Cora widget hides (`visibility: hidden` is not an occluder) until the viewer scrolls past. Otherwise the widget covered the channel hero, so Twitch refused to start and paused its ads.
+- **Channel hero size:** the card has a 1px border, so it is at least 302px tall to give the iframe the 300px Twitch requires. At 298px Twitch still started, but CORE never confirmed playback and labelled the hero blocked.
+- **Ads:** Twitch reports an ad as playing before frame stats exist. The channel hero keeps its bounded retries but does not label itself blocked while Twitch says it is running.
+
+## X (Twitter) video
+
+`video.twimg.com` refuses requests whose Referer is another site: it returns 403 for thecoreboys.com and localhost, and 206 with no Referer or an x.com one. Native X videos therefore fail to load ("Playback was blocked or unavailable"); this is not an autoplay refusal. `<video>` has no `referrerpolicy` attribute, so the fix is either a server proxy for `video.twimg.com` (bandwidth cost) or a no-referrer document policy (risky for YouTube embeds, which can require a Referer). Both are open decisions.

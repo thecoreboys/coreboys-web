@@ -367,7 +367,10 @@
 .heroPreviewProviderAutoplay .heroPreviewTwitchMount {
   z-index: 6;
 }
-.heroPreview[data-provider="twitch"] { min-height: 300px; }
+/* Twitch needs the iframe itself to be at least 400x300. The card has a 1px
+   border, so 300px here left a 298px iframe on 1024px screens: Twitch still
+   started, but CORE could never confirm it and marked the hero blocked. */
+.heroPreview[data-provider="twitch"] { min-height: 302px; }
 /* Twitch needs a 400px-wide player to autoplay. On phones the inset card
    (100% - 2.4rem) left 412-430px screens just short, so the stream never
    started. Run the Twitch hero edge to edge there. */
