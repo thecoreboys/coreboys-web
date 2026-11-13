@@ -181,18 +181,24 @@ export function NotificationSettings({
     }
   }
 
+  // The server gates every email and text channel behind the same feature, so
+  // the lock (and the plan label explaining it) applies to all categories alike.
+  const premiumLocked = !subscription.loading && !subscription.hasFeature("notifications.advanced");
+  const requiredPlan = subscription.requiredPlanName("notifications.advanced");
+  const upgradeHref = subscription.featureHref("notifications.advanced");
+
   if (loading) {
     return (
-      <div className="space-y-4" aria-label="Loading notification settings">
-        <div className="h-36 animate-pulse rounded-2xl bg-secondary ring-1 ring-inset ring-secondary" />
-        <div className="h-[30rem] animate-pulse rounded-2xl bg-secondary ring-1 ring-inset ring-secondary" />
+      <div className="space-y-4" role="status" aria-label="Loading notification settings">
+        <div className="h-36 animate-pulse rounded-xl border border-secondary bg-primary" />
+        <div className="h-[30rem] animate-pulse rounded-xl border border-secondary bg-primary" />
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <section className="rounded-2xl border border-secondary bg-secondary p-6 text-center shadow-lg">
+      <section className="rounded-xl border border-secondary bg-primary p-6 text-center">
         <Bell01 className="mx-auto size-6 text-quaternary" aria-hidden />
         <h2 className="mt-3 text-lg font-semibold text-primary">Couldn&apos;t load preferences</h2>
         <p className="mx-auto mt-1 max-w-md text-sm text-tertiary">
@@ -214,14 +220,14 @@ export function NotificationSettings({
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl border border-secondary bg-secondary shadow-xl">
+      <section className="overflow-hidden rounded-xl border border-secondary bg-primary">
         <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
           <div className="flex min-w-0 items-start gap-4">
             <FeaturedIcon icon={Bell01} size="lg" color="brand" theme="modern" />
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-primary">Notification preferences</h2>
+              <h2 className="text-lg font-semibold text-primary">Email &amp; text updates</h2>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-tertiary">
-                Choose which updates you receive by email or text.
+                Choose which CORE updates can reach you by email or text. Browser push and per-creator alerts are set in Creator alerts above.
               </p>
             </div>
           </div>
@@ -246,7 +252,7 @@ export function NotificationSettings({
           </div>
         </div>
 
-        <div className="border-t border-secondary bg-primary px-5 py-4 sm:px-6">
+        <div className="border-t border-secondary px-5 py-4 sm:px-6">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex items-start gap-3 rounded-xl border border-secondary bg-secondary p-4">
               <Mail01 className="mt-0.5 size-5 shrink-0 text-brand-secondary" aria-hidden />
@@ -257,7 +263,9 @@ export function NotificationSettings({
                 </p>
                 {!accountEmailVerified ? (
                   <p className="mt-1 text-xs font-medium text-warning-primary">
-                    Verification is required before delivery.
+                    Verify this address in{" "}
+                    <Link href="/account/settings#email" className="underline underline-offset-2">Profile</Link>{" "}
+                    before email can be delivered.
                   </p>
                 ) : null}
               </div>
@@ -275,12 +283,22 @@ export function NotificationSettings({
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-secondary bg-secondary shadow-xl">
-        <div className="hidden grid-cols-[minmax(0,1fr)_7rem_7rem_8rem] border-b border-secondary bg-primary py-3 md:grid">
+      <section className="overflow-hidden rounded-xl border border-secondary bg-primary">
+        {premiumLocked ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-secondary bg-brand-primary/40 px-5 py-3 md:px-6">
+            <p className="flex items-center gap-2 text-sm text-secondary">
+              <Lock01 className="size-4 shrink-0 text-brand-secondary" aria-hidden />
+              Email and text updates are included with {requiredPlan}.
+            </p>
+            <Link href={upgradeHref as never} className="text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover">
+              See {requiredPlan}
+            </Link>
+          </div>
+        ) : null}
+        <div className="hidden grid-cols-[minmax(0,1fr)_7rem_7rem] border-b border-secondary bg-secondary py-3 md:grid">
           <span className="px-6 text-xs font-semibold text-tertiary">Notification</span>
           <span className="text-center text-xs font-semibold text-tertiary">Email</span>
           <span className="text-center text-xs font-semibold text-tertiary">Text</span>
-          <span className="text-center text-xs font-semibold text-tertiary">Push</span>
         </div>
 
         <div className="divide-y divide-[color:var(--color-border-secondary)]">
@@ -289,33 +307,24 @@ export function NotificationSettings({
             const Icon = meta.icon;
             const emailKey = `${meta.key}:email`;
             const smsKey = `${meta.key}:sms`;
-            const advancedNotifications = subscription.hasFeature("notifications.advanced");
-            const premiumLocked = !subscription.loading && !subscription.hasFeature("notifications.advanced");
 
             return (
-              <div key={meta.key} className="grid md:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem]">
+              <div key={meta.key} className="grid md:grid-cols-[minmax(0,1fr)_7rem_7rem]">
                 <div className="flex min-w-0 items-start gap-3 px-5 pb-3 pt-5 md:px-6 md:py-5">
                   <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-tertiary ring-1 ring-inset ring-secondary">
                     <Icon className="size-4.5" aria-hidden />
                   </span>
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-semibold text-primary">{meta.title}</h3>
-                      {meta.key === "weekly_digest" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold text-brand-secondary ring-1 ring-inset ring-brand_subtle">
-                          {!advancedNotifications ? <Lock01 className="size-3" aria-hidden /> : null}
-                          {subscription.requiredPlanName("notifications.advanced")}
-                        </span>
-                      ) : null}
-                    </div>
+                    <h3 className="text-sm font-semibold text-primary">{meta.title}</h3>
                     <p className="mt-0.5 text-sm leading-5 text-tertiary">{meta.description}</p>
                     {meta.key === "live" ? (
-                      <Link
-                        href="/account/settings#notifications"
-                        className="mt-2 inline-flex text-xs font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById("creator-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                        className="mt-2 inline-flex min-h-8 items-center text-xs font-semibold text-brand-secondary hover:text-brand-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                       >
-                        Choose creators
-                      </Link>
+                        Choose creators in Creator alerts
+                      </button>
                     ) : null}
                   </div>
                 </div>
@@ -323,8 +332,8 @@ export function NotificationSettings({
                 <PreferenceCell label="Email">
                   {premiumLocked ? (
                     <PremiumNotificationLink
-                      href={subscription.featureHref("notifications.advanced")}
-                      plan={subscription.requiredPlanName("notifications.advanced")}
+                      href={upgradeHref}
+                      plan={requiredPlan}
                       label={`${meta.title} email notifications`}
                     />
                   ) : (
@@ -337,11 +346,11 @@ export function NotificationSettings({
                     />
                   )}
                 </PreferenceCell>
-                <PreferenceCell label="Text / SMS">
+                <PreferenceCell label="Text / SMS" isLast>
                   {premiumLocked ? (
                     <PremiumNotificationLink
-                      href={subscription.featureHref("notifications.advanced")}
-                      plan={subscription.requiredPlanName("notifications.advanced")}
+                      href={upgradeHref}
+                      plan={requiredPlan}
                       label={`${meta.title} text notifications`}
                     />
                   ) : (
@@ -354,11 +363,6 @@ export function NotificationSettings({
                     />
                   )}
                 </PreferenceCell>
-                <PreferenceCell label="Push" isLast>
-                  <Link href="/account/settings#notifications" className="max-w-full text-right text-xs font-semibold leading-4 text-brand-secondary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:text-center">
-                    Creator alerts
-                  </Link>
-                </PreferenceCell>
               </div>
             );
           })}
@@ -366,9 +370,9 @@ export function NotificationSettings({
       </section>
 
       <p className="px-1 text-xs leading-5 text-quaternary">
-        These controls only store your preferences. CORE will not send email or text
-        notifications until a delivery service and the required verification are active. You
-        can change your choices at any time.
+        Email goes only to a verified address, and only for the updates you turn on here. Text
+        message delivery isn&apos;t available yet; your choices are saved for when it is. You can
+        change these at any time.
       </p>
       <p className="sr-only" aria-live="polite" role="status">
         {announcement}

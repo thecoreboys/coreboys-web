@@ -233,7 +233,7 @@ test("portal route creates a customer-scoped billing-management session", async 
   });
   assert.deepEqual(plain(calls), [{
     customer: "cus_supporter",
-    return_url: "https://www.thecoreboys.com/account/plan",
+    return_url: "https://www.thecoreboys.com/account/settings/billing",
   }]);
 });
 

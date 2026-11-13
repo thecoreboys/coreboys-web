@@ -10,6 +10,9 @@ import {
 import type { OauthProvider } from "@/lib/oauth/providers";
 import { tiktokAppCredentials } from "@/lib/oauth/providers";
 
+/** Provider token/profile calls must not hold a request (or a sign-in) open indefinitely. */
+const OAUTH_FETCH_TIMEOUT_MS = 8_000;
+
 const refreshes = new Map<string, Promise<boolean>>();
 
 class RefreshRequestError extends Error {
@@ -104,7 +107,7 @@ async function refreshTwitch(row: ConnectionRow, refresh: string): Promise<boole
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  const res = await fetch("https://id.twitch.tv/oauth2/token", {
+  const res = await fetch("https://id.twitch.tv/oauth2/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -128,7 +131,7 @@ async function refreshGoogle(row: ConnectionRow, refresh: string): Promise<boole
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetch("https://oauth2.googleapis.com/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -153,7 +156,7 @@ async function refreshX(row: ConnectionRow, refresh: string): Promise<boolean> {
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  const res = await fetch("https://api.twitter.com/2/oauth2/token", {
+  const res = await fetch("https://api.twitter.com/2/oauth2/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -182,7 +185,7 @@ async function refreshTikTok(row: ConnectionRow, refresh: string): Promise<boole
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -203,7 +206,7 @@ async function refreshInstagram(row: ConnectionRow, refresh: string): Promise<bo
   const url = new URL("https://graph.instagram.com/refresh_access_token");
   url.searchParams.set("grant_type", "ig_refresh_token");
   url.searchParams.set("access_token", refresh);
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), cache: "no-store" });
   await requireRefreshResponse(res, "instagram refresh");
   const json = (await res.json()) as { access_token?: string; expires_in?: number };
   if (!json.access_token) throw new RefreshRequestError("instagram refresh missing token", true);

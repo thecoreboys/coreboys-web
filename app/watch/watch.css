@@ -3055,6 +3055,9 @@
     box-shadow: none;
   }
   .watch-billboard-live-player.is-preview.is-twitch .watch-billboard-live-mount { overflow: visible; }
+  /* Until the SDK inserts its iframe, show the stream still instead of an
+     empty black box. */
+  .watch-billboard-live-player.is-preview.is-twitch:not(.is-mounted) .watch-billboard-live-mount { background: transparent; }
   .watch-billboard-provider-status {
     position: absolute;
     top: 100%;

@@ -29,6 +29,13 @@ export async function consumeAdminLoginRateLimit(
      RETURNING hits::text, bucket_started_at::text`,
     [subjectKey, WINDOW_SECONDS],
   );
+  // Every subject adds a row; prune expired buckets opportunistically so the
+  // table stays small without a separate cron.
+  if (Math.random() < 0.01) {
+    void query(
+      "DELETE FROM admin_auth_rate_limits WHERE bucket_started_at < now() - interval '1 day'",
+    ).catch(() => undefined);
+  }
   const row = result.rows[0];
   const hits = Number(row?.hits ?? maxAttempts + 1);
   if (hits <= maxAttempts) return { ok: true, retryAfterSeconds: 0 };

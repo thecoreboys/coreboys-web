@@ -95,7 +95,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
-        <link rel="preconnect" href="https://i.ytimg.com" />
+        {/* Hero thumbs load ytimg in CORS mode; match it or the browser opens a second connection. */}
+        <link rel="preconnect" href="https://i.ytimg.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://static-cdn.jtvnw.net" />
         <link rel="dns-prefetch" href="https://player.twitch.tv" />
       </head>

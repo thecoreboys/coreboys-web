@@ -186,8 +186,8 @@ export function SocialNotificationSettings({ members }: { members: Array<{ slug:
     }
   }
 
-  if (loadFailed) return <div className="rounded-2xl bg-secondary p-6 text-sm text-primary" role="alert">{message} <button type="button" className="ml-2 font-semibold underline" onClick={() => setLoadAttempt((value) => value + 1)}>Try again</button></div>;
-  if (!ready) return <div className="h-64 animate-pulse rounded-2xl bg-secondary" aria-label="Loading alert settings" />;
+  if (loadFailed) return <div className="rounded-xl border border-secondary bg-primary p-6 text-sm text-primary" role="alert">{message} <button type="button" className="ml-2 font-semibold underline" onClick={() => setLoadAttempt((value) => value + 1)}>Try again</button></div>;
+  if (!ready) return <div className="h-64 animate-pulse rounded-xl border border-secondary bg-primary" role="status" aria-label="Loading alert settings" />;
   const pushUnavailable = deliveryReadiness?.push.ready !== true;
   const advancedLocked = !subscription.loading && !subscription.hasFeature("notifications.advanced");
   const emailUnavailable = advancedLocked || deliveryReadiness?.email.ready !== true || !emailVerified;
@@ -209,7 +209,7 @@ export function SocialNotificationSettings({ members }: { members: Array<{ slug:
       : undefined;
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-secondary shadow-xl ring-1 ring-inset ring-secondary">
+    <section id="creator-alerts" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
       <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
         <div className="flex gap-3">
           <span className="grid size-10 place-items-center rounded-xl bg-brand-primary text-brand-secondary">

@@ -2,17 +2,14 @@
 
 import SiteImage from "@/components/ui/SiteImage";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ACCOUNT_CHANGED_MESSAGE } from "@/lib/account-request";
 import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
-import { Toggle } from "@/components/base/toggle/toggle";
-import { Input } from "@/components/base/input/input";
-import { NativeSelect } from "@/components/base/select/select-native";
 import { PlatformLogo, PLATFORM_BRAND } from "@/components/clips/PlatformLogo";
-import { LinkExternal01, RefreshCcw01 } from "@untitledui/icons";
+import { RefreshCcw01 } from "@untitledui/icons";
 import {
   connectedAccountError,
   readConnectedAccountResponse,
@@ -100,9 +97,6 @@ type ConnectionsPayload = {
 type LoyaltyPayload = {
   accountId: string;
   card?: Card | null;
-  publicCard?: boolean;
-  publicSlug?: string | null;
-  favoriteMember?: string | null;
 };
 
 type SyncPayload = {
@@ -126,35 +120,25 @@ function ConnectedIdentity({ connection }: { connection: Connection }) {
   );
 }
 
-export function ConnectedAccounts({ members }: { members: Array<{ slug: string; stageName: string }> }) {
+/** Platform connections and measured activity. The public fan card lives in Profile. */
+export function ConnectedAccounts() {
   const { user, loading } = useAuth();
   if (!user) return <p className="text-sm text-tertiary">{loading ? "Loading account…" : "Sign in to manage connected accounts."}</p>;
-  return <ConnectedAccountsForUser key={user.id} accountId={user.id} members={members} />;
+  return <ConnectedAccountsForUser key={user.id} accountId={user.id} />;
 }
 
-function ConnectedAccountsForUser({
-  members,
-  accountId,
-}: {
-  members: Array<{ slug: string; stageName: string }>;
-  accountId: string;
-}) {
+function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
   const search = useSearchParams();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [following, setFollowing] = useState<PlatformFollowing[]>([]);
   const [card, setCard] = useState<Card | null>(null);
-  const [publicCard, setPublicCard] = useState(false);
-  const [publicSlug, setPublicSlug] = useState("");
-  const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
-  const [profileNotice, setProfileNotice] = useState<AccountNotice | null>(null);
-  const [favorite, setFavorite] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState<string | null>(null);
   const [notice, setNotice] = useState<AccountNotice | null>(null);
-  const preferencesLoaded = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   const oauthFlash = useMemo(() => {
     const oauth = search.get("oauth");
@@ -191,18 +175,13 @@ function ConnectedAccountsForUser({
           if (payload.accountId !== accountId) throw new Error(ACCOUNT_CHANGED_MESSAGE);
           if (!payload.card || typeof payload.card !== "object") throw new Error("Activity details are temporarily unavailable. Your connections are still available.");
           setCard(payload.card);
-          if (!preferencesLoaded.current) {
-            setPublicCard(Boolean(payload.publicCard));
-            setPublicSlug(payload.publicSlug ?? "");
-            setPublishedSlug(payload.publicCard ? payload.publicSlug ?? null : null);
-            setFavorite(payload.favoriteMember ?? "");
-            preferencesLoaded.current = true;
-          }
         })(),
       ]);
-      const failed = results.find((result) => result.status === "rejected");
-      setLoadError(failed?.status === "rejected" ? connectedAccountError(failed.reason, "Some account details could not be loaded.") : null);
-      return !failed;
+      // Each panel owns its failure: an activity outage never hides connections, and vice versa.
+      const [connectionsResult, activityResult] = results;
+      setLoadError(connectionsResult.status === "rejected" ? connectedAccountError(connectionsResult.reason, "Connected accounts could not be loaded.") : null);
+      setActivityError(activityResult.status === "rejected" ? connectedAccountError(activityResult.reason, "Activity details could not be loaded.") : null);
+      return connectionsResult.status === "fulfilled" && activityResult.status === "fulfilled";
     } catch (error) {
       setLoadError(connectedAccountError(error, "Connected account details could not be loaded."));
       return false;
@@ -289,39 +268,6 @@ function ConnectedAccountsForUser({
     } catch (error) {
       setNotice({
         message: connectedAccountError(error, "Connected accounts could not be synced. Try again."),
-        tone: "error",
-      });
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function savePrefs() {
-    setBusy("prefs");
-    setProfileNotice(null);
-    try {
-      const response = await fetch("/api/account/loyalty", {
-        method: "PATCH",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json", "x-core-account-id": accountId },
-        body: JSON.stringify({
-          favoriteMember: favorite || null,
-          publicCard,
-          publicSlug: publicSlug || null,
-        }),
-      });
-      const result = await readConnectedAccountResponse<{ ok?: boolean; accountId: string; publicCard: boolean; publicSlug: string | null; favoriteMember: string | null }>(
-        response,
-        "Your card settings could not be saved.",
-      );
-      if (result.accountId !== accountId) throw new Error(ACCOUNT_CHANGED_MESSAGE);
-      if (result.ok !== true) throw new Error("The server did not confirm your saved card settings.");
-      setPublicSlug(result.publicSlug ?? "");
-      setPublishedSlug(result.publicCard ? result.publicSlug : null);
-      setProfileNotice({ message: "Profile settings saved.", tone: "success" });
-    } catch (error) {
-      setProfileNotice({
-        message: connectedAccountError(error, "Your card settings could not be saved. Try again."),
         tone: "error",
       });
     } finally {
@@ -486,50 +432,19 @@ function ConnectedAccountsForUser({
         </ul>
       </section>
 
-      {card ? <LoyaltyPanel card={card} /> : null}
-
-      {card ? <section className="rounded-xl border border-secondary bg-primary p-5 sm:p-6">
-        <h2 className="text-lg font-semibold text-primary">Public fan profile</h2>
-        <p className="mt-1 text-sm text-tertiary">
-          Publish your profile at <code className="text-xs">/u/your-handle</code>. Your display name, connected platform usernames and favorite member can be visible. Passport details follow your Passport privacy settings.
-        </p>
-        <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-secondary bg-primary p-4">
+      {card ? <LoyaltyPanel card={card} /> : activityError ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-secondary bg-primary p-5 sm:p-6" role="alert">
           <div>
-            <p className="text-sm font-semibold text-primary">Public fan card</p>
-            <p className="text-xs text-tertiary">Your profile is {publicCard ? "set to public when saved" : "set to private when saved"}.</p>
+            <h2 className="text-lg font-semibold text-primary">Watching on CORE</h2>
+            <p className="mt-1 text-sm text-tertiary">{activityError}</p>
           </div>
-          <Toggle size="md" isSelected={publicCard} onChange={(value) => { setPublicCard(value); setProfileNotice(null); }} aria-label="Make fan card public" />
-        </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Input
-            size="md"
-            label="Public handle"
-            value={publicSlug}
-            onChange={(value) => { setPublicSlug(value); setProfileNotice(null); }}
-            placeholder="your-name"
-            hint="3–32 letters, numbers, and dashes."
-          />
-          <NativeSelect
-            label="Favorite member"
-            value={favorite}
-            onChange={(e) => { setFavorite(e.target.value); setProfileNotice(null); }}
-            options={[
-              { value: "", label: "Auto from your activity" },
-              ...members.map((m) => ({ value: m.slug, label: m.stageName })),
-            ]}
-          />
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button color="primary" size="sm" onClick={() => void savePrefs()} isDisabled={busy === "prefs"}>
-            Save
-          </Button>
-          <Button color="secondary" size="sm" href={`/api/account/export?accountId=${encodeURIComponent(accountId)}` as never} iconLeading={LinkExternal01}>
-            Export my data
-          </Button>
-        </div>
-        {profileNotice ? <p role={profileNotice.tone === "error" ? "alert" : "status"} className={`mt-3 text-sm ${profileNotice.tone === "error" ? "text-error-primary" : "text-success-primary"}`}>{profileNotice.message}</p> : null}
-        {publishedSlug ? <Link href={`/u/${encodeURIComponent(publishedSlug)}` as never} className="mt-3 inline-flex text-sm font-semibold text-brand-secondary hover:underline">View your public profile</Link> : null}
-      </section> : null}
+          <Button color="secondary" size="sm" onClick={() => void load()} isDisabled={loading}>Try again</Button>
+        </section>
+      ) : loading ? <div className="h-44 animate-pulse rounded-xl border border-secondary bg-primary" role="status" aria-label="Loading activity" /> : null}
+
+      <p className="px-1 text-sm text-tertiary">
+        Your public fan card and favorite member are in <Link href="/account/settings#public-profile" className="font-medium text-secondary underline underline-offset-4 hover:text-primary">Profile</Link>. Download your data from <Link href="/account/settings#data-export" className="font-medium text-secondary underline underline-offset-4 hover:text-primary">Privacy &amp; safety</Link>.
+      </p>
     </div>
   );
 }

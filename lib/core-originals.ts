@@ -1,5 +1,6 @@
 import "server-only";
 import { query } from "@/lib/db";
+import { cachedPublicData } from "@/lib/server-cache";
 
 export type CoreOriginal = {
   id: string;
@@ -89,7 +90,24 @@ function mapItem(row: Record<string, unknown>): CoreOriginalItem {
   return { id: String(row.id), originalId: String(row.original_id), sourceUrl: String(row.source_url), platform: String(row.platform) as CoreOriginalItem["platform"], title: String(row.title), subtitle: row.subtitle ? String(row.subtitle) : null, posterUrl: row.poster_url ? String(row.poster_url) : null, format: String(row.format) as CoreOriginalItem["format"], status: String(row.status) as CoreOriginalItem["status"], recommendationNote: row.recommendation_note ? String(row.recommendation_note) : null, sortOrder: Number(row.sort_order) };
 }
 
+function isCoreOriginalSnapshot(value: unknown): value is CoreOriginalSnapshot {
+  return Boolean(value && typeof value === "object" && Array.isArray((value as CoreOriginalSnapshot).originals) && Array.isArray((value as CoreOriginalSnapshot).items));
+}
+
 export async function getCoreOriginalSnapshot(includeUnpublished = false): Promise<CoreOriginalSnapshot> {
+  // The public shelf renders on every home request; serve it from the shared
+  // public cache. Admin (unpublished) reads always go to the database.
+  if (!includeUnpublished) {
+    return cachedPublicData("core-originals:v1", () => loadCoreOriginalSnapshot(false), {
+      freshSeconds: 30,
+      staleSeconds: 3_600,
+      validate: isCoreOriginalSnapshot,
+    });
+  }
+  return loadCoreOriginalSnapshot(true);
+}
+
+async function loadCoreOriginalSnapshot(includeUnpublished: boolean): Promise<CoreOriginalSnapshot> {
   await ensureCoreOriginalsSchema();
   const [originals, items] = await Promise.all([
     query(`SELECT id::text,slug,title,summary,poster_url,enabled,sort_order FROM core_originals WHERE slug <> 'core-rug' ${includeUnpublished ? "" : "AND enabled"} ORDER BY sort_order,created_at`),

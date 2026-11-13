@@ -4,10 +4,13 @@ import { NextResponse } from "next/server";
 import { consumeAdminLoginRateLimit } from "@/lib/admin-login-rate-limit";
 import { siteAccessClientIp } from "@/lib/site-access-rate-limit";
 
+// Per 15-minute window. IP ceilings are sized for carrier-grade NAT, campus,
+// and venue networks where hundreds of fans can share one public address at
+// a launch; per-account ceilings carry the credential-stuffing protection.
 const LIMITS = {
-  login: { ip: 30, account: 8 },
-  signup: { ip: 12, account: 4 },
-  "forgot-password": { ip: 12, account: 4 },
+  login: { ip: 60, account: 8 },
+  signup: { ip: 30, account: 4 },
+  "forgot-password": { ip: 20, account: 4 },
   "reset-password": { ip: 30, account: 10 },
 } as const;
 

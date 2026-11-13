@@ -1100,7 +1100,7 @@ export function NetworkChannelRail({
             style={{ "--channel-accent": channel.accent } as React.CSSProperties}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={channel.backdrop} alt="" className={styles.homeChannelBackdrop} />
+            <img src={channel.backdrop} alt="" loading="lazy" decoding="async" className={styles.homeChannelBackdrop} />
             {channel.slug === "core" ? (
               <CoreWordmark className={styles.homeCoreWordmark} />
             ) : (

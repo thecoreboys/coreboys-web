@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 import { query } from "@/lib/db";
+import { siteAccessClientIp } from "@/lib/site-access-rate-limit";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -55,10 +56,9 @@ export async function ensureLogoSubmissionSchema(): Promise<void> {
   return schemaReady;
 }
 
+/** Ingress-appended peer address; the first forwarded entry is spoofable. */
 export function clientIp(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || request.headers.get("x-real-ip")?.trim()
-    || "unknown";
+  return siteAccessClientIp(request.headers);
 }
 
 /** Never persist a raw address. A separate secret makes this useless outside this site. */

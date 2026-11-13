@@ -315,7 +315,10 @@ export const getHomeWatchCatalog = cache(async (): Promise<WatchCatalog> => {
     async () => compactWatchCatalog(projectHomeCatalog(await buildWatchCatalog("home"))),
     {
       freshSeconds: 20,
-      staleSeconds: 180,
+      // Serve the last good home catalog while a rebuild runs instead of
+      // making the first visitor after a quiet spell wait on every provider.
+      // Live flags are still reconciled per request and polled client-side.
+      staleSeconds: 1_800,
       validate: isCompactWatchCatalog,
       shouldCache: (value) => value.all.length > 0,
     },
@@ -639,7 +642,9 @@ async function buildWatchCatalog(scope: "home" | "archive" = "archive"): Promise
   // server-normalized allowlist for Passport watch credit; catalog rendering
   // remains available during a staged Passport rollout.
   const visibleCatalog = await filterUnavailableCatalog(catalog);
-  try{await registerPassportWatchCatalog(visibleCatalog);}catch{/* migration/DB outage: fail closed for rewards */}
+  // Registration is a locked DB write; do not make catalog builds (and the
+  // visitors waiting on them) wait for it. Failures fail closed for rewards.
+  void registerPassportWatchCatalog(visibleCatalog).catch(() => { /* migration/DB outage */ });
   return visibleCatalog;
 }
 

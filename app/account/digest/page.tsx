@@ -22,6 +22,8 @@ export default function WeeklyDigestPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [digest, setDigest] = useState<Digest | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login?next=/account/digest");
@@ -29,11 +31,22 @@ export default function WeeklyDigestPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch("/api/account/digest", { credentials: "same-origin" })
-      .then((r) => r.json())
-      .then(setDigest)
-      .catch(() => setDigest(null));
-  }, [user]);
+    let cancelled = false;
+    setFailed(false);
+    fetch("/api/account/digest", { credentials: "same-origin", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: Digest) => {
+        if (cancelled) return;
+        if (data && typeof data.siteMinutes === "number") setDigest(data);
+        else setFailed(true);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, attempt]);
 
   return (
     <>
@@ -43,11 +56,19 @@ export default function WeeklyDigestPage() {
           What you did on CORE
         </h1>
         <p className="mt-2 text-sm text-tertiary">
-          This is an in-app digest. We don&apos;t email unless you add SMTP later.
-          Numbers are on-site presence — not Twitch hours or YouTube history.
+          Your last 7 days on CORE. These numbers count time on this site only, not
+          hours watched in the Twitch or YouTube apps.
         </p>
-        {!digest ? (
-          <div className="mt-8 h-48 animate-pulse rounded-2xl bg-secondary" />
+        {failed && !digest ? (
+          <div className="mt-8 rounded-2xl bg-secondary p-6 ring-1 ring-inset ring-secondary" role="alert">
+            <p className="text-sm font-semibold text-primary">Your recap couldn&apos;t be loaded.</p>
+            <p className="mt-1 text-sm text-tertiary">Check your connection and try again.</p>
+            <Button size="sm" color="secondary" className="mt-4" onClick={() => setAttempt((value) => value + 1)}>
+              Try again
+            </Button>
+          </div>
+        ) : !digest ? (
+          <div className="mt-8 h-48 animate-pulse rounded-2xl bg-secondary" role="status" aria-label="Loading your recap" />
         ) : (
           <ul className="mt-8 grid grid-cols-2 gap-3">
             {(
@@ -66,7 +87,6 @@ export default function WeeklyDigestPage() {
             ))}
           </ul>
         )}
-        <p className="mt-6 text-xs text-quaternary">{digest?.note}</p>
         <Button href={"/account" as never} size="md" color="secondary" className="mt-8">
           Back to account
         </Button>

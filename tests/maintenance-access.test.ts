@@ -18,6 +18,9 @@ test("media shares the primary pool instead of doubling every replica's sessions
   assert.match(source, /if \(sameDatabase\) \{[\s\S]*?getPrimaryDatabasePool\(\)/);
   assert.match(source, /max: 1,/);
   const primary = readFileSync(new URL("../lib/db.ts", import.meta.url), "utf8");
-  assert.match(primary, /max: 3,/);
+  // Default stays at three per replica; DATABASE_POOL_MAX is an explicit,
+  // bounded opt-in for a PgBouncer-fronted or larger managed pool.
+  assert.match(primary, /max: databasePoolMax\(\),/);
+  assert.match(primary, /value <= 100 \? value : 3;/);
   assert.match(primary, /statement_timeout: 30_000/);
 });

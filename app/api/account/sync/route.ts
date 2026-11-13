@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { accountRequestMatches, ACCOUNT_CHANGED_MESSAGE } from "@/lib/account-request";
+import { consumeAdminLoginRateLimit } from "@/lib/admin-login-rate-limit";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { listConnections } from "@/lib/oauth/connections";
 import { isOauthProvider } from "@/lib/oauth/providers";
@@ -12,6 +13,20 @@ export async function POST(req: Request) {
   const uid = await getCurrentFanUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!accountRequestMatches(req, uid)) return NextResponse.json({ error: "account_changed", message: ACCOUNT_CHANGED_MESSAGE }, { status: 409 });
+
+  // Each sync pages provider APIs (X is billed per read), so cap manual syncs
+  // per account across replicas.
+  try {
+    const limit = await consumeAdminLoginRateLimit(`account-sync:${uid}`, 6);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: "rate_limited", message: "You've synced recently. Try again in a few minutes." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "Cache-Control": "no-store" } },
+      );
+    }
+  } catch {
+    return NextResponse.json({ error: "unavailable", message: "Sync is temporarily unavailable." }, { status: 503 });
+  }
 
   let provider: string | undefined;
   try {

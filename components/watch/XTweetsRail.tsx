@@ -684,7 +684,7 @@ export function XTweetsRail({
               // deliberately does not make featured posts span rows.
               data-featured={post.media.length > 0 && index % 7 === 0 ? "true" : undefined}
             >
-              <XPostCard post={post} onOpen={openPost} priority={index < 6} />
+              <XPostCard post={post} onOpen={openPost} priority={index < 2} />
             </div>
           ))}
         </div>

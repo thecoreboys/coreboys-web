@@ -399,9 +399,9 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
       {(!section || section === "privacy") ? <section id="privacy" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={ShieldCheck} eyebrow="Privacy & safety" title="Decide what stays private" detail="CORE does not expose your watch activity or connected platforms without an explicit choice." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
-          <LinkRow label="Public fan profile" detail="Your fan card is private unless you explicitly publish it. Manage its visibility and handle." href="/account/settings#connected-accounts" />
+          <LinkRow label="Public fan card" detail="Your fan card is private unless you explicitly publish it. Manage its visibility and handle." href="/account/settings#public-profile" />
           <LinkRow label="Connected accounts" detail="Review platform permissions, disconnect accounts, or sync on demand." href="/account/settings#connected-accounts" />
-          <LinkRow label="Account deletion" detail="Review or cancel a scheduled account deletion." href="/account/settings#account-deletion" />
+          <LinkRow label="Signed-in devices" detail="Change your password or sign out of other devices." href="/account/settings#security" />
           <div className="rounded-lg bg-secondary px-4 py-3 text-xs leading-5 text-tertiary">Watch activity is used for your account history and fan score. It is not shown on your public fan card.</div>
         </div>
       </section> : null}

@@ -20,6 +20,11 @@ declare global {
   var __pgPool: Pool | undefined;
 }
 
+function databasePoolMax(): number {
+  const value = Number(process.env.DATABASE_POOL_MAX);
+  return Number.isInteger(value) && value >= 1 && value <= 100 ? value : 3;
+}
+
 export function getPool(): Pool {
   if (global.__pgPool) return global.__pgPool;
   const url = process.env.DATABASE_URL;
@@ -45,7 +50,9 @@ export function getPool(): Pool {
     database: u.pathname.replace(/^\//, ""),
     // Three production replicas plus a rolling revision must fit the hosted
     // session pool. Media intelligence reuses this pool when targeting this DB.
-    max: 3,
+    // Raise DATABASE_POOL_MAX only after moving DATABASE_URL to a PgBouncer
+    // (transaction-mode) pool or enlarging the managed connection limit.
+    max: databasePoolMax(),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
     statement_timeout: 30_000,

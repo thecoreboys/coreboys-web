@@ -12,6 +12,9 @@ import {
   tiktokAppCredentials,
 } from "@/lib/oauth/providers";
 
+/** Provider token/profile calls must not hold a request (or a sign-in) open indefinitely. */
+const OAUTH_FETCH_TIMEOUT_MS = 8_000;
+
 export type ExchangedIdentity = {
   provider: OauthProvider;
   providerUserId: string;
@@ -116,7 +119,7 @@ async function exchangeTwitch(origin: string, code: string): Promise<ExchangedId
     code,
     redirect_uri: `${origin}${callbackPath("twitch")}`,
   });
-  const res = await fetch("https://id.twitch.tv/oauth2/token", {
+  const res = await fetch("https://id.twitch.tv/oauth2/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -129,7 +132,7 @@ async function exchangeTwitch(origin: string, code: string): Promise<ExchangedId
     expires_in?: number;
     scope?: string[];
   };
-  const me = await fetch("https://api.twitch.tv/helix/users", {
+  const me = await fetch("https://api.twitch.tv/helix/users", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${tok.access_token}`,
       "Client-Id": process.env.TWITCH_CLIENT_ID ?? "",
@@ -163,7 +166,7 @@ async function exchangeGoogle(origin: string, code: string, verifier: string): P
     redirect_uri: `${origin}${callbackPath("youtube")}`,
     code_verifier: verifier,
   });
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetch("https://oauth2.googleapis.com/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -178,7 +181,7 @@ async function exchangeGoogle(origin: string, code: string, verifier: string): P
   };
   const ch = await fetch(
     "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
-    { headers: { Authorization: `Bearer ${tok.access_token}` }, cache: "no-store" },
+    { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), headers: { Authorization: `Bearer ${tok.access_token}` }, cache: "no-store" },
   );
   if (!ch.ok) throw new Error(`youtube channels ${ch.status}`);
   const json = (await ch.json()) as {
@@ -208,7 +211,7 @@ async function exchangeX(origin: string, code: string, verifier: string): Promis
     code_verifier: verifier,
     client_id: id,
   });
-  const res = await fetch("https://api.twitter.com/2/oauth2/token", {
+  const res = await fetch("https://api.twitter.com/2/oauth2/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -225,6 +228,7 @@ async function exchangeX(origin: string, code: string, verifier: string): Promis
     scope?: string;
   };
   const me = await fetch("https://api.twitter.com/2/users/me?user.fields=profile_image_url,username", {
+    signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     headers: { Authorization: `Bearer ${tok.access_token}` },
     cache: "no-store",
   });
@@ -256,7 +260,7 @@ async function exchangeTikTok(origin: string, code: string): Promise<ExchangedId
     code,
     redirect_uri: `${origin}${callbackPath("tiktok")}`,
   });
-  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -278,7 +282,7 @@ async function exchangeTikTok(origin: string, code: string): Promise<ExchangedId
   }
   const me = await fetch(
     "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url,username",
-    { headers: { Authorization: `Bearer ${tok.access_token}` }, cache: "no-store" },
+    { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), headers: { Authorization: `Bearer ${tok.access_token}` }, cache: "no-store" },
   );
   if (!me.ok) throw new Error(`tiktok user info ${me.status}`);
   const json = (await me.json()) as {
@@ -316,7 +320,7 @@ async function exchangeInstagram(origin: string, code: string): Promise<Exchange
     redirect_uri: `${origin}${callbackPath("instagram")}`,
     code,
   });
-  const res = await fetch("https://api.instagram.com/oauth/access_token", {
+  const res = await fetch("https://api.instagram.com/oauth/access_token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -332,14 +336,14 @@ async function exchangeInstagram(origin: string, code: string): Promise<Exchange
   longUrl.searchParams.set("grant_type", "ig_exchange_token");
   longUrl.searchParams.set("client_secret", secret);
   longUrl.searchParams.set("access_token", short.access_token);
-  const longRes = await fetch(longUrl, { cache: "no-store" });
+  const longRes = await fetch(longUrl, { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), cache: "no-store" });
   if (!longRes.ok) throw new Error(`instagram long-lived token ${longRes.status}`);
   const long = (await longRes.json()) as { access_token?: string; expires_in?: number };
   if (!long.access_token) throw new Error("instagram long-lived token missing");
 
   const me = await fetch(
     `https://graph.instagram.com/me?fields=id,username,account_type,profile_picture_url&access_token=${encodeURIComponent(long.access_token)}`,
-    { cache: "no-store" },
+    { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), cache: "no-store" },
   );
   const u = me.ok
     ? ((await me.json()) as { id?: string; username?: string; profile_picture_url?: string })

@@ -24,17 +24,27 @@ function load<T>(file: string, dependencies: Record<string, unknown>): T {
 
 const capacity = load<typeof import("../lib/fan-signup-rate-limit")>("lib/fan-signup-rate-limit.ts", { "server-only": {} });
 
-test("signup permits the 100th account and rejects the next with the traffic message and retry delay", async () => {
-  let count = 99;
+const LIMIT = capacity.fanSignupHourlyLimit();
+
+test("signup permits the last account under the hourly cap and rejects the next with the traffic message and retry delay", async () => {
+  assert.ok(LIMIT >= 1_000, "launch cap must admit a real launch crowd");
+  let count = LIMIT - 1;
   const client = { query: async (sql: string) => ({ rows: sql.includes("pg_advisory_xact_lock") ? [] : [{ created_count: count, retry_after_seconds: 600 }] }) } as unknown as PoolClient;
   await capacity.assertFanSignupCapacity(client);
-  count = 100;
+  count = LIMIT;
   await assert.rejects(capacity.assertFanSignupCapacity(client), (error: unknown) => {
     assert.ok(error instanceof capacity.FanSignupRateLimitError);
     assert.equal(error.message, "Account creation is currently rate limited due to an influx of web traffic. Please try again later.");
     assert.equal(error.retryAfterSeconds, 600);
     return true;
   });
+});
+
+test("the capacity check takes no global lock that would serialize signups", async () => {
+  const statements: string[] = [];
+  const client = { query: async (sql: string) => { statements.push(sql); return { rows: [{ created_count: 0, retry_after_seconds: 1 }] }; } } as unknown as PoolClient;
+  await capacity.assertFanSignupCapacity(client);
+  assert.equal(statements.some((sql) => sql.includes("advisory")), false);
 });
 
 test("an unavailable shared database cannot grant a local signup allowance", async () => {
@@ -67,21 +77,21 @@ function signupService(count: number, insertError?: unknown) {
 const input = { email: "fan@example.com", password: "a-long-password", displayName: "Fan", consent: true as const };
 
 test("account insert and capacity check share a transaction, with no insert when capacity is full", async () => {
-  const available = signupService(99);
+  const available = signupService(LIMIT - 1);
   const user = await available.service.createFanUser(input);
   assert.equal(user.email, input.email);
   assert.equal("password_hash" in user, false);
   assert.deepEqual(available.stats(), { insertions: 1, committed: true, rolledBack: false });
-  const full = signupService(100);
+  const full = signupService(LIMIT);
   await assert.rejects(full.service.createFanUser(input), capacity.FanSignupRateLimitError);
   assert.deepEqual(full.stats(), { insertions: 0, committed: false, rolledBack: true });
-  const duplicate = signupService(99, { code: "23505" });
+  const duplicate = signupService(LIMIT - 1, { code: "23505" });
   await assert.rejects(duplicate.service.createFanUser(input), duplicate.service.DuplicateEmailError);
   assert.equal(duplicate.stats().rolledBack, true);
 });
 
 test("signup returns HTTP 429 with a visible traffic error and does not create a session or send mail", async () => {
-  const { service } = signupService(100);
+  const { service } = signupService(LIMIT);
   const route = load<typeof import("../app/api/auth/signup/route")>("app/api/auth/signup/route.ts", {
     "next/server": { NextResponse, after: () => assert.fail("No email on rejected signup") },
     "@/lib/fan-users": service,
