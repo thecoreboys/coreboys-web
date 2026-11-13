@@ -179,7 +179,8 @@ export function WatchTogetherBridge() {
   const player = usePlayer();
   const { user, loading: authLoading } = useAuth();
   const subscription = useSubscription();
-  const routeEligible = pathname.startsWith("/theater") || pathname.startsWith("/multiview");
+  // Multiview no longer shows the room widget; Theater keeps it.
+  const routeEligible = pathname.startsWith("/theater");
   const multiview = pathname.startsWith("/multiview");
   const [panelOpen, setPanelOpen] = useState(false);
   const panelRef = useRef<HTMLElement | null>(null);

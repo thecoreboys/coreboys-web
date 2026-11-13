@@ -87,10 +87,11 @@ function elementTypes(node: React.ReactNode): unknown[] {
 }
 
 test("the app keeps players and room controls without mounting DJ Cora or its audio effects", () => {
-  for (const nativeApp of [true, null, false]) {
+  // Watch together mounts on Theater only; Multiview no longer shows the room widget.
+  for (const [pathname, nativeApp] of [["/theater", true], ["/theater", null], ["/theater", false], ["/multiview", true], ["/multiview", false]] as const) {
     const component = load<{ GlobalWatchEnhancements: () => React.ReactNode }>("components/watch/GlobalWatchEnhancements.tsx", {
       react: { ...React, useState: (value: unknown) => [typeof value === "function" ? value() : value, () => {}], useEffect() {} },
-      "next/navigation": { usePathname: () => "/multiview" },
+      "next/navigation": { usePathname: () => pathname },
       "next/dynamic": { __esModule: true, default: (factory: () => unknown) => factory.toString().match(/require\("([^"]+)"\)/)![1]!.split("/").at(-1) },
       "@/hooks/useNativeApp": { useNativeApp: () => nativeApp },
       "@/components/providers/AuthProvider": { useAuth: () => ({ user: null }) },
@@ -99,7 +100,7 @@ test("the app keeps players and room controls without mounting DJ Cora or its au
     const types = elementTypes(component.GlobalWatchEnhancements());
     assert.equal(types.includes("RadioAudioSystem"), nativeApp === false);
     assert.ok(types.includes("PersistentPlayer"));
-    assert.ok(types.includes("WatchTogetherBridge"));
+    assert.equal(types.includes("WatchTogetherBridge"), pathname === "/theater");
     assert.ok(types.includes("PlayerChatCompanion"));
   }
 });

@@ -21,7 +21,6 @@ import {
   Settings,
   Sparkles,
   UserRound,
-  UsersRound,
   X,
 } from "lucide-react";
 import { ButtonUtility } from "@/components/base/buttons/button-utility";
@@ -39,7 +38,7 @@ import { cn } from "@/lib/utils";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import type { UnifiedLiveEntry, UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
-import { OPEN_CONTRIBUTOR_FORM_EVENT, OPEN_RADIO_CONTROLS_EVENT, OPEN_WATCH_TOGETHER_EVENT } from "@/lib/site-utility-events";
+import { OPEN_CONTRIBUTOR_FORM_EVENT, OPEN_RADIO_CONTROLS_EVENT } from "@/lib/site-utility-events";
 
 const LiveNowModal = dynamic(
   () => import("@/components/live/LiveNowModal").then((module) => module.LiveNowModal),
@@ -592,7 +591,6 @@ export function TopNav() {
               <div className="mb-5 grid grid-cols-2 gap-2 md:hidden" aria-label="Site tools">
                 {nativeApp === false ? <button type="button" onClick={() => openMobileUtility(OPEN_RADIO_CONTROLS_EVENT)} className="flex min-h-11 items-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 text-sm font-medium text-[color:var(--ink)] hover:bg-[color:var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)]"><Radio size={16} aria-hidden />DJ Cora</button> : null}
                 <button type="button" onClick={() => openMobileUtility(OPEN_CONTRIBUTOR_FORM_EVENT)} className="flex min-h-11 items-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 text-sm font-medium text-[color:var(--ink)] hover:bg-[color:var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)]"><Sparkles size={16} aria-hidden />Help improve CORE</button>
-                {pathname.startsWith("/multiview") ? <button type="button" onClick={() => openMobileUtility(OPEN_WATCH_TOGETHER_EVENT)} className="col-span-2 flex min-h-11 items-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 text-sm font-medium text-[color:var(--ink)] hover:bg-[color:var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)]"><UsersRound size={16} aria-hidden />Watch together</button> : null}
               </div>
             ) : null}
             {!authLoading && !user ? (

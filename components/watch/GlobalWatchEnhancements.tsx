@@ -120,7 +120,8 @@ export function GlobalWatchEnhancements() {
       {nativeApp === false ? <RadioAudioSystem /> : null}
       {ready ? <>
       {player.current || isRoomSurface(pathname) || pathname.startsWith("/shorts") ? <PersistentPlayer /> : null}
-      {isRoomSurface(pathname) ? <WatchTogetherBridge /> : null}
+      {/* Watch together lives on Theater only; Multiview has no room widget. */}
+      {pathname.startsWith("/theater") ? <WatchTogetherBridge /> : null}
       <CinematicRouteTransition />
       <WatchPalette />
       {user ? <PassportPresenceBridge key={user.id} /> : null}

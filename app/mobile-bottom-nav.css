@@ -112,7 +112,6 @@
   section[aria-label="Now playing"]:not(.watch-player-stage) { bottom: calc(.75rem + var(--mobile-nav-space, 0px)) !important; }
   [role="dialog"][aria-label="Cookie consent"] { bottom: calc(1rem + var(--mobile-nav-space, 0px)); }
   .watch-together { bottom: calc(.75rem + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px)); }
-  .watch-together[data-room-surface="multiview"][data-open="false"] { display: none; }
   .watch-together__panel { max-height: calc(100dvh - var(--site-header-h, 8rem) - var(--mobile-nav-space, 0px) - var(--now-playing-h, 0px) - 1.5rem); }
 }
 
