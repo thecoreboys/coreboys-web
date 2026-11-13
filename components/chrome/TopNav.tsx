@@ -396,7 +396,7 @@ export function TopNav() {
               onPointerEnter={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
               onFocus={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
               className="group inline-flex min-h-10 w-10 cursor-pointer items-center justify-start gap-2.5 rounded-xl bg-[color:var(--ui-surface)] px-3 text-sm font-normal text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--ui-line)] transition-colors duration-150 hover:bg-[color:var(--ui-hover)] hover:text-[color:var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)] lg:w-32 xl:w-44 2xl:w-56"
-              aria-label="Search CORE Watch"
+              aria-label="Search CORE"
               aria-keyshortcuts="Control+K Meta+K /"
             >
               <Search size={16} strokeWidth={1.6} aria-hidden className="shrink-0" />
@@ -555,7 +555,7 @@ export function TopNav() {
               onPointerEnter={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
               onFocus={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
               className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--ui-hover)] hover:text-[color:var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)]"
-              aria-label="Search CORE Watch"
+              aria-label="Search CORE"
             >
               <Search size={18} aria-hidden />
             </button>

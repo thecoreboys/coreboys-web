@@ -37,7 +37,7 @@ export function PricingExperience({ accountMode = false, account, accountLoading
       visual={<figure className={styles.upgradeHeroVisual}>
         <Image
           src="/special-message/app-screens/now-playing-guide.png"
-          alt="CORE Watch beta with a live stream, guide, and chat together in one view."
+          alt="The CORE site with a live stream, guide, and chat together in one view."
           fill
           priority
           sizes="(max-width: 760px) 100vw, 48vw"

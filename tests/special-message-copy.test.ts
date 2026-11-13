@@ -8,7 +8,7 @@ test("the personal message uses direct, human copy", () => {
   assert.doesNotMatch(page, /[\u2013\u2014]/);
   assert.doesNotMatch(page, /contribute something meaningful/i);
   assert.match(page, /looking\s+for work while AI is changing what companies hire for/);
-  assert.match(page, /CORE, I&apos;d love to work with you/);
+  assert.match(page, /<h1>A personal message from the creator of the site<\/h1>/);
   assert.doesNotMatch(page, /Michael Cran/);
   assert.match(page, /src="\/special-message\/core-huddle\.webp"/);
   assert.doesNotMatch(page, /origin-storyboard-v2|Special edition|No\. 02|Part 0[1-6]/);

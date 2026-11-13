@@ -56,12 +56,12 @@
   .core-topnav__inner { gap: .75rem; padding-inline: 1.5rem; }
   .core-topnav__link { padding-inline: .65rem; }
   .core-topnav__actions { gap: .375rem; }
-  .core-topnav__actions > button[aria-label="Search CORE Watch"] {
+  .core-topnav__actions > button[aria-label="Search CORE"] {
     width: 44px;
     min-height: 44px;
     justify-content: center;
     padding-inline: 0;
   }
-  .core-topnav__actions > button[aria-label="Search CORE Watch"] > span { display: none; }
+  .core-topnav__actions > button[aria-label="Search CORE"] > span { display: none; }
   .core-topnav .nav-membership-cta { padding-inline: .875rem; }
 }

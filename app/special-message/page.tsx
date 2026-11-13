@@ -2,15 +2,15 @@ import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUpRight, PanelsTopLeft, ScanFace, Smartphone, type LucideIcon } from "lucide-react";
 import { AutoLoopVideo } from "./AutoLoopVideo";
 import { PanoramaViewer } from "./PanoramaViewer";
 import { StoryProgress } from "./StoryProgress";
 import styles from "./special-message.module.css";
 
 export const metadata: Metadata = withPageMetadata("/special-message", {
-  title: "A Personal Message from Michael",
-  description: "A personal letter from Michael about building CORE Watch, the creators who inspired him, and why he would love to work with The Core Boys.",
+  title: "A personal message from the creator of the site",
+  description: "A personal message from Michael, the creator of this independent CORE fan site, about his story, creative and technical work, and the people who inspired it.",
   alternates: { canonical: "/special-message" },
   openGraph: { type: "article" },
 });
@@ -56,32 +56,55 @@ const computerClips = [
   },
 ] as const;
 
-const siteScreens = [
+type SiteFeature = {
+  title: string;
+  src?: string;
+  alt?: string;
+  icon?: LucideIcon;
+  description: string;
+};
+
+const siteFeatures: SiteFeature[] = [
   {
     title: "Home",
     src: "/special-message/app-screens/home.png",
-    alt: "CORE Watch home page with a featured live stream.",
-    description: "See who’s live, then browse Originals, clips, and posts.",
+    alt: "The CORE home page with a featured live stream.",
+    description: "See who’s live and discover streams, Originals, clips, and posts from the members and their communities in one place.",
   },
   {
     title: "Guide",
     src: "/special-message/app-screens/guide.png",
     alt: "The Guide showing broadcasts and timeline filters.",
-    description: "Find a stream or filter past shows by member, platform, or format.",
+    description: "Browse live broadcasts and 24/7 schedules, or find past shows by member, platform, and format.",
   },
   {
     title: "Theater",
     src: "/special-message/app-screens/now-playing-guide.png",
     alt: "Theater with Adapt’s stream and the chat panel open.",
-    description: "Watch with chat and keep Up Next within reach.",
+    description: "Give a stream or video the main stage, follow its chat, and keep the next thing to watch within reach.",
   },
   {
-    title: "Community networks",
+    title: "Networks",
     src: "/special-message/app-screens/flock-network.png",
     alt: "The Flock Network page and its 24/7 programming.",
-    description: "Each community has its own 24/7 channel and a place to catch up on its creators.",
+    description: "Explore each community’s own channel, with 24/7 programming and a place to catch up on its creators.",
   },
-] as const;
+  {
+    title: "On Screen Detection",
+    icon: ScanFace,
+    description: "See identity tags for the creators appearing on supported streams and replays, with links to their profiles.",
+  },
+  {
+    title: "Multiviewing",
+    icon: PanelsTopLeft,
+    description: "Watch several streams together, arrange the view, and choose which source takes the main stage and plays audio.",
+  },
+  {
+    title: "Remote Control",
+    icon: Smartphone,
+    description: "Pair your phone with your computer to switch the main source and control playback. The remote chat follows the channel you’re watching.",
+  },
+];
 
 export default function SpecialMessagePage() {
   return (
@@ -89,12 +112,11 @@ export default function SpecialMessagePage() {
       <div className={styles.paper}>
         <header className={styles.frontPage}>
           <div className={styles.headlineCopy}>
-            <p className={styles.byline}>A personal message from Michael</p>
-            <h1>CORE, I&apos;d love to work with you.</h1>
+            <p className={styles.byline}>From Michael</p>
+            <h1>A personal message from the creator of the site</h1>
             <p className={styles.lead}>
-              I built CORE Watch because your streams helped me through some hard days.
-              I wanted a place to find those streams and clips again. If you&apos;re working
-              on the site or planning a shoot, I&apos;d like to help.
+              I built this site because CORE&apos;s streams helped me through some difficult days.
+              This is the story behind it, the work I love doing, and what I hope to build next.
             </p>
             <div className={styles.heroActions}>
               <a className={styles.primaryLink} href="#beginning">Read my story <ArrowDown size={18} aria-hidden="true" /></a>
@@ -129,8 +151,7 @@ export default function SpecialMessagePage() {
                   and my birthday, then found out the seller had scammed him. Somehow, it still
                   turned into a night I&apos;ll never forget. I met Udonis Haslem and shot free throws
                   after the game with Norris Cole and the Big Three (LeBron James, Dwyane Wade,
-                  and Chris Bosh). I even got to hold championship rings. After that, I wanted
-                  to build a ticket site of my own.
+                  and Chris Bosh). I even got to hold championship rings.
                 </p>
                 <p>
                   Around that time, I tried Minecraft on an iPad at a soccer field. Another kid&apos;s
@@ -150,10 +171,16 @@ export default function SpecialMessagePage() {
                   and other creators I&apos;d watched growing up.
                 </p>
                 <p>
-                  I worked behind the scenes. Someone would pitch a challenge or a hide-and-seek
-                  game, and I&apos;d figure out how to make it work in Minecraft. I built maps, mods,
+                  I worked behind the scenes. Someone would pitch a challenge or a wild, wacky
+                  video idea, and I&apos;d figure out how to make it work in Minecraft. I built maps, mods,
                   simulators, and tycoons. It was fun knowing something I made could become part
                   of a video I would&apos;ve watched as a kid.
+                </p>
+                <p>
+                  I wanted those maps to put smiles on people&apos;s faces, whether they were
+                  watching before school or after finishing homework. Just as the creators put
+                  their own personalities into the recordings their audiences love, I put mine
+                  into the work behind the scenes, with creativity and easter eggs throughout.
                 </p>
               </div>
               <div className={styles.creatorProfiles}>
@@ -173,11 +200,17 @@ export default function SpecialMessagePage() {
                 <p>
                   COVID hit while I was in high school. After graduation, I moved away for college.
                   My parents divorced while I was still adjusting, and my health got worse.
+                  I was also dealing with a toxic environment at home.
                 </p>
                 <p>
-                  I live with chronic anxiety and I&apos;m neurodivergent. For a while, even talking
-                  to people felt harder than it used to. I lost a lot of confidence and didn&apos;t
-                  know what I wanted to do next.
+                  I live with anxiety, and neurodiversity is part of my story too. These
+                  experiences look different for everyone. For a while, even talking to people
+                  felt harder than it used to. I lost a lot of confidence and didn&apos;t know
+                  what I wanted to do next.
+                </p>
+                <p>
+                  My support system failed me when I needed it, and relying on friends and
+                  family was hard. I still have God, myself, and the will to keep pushing.
                 </p>
                 <p>
                   I kept working on projects when I had the energy. Some days that meant setting
@@ -189,7 +222,7 @@ export default function SpecialMessagePage() {
             </section>
 
             <section id="why-core" data-step="04" className={styles.chapter}>
-              <h2>Why I built CORE Watch</h2>
+              <h2>Why I built this site</h2>
               <div className={styles.prose}>
                 <p>
                   On days when I woke up already tired, I&apos;d put on a CORE stream or replay a clip
@@ -205,6 +238,7 @@ export default function SpecialMessagePage() {
             </section>
 
             <section id="what-i-built" data-step="05" className={styles.chapter}>
+              <p className={styles.sectionLabel}>A technical message</p>
               <h2>What I can help with</h2>
               <div className={styles.prose}>
                 <p>
@@ -215,9 +249,13 @@ export default function SpecialMessagePage() {
                 <p>
                   I build websites, full-stack apps, servers, and gaming PCs. On the production
                   side, I&apos;ve worked with Sony Alpha 7, FX3, and FX5 cameras, DJI drones and
-                  wireless mics, RØDE and Shure gear, lighting, soundboards, and XLR cabling.
-                  I&apos;ve streamed drone footage live. I also built my own server and tools for
-                  bringing in footage from cameras.
+                  wireless mics, RØDE and Shure gear, lighting, and soundboards.
+                </p>
+                <p>
+                  I also built my own server and tools for bringing in footage from cameras,
+                  including an IRL Toolkit alternative as a backup during downtime. I create
+                  custom stream overlays that moderators can control through a website or
+                  Twitch chat commands.
                 </p>
               </div>
 
@@ -288,10 +326,11 @@ export default function SpecialMessagePage() {
                   <div>
                     <h3>Mercury for the Army Reserve</h3>
                     <p>
-                      Reservists had to navigate separate notifications, forms, and steps to get paid.
-                      I built a web and mobile notification system, proposed a new interface, and
+                      I was part of the team behind Mercury for the Army Reserve, helping reservists
+                      navigate notifications, forms, and the steps needed to get paid. I spearheaded
+                      the web and mobile notification system, led the new interface design, and
                       prototyped a way to automate the forms. The project sponsors adopted the design
-                      direction, and the prototype showed how the paperwork could move faster.
+                      direction, and our prototype showed how the paperwork could move faster.
                     </p>
                   </div>
                 </section>
@@ -337,17 +376,19 @@ export default function SpecialMessagePage() {
             </section>
 
             <section id="platform-story" data-step="07" className={styles.chapter}>
-              <h2>What you can find on CORE Watch</h2>
+              <h2>What you can find on CORE</h2>
               <div className={styles.prose}>
                 <p>
-                  I built it for the moment you hear about a stream or a clip and want to find it.
-                  I also wanted each member and their community to have a place of their own.
+                  I wanted this site to make it easier to discover something to watch, keep up
+                  with each community, and choose how you watch. These are some of the features
+                  I&apos;ve built into it.
                 </p>
               </div>
               <div className={styles.platformScreens}>
-                {siteScreens.map(({ title, src, alt, description }) => (
+                {siteFeatures.map(({ title, src, alt, icon: Icon, description }) => (
                   <figure className={styles.platformScreen} key={title}>
-                    <Image src={src} alt={alt} width={1265} height={710} sizes="(max-width: 640px) calc(100vw - 2rem), 42vw" />
+                    {src ? <Image src={src} alt={alt ?? ""} width={1265} height={710} sizes="(max-width: 640px) calc(100vw - 2rem), 42vw" />
+                      : Icon ? <div className={styles.featureArt}><Icon size={64} strokeWidth={1.25} aria-hidden="true" /></div> : null}
                     <figcaption>
                       <h3>{title}</h3>
                       <p>{description}</p>
@@ -357,13 +398,35 @@ export default function SpecialMessagePage() {
               </div>
             </section>
 
-            <section id="thank-you" data-step="08" className={styles.chapter}>
+            <section id="why-im-different" data-step="08" className={styles.chapter}>
+              <h2>Why I&apos;m different</h2>
+              <div className={styles.prose}>
+                <p>
+                  I take initiative, solve problems, adapt, and keep learning. I understand the
+                  game because I love it. My experience brings together engineering, computers,
+                  technical production, coding, scripting, planning, and execution, with an
+                  entrepreneurial mindset.
+                </p>
+                <p>
+                  My technical creativity is what connects all of it. I love developing ideas
+                  of my own and bringing other people&apos;s ideas to fruition. I care about the
+                  work behind the idea, all the way through to making it happen.
+                </p>
+                <p>
+                  To me, this goes beyond being a coworker or a fan. I&apos;m a trustworthy, loyal
+                  person who cares about the people and work I commit to. When I say I will do
+                  something, I will do it. I am a man of my word, and I keep my word.
+                </p>
+              </div>
+            </section>
+
+            <section id="thank-you" data-step="09" className={styles.chapter}>
               <h2>I wanted to say thank you.</h2>
               <div className={styles.prose}>
                 <p>
-                  To the CORE team and everyone watching, thanks for giving me something to
-                  look forward to when I needed it. If this site helps someone find a stream
-                  or a clip they&apos;d forgotten about, I&apos;m glad I made it.
+                  To CORE: thank you for giving me something to look forward to when I needed it.
+                  And to everyone reading, thank you for giving my story your time. If this site
+                  helps someone find a stream or a clip they&apos;d forgotten about, I&apos;m glad I made it.
                 </p>
                 <p>
                   “Create. Own. Run. Everything.” reminds me of being 11 and trying to get
@@ -371,9 +434,19 @@ export default function SpecialMessagePage() {
                   what it could become.
                 </p>
                 <p>
-                  I&apos;d love to talk with Adapt, Woj, Bepsy, or anyone working on the site
-                  or on production. If there&apos;s something I can help build or a shoot
-                  I can help with, reach me on X at{" "}
+                  I&apos;m struggling right now, and I want to be honest about that. Side work,
+                  trial work, or a permanent role would all be greatly appreciated. If a colleague
+                  or friend needs a hardworking, dedicated person who gives 110%, a recommendation
+                  would mean a lot.
+                </p>
+                <p>
+                  I have the will to learn whatever the work needs. If you ask for something
+                  and there&apos;s no plan and no one knows how to get it done, I will figure out
+                  how. I want to be the problem solver you can count on.
+                </p>
+                <p>
+                  I&apos;d love to talk with Adapt, Woj, Bepsy, or anyone who could use help with
+                  software, production, or bringing an idea to life. You can reach me on X at{" "}
                   <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">@berryeyu</a>.
                 </p>
                 <p className={styles.signature}>Michael</p>
@@ -381,7 +454,7 @@ export default function SpecialMessagePage() {
             </section>
 
             <footer className={styles.letterFooter}>
-              <p>I built CORE Watch independently as a portfolio project. It is not affiliated with, or endorsed by, CORE or its members.</p>
+              <p>I built this site independently as a portfolio project. It is not affiliated with, or endorsed by, CORE or its members.</p>
               <div>
                 <Link href="/"><ArrowLeft size={17} aria-hidden="true" /> Back to CORE</Link>
                 <a href="#special-message-top">Back to the top</a>

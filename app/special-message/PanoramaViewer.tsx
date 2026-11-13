@@ -231,15 +231,15 @@ export function PanoramaViewer() {
               className={styles.panoramaReset}
               type="button"
               onClick={resetView}
-              aria-label="Reset panorama to the ocean view"
+              aria-label="Reset panorama view"
             >
               <span aria-hidden="true">↺</span>
-              Ocean view
+              Reset view
             </button>
             <span className={styles.panoramaHint}>Drag to look around</span>
             <span id="panorama-instructions" className={styles.panoramaSrOnly}>
               Drag horizontally to look around and vertically to tilt up or down. Use the arrow keys,
-              or Home or R, to reset to the ocean view.
+              or Home or R, to reset the view.
             </span>
             <span id="panorama-status" className={styles.panoramaSrOnly} aria-live="polite">
               {isOceanView ? "Facing the Atlantic Ocean: South Florida." : "Looking around South Florida."}
