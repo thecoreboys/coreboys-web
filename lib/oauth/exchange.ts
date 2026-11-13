@@ -12,6 +12,23 @@ import {
   tiktokAppCredentials,
 } from "@/lib/oauth/providers";
 
+/** Provider token/profile calls must not hold a request (or a sign-in) open indefinitely. */
+const OAUTH_FETCH_TIMEOUT_MS = 8_000;
+
+/**
+ * A connect attempt that failed for a reason the fan can act on. `reason` is
+ * passed back to Account settings as `?reason=` and must stay a short,
+ * non-sensitive code (never a provider error body).
+ */
+export class OauthConnectError extends Error {
+  constructor(readonly reason: "no-channel" | "missing-scopes" | "no-identity", message: string) {
+    super(message);
+    this.name = "OauthConnectError";
+  }
+}
+
+const YOUTUBE_READ_SCOPE = "https://www.googleapis.com/auth/youtube.readonly";
+
 export type ExchangedIdentity = {
   provider: OauthProvider;
   providerUserId: string;
@@ -116,7 +133,7 @@ async function exchangeTwitch(origin: string, code: string): Promise<ExchangedId
     code,
     redirect_uri: `${origin}${callbackPath("twitch")}`,
   });
-  const res = await fetch("https://id.twitch.tv/oauth2/token", {
+  const res = await fetch("https://id.twitch.tv/oauth2/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -129,7 +146,7 @@ async function exchangeTwitch(origin: string, code: string): Promise<ExchangedId
     expires_in?: number;
     scope?: string[];
   };
-  const me = await fetch("https://api.twitch.tv/helix/users", {
+  const me = await fetch("https://api.twitch.tv/helix/users", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${tok.access_token}`,
       "Client-Id": process.env.TWITCH_CLIENT_ID ?? "",
@@ -163,7 +180,7 @@ async function exchangeGoogle(origin: string, code: string, verifier: string): P
     redirect_uri: `${origin}${callbackPath("youtube")}`,
     code_verifier: verifier,
   });
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetch("https://oauth2.googleapis.com/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -178,22 +195,31 @@ async function exchangeGoogle(origin: string, code: string, verifier: string): P
   };
   const ch = await fetch(
     "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
-    { headers: { Authorization: `Bearer ${tok.access_token}` }, cache: "no-store" },
+    { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), headers: { Authorization: `Bearer ${tok.access_token}` }, cache: "no-store" },
   );
   if (!ch.ok) throw new Error(`youtube channels ${ch.status}`);
   const json = (await ch.json()) as {
     items?: Array<{ id: string; snippet?: { title?: string; thumbnails?: { default?: { url?: string } } } }>;
   };
   const item = json.items?.[0];
+  // A Google account without a YouTube channel has no stable YouTube id.
+  // Storing a shared placeholder id would make every such account collide on
+  // the (provider, provider_user_id) unique index and "link elsewhere".
+  if (!item?.id) throw new OauthConnectError("no-channel", "youtube channel missing");
+  const scopes = (tok.scope ?? "").split(" ").filter(Boolean);
+  // Google's granular consent lets the fan untick scopes. Sync needs read.
+  if (tok.scope !== undefined && !scopes.includes(YOUTUBE_READ_SCOPE)) {
+    throw new OauthConnectError("missing-scopes", "youtube read scope not granted");
+  }
   return {
     provider: "youtube",
-    providerUserId: item?.id ?? "unknown",
-    username: item?.snippet?.title ?? "YouTube",
-    avatarUrl: item?.snippet?.thumbnails?.default?.url ?? null,
+    providerUserId: item.id,
+    username: item.snippet?.title ?? "YouTube",
+    avatarUrl: item.snippet?.thumbnails?.default?.url ?? null,
     accessToken: tok.access_token,
     refreshToken: tok.refresh_token ?? null,
     expiresIn: tok.expires_in ?? 3600,
-    scopes: (tok.scope ?? "").split(" ").filter(Boolean),
+    scopes,
   };
 }
 
@@ -208,7 +234,7 @@ async function exchangeX(origin: string, code: string, verifier: string): Promis
     code_verifier: verifier,
     client_id: id,
   });
-  const res = await fetch("https://api.twitter.com/2/oauth2/token", {
+  const res = await fetch("https://api.twitter.com/2/oauth2/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -225,6 +251,7 @@ async function exchangeX(origin: string, code: string, verifier: string): Promis
     scope?: string;
   };
   const me = await fetch("https://api.twitter.com/2/users/me?user.fields=profile_image_url,username", {
+    signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     headers: { Authorization: `Bearer ${tok.access_token}` },
     cache: "no-store",
   });
@@ -256,7 +283,7 @@ async function exchangeTikTok(origin: string, code: string): Promise<ExchangedId
     code,
     redirect_uri: `${origin}${callbackPath("tiktok")}`,
   });
-  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -274,11 +301,11 @@ async function exchangeTikTok(origin: string, code: string): Promise<ExchangedId
   const scopes = grantedScopeSet(tok.scope);
   const missingScopes = TIKTOK_CREATOR_FEED_SCOPES.filter((scope) => !scopes.has(scope));
   if (missingScopes.length) {
-    throw new Error(`tiktok scopes missing: ${missingScopes.join(",")}`);
+    throw new OauthConnectError("missing-scopes", `tiktok scopes missing: ${missingScopes.join(",")}`);
   }
   const me = await fetch(
     "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url,username",
-    { headers: { Authorization: `Bearer ${tok.access_token}` }, cache: "no-store" },
+    { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), headers: { Authorization: `Bearer ${tok.access_token}` }, cache: "no-store" },
   );
   if (!me.ok) throw new Error(`tiktok user info ${me.status}`);
   const json = (await me.json()) as {
@@ -316,7 +343,7 @@ async function exchangeInstagram(origin: string, code: string): Promise<Exchange
     redirect_uri: `${origin}${callbackPath("instagram")}`,
     code,
   });
-  const res = await fetch("https://api.instagram.com/oauth/access_token", {
+  const res = await fetch("https://api.instagram.com/oauth/access_token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -332,21 +359,23 @@ async function exchangeInstagram(origin: string, code: string): Promise<Exchange
   longUrl.searchParams.set("grant_type", "ig_exchange_token");
   longUrl.searchParams.set("client_secret", secret);
   longUrl.searchParams.set("access_token", short.access_token);
-  const longRes = await fetch(longUrl, { cache: "no-store" });
+  const longRes = await fetch(longUrl, { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), cache: "no-store" });
   if (!longRes.ok) throw new Error(`instagram long-lived token ${longRes.status}`);
   const long = (await longRes.json()) as { access_token?: string; expires_in?: number };
   if (!long.access_token) throw new Error("instagram long-lived token missing");
 
   const me = await fetch(
     `https://graph.instagram.com/me?fields=id,username,account_type,profile_picture_url&access_token=${encodeURIComponent(long.access_token)}`,
-    { cache: "no-store" },
+    { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), cache: "no-store" },
   );
   const u = me.ok
     ? ((await me.json()) as { id?: string; username?: string; profile_picture_url?: string })
     : {};
+  const instagramUserId = String(u.id ?? short.user_id ?? "").trim();
+  if (!instagramUserId) throw new OauthConnectError("no-identity", "instagram user id missing");
   return {
     provider: "instagram",
-    providerUserId: String(u.id ?? short.user_id ?? "unknown"),
+    providerUserId: instagramUserId,
     username: u.username ?? "instagram",
     avatarUrl: u.profile_picture_url ?? null,
     accessToken: long.access_token,

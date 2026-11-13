@@ -5,6 +5,7 @@ import { buildSystemPrompt } from "@/lib/concierge-prompt";
 import { markAiUsageUncertain, reserveAiUsage, settleAiUsage } from "@/lib/ai-usage";
 import { redisIncrWithExpiry } from "@/lib/redis";
 import { requirePaidProviderAccess } from "@/lib/subscriptions/paid-provider-access";
+import { siteAccessClientIp } from "@/lib/site-access-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,10 +75,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    "unknown";
+  const ip = siteAccessClientIp(req.headers);
   const limit = await rateLimit(ip);
   if (!limit.ok) {
     return NextResponse.json(

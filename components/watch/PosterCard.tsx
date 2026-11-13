@@ -4,7 +4,7 @@ import { watchTitle, watchFormatLabel } from "@/lib/watch/presentation";
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowUpRight, Play } from "lucide-react";
+import { ArrowUpRight, Clapperboard, Play } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FocusEvent } from "react";
 import type { WatchItem } from "@/lib/watch/types";
@@ -32,6 +32,7 @@ import { DragScrollRail } from "./DragScrollRail";
 import { DeferredHomeRail } from "./DeferredHomeRail";
 import { WatchSelect } from "./WatchSelect";
 import { PosterActionSheet } from "./PosterActionSheet";
+import styles from "./PosterCard.module.css";
 const CardMotionPreview = dynamic(() => import("./CardMotionPreview").then((module) => module.CardMotionPreview), { ssr: false });
 import { useWatchContextMenu } from "./WatchContextMenu";
 
@@ -211,6 +212,9 @@ export function PosterCard({
   const live = item.kind === "live";
   const shortSourceLabel = shortFormPlatformLabel(item);
   const memberPortrait = item.memberSlug ? MEMBERS_BY_SLUG[item.memberSlug]?.portrait : undefined;
+  const channelLabel = `@${(item.memberLabel || "CORE").replace(/^@/, "")}`;
+  const memberProfile = item.memberSlug && MEMBERS_BY_SLUG[item.memberSlug] ? `/about/${item.memberSlug}` : null;
+  const sourceLabel = `${item.platform === "house" ? "CORE Originals" : item.platform === "youtube" ? "YouTube" : item.platform === "tiktok" ? "TikTok" : item.platform === "instagram" ? "Instagram" : item.platform === "twitch" ? "Twitch" : "X"} · ${watchFormatLabel(item)}${item.duration ? ` · ${item.duration}` : ""}`;
   const preferYouTubeThumbnail = item.platform === "youtube" && Boolean(youtubeId)
     && (!item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png");
   const isXPost = item.platform === "x" && item.kind === "post" && !item.poster;
@@ -516,6 +520,8 @@ export function PosterCard({
       redirectToMyListSignIn();
       return;
     }
+    // Still checking (or retrying) membership: never bounce a member to /upgrade.
+    if (subscription.loading || subscription.unavailable) return;
     if (!dvrAllowed) {
       window.location.assign(subscription.featureHref("dvr.extended_retention"));
       return;
@@ -569,7 +575,7 @@ export function PosterCard({
   return (
     <article
       ref={cardRef}
-      className={`watch-poster group/poster is-${shape} is-platform-${item.platform} ${isXPost ? "is-x-post" : ""} ${item.format === "photo" ? "is-photo" : ""} ${live ? "is-live" : ""} ${focused ? "is-focus" : ""} ${previewVisible ? "is-preview-open" : ""} ${previewClosing ? "is-preview-closing" : ""} ${done ? "is-watched" : ""}`}
+      className={`watch-poster ${styles.card} group/poster is-${shape} is-platform-${item.platform} ${isXPost ? "is-x-post" : ""} ${item.format === "photo" ? "is-photo" : ""} ${live ? "is-live" : ""} ${focused ? "is-focus" : ""} ${previewVisible ? "is-preview-open" : ""} ${previewClosing ? "is-preview-closing" : ""} ${done ? "is-watched" : ""}`}
       onMouseEnter={() => {
         tuneStation();
         showPreview(false);
@@ -676,14 +682,22 @@ export function PosterCard({
         </span>
       ) : null}
 
-      <div className="watch-poster-copy">
-        <p className="line-clamp-2 watch-poster-title" title={item.title}>{playable ? <button type="button" className="watch-poster-title-link" onClick={openPlayer}>{watchTitle(item)}</button> : <Link className="watch-poster-title-link" href={fallbackHref as never} target={isInstagramPhoto || isExternalPost ? "_blank" : undefined} rel={isInstagramPhoto || isExternalPost ? "noopener noreferrer" : undefined}>{watchTitle(item)}</Link>}</p>
-        <p className="watch-poster-member">
-          {shortSourceLabel ? `${shortSourceLabel} · ${watchDisplayLabel(item)}` : watchDisplayLabel(item)}
-        </p>
-        <div className="watch-poster-footer-meta">
-        <p className="watch-poster-details">{watchFormatLabel(item)}{!live && item.duration ? ` · ${item.duration}` : ""}{live && item.live?.game ? ` · ${item.live.game}` : ""}</p>
-        {item.alternateSources?.length ? <p className="watch-poster-sources">Also on {item.alternateSources.map((source) => <a key={source.href} href={source.href} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>{source.platform === "youtube" ? "YouTube" : source.platform === "tiktok" ? "TikTok" : source.platform === "instagram" ? "Instagram" : source.platform}</a>)}</p> : null}
+      <div className={styles.metadata}>
+        <p className={styles.title} title={item.title}>{playable ? <button type="button" className="watch-poster-title-link" onClick={openPlayer}>{watchTitle(item)}</button> : <Link className="watch-poster-title-link" href={fallbackHref as never} target={isInstagramPhoto || isExternalPost ? "_blank" : undefined} rel={isInstagramPhoto || isExternalPost ? "noopener noreferrer" : undefined}>{watchTitle(item)}</Link>}</p>
+        <div className={styles.row}>
+          <Link className={styles.channel} href={(memberProfile || fallbackHref) as never} title={watchDisplayLabel(item)} aria-label={`View ${item.memberLabel || "CORE"}${memberProfile ? " profile" : " on source"}`} target={memberProfile ? undefined : "_blank"} rel={memberProfile ? undefined : "noopener noreferrer"} data-no-drag onFocus={cancelPreviewOpen} onMouseEnter={enterCardAction} onMouseLeave={leaveCardAction} onClick={event => event.stopPropagation()}>
+            <span className={styles.avatar} aria-hidden="true">
+              <span>{(item.memberLabel || "C").slice(0, 1)}</span>
+              {memberPortrait ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={memberPortrait} alt="" width={24} height={24} loading="lazy" decoding="async" onError={event => { event.currentTarget.style.visibility = "hidden"; }} />
+              ) : null}
+            </span>
+            <span>{channelLabel}</span>
+          </Link>
+          <span className={styles.source} title={sourceLabel} role="img" aria-label={sourceLabel}>
+            {item.platform === "house" ? <Clapperboard size={16} aria-hidden="true" /> : <SocialIcon platform={item.platform} size={16} />}
+          </span>
         </div>
       </div>
 

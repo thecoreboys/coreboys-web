@@ -35,9 +35,12 @@ test("hero keeps source fallbacks and accessible rotation separate from its prev
 });
 
 test("the right-side hero preview starts muted and honors viewing preferences and provider exposure", () => {
+  // Like the channel hero, the explicit autoplay preference (not the OS
+  // reduced-motion setting) decides whether the muted preview starts.
+  assert.doesNotMatch(previewPlayer, /const wantsAutoplay =[^;]*reducedMotion/);
   assert.match(previewPlayer, /watch-billboard-live-player is-preview/);
   assert.doesNotMatch(previewPlayer, /is-background/);
-  assert.match(previewPlayer, /const wantsAutoplay =[\s\S]{0,400}!current[\s\S]{0,100}!dataSaver[\s\S]{0,100}previewAutoplay[\s\S]{0,100}!reducedMotion[\s\S]{0,100}slotFitsProvider[\s\S]{0,100}providerExposed[\s\S]{0,100}pageVisible/);
+  assert.match(previewPlayer, /const wantsAutoplay =[\s\S]{0,400}!current[\s\S]{0,100}!dataSaver[\s\S]{0,300}previewAutoplay[\s\S]{0,100}slotFitsProvider[\s\S]{0,100}providerExposed[\s\S]{0,100}pageVisible/);
   assert.match(previewPlayer, /width >= 400 && height >= 300/);
   assert.match(previewPlayer, /\(visibleWidth \* visibleHeight\) \/ \(rect\.width \* rect\.height\) >= 0\.5/);
   assert.doesNotMatch(previewPlayer, /className="watch-billboard-live-core-overlay"/);

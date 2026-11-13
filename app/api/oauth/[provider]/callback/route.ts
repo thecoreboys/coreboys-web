@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
 import { isOauthProvider } from "@/lib/oauth/providers";
-import { exchangeCode } from "@/lib/oauth/exchange";
+import { exchangeCode, OauthConnectError } from "@/lib/oauth/exchange";
+import { providerCallbackError } from "@/lib/oauth/callback-outcome";
 import {
   ProviderLinkedElsewhereError,
   upsertConnection,
@@ -39,24 +40,30 @@ export async function GET(
   const url = new URL(req.url);
   const err = url.searchParams.get("error");
   if (err) {
-    return bounce(origin, { oauth: "denied", provider });
+    const outcome = providerCallbackError(err);
+    if (outcome.oauth === "error") console.warn("[oauth/callback] provider returned an error", provider, err.slice(0, 64));
+    return bounce(origin, { ...outcome, provider });
   }
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   if (!code || !state) {
-    return bounce(origin, { oauth: "error", reason: "missing-code" });
+    return bounce(origin, { oauth: "error", reason: "missing-code", provider });
   }
 
   const store = await cookies();
   const raw = store.get(OAUTH_STATE_COOKIE)?.value;
-  const payload = raw ? await verifyOauthState(raw) : null;
-  if (!payload || payload.provider !== provider || payload.nonce !== state) {
-    return bounce(origin, { oauth: "error", reason: "bad-state" });
+  // The state cookie lives 10 minutes. A missing or expired one means the
+  // fan took too long (or started in another browser): ask them to retry.
+  if (!raw) return bounce(origin, { oauth: "error", reason: "expired-state", provider });
+  const payload = await verifyOauthState(raw);
+  if (!payload) return bounce(origin, { oauth: "error", reason: "expired-state", provider });
+  if (payload.provider !== provider || payload.nonce !== state) {
+    return bounce(origin, { oauth: "error", reason: "bad-state", provider });
   }
 
   const uid = await getCurrentFanUserId();
   if (!uid || uid !== payload.userId) {
-    return bounce(origin, { oauth: "error", reason: "session" });
+    return bounce(origin, { oauth: "error", reason: "session", provider });
   }
 
   try {
@@ -87,7 +94,10 @@ export async function GET(
     if (e instanceof ProviderLinkedElsewhereError) {
       return bounce(origin, { oauth: "linked", provider });
     }
-    console.error("[oauth/callback]", provider, e);
-    return bounce(origin, { oauth: "error", reason: "exchange" });
+    if (e instanceof OauthConnectError) {
+      return bounce(origin, { oauth: "error", reason: e.reason, provider });
+    }
+    console.error("[oauth/callback]", provider, e instanceof Error ? e.message : "exchange failed");
+    return bounce(origin, { oauth: "error", reason: "exchange", provider });
   }
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Accessibility, Check, Maximize2, RotateCcw, Settings2, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { usePlayerOptional } from "@/components/providers/PlayerProvider";
 
 type MotionMode = "calm" | "standard" | "cinematic";
 type DensityMode = "compact" | "balanced" | "theater";
@@ -132,6 +133,18 @@ export function WatchExperienceControls() {
 
   useEffect(() => setPreferences(readPreferences()), []);
 
+  // "Autoplay previews" here and in Account settings must be one setting:
+  // the hero, hover previews and cards read the player's previewAutoplay.
+  // Only a change made in this panel is pushed, so mounting never overrides
+  // the account's saved choice.
+  const player = usePlayerOptional();
+  const setPreviewAutoplay = player?.setPreviewAutoplay;
+  const autoplayTouched = useRef(false);
+  useEffect(() => {
+    if (!autoplayTouched.current) return;
+    setPreviewAutoplay?.(preferences.autoplay !== "off");
+  }, [preferences.autoplay, setPreviewAutoplay]);
+
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.watchMotion = preferences.motion;
@@ -149,7 +162,11 @@ export function WatchExperienceControls() {
     root.dataset.watchAutoplay = preferences.autoplay;
     root.style.setProperty("--watch-station-rgb", THEME_COLORS[preferences.theme]);
     root.style.setProperty("--core-cursor-color", CURSOR_COLORS[preferences.cursorTheme]);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    } catch {
+      // Blocked storage only means the choice is not remembered next visit.
+    }
   }, [preferences]);
 
   useEffect(() => {
@@ -259,12 +276,14 @@ export function WatchExperienceControls() {
   };
   const update = (patch: Partial<ExperiencePreferences>) => {
     playFeedback();
+    autoplayTouched.current = true;
     setUndoPreferences(preferences);
     setPreferences((current) => ({ ...current, ...patch }));
     setActivePreset("custom");
   };
   const applyPreset = (preset: Exclude<ExperiencePreset, "custom">) => {
     playFeedback();
+    autoplayTouched.current = true;
     setUndoPreferences(preferences);
     setPreferences(PRESETS[preset]);
     setActivePreset(preset);
@@ -273,6 +292,7 @@ export function WatchExperienceControls() {
   };
   const restoreDefaults = () => {
     playFeedback();
+    autoplayTouched.current = true;
     setUndoPreferences(preferences);
     setPreferences(DEFAULTS);
     setActivePreset("recommended");
@@ -411,7 +431,7 @@ export function WatchExperienceControls() {
           <footer className="watch-experience-footer">
             <button type="button" disabled={!undoPreferences} onClick={() => {
               if (!undoPreferences) return;
-              playFeedback(); setPreferences(undoPreferences); setUndoPreferences(null); setActivePreset("custom");
+              playFeedback(); autoplayTouched.current = true; setPreferences(undoPreferences); setUndoPreferences(null); setActivePreset("custom");
             }}>Undo last change</button>
             <button type="button" onClick={restoreDefaults}><RotateCcw aria-hidden /> Reset recommended</button>
           </footer>

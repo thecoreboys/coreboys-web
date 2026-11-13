@@ -135,16 +135,18 @@ export function WatchChrome({
     const refreshWhenActive = () => {
       refreshScheduler.request("catalog");
     };
-    const timer = window.setInterval(refreshWhenActive, 60_000);
+    // Each refresh re-renders the whole server page (catalog, Originals,
+    // Patreon) for this tab, so keep the cadence modest; live transitions
+    // have their own fast path below. `visibilitychange` already covers a
+    // returning viewer, so `focus` would only double the request.
+    const timer = window.setInterval(refreshWhenActive, 180_000);
     const onVisibility = () => {
       if (document.visibilityState === "visible") refreshWhenActive();
     };
-    window.addEventListener("focus", refreshWhenActive);
     window.addEventListener("online", refreshWhenActive);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener("focus", refreshWhenActive);
       window.removeEventListener("online", refreshWhenActive);
       document.removeEventListener("visibilitychange", onVisibility);
     };

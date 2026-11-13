@@ -85,9 +85,8 @@ const NETWORK_READY_EVENT = "core-network-route-ready";
 const NETWORK_READY_FALLBACK_MS = 900;
 const NETWORK_NAVIGATION_TIMEOUT_MS = 12_000;
 
-// Player surfaces arriving at a network route wait on this promise before
-// starting their own advisory. It prevents DJ Cora and the age warning from
-// talking over one another while keeping a normal direct player opening fast.
+// Optional voice announcements can sequence with one another. Page navigation
+// and player startup never await this promise; media takes priority over Cora.
 let activeTuningCueId: string | null = null;
 let tuningAudioCompletion = Promise.resolve();
 let tuningCueSequence = 0;
@@ -291,10 +290,10 @@ export function CinematicRouteTransition() {
   const playTuningAudio = useCallback((networkSlug: string | undefined) => {
     const settings = readRadioAudioSettings();
     if (!settings.enabled || document.documentElement.dataset.radioAudioSuppressed === "true") return;
-    // Read the visible dock synchronously from the navigation gesture. A
-    // collapsed/hidden DJ must not request an announcement for this route.
+    // Read DJ Cora's voice state synchronously from the navigation gesture.
+    // A minimized desktop dock or a switched-off phone DJ stays silent.
     const panel = document.getElementById("dj-cora-panel");
-    if (!panel || panel.getAttribute("aria-hidden") === "true") return;
+    if (!panel || panel.dataset.voice !== "on") return;
     const asset = chooseTuningAsset(networkSlug);
     if (!asset) return;
     const cueId = `network-tune:${asset.id}:${++tuningCueSequence}`;

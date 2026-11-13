@@ -162,11 +162,11 @@ test("TikTok disconnect revokes before local deletion", async () => {
   const calls: string[] = [];
 
   await disconnectOauthProvider("tiktok", {
-    loadTikTokAccessToken: async () => {
+    loadRevocableToken: async () => {
       calls.push("load");
-      return "test-access-token";
+      return { token: "test-access-token", kind: "access_token" };
     },
-    revokeTikTok: async () => {
+    revoke: async () => {
       calls.push("revoke");
     },
     deleteLocalConnection: async () => {
@@ -182,11 +182,11 @@ test("TikTok disconnect still deletes local data when revocation fails", async (
 
   await assert.rejects(
     disconnectOauthProvider("tiktok", {
-      loadTikTokAccessToken: async () => {
+      loadRevocableToken: async () => {
         calls.push("load");
-        return "test-access-token";
+        return { token: "test-access-token", kind: "access_token" };
       },
-      revokeTikTok: async () => {
+      revoke: async () => {
         calls.push("revoke");
         throw new Error("provider unavailable");
       },
@@ -200,15 +200,15 @@ test("TikTok disconnect still deletes local data when revocation fails", async (
   assert.deepEqual(calls, ["load", "revoke", "delete"]);
 });
 
-test("other OAuth providers retain local-only disconnect behavior", async () => {
+test("providers without a revocation endpoint keep local-only disconnect behavior", async () => {
   const calls: string[] = [];
 
-  await disconnectOauthProvider("youtube", {
-    loadTikTokAccessToken: async () => {
+  await disconnectOauthProvider("instagram", {
+    loadRevocableToken: async () => {
       calls.push("unexpected-load");
       return null;
     },
-    revokeTikTok: async () => {
+    revoke: async () => {
       calls.push("unexpected-revoke");
     },
     deleteLocalConnection: async () => {

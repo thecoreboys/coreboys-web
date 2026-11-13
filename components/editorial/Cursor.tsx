@@ -393,6 +393,10 @@ export function Cursor({ initialPosition }: { initialPosition?: { x: number; y: 
       const dragRail = element?.closest("[data-drag-scroll-root='true']") as HTMLElement | null;
       const isCardAction = action && !action.matches(".watch-poster-link, .watch-preview-media-link, .watch-billboard-surface-action");
       const isPlaying = Boolean(media?.querySelector("[aria-label^='Pause'], [aria-label='Pause video']"));
+      // Photo previews and photo heroes share the media surfaces but have
+      // nothing to play: they open a viewer (or the original post).
+      const isPhotoMedia = Boolean(media && (media.closest(".is-photo")
+        || /^view\s/i.test(action?.getAttribute("aria-label") ?? "")));
       const actionLabel = action?.getAttribute("aria-label")?.toLowerCase() ?? "";
       const isClose = Boolean(action && (actionLabel.startsWith("close") || actionLabel.startsWith("dismiss") || action.textContent?.trim() === "×"));
       const isGrid = Boolean(action?.closest("[data-cursor='grid'], .watch-player-layout, .multiview-layout"));
@@ -408,6 +412,7 @@ export function Cursor({ initialPosition }: { initialPosition?: { x: number; y: 
       else if (isRewind) nextMode = "rewind";
       else if (dragRail?.classList.contains("is-dragging")) nextMode = "hand";
       else if (isCardAction) nextMode = "action";
+      else if (media && isPhotoMedia) nextMode = "action";
       else if (media) nextMode = isPlaying ? "pause" : "play";
       // A rail becomes a hand only after its normal pointer gesture has
       // crossed the drag threshold. Before that it should not compete with
@@ -415,7 +420,7 @@ export function Cursor({ initialPosition }: { initialPosition?: { x: number; y: 
       else if (dragRail) nextMode = "default";
       else if (action) nextMode = "action";
       setMode(nextMode, source);
-      scheduleHint(hintFor(nextMode, action, liveTarget), source);
+      scheduleHint(isPhotoMedia && nextMode === "action" && !isCardAction ? "Click to view" : hintFor(nextMode, action, liveTarget), source);
       const quietAction = Boolean(action?.closest("[data-cursor-quiet]"));
       magneticTarget = conserve || quietAction ? null : action;
       magneticRect = magneticTarget?.getBoundingClientRect() ?? null;

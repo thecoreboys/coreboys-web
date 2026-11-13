@@ -14,6 +14,7 @@ import { getNotificationChannelPreferences } from "@/lib/notification-preference
 import { getPassportDashboard, listPassportCards } from "@/lib/passport/read";
 import { exportCommunityAccountData } from "@/lib/fanzone-communities";
 import { exportXNominationAccountData } from "@/lib/x/nominations";
+import { exportCatchUpState } from "@/lib/catch-up-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,6 +108,7 @@ export async function GET(req: Request) {
     passport,
     fanzoneCommunities,
     xPostNominations,
+    catchUp,
   ] = await Promise.all([
     getFanUserById(uid),
     listConnections(uid),
@@ -141,6 +143,7 @@ export async function GET(req: Request) {
     exportPassport(uid),
     exportCommunityAccountData(uid),
     exportXNominationAccountData(uid),
+    exportCatchUpState(uid).catch(() => null),
   ]);
 
   const payload = {
@@ -190,6 +193,7 @@ export async function GET(req: Request) {
     passport,
     fanzoneCommunities,
     xPostNominations,
+    catchUp,
     note: "OAuth access and refresh tokens are never exported.",
   };
 

@@ -6,6 +6,9 @@ import { limitFanAuth } from "@/lib/fan-auth-rate-limit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// bcrypt (10 rounds) hash of a random throwaway value; never matches input.
+const TIMING_DUMMY_HASH = "$2b$10$cSMkwKfU0IhkpW2svo1ypuf0w1XJ3DhzD.1D78IKEaVrYwMPWrg.m";
+
 export async function POST(req: Request) {
   let body: unknown;
   try {
@@ -31,7 +34,10 @@ export async function POST(req: Request) {
       { status: 503 },
     );
   }
-  if (!row || !(await verifyPassword(parsed.data.password, row.password_hash))) {
+  // Unknown emails still pay for one bcrypt comparison so response timing
+  // does not reveal which addresses have accounts.
+  const passwordOk = await verifyPassword(parsed.data.password, row?.password_hash ?? TIMING_DUMMY_HASH);
+  if (!row || !passwordOk) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
 

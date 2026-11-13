@@ -134,6 +134,13 @@
 :global(body:has([role="dialog"])) .root,
 :global(body:has([role="dialog"])) .mobileToggle,
 :global(body:has([role="dialog"])) .edgeRestore { visibility: hidden; pointer-events: none; }
+/* Twitch only autoplays, and only keeps its ads running, in an embed that
+   nothing paints over. This widget sits over the bottom-right of the home and
+   channel heroes, so it steps aside (hidden is not an occluder) while a hero
+   Twitch preview is on screen, and returns once the viewer scrolls past it. */
+:global(body:has([data-twitch-clearance])) .root,
+:global(body:has([data-twitch-clearance])) .mobileToggle,
+:global(body:has([data-twitch-clearance])) .edgeRestore { visibility: hidden; pointer-events: none; }
 :global(body:has(.watch-together[data-open="true"])) .root,
 :global(body:has(.watch-together[data-open="true"])) .mobileToggle,
 :global(body:has(.watch-together[data-open="true"])) .edgeRestore { visibility: hidden; pointer-events: none; }
@@ -196,3 +203,18 @@
 :global(html[data-theme="light"]) .edgeRestore:hover { border-color: #6a7a70; background: #fff; color: #263c2f; }
 :global(html[data-theme="light"]) .dialTrack:focus-within,
 :global(html[data-theme="light"]) :is(.panelClose, .play, .stop, .power, .settings, .edgeRestore):focus-visible { outline-color: #224839; }
+
+/* Phones: no panel or channel dial. The small DJ button is DJ Cora's on/off
+   switch, and it pulses while she is speaking. */
+.voiceToggle { width: auto; min-width: 66px; padding-inline: 12px; }
+.voiceToggle svg { width: 14px; height: 14px; }
+.voiceToggle[aria-pressed="false"] { color: #9aa1a8; border-style: dashed; }
+.voiceToggle[aria-pressed="true"] { color: #ffd7d1; border-color: rgba(243,154,135,.55); background: #3a2a30; }
+.voiceToggle.isSpeaking { box-shadow: 0 0 0 3px rgba(242,125,112,.28), 0 4px 12px #0003; animation: radio-voice 1.2s ease-in-out infinite; }
+@keyframes radio-voice { 50% { box-shadow: 0 0 0 6px rgba(242,125,112,.12), 0 4px 12px #0003; } }
+:global(html[data-theme="light"]) .voiceToggle[aria-pressed="true"] { color: #305d45; background: #d6e6d9; border-color: #94b09c; }
+@media (max-width: 767px) {
+  .root { display: none; }
+  .voiceToggle { display: grid; }
+}
+@media (prefers-reduced-motion: reduce) { .voiceToggle.isSpeaking { animation: none; } }

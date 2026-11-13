@@ -2647,8 +2647,11 @@
 }
 
 /* Keep every CORE control below the iframe: even a corner badge makes
-   Twitch's visibility observer reject muted autoplay as obscured. */
-.watch-preview.has-twitch-player .watch-preview-save {
+   Twitch's visibility observer reject muted autoplay as obscured. Clip
+   previews use a plain Twitch iframe (not the SDK player) under the same
+   rule, so they need the same clearance. */
+.watch-preview.has-twitch-player .watch-preview-save,
+.watch-preview.is-twitch.has-motion .watch-preview-save {
   top: calc(300px + 0.65rem);
 }
 
@@ -2873,16 +2876,16 @@
   .watch-billboard-live-player.is-preview.is-native.is-ready .watch-billboard-live-frame { opacity: 1; }
   .watch-billboard-live-player.is-preview.is-native .watch-billboard-provider-status { display: none; }
 
-  .watch-billboard.has-live-player:has(.watch-billboard-live-player.is-youtube) {
+  .watch-billboard.has-live-player:has(.watch-billboard-live-player:is(.is-youtube, .is-twitch, .is-tiktok)) {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-end;
   }
-  .watch-billboard:has(.watch-billboard-live-player.is-youtube) .watch-billboard-copy {
+  .watch-billboard:has(.watch-billboard-live-player:is(.is-youtube, .is-twitch, .is-tiktok)) .watch-billboard-copy {
     order: 1;
     padding-bottom: 1rem;
   }
-  .watch-billboard-live-player.is-preview.is-youtube {
+  .watch-billboard-live-player.is-preview:is(.is-youtube, .is-tiktok, .is-twitch) {
     position: relative;
     z-index: 3;
     order: 2;
@@ -2893,15 +2896,31 @@
     margin: 0 1.25rem 1.25rem;
     background: #050506;
   }
-  .watch-billboard-live-player.is-preview.is-youtube :is(.watch-billboard-live-frame, .watch-billboard-live-fallback) {
+  .watch-billboard-live-player.is-preview:is(.is-youtube, .is-tiktok) :is(.watch-billboard-live-frame, .watch-billboard-live-fallback) {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     border: 0;
   }
-  .watch-billboard-live-player.is-preview.is-youtube .watch-billboard-live-frame { z-index: 1; }
-  .watch-billboard-live-player.is-preview.is-youtube .watch-billboard-provider-status { display: none; }
+  .watch-billboard-live-player.is-preview:is(.is-youtube, .is-tiktok) .watch-billboard-live-frame { z-index: 1; }
+  .watch-billboard-live-player.is-preview:is(.is-youtube, .is-tiktok) .watch-billboard-provider-status { display: none; }
+  /* Twitch only autoplays in a visible player of at least 400x300 CSS px.
+     Below 900px the hero used to hide it entirely (a 0x0 slot never
+     qualifies). Give it the full hero width, without side margins, so any
+     screen 400px or wider can start it; narrower phones keep the poster. */
+  .watch-billboard-live-player.is-preview.is-twitch {
+    width: 100%;
+    min-height: 300px;
+    margin: 0 0 1.25rem;
+  }
+  .watch-billboard-live-player.is-preview.is-twitch :is(.watch-billboard-live-mount, .watch-billboard-live-mount iframe, .watch-billboard-live-fallback) {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+    border: 0;
+  }
 }
 
 /* The provider preview lives in a cross-origin iframe, so its pointer events
@@ -3055,6 +3074,9 @@
     box-shadow: none;
   }
   .watch-billboard-live-player.is-preview.is-twitch .watch-billboard-live-mount { overflow: visible; }
+  /* Until the SDK inserts its iframe, show the stream still instead of an
+     empty black box. */
+  .watch-billboard-live-player.is-preview.is-twitch:not(.is-mounted) .watch-billboard-live-mount { background: transparent; }
   .watch-billboard-provider-status {
     position: absolute;
     top: 100%;
@@ -4205,6 +4227,166 @@ html[data-theme="light"] .watch-status-strip .watch-status-inner > p {
 
 @media (max-width: 639px) {
   .watch-events-series-poster { width: clamp(9.5rem, 43vw, 11.25rem); }
+}
+
+/* Most watched this week: the top Twitch clip from each creator's channel,
+   ranked by views. Landscape cards with the creator's accent on hover. */
+.watch-weekly-clips-kicker {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-weekly-clips-rail {
+  display: flex;
+  gap: 0.9rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: 0.7rem 0.1rem 0.8rem;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.watch-weekly-clips-rail::-webkit-scrollbar { display: none; }
+
+.watch-weekly-clip {
+  --clip-accent: #db0368;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.6rem;
+  width: clamp(15rem, 22vw, 20rem);
+  color: var(--ink);
+  scroll-snap-align: start;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.watch-weekly-clip-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 0.58rem;
+  background: #111116;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+  outline: 1px solid rgba(255, 255, 255, 0.1);
+  outline-offset: -1px;
+  transition: transform 180ms ease, box-shadow 180ms ease, outline-color 180ms ease;
+}
+
+.watch-weekly-clip-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  transition: transform 280ms cubic-bezier(.2,.7,.2,1);
+}
+
+.watch-weekly-clip-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(7, 7, 11, 0.5) 0%, transparent 34%, transparent 62%, rgba(7, 7, 11, 0.7) 100%);
+  pointer-events: none;
+}
+
+.watch-weekly-clip-rank {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.6rem;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+.watch-weekly-clip-views,
+.watch-weekly-clip-duration {
+  position: absolute;
+  bottom: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.35rem;
+  background: rgba(7, 7, 11, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.watch-weekly-clip-views { left: 0.5rem; }
+.watch-weekly-clip-duration { right: 0.5rem; }
+
+.watch-weekly-clip-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.watch-weekly-clip-avatar {
+  flex: 0 0 auto;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow: 0 0 0 2px var(--clip-accent);
+}
+
+.watch-weekly-clip-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.watch-weekly-clip-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.watch-weekly-clip-copy span {
+  overflow: hidden;
+  font-size: 0.76rem;
+  color: var(--ink-faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-weekly-clip:hover .watch-weekly-clip-media,
+.watch-weekly-clip:focus-visible .watch-weekly-clip-media {
+  transform: translateY(-0.3rem);
+  outline: 2px solid var(--clip-accent);
+  box-shadow: 0 22px 38px rgba(0, 0, 0, 0.48);
+}
+
+.watch-weekly-clip:hover .watch-weekly-clip-media img,
+.watch-weekly-clip:focus-visible .watch-weekly-clip-media img {
+  transform: scale(1.05);
+}
+
+.watch-weekly-clip:focus-visible { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-weekly-clip-media,
+  .watch-weekly-clip-media img { transition: none; }
+}
+
+@media (max-width: 639px) {
+  .watch-weekly-clip { width: min(78vw, 17rem); }
+  .watch-weekly-clips-kicker { display: none; }
 }
 
 .watch-poster {

@@ -10,6 +10,8 @@ import { PatreonLockedShelf } from "@/components/watch/PatreonLockedShelf";
 import { compactWatchCatalog } from "@/lib/watch/catalog-cache";
 import { projectHomeCatalog } from "@/lib/watch/home-catalog";
 import { StreamerAwardsWinner } from "@/components/campaigns/StreamerAwardsWinner";
+import { getWeeklyTopClips } from "@/lib/watch/weekly-top-clips";
+import { WeeklyTopClips } from "@/components/watch/WeeklyTopClips";
 import "./watch/watch.css";
 
 export const dynamic = "force-dynamic";
@@ -32,12 +34,18 @@ async function PatreonSection() {
   return data ? <PatreonLockedShelf data={data} /> : <p className="px-5 text-sm text-secondary">Patreon previews are temporarily unavailable.</p>;
 }
 
+async function WeeklyTopClipsSection() {
+  const clips = await getWeeklyTopClips().catch(() => []);
+  return <WeeklyTopClips clips={clips} />;
+}
+
 export default async function HomePage() {
   const catalog = await getHomeWatchCatalog();
 
   return (
     <WatchHomeEntry catalog={compactWatchCatalog(projectHomeCatalog(catalog))}
       awards={<StreamerAwardsWinner />}
+      mostWatched={<Suspense key="most-watched" fallback={null}><WeeklyTopClipsSection /></Suspense>}
       patreon={<Suspense key="patreon" fallback={<p role="status" className="px-5 text-sm text-secondary">Loading Patreon previews…</p>}><PatreonSection /></Suspense>}
       originals={<Suspense key="originals" fallback={<div className="min-h-56 px-5" role="status">Loading CORE Originals…</div>}><OriginalsSection /></Suspense>}
     />

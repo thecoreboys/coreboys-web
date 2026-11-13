@@ -12,6 +12,7 @@ import { consumeAdminLoginRateLimit } from "@/lib/admin-login-rate-limit";
 import { createTotpChallenge, TotpConfigurationError } from "@/lib/admin-totp";
 import { MEMBERS } from "@/lib/members";
 import { isStaffRole, staffAssignmentIsValid, staffLandingPath } from "@/lib/staff-policy";
+import { siteAccessClientIp } from "@/lib/site-access-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,9 +44,8 @@ export async function POST(req: Request) {
   }
 
   const email = body.email.toLowerCase();
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    ?? req.headers.get("x-real-ip")
-    ?? "unknown";
+  // The first forwarded entry is caller-controlled; use the ingress-appended peer.
+  const ip = siteAccessClientIp(req.headers);
   const [ipLimit, emailLimit] = await Promise.all([
     consumeAdminLoginRateLimit(`admin-login:ip:${ip}`, 12),
     consumeAdminLoginRateLimit(`admin-login:email:${email}`, 5),

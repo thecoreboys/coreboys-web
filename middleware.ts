@@ -75,7 +75,9 @@ export default async function middleware(req: NextRequest) {
       if (pathname === "/access") {
         if (admitted) {
           const requested = req.nextUrl.searchParams.get("next");
-          const destination = requested?.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/access")
+          // Reject `/\host` and control characters too: URL parsing treats a
+          // backslash like `/`, which turns `/\evil.com` into `//evil.com`.
+          const destination = requested?.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/access") && ![...requested].some((char) => char === String.fromCharCode(92) || char.charCodeAt(0) < 32)
             ? requested
             : "/";
           return NextResponse.redirect(new URL(destination, req.url));

@@ -16,6 +16,7 @@ import { LiveRibbon } from "@/components/live/LiveRibbon";
 import { MultiviewRemoteBanner } from "@/components/watch/MultiviewRemoteLinks";
 import { GlobalSiteFooter } from "@/components/chrome/GlobalSiteFooter";
 import { MobileBottomNav } from "@/components/chrome/MobileBottomNav";
+import { RouteEntrance } from "@/components/chrome/RouteEntrance";
 
 import { ConsoleEgg } from "@/components/editorial/ConsoleEgg";
 import { CursorLoader } from "@/components/editorial/CursorLoader";
@@ -28,6 +29,7 @@ import { ExternalNavigation } from "@/components/chrome/ExternalNavigation";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { ContributorWidget } from "@/components/contributors/ContributorWidget";
 import { AppStoreDownload } from "@/components/chrome/AppStoreDownload";
+import { NavigationPrefetch } from "@/components/chrome/NavigationPrefetch";
 import "./contributors.css";
 import "./globals.css";
 import "./watch/watch.css";
@@ -44,6 +46,7 @@ import "./guide-polish.css";
 import "./guide/guide.css";
 import "./guide-readable.css";
 import "./mobile-bottom-nav.css";
+import "./motion.css";
 
 // One typeface across the entire product. Inter's variable font covers every
 // weight used by the streaming UI without introducing mismatched display,
@@ -95,7 +98,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
-        <link rel="preconnect" href="https://i.ytimg.com" />
+        {/* Hero thumbs load ytimg in CORS mode; match it or the browser opens a second connection. */}
+        <link rel="preconnect" href="https://i.ytimg.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://static-cdn.jtvnw.net" />
         <link rel="dns-prefetch" href="https://player.twitch.tv" />
       </head>
@@ -129,6 +133,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               >
                 {children}
               </main>
+              <RouteEntrance />
+              <NavigationPrefetch />
               <GlobalSiteFooter />
               <Suspense fallback={null}><MobileBottomNav /></Suspense>
               </div>

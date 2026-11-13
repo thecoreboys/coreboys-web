@@ -26,6 +26,9 @@ import {
 } from "@/lib/radio/settings";
 import { cx } from "@/utils/cx";
 import { createDebouncedWorkspaceSave } from "@/lib/account/workspace-save-queue";
+import { EXPERIENCE_STORAGE_KEY } from "@/lib/theme";
+import { useSubscription } from "@/hooks/useSubscription";
+import { PLAYER_PREFS_STORAGE_KEY, localPlayerPrefsUpdatedAt, remotePlayerPrefsWin } from "@/lib/watch/player-prefs-clock";
 import { useNativeApp } from "@/hooks/useNativeApp";
 
 type AccountSettings = {
@@ -112,6 +115,12 @@ function restoreSettings(value: unknown, defaults: AccountSettings): AccountSett
 function applyExperience(settings: AccountSettings) {
   document.documentElement.dataset.reducedMotion = String(settings.reduceMotion);
   document.documentElement.dataset.contrast = settings.highContrast ? "more" : "standard";
+  // The layout's boot script re-applies these on every page load.
+  try {
+    window.localStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify({ reduceMotion: settings.reduceMotion, highContrast: settings.highContrast }));
+  } catch {
+    // Storage may be blocked; the account copy still applies on this page.
+  }
 }
 
 function isAutoplayMode(value: unknown): value is AutoplayMode {
@@ -134,6 +143,8 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
   const nativeApp = useNativeApp();
   const section = nativeApp && requestedSection === "station-audio" ? "playback" : requestedSection;
   const player = usePlayer();
+  const subscription = useSubscription();
+  const screensLimit = subscription.loading || subscription.unavailable || subscription.hasFeature("multiview.expanded") ? 8 : 2;
   const playerRef = useRef(player);
   playerRef.current = player;
   const { theme, accent, setTheme, setAccent } = useTheme();
@@ -224,6 +235,11 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
     }
   }, 350), [accountId]);
 
+  // Hydration runs once per account; reach the latest provider snapshot and
+  // save queue through a ref instead of restarting it on every player change.
+  const syncLocalPlayerRef = useRef(() => {});
+  syncLocalPlayerRef.current = () => playerSaveQueue.schedule(playerSettings());
+
   const updatePlayer = useCallback((patch: Partial<PlayerSettings>) => {
     if (patch.autoplayMode !== undefined) player.setAutoplayMode(patch.autoplayMode);
     if (patch.previewAutoplay !== undefined) player.setPreviewAutoplay(patch.previewAutoplay);
@@ -264,7 +280,7 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
       try {
         const preferencesResponse = await fetch("/api/account/workspaces?kind=account-settings", { credentials: "same-origin", signal: controller.signal, headers: { "x-core-account-id": accountId } });
         if (preferencesResponse.ok) {
-          const data = await preferencesResponse.json() as { items?: Array<{ name: string; payload: unknown }> };
+          const data = await preferencesResponse.json() as { items?: Array<{ name: string; payload: unknown; updatedAt?: string }> };
           if (!Array.isArray(data.items)) throw new Error("settings_incomplete");
           const stored = data.items?.find((item) => item.name === "experience")?.payload;
           const next = restoreSettings(stored, defaultSettings(theme, accent));
@@ -273,8 +289,21 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
           setTheme(next.theme);
           setAccent(next.accent);
           applyExperience(next);
-          const playerStored = data.items?.find((item) => item.name === "player")?.payload;
-          if (playerStored && typeof playerStored === "object") {
+          const playerItem = data.items?.find((item) => item.name === "player");
+          const playerStored = playerItem?.payload;
+          let localPrefsMs = 0;
+          try {
+            localPrefsMs = localPlayerPrefsUpdatedAt(window.localStorage.getItem(PLAYER_PREFS_STORAGE_KEY));
+          } catch {
+            // Without local storage the account copy is the only copy.
+          }
+          // A choice made in the player after the account copy was saved
+          // (captions, quality, data saver…) wins; the account copy catches up.
+          const remoteWins = remotePlayerPrefsWin(playerItem?.updatedAt, localPrefsMs);
+          if (playerStored && typeof playerStored === "object" && !remoteWins && playerRef.current.ready) {
+            syncLocalPlayerRef.current();
+          }
+          if (playerStored && typeof playerStored === "object" && remoteWins) {
             // Hydration is a single request; playback changes must not restart
             // it or reapply older saved preferences while the viewer edits.
             const player = playerRef.current;
@@ -373,7 +402,8 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
           <ToggleRow label="Audio description" detail="Uses described audio where a provider offers it." value={player.audioDescription} onChange={(audioDescription) => updatePlayer({ audioDescription })} />
           <ToggleRow label="Mix multiview audio" detail="Allow more than one stream to play sound at once." value={player.mixAudio} onChange={(mixAudio) => updatePlayer({ mixAudio })} />
           <RangeRow label="Preview volume" value={player.previewVolume} min={0} max={1} step={0.05} format={(value) => `${Math.round(value * 100)}%`} onChange={(previewVolume) => updatePlayer({ previewVolume })} />
-          <RangeRow label="Multiview screens" value={player.maxActivePlayers} min={1} max={8} step={1} format={(value) => String(value)} onChange={(maxActivePlayers) => updatePlayer({ maxActivePlayers })} />
+          <RangeRow label="Multiview screens" value={Math.min(player.maxActivePlayers, screensLimit)} min={1} max={screensLimit} step={1} format={(value) => String(value)} onChange={(maxActivePlayers) => updatePlayer({ maxActivePlayers })} />
+          {screensLimit < 8 ? <p className="pb-4 text-xs leading-5 text-tertiary">Your plan plays up to {screensLimit} screens at once. <Link href={subscription.featureHref("multiview.expanded") as never} className="font-semibold text-brand-secondary underline-offset-4 hover:underline">{subscription.requiredPlanName("multiview.expanded")} unlocks up to 8.</Link></p> : null}
         </div>
       </section> : null}
 
@@ -399,9 +429,9 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
       {(!section || section === "privacy") ? <section id="privacy" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={ShieldCheck} eyebrow="Privacy & safety" title="Decide what stays private" detail="CORE does not expose your watch activity or connected platforms without an explicit choice." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
-          <LinkRow label="Public fan profile" detail="Your fan card is private unless you explicitly publish it. Manage its visibility and handle." href="/account/settings#connected-accounts" />
+          <LinkRow label="Public fan card" detail="Your fan card is private unless you explicitly publish it. Manage its visibility and handle." href="/account/settings#public-profile" />
           <LinkRow label="Connected accounts" detail="Review platform permissions, disconnect accounts, or sync on demand." href="/account/settings#connected-accounts" />
-          <LinkRow label="Account deletion" detail="Review or cancel a scheduled account deletion." href="/account/settings#account-deletion" />
+          <LinkRow label="Signed-in devices" detail="Change your password or sign out of other devices." href="/account/settings#security" />
           <div className="rounded-lg bg-secondary px-4 py-3 text-xs leading-5 text-tertiary">Watch activity is used for your account history and fan score. It is not shown on your public fan card.</div>
         </div>
       </section> : null}

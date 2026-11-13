@@ -7,7 +7,7 @@ import { upsertNotificationPref } from "@/lib/community";
 import { fetchUsersByLogin } from "@/lib/twitch";
 import { memberTargets, houseTarget } from "@/lib/oauth/roster";
 import { accessTokenFor } from "@/lib/oauth/refresh";
-import { getConnection, markSynced, markSyncError } from "@/lib/oauth/connections";
+import { getConnection, markAccessTokenRejected, markSynced, markSyncError, type ConnectionRow } from "@/lib/oauth/connections";
 import { setLoyalty } from "@/lib/oauth/loyalty";
 import { providerHasScope, type OauthProvider } from "@/lib/oauth/providers";
 import { parseTwitchSubscriptionResponse } from "@/lib/twitch-subscription";
@@ -50,8 +50,28 @@ export async function syncProvider(userId: string, provider: OauthProvider): Pro
   } catch (err) {
     const msg = err instanceof Error ? err.message : "sync failed";
     await markSyncError(userId, provider, msg, connection.id);
+    // The provider rejected the access token itself (revoked at the provider,
+    // password change, early expiry). Let the next use refresh once; a
+    // rejected refresh then shows "Reconnect needed" instead of a vague error.
+    if (providerRejectedAccessToken(msg)) {
+      await markAccessTokenRejected(userId, provider, connection.id).catch(() => undefined);
+    }
     return { provider, ok: false, error: msg, facts: 0 };
   }
+}
+
+/** Sync errors carry the provider HTTP status, e.g. `twitch follows 401`. */
+export function providerRejectedAccessToken(message: string): boolean {
+  return /\b401\b/.test(message);
+}
+
+function requireCurrentGrant(
+  pair: { token: string; row: ConnectionRow } | null,
+  connectionId: string,
+  label: string,
+): asserts pair is { token: string; row: ConnectionRow } {
+  if (!pair) throw new Error(`${label} sign-in expired or was revoked. Reconnect ${label}.`);
+  if (pair.row.id !== connectionId) throw new Error(`${label} connection changed. Sync again.`);
 }
 
 export async function syncAll(userId: string, providers: OauthProvider[]): Promise<SyncResult[]> {
@@ -60,7 +80,7 @@ export async function syncAll(userId: string, providers: OauthProvider[]): Promi
 
 async function syncTwitch(userId: string, connectionId: string): Promise<number> {
   const pair = await accessTokenFor(userId, "twitch");
-  if (!pair || pair.row.id !== connectionId) throw new Error("Twitch connection changed. Sync again.");
+  requireCurrentGrant(pair, connectionId, "Twitch");
   const { token, row } = pair;
   const viewerId = row.provider_user_id;
   if (!viewerId) throw new Error("missing Twitch user id");
@@ -171,7 +191,7 @@ async function youtubeSubscribedTo(token: string, channelId: string): Promise<bo
 
 async function syncYoutube(userId: string, connectionId: string): Promise<number> {
   const pair = await accessTokenFor(userId, "youtube");
-  if (!pair || pair.row.id !== connectionId) throw new Error("YouTube connection changed. Sync again.");
+  requireCurrentGrant(pair, connectionId, "YouTube");
   const { token } = pair;
   let facts = 0;
 
@@ -249,7 +269,7 @@ async function syncYoutube(userId: string, connectionId: string): Promise<number
  */
 async function syncTikTok(userId: string, connectionId: string): Promise<number> {
   const pair = await accessTokenFor(userId, "tiktok");
-  if (!pair || pair.row.id !== connectionId) throw new Error("TikTok connection changed. Sync again.");
+  requireCurrentGrant(pair, connectionId, "TikTok");
   if (!providerHasScope(pair.row.scopes, "video.list")) {
     throw new Error("Reconnect TikTok to approve video.list");
   }
@@ -289,7 +309,7 @@ async function syncTikTok(userId: string, connectionId: string): Promise<number>
 /** Instagram Login supports professional-account media reads, not comments. */
 async function syncInstagram(userId: string, connectionId: string): Promise<number> {
   const pair = await accessTokenFor(userId, "instagram");
-  if (!pair || pair.row.id !== connectionId) throw new Error("Instagram connection changed. Sync again.");
+  requireCurrentGrant(pair, connectionId, "Instagram");
   if (!providerHasScope(pair.row.scopes, "instagram_business_basic") &&
       !providerHasScope(pair.row.scopes, "instagram_basic")) {
     throw new Error("Reconnect Instagram to approve media access");
@@ -332,7 +352,7 @@ async function syncInstagram(userId: string, connectionId: string): Promise<numb
 
 async function syncX(userId: string, connectionId: string): Promise<number> {
   const pair = await accessTokenFor(userId, "x");
-  if (!pair || pair.row.id !== connectionId) throw new Error("X connection changed. Sync again.");
+  requireCurrentGrant(pair, connectionId, "X");
   const { token, row } = pair;
   const myId = row.provider_user_id;
   if (!myId) throw new Error("missing X user id");

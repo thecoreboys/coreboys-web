@@ -1,6 +1,7 @@
 import "server-only";
 import { withTransaction } from "./db";
 import { ensureCoreOriginalsSchema, getCoreOriginalSnapshot } from "./core-originals";
+import { curatedOriginalItems } from "./core-originals-curated";
 import { originalMatchReason, originalSourceKey } from "./core-originals-matching";
 import { getWatchCatalog } from "./watch/catalog";
 import type { WatchItem } from "./watch/types";
@@ -41,9 +42,11 @@ export async function runOriginalSuggestions() {
   let collections = 0;
   for (const original of snapshot.originals.filter((entry) => entry.enabled)) {
     if (snapshot.items.filter((item) => item.originalId === original.id && item.status === "pending").length >= 36) continue;
+    // Episodes already curated in code are published; don't queue them again.
+    const curated = new Set(curatedOriginalItems(original).map((item) => originalSourceKey(item.sourceUrl)));
     const matches = ordered.flatMap((item) => {
       const reason = originalMatchReason(original.slug, item);
-      return reason ? [{ item, reason }] : [];
+      return reason && !curated.has(originalSourceKey(item.sourceUrl ?? item.href)) ? [{ item, reason }] : [];
     });
     if (!matches.length) continue;
     added += await suggestOriginalItems(original.id, matches);

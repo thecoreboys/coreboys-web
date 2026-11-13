@@ -40,9 +40,13 @@ export function consumePostcardRequest(
   return { ok: true, remaining: maximum - bucket.count, resetAt: bucket.resetAt };
 }
 
+/**
+ * Azure ingress appends the real peer as the LAST forwarded entry; the first
+ * entry is whatever the caller sent, so keying on it let anyone rotate past
+ * the throttle with a fake header.
+ */
 export function postcardRequestKey(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || request.headers.get("x-real-ip")?.trim()
+  return request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim()
     || "unknown";
 }
 

@@ -4,31 +4,24 @@
   left: max(16px, env(safe-area-inset-left));
   bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px));
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: minmax(0,1fr);
   align-items: center;
-  gap: 6px 10px;
+  gap: 7px;
   max-width: calc(100vw - 32px);
 }
 
-.appIcon {
-  flex: none;
-  width: 56px;
-  height: 56px;
-  border: 1px solid #ffffff24;
-  border-radius: 13px;
-  background: #08080a;
-  box-shadow: 0 4px 12px #0002;
-}
-
 .badge {
-  min-height: 56px;
-  gap: 9px;
-  padding: 7px 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  gap: 10px;
+  padding: 7px 14px;
   border: 1px solid #ffffff45;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #101012;
   color: #fff;
-  box-shadow: 0 4px 12px #0002;
+  box-shadow: none;
   text-decoration: none;
 }
 
@@ -42,20 +35,15 @@
 .apple { flex: none; }
 .label { display: grid; gap: 2px; text-align: left; line-height: 1.15; }
 .label > span { font-size: 11px; font-weight: 450; letter-spacing: .015em; }
-.label > strong { font-size: 18px; font-weight: 600; letter-spacing: -.035em; }
-.invite { grid-column: 2; justify-self: center; }
+.label > strong { font-size: 19px; font-weight: 550; letter-spacing: -.035em; }
+.invite { margin: 0; color: var(--ink-dim); font-size: 10px; line-height: 1.4; text-align: center; }
 
 .download[data-occluded="true"],
 .promotionVisible,
 :global(body[data-cookie-consent-open="true"]) .download { visibility: hidden; pointer-events: none; }
 
-@media (max-width: 767px) {
-  .download { left: max(12px, env(safe-area-inset-left)); bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px)); gap: 6px 8px; }
-  .appIcon { width: 48px; height: 48px; border-radius: 11px; }
-  .badge { min-height: 48px; padding: 5px 11px; border-radius: 10px; }
-  .label > strong { font-size: 17px; }
-}
+@media (max-width: 1023px) { .download { display: none; } }
 
 @media (forced-colors: active) {
-  .appIcon, .badge { border: 1px solid ButtonText; }
+  .badge { border: 1px solid ButtonText; }
 }

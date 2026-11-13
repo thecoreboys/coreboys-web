@@ -18,6 +18,22 @@ export function tiktokPostThumbnailSource(item: { platform: string; sourceUrl?: 
   return undefined;
 }
 
+/**
+ * Instagram's CDN serves photos at full camera resolution (often 3000px+ and
+ * several MB). These hosts are allowed in next.config's remotePatterns so the
+ * image optimizer can resize them to the card instead.
+ */
+export function isInstagramCdnImage(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    return parsed.protocol === "https:"
+      && (host === "cdninstagram.com" || host.endsWith(".cdninstagram.com") || host === "fbcdn.net" || host.endsWith(".fbcdn.net"));
+  } catch {
+    return false;
+  }
+}
+
 /** Highest-quality YouTube stills first. maxres/sd 404 as a 120×90 stub. */
 export function youtubeThumbCandidates(id: string, quality: "card" | "hero" = "hero"): string[] {
   if (quality === "card") return [
@@ -121,4 +137,29 @@ export function isYoutubePlaceholderPixels(
     centerDark / centerCount > 0.12 &&
     centerBright / centerCount > 0.015 &&
     centerContrast / centerCount > 0.2;
+}
+
+/**
+ * WatchThumb props for a compact card, using the same source preference as
+ * PosterCard: provider covers win over placeholder or member-portrait posters.
+ */
+export function cardThumbSource(
+  item: { platform: string; poster?: string; sourceUrl?: string | null; href?: string | null },
+  memberPortrait: string | undefined,
+  youtubeId: string | null,
+) {
+  const generic = !item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png";
+  const tiktokSourceUrl = tiktokPostThumbnailSource(item);
+  const preferTikTokSource = Boolean(tiktokSourceUrl) && (generic || /\.hei[cf](?:[?#]|$)/i.test(item.poster ?? ""));
+  const instagramSourceUrl = item.platform === "instagram" && item.sourceUrl ? item.sourceUrl : undefined;
+  const preferInstagramSource = Boolean(instagramSourceUrl) && generic;
+  const preferYouTube = item.platform === "youtube" && Boolean(youtubeId) && generic;
+  return {
+    youtubeId,
+    src: preferYouTube || preferTikTokSource || preferInstagramSource ? "" : item.poster ?? "",
+    tiktokSourceUrl,
+    preferTikTokSource,
+    instagramSourceUrl,
+    preferInstagramSource,
+  };
 }

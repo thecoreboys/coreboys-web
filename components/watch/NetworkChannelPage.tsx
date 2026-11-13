@@ -6,10 +6,11 @@ import Image from "@/components/ui/SiteImage";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChevronRight, Clapperboard, Clock3, ExternalLink, Images, Mail, MessageCircle, Play, Radio, RotateCcw, Sparkles, Volume2, VolumeX, Zap } from "lucide-react";
+import { ChevronRight, Clapperboard, Clock3, ExternalLink, History as HistoryIcon, Images, Mail, MessageCircle, Minimize2, Play, Radio, RotateCcw, Sparkles, UsersRound, Volume2, VolumeX, Zap } from "lucide-react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import {
   markNetworkRouteReady,
+  skipNetworkTuningAudio,
   waitForNetworkTuningAudio,
 } from "@/components/watch/CinematicRouteTransition";
 import { GuideHistory } from "@/components/watch/GuideHistory";
@@ -29,6 +30,7 @@ import { ageFromIso } from "@/lib/utils";
 import { WatchThumb } from "./WatchThumb";
 import { DragScrollRail } from "./DragScrollRail";
 import { CreatorPlatformRails } from "./CreatorPlatformRails";
+import { ChannelBrowser } from "./ChannelBrowser";
 import { AutoScrollGallery } from "@/components/ui/AutoScrollGallery";
 import type { WatchItem, WatchPlatform } from "@/lib/watch/types";
 import type { WatchHomeXPost } from "@/lib/watch/x-posts";
@@ -67,6 +69,8 @@ import {
   type NetworkChannelMode,
 } from "@/lib/watch/channels";
 import styles from "./NetworkChannelPage.module.css";
+import { GuideNowStrip } from "./GuideNowStrip";
+import { WatchHistoryPanel } from "./WatchHistoryPanel";
 
 export type ChannelCrewMember = {
   slug: string;
@@ -83,13 +87,54 @@ const CHANNEL_CONTINUOUS_QUEUE_HORIZON_MS = 8 * 60 * 60 * 1_000;
 const CHANNEL_CONTINUOUS_QUEUE_MIN_BLOCKS = 18;
 const CHANNEL_CONTINUOUS_QUEUE_MAX_BLOCKS = 60;
 
+// One scrolling page: every section renders in this order and the sticky nav
+// links to it. Ids double as deep-link hashes (`/channels/lacy#photos`).
 const CHANNEL_SECTIONS = [
-  { id: "watch", label: "Latest", description: "Videos & live streams", Icon: Sparkles },
-  { id: "schedule", label: "Guide & history", description: "On air, next & past", Icon: Clock3 },
+  { id: "watch", label: "Latest", description: "By platform, top & new", Icon: Sparkles },
+  { id: "schedule", label: "Guide", description: "On air & up next", Icon: Clock3 },
+  { id: "history", label: "History", description: "Past airtime", Icon: HistoryIcon },
   { id: "photos", label: "Photos", description: "From the camera roll", Icon: Images },
-  { id: "posts", label: "Posts", description: "Updates & posts on X", Icon: MessageCircle },
-  { id: "about", label: "About & fan mail", description: "The crew, socials & mail", Icon: Mail },
+  { id: "posts", label: "Posts", description: "Updates on X", Icon: MessageCircle },
+  { id: "about", label: "About", description: "Crew & socials", Icon: UsersRound },
+  { id: "fan-mail", label: "Fan mail", description: "Send mail", Icon: Mail },
 ] as const;
+type ChannelSectionId = (typeof CHANNEL_SECTIONS)[number]["id"];
+type ChannelSection = (typeof CHANNEL_SECTIONS)[number];
+const CHANNEL_SECTION_ALIASES: Record<string, ChannelSectionId> = { crew: "about" };
+/** History and Photos fetch only once the reader scrolls within this distance. */
+const LAZY_SECTION_MARGIN_PX = 900;
+
+/** Sticky in-page navigation; the highlighted link follows the scroll position. */
+function ChannelSectionLinks({ sections, active, onSelect }: {
+  sections: readonly ChannelSection[];
+  active: ChannelSectionId;
+  onSelect: (section: ChannelSectionId) => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Keep the current link visible in the horizontally scrolling phone nav.
+    const list = listRef.current;
+    const link = list?.querySelector<HTMLElement>('[aria-current="location"]');
+    if (!list || !link || list.scrollWidth <= list.clientWidth) return;
+    const left = link.offsetLeft - (list.clientWidth - link.offsetWidth) / 2;
+    list.scrollTo({ left: Math.max(0, left), behavior: "auto" });
+  }, [active]);
+  return (
+    <div ref={listRef} className={styles.sectionTabs}>
+      {sections.map(({ id, label, description, Icon }) => (
+        <a key={id} href={`#${id}`} aria-current={active === id ? "location" : undefined}
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+            event.preventDefault();
+            onSelect(id);
+          }}>
+          <Icon aria-hidden="true" />
+          <span><strong>{label}</strong><small>{description}</small></span>
+        </a>
+      ))}
+    </div>
+  );
+}
 
 const CHANNEL_TV_PACKAGES: Record<string, { signal: string; transmission: string; treatment: string }> = {
   core: { signal: "CORE NETWORK", transmission: "All-house transmission", treatment: "node signal" },
@@ -377,6 +422,8 @@ function PlatformMark({ platform }: { platform: WatchPlatform }) {
   );
 }
 
+const ADVISORY_BLOCKED_HOLD_MS = 1_400;
+
 function NetworkAdvisoryArtwork() {
   return (
     <div className={styles.heroPreviewAdvisoryArtwork} data-network="advisory" aria-label="CoreTV mature audience advisory artwork" role="img">
@@ -394,6 +441,7 @@ function ChannelOnNowPreview({
   autoStart,
   rewind,
   onActivate,
+  onMiniPlayer,
   onProgramBoundary,
 }: {
   channel: NetworkChannel;
@@ -403,6 +451,8 @@ function ChannelOnNowPreview({
   autoStart: boolean;
   rewind: boolean;
   onActivate: () => void;
+  /** Continue this program in the site's draggable mini player instead of Theater. */
+  onMiniPlayer?: () => void;
   /** Lets the linear channel advance on an actual media end without a timer gap. */
   onProgramBoundary?: () => void;
 }) {
@@ -412,7 +462,6 @@ function ChannelOnNowPreview({
   const nativeVideoRef = useRef<HTMLVideoElement>(null);
   const twitchPlayerRef = useRef<TwitchPlayerInstance | null>(null);
   const retryTwitchRef = useRef<(() => void) | null>(null);
-  const advisoryAudioRef = useRef<HTMLAudioElement | null>(null);
   const reactId = useId();
   const twitchMountId = `channel-hero-twitch-${reactId.replace(/[^a-z0-9_-]/gi, "")}`;
   const nativeAutoplayAttemptedRef = useRef(false);
@@ -434,7 +483,13 @@ function ChannelOnNowPreview({
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  // Twitch refuses to autoplay below 400x300. On a phone narrower than that
+  // the hero keeps its poster and says so, instead of waiting forever.
+  const twitchTooSmall = entry.item.platform === "twitch" && mostlyVisible && !providerFits;
+  // `advisoryReady` gates autoplay; `advisoryVisible` shows the notice. The
+  // advisory takes audio priority so a station ID never holds the program.
   const [advisoryReady, setAdvisoryReady] = useState(true);
+  const [advisoryVisible, setAdvisoryVisible] = useState(false);
   // This component is keyed to the program window, so the embed starts at the
   // live clock once and then plays naturally instead of reloading every tick.
   const [previewStartSeconds] = useState(initialStartSeconds);
@@ -502,53 +557,55 @@ function ChannelOnNowPreview({
     return () => document.removeEventListener("visibilitychange", sync);
   }, []);
 
-  const startAdvisory = useCallback(() => {
-    const audio = advisoryAudioRef.current;
-    if (!audio) return;
-    void audio.play().catch(() => {
-      // Audible autoplay is routinely rejected even though muted video is
-      // allowed. The advisory must never strand a 24/7 channel on a poster;
-      // keep the visual notice briefly, then continue into muted playback.
-      window.setTimeout(() => setAdvisoryReady(true), 1_400);
-    });
-  }, []);
-
   // The 24/7 channel hero is a real player surface, not merely a poster.
-  // Start the advisory as soon as the route opens; DJ Cora's station ID is
-  // independent audio and must never hold the destination page behind it.
+  // Present the viewer discretion notice immediately, then autoplay the program.
   useEffect(() => {
     if (!autoStart) {
+      setAdvisoryVisible(false);
       setAdvisoryReady(true);
       return;
     }
     const needsAdvisory = !hasAcknowledgedContentAdvisory();
-    if (needsAdvisory) acknowledgeContentAdvisory();
-    // Let returning viewers start the channel immediately. DJ Cora's audio
-    // can finish over the live preview instead of blocking it with a poster.
-    setAdvisoryReady(true);
-    if (!needsAdvisory) return;
+    if (!needsAdvisory) {
+      setAdvisoryVisible(false);
+      setAdvisoryReady(true);
+      return;
+    }
+    skipNetworkTuningAudio();
+    setAdvisoryVisible(false);
+    setAdvisoryReady(false);
 
     let disposed = false;
     let audio: HTMLAudioElement | null = null;
+    let blockedFallback: number | null = null;
+    const finish = () => {
+      if (disposed) return;
+      setAdvisoryVisible(false);
+      setAdvisoryReady(true);
+    };
     const beginAdvisory = () => {
       if (disposed) return;
+      // Count the warning when it is presented, not when Cora started.
+      acknowledgeContentAdvisory();
+      setAdvisoryVisible(true);
       audio = new Audio("/brand/content-advisory.mp3");
       audio.preload = "auto";
-      advisoryAudioRef.current = audio;
-      const complete = () => {
-        setAdvisoryReady(true);
-      };
-      audio.addEventListener("ended", complete, { once: true });
-      audio.addEventListener("error", complete, { once: true });
-      startAdvisory();
+      audio.addEventListener("ended", finish, { once: true });
+      audio.addEventListener("error", finish, { once: true });
+      void audio.play().catch(() => {
+        // Audible autoplay is routinely rejected even though muted video is
+        // allowed. Keep the visual notice briefly, then continue into muted
+        // playback so a 24/7 channel is never stranded on a poster.
+        blockedFallback = window.setTimeout(finish, ADVISORY_BLOCKED_HOLD_MS);
+      });
     };
     beginAdvisory();
     return () => {
       disposed = true;
+      if (blockedFallback !== null) window.clearTimeout(blockedFallback);
       audio?.pause();
-      if (audio && advisoryAudioRef.current === audio) advisoryAudioRef.current = null;
     };
-  }, [autoStart, entry.key, startAdvisory]);
+  }, [autoStart, entry.key]);
 
   const canStartAutoplay = Boolean(
     playable &&
@@ -583,6 +640,9 @@ function ChannelOnNowPreview({
       ((playable.kind === "live" && playable.twitchLogin) || playable.vodId),
   );
   const twitchChannel = playable?.kind === "live" ? playable.twitchLogin : null;
+  // Twitch only plays (and keeps ads running) in an embed nothing paints
+  // over. While this preview is on screen, floating widgets stay clear of it.
+  const twitchClearance = usesTwitchSdk && mostlyVisible && !autoplayBlocked;
   const twitchVideo = playable?.vodId ?? null;
   // Keep a single, observable state for the browser-safe autoplay path. This
   // is useful to styling/telemetry without confusing a mounted-but-paused
@@ -783,8 +843,13 @@ function ChannelOnNowPreview({
     }).catch(() => { if (!disposed) markAutoplayBlocked(); });
     const poll = window.setInterval(() => {
       if (disposed || !ready || !instance || !budget.visible) return;
+      // Twitch says it is playing (an ad, typically) even when frame stats
+      // cannot confirm it yet. Keep the bounded retries, but do not label
+      // the preview blocked while the provider itself reports it running.
+      let providerRunning = false;
       try {
         const paused = instance.isPaused?.();
+        providerRunning = providerPlaying && paused === false;
         const position = twitchVideo ? instance.getCurrentTime() : 0;
         const verified = twitchChannel
           ? observedTwitchLivePlayback(providerPlaying, paused, instance.getPlaybackStats?.())
@@ -798,7 +863,7 @@ function ChannelOnNowPreview({
         previousPosition = position;
       } catch { /* Provider stats can be unavailable during startup and ads. */ }
       if (!budget.started && !budget.manuallyPaused) {
-        if (budget.exhausted) markAutoplayBlocked();
+        if (budget.exhausted) { if (!providerRunning) markAutoplayBlocked(); }
         else requestPlayback();
       }
     }, 750);
@@ -896,6 +961,18 @@ function ChannelOnNowPreview({
       <span>{muted ? "Sound off" : "Sound on"}</span>
     </button>
   ) : null;
+  const miniControl = advisoryReady && playable && onMiniPlayer ? (
+    <button type="button" className={styles.heroPreviewSound} data-hero-mini-player
+      aria-label={`Send ${entry.item.title} to the mini player`} title="Mini player"
+      onClick={() => {
+        // The mini player takes the sound; the hero keeps its muted picture.
+        setHeroMuted(true);
+        onMiniPlayer();
+      }}>
+      <Minimize2 size={15} aria-hidden="true" />
+      <span>Mini player</span>
+    </button>
+  ) : null;
   const retryControl = autoplayBlocked ? (
     <button type="button" className={styles.heroPreviewRetry} onClick={retryHeroPlayback}>
       <Play size={16} fill="currentColor" aria-hidden="true" /> Try playback
@@ -913,6 +990,7 @@ function ChannelOnNowPreview({
       data-autoplay={autoStart ? (playing ? "playing" : autoplayBlocked ? "blocked" : "pending") : "preference"}
       data-provider-playing={providerAutoplayPlaying ? "true" : undefined}
       data-provider={entry.item.platform}
+      data-twitch-clearance={twitchClearance || undefined}
       data-inline-channel-player={autoStart && mediaMounted ? "true" : undefined}
     >
       <div className={styles.heroPreviewMedia} data-cursor-native={usesTwitchSdk || playable?.youtubeId ? "" : undefined} aria-hidden={usesTwitchSdk || playable?.youtubeId ? undefined : "true"}>
@@ -987,7 +1065,7 @@ function ChannelOnNowPreview({
           <em>{channel.name} 24/7</em>
         </span>
         <strong>{entry.item.title}</strong>
-        <span>{autoplayBlocked ? "Signal unavailable · retry playback" : playing ? "Signal live" : "Establishing signal"} · {watchAttributionLabel(entry.item)} · {mediaTypeLabel(entry.item)}</span>
+        <span>{autoplayBlocked ? "Signal unavailable · retry playback" : playing ? "Signal live" : twitchTooSmall ? "Tap to tune in" : "Establishing signal"} · {watchAttributionLabel(entry.item)} · {mediaTypeLabel(entry.item)}</span>
       </div>
       {!live ? (
         <span className={styles.heroPreviewProgress} aria-hidden="true">
@@ -997,7 +1075,7 @@ function ChannelOnNowPreview({
       {advisoryReady && playable && !(autoStart && usesTwitchSdk) && (!usesTwitchSdk || playing || autoplayBlocked) ? (
         <button type="button" className={styles.heroPreviewAction} aria-label={actionLabel} onClick={onActivate} />
       ) : null}
-      {!advisoryReady ? (
+      {advisoryVisible ? (
         <div className={styles.heroPreviewAdvisory} role="status" aria-live="assertive" aria-label="Mature audience advisory. The following program is intended for audiences ages 13 and older. Viewer discretion is advised.">
           <NetworkAdvisoryArtwork />
         </div>
@@ -1005,10 +1083,11 @@ function ChannelOnNowPreview({
       {usesTwitchSdk || (mediaMounted && playable?.youtubeId && !directVideoUrl) ? <div className={styles.heroPreviewControls}>
         {soundControl}
         {retryControl}
+        {miniControl}
         {entry.item.sourceUrl ? <a href={entry.item.sourceUrl} target="_blank" rel="noopener noreferrer">
           Open on Twitch <ExternalLink size={13} aria-hidden />
         </a> : null}
-      </div> : null}
+      </div> : miniControl ? <div className={styles.heroPreviewControls}>{miniControl}</div> : null}
     </section>
   );
 }
@@ -1100,7 +1179,7 @@ export function NetworkChannelRail({
             style={{ "--channel-accent": channel.accent } as React.CSSProperties}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={channel.backdrop} alt="" className={styles.homeChannelBackdrop} />
+            <img src={channel.backdrop} alt="" loading="lazy" decoding="async" className={styles.homeChannelBackdrop} />
             {channel.slug === "core" ? (
               <CoreWordmark className={styles.homeCoreWordmark} />
             ) : (
@@ -1162,42 +1241,121 @@ export function NetworkChannelPage({
   const player = usePlayer();
   const { current: activePlayback, channel: activeChannel, playChannel, requestSeek } = player;
   const viewer = useBrowserTimeZone();
-  const [activeSection, setActiveSection] = useState("watch");
+  const member = channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] : null;
+  const channelSections = useMemo(
+    // CORE has no personal camera roll; every member channel does.
+    () => CHANNEL_SECTIONS.filter((section) => section.id !== "photos" || member),
+    [member],
+  );
+  const [activeSection, setActiveSection] = useState<ChannelSectionId>("watch");
+  const [nearSections, setNearSections] = useState<ReadonlySet<ChannelSectionId>>(() => new Set());
   const sectionNavRef = useRef<HTMLElement>(null);
-  const sectionPanelRef = useRef<HTMLDivElement>(null);
-  const sectionId = useId();
+  const programmaticScrollUntil = useRef(0);
   const reducedMotion = useReducedMotion();
-  const selectSection = useCallback((section: string) => {
+  const sectionOffset = useCallback(() => {
+    const nav = sectionNavRef.current;
+    if (!nav) return 0;
+    const stickyTop = Number.parseFloat(window.getComputedStyle(nav).top) || 0;
+    const rect = nav.getBoundingClientRect();
+    // Once stuck, use where the nav really sits (the site header can slide away).
+    return (rect.top <= stickyTop + 1 ? rect.bottom : stickyTop + rect.height) + 16;
+  }, []);
+  const scrollToSection = useCallback((section: ChannelSectionId, behavior?: ScrollBehavior) => {
+    const target = document.getElementById(section);
+    if (!target) return;
+    const motion = behavior ?? (reducedMotion ? "auto" : "smooth");
     setActiveSection(section);
-    window.history.replaceState(null, "", `#${section}`);
-    window.requestAnimationFrame(() => {
-      const panel = sectionPanelRef.current;
-      const nav = sectionNavRef.current;
-      if (!panel || !nav) return;
-      const chromeHeight = Number.parseFloat(window.getComputedStyle(nav).top) || 0;
-      window.scrollTo({
-        top: Math.max(0, window.scrollY + panel.getBoundingClientRect().top - chromeHeight - nav.offsetHeight - 20),
-        behavior: reducedMotion ? "auto" : "smooth",
-      });
-    });
-  }, [reducedMotion]);
-  const extrasSection = activeSection === "schedule" ? "history" : activeSection === "photos" ? "photos" : null;
-  const { data: extras, error: extrasError, isLoading: extrasLoading, mutate: reloadExtras } = useSWR<{
-    photos?: string[]; total?: number;
-    twitchTracker?: TwitchTrackerChannelSnapshot[];
-    archivedDaily?: AirtimeDailyRecord[];
-  }>(extrasSection ? `/api/watch/channels/${channel.slug}/extras?section=${extrasSection}` : null, async (url: string) => {
+    // A jump lands on this section before any scroll event: load it right away.
+    setNearSections((previous) => previous.has(section) ? previous : new Set([...previous, section]));
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}#${section}`);
+    // Keep the scroll-spy from flickering through every section on the way.
+    programmaticScrollUntil.current = Date.now() + (motion === "smooth" ? 900 : 0);
+    window.scrollTo({ top: Math.max(0, window.scrollY + target.getBoundingClientRect().top - sectionOffset()), behavior: motion });
+  }, [reducedMotion, sectionOffset]);
+  useEffect(() => {
+    let timer = 0;
+    let last = 0;
+    const measure = () => {
+      timer = 0;
+      last = Date.now();
+      const offset = sectionOffset() + 8;
+      let current: ChannelSectionId = channelSections[0]!.id;
+      const near: ChannelSectionId[] = [];
+      for (const { id } of channelSections) {
+        const top = document.getElementById(id)?.getBoundingClientRect().top;
+        if (top === undefined) continue;
+        if (top <= offset) current = id;
+        if (top < window.innerHeight + LAZY_SECTION_MARGIN_PX) near.push(id);
+      }
+      // At the very bottom the last short sections can never reach the top.
+      if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+        current = channelSections.at(-1)!.id;
+      }
+      if (Date.now() >= programmaticScrollUntil.current) setActiveSection(current);
+      setNearSections((previous) => near.every((id) => previous.has(id)) ? previous : new Set([...previous, ...near]));
+    };
+    // Time-throttled (not rAF) so it also settles in background tabs.
+    const schedule = () => {
+      if (timer) return;
+      const wait = Math.max(0, 80 - (Date.now() - last));
+      timer = window.setTimeout(measure, wait);
+    };
+    measure();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [channelSections, sectionOffset]);
+  useEffect(() => {
+    // Deep links (#photos, legacy #crew) land on their section, and stay
+    // anchored while rails and lazy sections above it finish loading, until
+    // the reader scrolls, taps or types.
+    let anchorTimer = 0;
+    let anchorUntil = 0;
+    const release = () => { anchorUntil = 0; };
+    const inputs = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+    for (const type of inputs) window.addEventListener(type, release, { passive: true });
+    const sync = () => {
+      const hash = window.location.hash.slice(1);
+      const section = (CHANNEL_SECTION_ALIASES[hash] ?? hash) as ChannelSectionId;
+      if (!channelSections.some((entry) => entry.id === section)) return;
+      anchorUntil = Date.now() + 15_000;
+      const hold = () => {
+        anchorTimer = 0;
+        if (Date.now() > anchorUntil) return;
+        const target = document.getElementById(section);
+        if (target && Math.abs(target.getBoundingClientRect().top - sectionOffset()) > 4) scrollToSection(section, "auto");
+        anchorTimer = window.setTimeout(hold, 250);
+      };
+      window.clearTimeout(anchorTimer);
+      anchorTimer = window.setTimeout(hold, 0);
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => {
+      window.removeEventListener("hashchange", sync);
+      for (const type of inputs) window.removeEventListener(type, release);
+      window.clearTimeout(anchorTimer);
+    };
+  }, [channelSections, scrollToSection, sectionOffset]);
+  const fetchExtras = useCallback(async (url: string) => {
     const response = await fetch(url);
     if (!response.ok) throw new Error("Could not load this section");
     return response.json();
-  }, { revalidateOnFocus: false, dedupingInterval: 60_000 });
-  const galleryPhotos = extras?.photos ?? [];
-  useEffect(() => {
-    const sync = () => { const section = window.location.hash.slice(1); if (["watch", "schedule", "photos", "about", "posts"].includes(section)) setActiveSection(section); else if (section === "crew") setActiveSection("about"); };
-    sync(); window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
   }, []);
-  const member = channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] : null;
+  const { data: historyExtras, error: historyError, isLoading: historyLoading, mutate: reloadHistory } = useSWR<{
+    twitchTracker?: TwitchTrackerChannelSnapshot[];
+    archivedDaily?: AirtimeDailyRecord[];
+  }>(nearSections.has("history") ? `/api/watch/channels/${channel.slug}/extras?section=history` : null, fetchExtras,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 });
+  const { data: photoExtras, error: photosError, isLoading: photosLoading, mutate: reloadPhotos } = useSWR<{
+    photos?: string[]; total?: number;
+  }>(member && nearSections.has("photos") ? `/api/watch/channels/${channel.slug}/extras?section=photos` : null, fetchExtras,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 });
+  const galleryPhotos = photoExtras?.photos ?? [];
   const memberAge = member ? ageFromIso(member.birthDate) : null;
   const socialLinks = useMemo(
     () => channelSocialLinks(channel, socialAvatarByUrl),
@@ -1215,6 +1373,7 @@ export function NetworkChannelPage({
     () => hub.all.filter((item) => item.platform !== "x"),
     [hub.all],
   );
+  const channelBroadcasts = useMemo(() => nonXHubItems.filter((item) => item.kind === "vod"), [nonXHubItems]);
   const parsedNow = Date.parse(serverNow);
   const [now, setNow] = useState(Number.isFinite(parsedNow) ? parsedNow : 0);
   /**
@@ -1539,26 +1698,7 @@ export function NetworkChannelPage({
       </nav>
 
       <nav ref={sectionNavRef} className={styles.sectionNav} aria-label={`${channel.name} sections`}>
-        <div className={styles.sectionTabs} role="tablist" aria-label="Explore this channel"
-          onKeyDown={(event) => {
-            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-            const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
-            const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
-            if (index < 0) return;
-            event.preventDefault();
-            const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
-              : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-            tabs[next]?.focus({ preventScroll: true });
-          }}>
-          {CHANNEL_SECTIONS.map(({ id, label, description, Icon }) => (
-            <button key={id} id={`${sectionId}-${id}`} type="button" role="tab"
-              aria-selected={activeSection === id} aria-controls={`${sectionId}-panel`}
-              tabIndex={activeSection === id ? 0 : -1} onClick={() => selectSection(id)}>
-              <Icon aria-hidden="true" />
-              <span><strong>{label}</strong><small>{description}</small></span>
-            </button>
-          ))}
-        </div>
+        <ChannelSectionLinks sections={channelSections} active={activeSection} onSelect={scrollToSection} />
       </nav>
 
       <header className={styles.hero}>
@@ -1643,19 +1783,24 @@ export function NetworkChannelPage({
             progress={mode === "continuous" ? continuousProgress : progress}
             autoStart
             onActivate={mode === "continuous" ? tuneContinuous : () => tune(heroPreviewEntry.item)}
+            onMiniPlayer={() => {
+              if (mode === "continuous") tuneContinuous();
+              else tune(heroPreviewEntry.item);
+              player.minimize();
+            }}
             onProgramBoundary={mode === "continuous" ? advanceHeroSchedule : undefined}
           />
         ) : null}
       </header>
 
-      {scheduleUpdateFailed ? <div className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm text-secondary md:px-10" role="status">
+      {scheduleUpdateFailed ?<div className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm text-secondary md:px-10" role="status">
         <span>Channel updates are temporarily unavailable.</span>
         <button type="button" className="min-h-11 underline underline-offset-4" onClick={onRefreshSchedule}>Try again</button>
       </div> : null}
 
-      <div ref={sectionPanelRef} id={`${sectionId}-panel`} className={styles.sectionPanel}
-        role="tabpanel" aria-labelledby={`${sectionId}-${activeSection}`} tabIndex={-1}>
-      {activeSection === "watch" ? <div className="py-6">
+      <div className={styles.sectionPanel}>
+      <div id="watch" className={`${styles.pageSection} py-6`}>
+      <ChannelBrowser channelSlug={channel.slug} channelName={channel.memberSlug === null ? GROUP.name : channel.host} onPlay={playSourceItem}>
       <CreatorPlatformRails
         channelName={channel.memberSlug === null ? GROUP.name : channel.host}
         channelSlug={channel.slug}
@@ -1666,9 +1811,10 @@ export function NetworkChannelPage({
         sources={nonXSourceDescriptors}
         onPlay={playSourceItem}
       />
-      </div> : null}
-      {activeSection === "schedule" ? <div className={styles.content}>
-        <section className={styles.scheduleSection} aria-labelledby="channel-schedule-heading">
+      </ChannelBrowser>
+      </div>
+      <div className={styles.content}>
+        <section id="schedule" className={`${styles.scheduleSection} ${styles.pageSection}`} aria-labelledby="channel-schedule-heading">
           <div className={styles.sectionHeading}>
             <div>
               <span className={styles.eyebrow}>{mode === "live" ? "Live transmission" : mode === "videos" ? "Feature presentations" : mode === "shorts" ? "Short-form intermissions" : "Previously · on air · up next"}</span>
@@ -1690,6 +1836,14 @@ export function NetworkChannelPage({
               </span>
             ) : null}
           </div>
+
+          {/* What is on across this network now and next. It reads the shared
+              Guide snapshot, so it only mounts once the reader nears the Guide. */}
+          {nearSections.has("schedule") ? (
+            <div className={styles.guideNowBlock}>
+              <GuideNowStrip network={channel.memberSlug === null ? undefined : channel.slug} headingId="channel-guide-now-title" />
+            </div>
+          ) : null}
 
           {mode === "continuous" && continuousSchedule.length ? (
             <div className={styles.continuousGuide}>
@@ -1803,25 +1957,29 @@ export function NetworkChannelPage({
           )}
         </section>
 
-        <section className={styles.airtimeSection} aria-label={`${channel.name} airtime history`}>
-          {extrasLoading ? <p className="py-6 text-sm text-secondary" role="status">Loading airtime history…</p> : extrasError ? <p className="py-6 text-sm" role="alert">History could not be loaded. <button type="button" className="min-h-11 underline" onClick={() => void reloadExtras()}>Try again</button></p> :
+        <section id="history" className={`${styles.airtimeSection} ${styles.pageSection}`} aria-label={`${channel.name} airtime history`}>
+          <div className={styles.watchHistoryBlock}>
+            <WatchHistoryPanel items={nonXHubItems} broadcasts={channelBroadcasts} headingId="channel-history-title" />
+          </div>
+          {historyLoading ? <p className="py-6 text-sm text-secondary" role="status">Loading airtime history…</p> : historyError ? <p className="py-6 text-sm" role="alert">History could not be loaded. <button type="button" className="min-h-11 underline" onClick={() => void reloadHistory()}>Try again</button></p> :
           <GuideHistory
             serverNow={serverNow}
-            twitchTracker={extras?.twitchTracker ?? []}
+            twitchTracker={historyExtras?.twitchTracker ?? []}
             fallbackSessions={airtimeFallback}
-            archivedDaily={extras?.archivedDaily ?? []}
+            archivedDaily={historyExtras?.archivedDaily ?? []}
             memberSlug={channel.memberSlug}
             className={styles.airtimeHistory}
           />}
         </section>
 
-      </div> : null}
+      </div>
 
-      {activeSection === "photos" && member && galleryPhotos.length > 0 ? (
+      {member ? <div id="photos" className={styles.pageSection}>
+      {galleryPhotos.length > 0 ? (
         <section className={styles.creatorGallery} aria-labelledby="channel-gallery-heading">
           <div className={styles.creatorGalleryHeader}>
             <div>
-              <span className={styles.eyebrow}>Gallery · {extras?.total ?? galleryPhotos.length}</span>
+              <span className={styles.eyebrow}>Gallery · {photoExtras?.total ?? galleryPhotos.length}</span>
               <h2 id="channel-gallery-heading">Photos</h2>
             </div>
             <Link prefetch={false} href="/media" className={styles.creatorGalleryLink}>
@@ -1847,8 +2005,49 @@ export function NetworkChannelPage({
         </section>
       ) : null}
 
-      {activeSection === "photos" && (!member || !galleryPhotos.length) ? <p className="px-5 py-10 text-secondary" role="status">{extrasLoading ? "Loading photos…" : extrasError ? <>Photos could not be loaded. <button type="button" className="min-h-11 underline" onClick={() => void reloadExtras()}>Try again</button></> : <>No photos are available for this channel yet. <Link prefetch={false} href="/media" className="underline">Browse all photos</Link></>}</p> : null}
-      {activeSection === "about" ? <>
+      {!galleryPhotos.length ? <div className={styles.lazySection}>
+        <h2 className={styles.lazySectionTitle}>Photos</h2>
+        <p className="text-secondary" role="status">{photosError ? <>Photos could not be loaded. <button type="button" className="min-h-11 underline" onClick={() => void reloadPhotos()}>Try again</button></> : photosLoading || !nearSections.has("photos") ? "Loading photos…" : <>No photos are available for this channel yet. <Link prefetch={false} href="/media" className="underline">Browse all photos</Link></>}</p>
+      </div> : null}
+      </div> : null}
+
+      <div id="posts" className={styles.pageSection}>
+      {xCommunityUrl ? (
+        <section className={styles.xCommunitySection} aria-labelledby="channel-x-community-heading">
+          <div className={styles.xCommunityIntro}>
+            <span className={styles.eyebrow}>X Community</span>
+            <h2 id="channel-x-community-heading">Join {channel.host}&apos;s Community on X</h2>
+            <p>Connect with the community directly on X.</p>
+          </div>
+          <a
+            href={xCommunityUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.xCommunityLink}
+          >
+            Join X Community <ExternalLink aria-hidden="true" />
+          </a>
+        </section>
+      ) : null}
+
+      <div className={styles.xOwnerPosts}>
+        {ownerXPosts.length ? (
+          <XTweetsRail
+            items={ownerXPosts}
+            title={channel.memberSlug === null ? "Official CORE posts on X" : `${channel.host}'s posts on X`}
+            maxItems={24}
+          />
+        ) : null}
+        <div className={styles.xArchiveActions}>
+          <Link prefetch={false} href={`/channels/${channel.slug}/x` as Route} className={styles.profileLink}>
+            Browse X post archive
+            <ChevronRight aria-hidden="true" />
+          </Link>
+        </div>
+      </div>
+      </div>
+
+      <div id="about" className={styles.pageSection}>
       <section id="crew" className={styles.teamSection} aria-labelledby="channel-team-heading">
         <div className={styles.teamSectionHeading}>
           <h2 id="channel-team-heading">{member ? `${member.stageName}'s crew` : "CORE crew"}</h2>
@@ -1881,20 +2080,6 @@ export function NetworkChannelPage({
             <Link prefetch={false} href="/channels/core#crew">Explore the CORE crew <ChevronRight size={14} aria-hidden /></Link>
           </div>
         )}
-      </section>
-
-      <section className={styles.mailSection} aria-labelledby="channel-mail-heading">
-        <span className={styles.mailIcon} aria-hidden><Mail size={20} /></span>
-        <div className={styles.mailCopy}>
-          <h2 id="channel-mail-heading">Fan mail</h2>
-          <p>{member
-            ? mailingAddress ? `Mailing details for ${member.stageName}.` : "No public mailing address listed."
-            : "Mailing addresses and instructions for each creator."}</p>
-        </div>
-        <Link href={member ? `/fan-mail/${member.slug}` as Route : "/fan-mail"} className={styles.mailAction}>
-          {member ? "View mailing details" : "View addresses"}
-          <ChevronRight size={16} aria-hidden />
-        </Link>
       </section>
 
       <section className={styles.channelHub} aria-labelledby="channel-hub-heading">
@@ -1970,45 +2155,23 @@ export function NetworkChannelPage({
           </div>
         ) : null}
       </section>
-
-
-
-      </> : null}
-      {activeSection === "posts" ? <>
-      {xCommunityUrl ? (
-        <section className={styles.xCommunitySection} aria-labelledby="channel-x-community-heading">
-          <div className={styles.xCommunityIntro}>
-            <span className={styles.eyebrow}>X Community</span>
-            <h2 id="channel-x-community-heading">Join {channel.host}&apos;s Community on X</h2>
-            <p>Connect with the community directly on X.</p>
-          </div>
-          <a
-            href={xCommunityUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.xCommunityLink}
-          >
-            Join X Community <ExternalLink aria-hidden="true" />
-          </a>
-        </section>
-      ) : null}
-
-      <div className={styles.xOwnerPosts}>
-        {ownerXPosts.length ? (
-          <XTweetsRail
-            items={ownerXPosts}
-            title={channel.memberSlug === null ? "Official CORE posts on X" : `${channel.host}'s posts on X`}
-            maxItems={24}
-          />
-        ) : null}
-        <div className={styles.xArchiveActions}>
-          <Link prefetch={false} href={`/channels/${channel.slug}/x` as Route} className={styles.profileLink}>
-            Browse X post archive
-            <ChevronRight aria-hidden="true" />
-          </Link>
-        </div>
       </div>
-      </> : null}
+
+      <div id="fan-mail" className={styles.pageSection}>
+      <section className={styles.mailSection} aria-labelledby="channel-mail-heading">
+        <span className={styles.mailIcon} aria-hidden><Mail size={20} /></span>
+        <div className={styles.mailCopy}>
+          <h2 id="channel-mail-heading">Fan mail</h2>
+          <p>{member
+            ? mailingAddress ? `Mailing details for ${member.stageName}.` : "No public mailing address listed."
+            : "Mailing addresses and instructions for each creator."}</p>
+        </div>
+        <Link href={member ? `/fan-mail/${member.slug}` as Route : "/fan-mail"} className={styles.mailAction}>
+          {member ? "View mailing details" : "View addresses"}
+          <ChevronRight size={16} aria-hidden />
+        </Link>
+      </section>
+      </div>
 
       </div>
     </div>

@@ -63,5 +63,5 @@ test("ConnectedAccounts never labels a failed or incomplete sync as successful",
   assert.match(component, /function ConnectedIdentity/);
   assert.match(component, /<ConnectedIdentity connection=\{conn\}/);
   assert.doesNotMatch(component, /Read-only connection/);
-  assert.match(component, /oauth === "sync-error"/);
+  assert.match(component, /oauthFlashNotice\(search,/);
 });

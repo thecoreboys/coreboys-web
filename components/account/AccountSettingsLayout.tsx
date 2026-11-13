@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import {
   Accessibility,
   Bell,
   CreditCard,
+  KeyRound,
   Link2,
   Palette,
   Play,
@@ -20,6 +22,7 @@ import { useNativeApp } from "@/hooks/useNativeApp";
 
 export const ACCOUNT_SETTINGS_NAV = [
   { group: "Account", label: "Profile", href: "/account/settings#profile", id: "profile", icon: UserRound },
+  { group: "Account", label: "Security", href: "/account/settings#security", id: "security", icon: KeyRound },
   { group: "Account", label: "Connections", href: "/account/settings#connected-accounts", id: "connected-accounts", icon: Link2 },
   { group: "Account", label: "Notifications", href: "/account/settings#notifications", id: "notifications", icon: Bell },
   { group: "Account", label: "Privacy & safety", href: "/account/settings#privacy", id: "privacy", icon: Shield },
@@ -48,18 +51,51 @@ export function AccountSettingsLayout({
   const requestedId = activeSection.replace(/^#/, "");
   const activeId = nativeApp && requestedId === "station-audio" ? "playback" : requestedId;
   const navigation = ACCOUNT_SETTINGS_NAV.filter((item) => item.id !== "station-audio" || nativeApp === false);
+  const navRef = useRef<HTMLElement>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+
+  // On narrow screens the section list scrolls sideways: fade the clipped
+  // edges so more sections read as reachable, and keep the active one visible.
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const update = () => {
+      const max = nav.scrollWidth - nav.clientWidth;
+      setEdges({ start: nav.scrollLeft > 4, end: max > 4 && nav.scrollLeft < max - 4 });
+    };
+    update();
+    nav.addEventListener("scroll", update, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(nav);
+    return () => {
+      nav.removeEventListener("scroll", update);
+      observer?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav || nav.scrollWidth <= nav.clientWidth) return;
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!active) return;
+    const left = active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
+    nav.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+  }, [activeId]);
+
   return (
     <section className="core-settings min-h-[calc(100dvh-4rem)] bg-primary text-primary">
       <PageHeader eyebrow="Your account" title={title} supporting={description} />
 
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-5 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-8 lg:px-8">
-        <aside className="min-w-0 lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)]">
-          <nav aria-label="Account settings" className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-secondary bg-primary p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col">
+        <aside className="relative min-w-0 lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)]">
+          <span aria-hidden className={cx("pointer-events-none absolute inset-y-px left-px z-10 w-8 rounded-l-xl bg-gradient-to-r from-[var(--color-bg-primary)] to-transparent transition-opacity lg:hidden", edges.start ? "opacity-100" : "opacity-0")} />
+          <span aria-hidden className={cx("pointer-events-none absolute inset-y-px right-px z-10 w-8 rounded-r-xl bg-gradient-to-l from-[var(--color-bg-primary)] to-transparent transition-opacity lg:hidden", edges.end ? "opacity-100" : "opacity-0")} />
+          <nav ref={navRef} aria-label="Account settings" className="flex max-w-full snap-x gap-1 overflow-x-auto scroll-px-8 rounded-xl border border-secondary bg-primary p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:snap-none">
             {navigation.map((item, index) => {
               const previous = navigation[index - 1];
               const active = activeId === item.id;
               return (
-                <div key={item.id} className={cx("shrink-0", item.group !== previous?.group && index > 0 && "lg:mt-2 lg:border-t lg:border-secondary lg:pt-2")}>
+                <div key={item.id} className={cx("shrink-0 snap-start", item.group !== previous?.group && index > 0 && "lg:mt-2 lg:border-t lg:border-secondary lg:pt-2")}>
                   {item.group !== previous?.group ? <p className="hidden px-3 pb-1 pt-1 text-xs font-medium text-tertiary lg:block">{item.group}</p> : null}
                   <Link
                     href={item.href as never}

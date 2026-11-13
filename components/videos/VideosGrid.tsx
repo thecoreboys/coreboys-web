@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useBrowseFilters } from "@/hooks/useBrowseFilters";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { readableTitle } from "@/lib/watch/presentation";
-import { Clock, PanelsTopLeft, PlayCircle, Youtube } from "lucide-react";
+import { Check, Clock, PanelsTopLeft, PlayCircle, Youtube } from "lucide-react";
 import type { FeedItem } from "@/lib/social-feed";
 import { CollectionFilter } from "@/components/ui/CollectionFilter";
 import { FilterSelect } from "@/components/ui/FilterSelect";
@@ -88,6 +89,12 @@ export function VideosGrid({
   const setActive = (creator: string) => update({ creator });
   const { map } = useWatchProgress();
   const player = usePlayer();
+  const [multiviewNotice, setMultiviewNotice] = useState<{ key: string; added: boolean } | null>(null);
+  useEffect(() => {
+    if (!multiviewNotice) return;
+    const timer = window.setTimeout(() => setMultiviewNotice(null), 4_000);
+    return () => window.clearTimeout(timer);
+  }, [multiviewNotice]);
 
   const filtered = useMemo(
     () =>
@@ -260,11 +267,15 @@ export function VideosGrid({
                     title="Add to multiview"
                     onClick={() => {
                       const playable = playableOf(it);
-                      if (playable) player.addTile(playable, { focus: false });
+                      if (!playable) return;
+                      const alreadyOpen = player.tiles.some((tile) => tile.item.key === playable.key);
+                      const added = alreadyOpen || Boolean(player.addTile(playable, { focus: false, muted: true }));
+                      setMultiviewNotice({ key: it.id, added });
                     }}
-                    className="absolute right-2 top-2 z-10 grid size-9 place-items-center rounded-full bg-black/65 text-white opacity-0 ring-1 ring-white/20 backdrop-blur transition hover:bg-black group-hover:opacity-100 group-focus-within:opacity-100"
+                    // Touch screens have no hover, so the control stays visible there.
+                    className="absolute right-2 top-2 z-10 grid size-10 place-items-center rounded-full bg-black/65 text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-black [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within:opacity-100"
                   >
-                    <PanelsTopLeft size={15} />
+                    {multiviewNotice?.key === it.id && multiviewNotice.added ? <Check size={15} aria-hidden /> : <PanelsTopLeft size={15} aria-hidden />}
                   </button>
                 ) : null}
               </li>
@@ -273,6 +284,14 @@ export function VideosGrid({
         </ul>
       )}
 
+      <div role="status" aria-live="polite" className={multiviewNotice ? "fixed bottom-[calc(1rem+var(--mobile-nav-space,0px))] left-1/2 z-[60] flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl bg-[color:var(--ink)] px-4 py-2.5 text-xs font-semibold text-[color:var(--bg)] shadow-2xl" : "sr-only"}>
+        {multiviewNotice ? (
+          <>
+            <span>{multiviewNotice.added ? `Added to Multiview · ${player.tiles.length} ${player.tiles.length === 1 ? "view" : "views"}` : "Multiview is full. Remove a view or upgrade for more."}</span>
+            <Link href="/multiview" className="shrink-0 rounded-lg bg-[color:var(--bg)] px-2.5 py-1.5 text-[11px] text-[color:var(--ink)]">Open Multiview</Link>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

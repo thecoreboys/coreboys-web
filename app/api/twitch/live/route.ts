@@ -2,15 +2,21 @@ import { after, NextResponse } from "next/server";
 import { MEMBERS } from "@/lib/members";
 import { buildLiveResponse, type LiveResponse } from "@/lib/twitch";
 import { maybeRecordLiveSessions } from "@/lib/streams/reconcile";
+import { cachedPublicData } from "@/lib/server-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 30;
 
 export async function GET() {
   const logins = MEMBERS.map((m) => m.twitchLogin);
   try {
-    const payload: LiveResponse = await buildLiveResponse(logins);
+    // Every open tab polls this route; share one Helix snapshot per ~15s
+    // across requests and replicas instead of rebuilding per caller.
+    const payload: LiveResponse = await cachedPublicData("twitch-live:v1", () => buildLiveResponse(logins), {
+      freshSeconds: 15,
+      staleSeconds: 60,
+      validate: (value): value is LiveResponse => Boolean(value && typeof value === "object" && Array.isArray((value as LiveResponse).live)),
+    });
     after(async () => {
       await maybeRecordLiveSessions(payload.live).catch(() => {});
     });

@@ -35,7 +35,8 @@ import {
   type WorkspaceSnapshot,
   type WorkspaceTile,
 } from "@/lib/watch/workspace";
-import { gridTileToNormalizedRect } from "@/lib/watch/room-layout";
+import { gridTileToNormalizedRect, normalizedRectToGridPosition, type NormalizedRect } from "@/lib/watch/room-layout";
+import { PLAYER_PREFS_STORAGE_KEY, stampPlayerPrefs } from "@/lib/watch/player-prefs-clock";
 import { detectWeakGpu, devicePerformanceProfile } from "@/lib/device-performance";
 import type { ChatViewMode } from "@/lib/chat-layouts";
 import type { PlayerCompanionView } from "@/lib/watch/player-companion";
@@ -271,7 +272,12 @@ export type PlayerContextValue = {
     tileId: string,
     patch: Partial<Omit<WorkspaceTile, "id" | "item">>,
   ) => void;
-  swapTiles: (firstId: string, secondId: string) => void;
+  /**
+   * Exchange two tiles' places. Pass `displayed` (every tile's on-screen rect)
+   * when the room is showing a computed preset, so the swap freezes what the
+   * viewer actually sees instead of stale stored geometry.
+   */
+  swapTiles: (firstId: string, secondId: string, displayed?: ReadonlyMap<string, NormalizedRect>) => void;
   applyPreset: (preset: WorkspacePreset) => void;
   setGridColumns: (columns: number) => void;
   setMaximizedTileId: (tileId: string | null) => void;
@@ -309,7 +315,7 @@ const SESSION_STORE = "core-now-playing:v4";
 const PREVIOUS_SESSION_STORE = "core-now-playing:v3";
 const SECONDARY_SESSION_STORE = "core-now-playing:v2";
 const LEGACY_STORE = "core-now-playing:v1";
-const PREF_STORE = "core-player-prefs:v2";
+const PREF_STORE = PLAYER_PREFS_STORAGE_KEY;
 const PREVIOUS_PREF_STORE = "core-player-prefs:v1";
 const LAYOUT_STORE = "core-player-layouts:v1";
 const LAYOUT_TOMBSTONE_STORE = "core-player-layout-tombstones:v1";
@@ -542,9 +548,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [channelItems, setChannelItems] = useState<Playable[]>([]);
   const [autoplayMode, setAutoplayModeState] = useState<AutoplayMode>("live-first");
   const [previewAutoplay, setPreviewAutoplay] = useState(true);
-  // Muted autoplay works without a click. Sound is enabled deliberately from
-  // the preview control, so a browser never pauses a new hover for audio policy.
-  const [previewSoundEnabled, setPreviewSoundEnabledState] = useState(false);
+  // Expanded previews request sound by default; an explicit saved mute choice
+  // is still restored, and blocked autoplay falls back to a sound button.
+  const [previewSoundEnabled, setPreviewSoundEnabledState] = useState(true);
   const [previewVolume, setPreviewVolumeState] = useState(DEFAULT_PREVIEW_VOLUME);
   const [activePreviewAudioId, setActivePreviewAudioId] = useState<string | null>(null);
   const [dataSaver, setDataSaverState] = useState(false);
@@ -594,6 +600,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const qualityPreferenceRef = useRef<QualityPreference>("auto");
   const mixAudioRef = useRef(false);
   const maxActivePlayersRef = useRef(4);
+  // The viewer's own choice, before the plan limit is applied. Persisted and
+  // re-applied when the limit changes, so a slow or failed membership check
+  // (which reads as Free) can never permanently shrink a member's setting.
+  const requestedMaxActivePlayersRef = useRef(4);
   const maximizedTileRef = useRef<string | null>(null);
   const chatDockRef = useRef<ChatDockMode>("right");
   const chatChannelsRef = useRef<string[]>([]);
@@ -712,7 +722,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setMaxActivePlayers = useCallback((value: number) => {
-    const next = Math.min(multiviewTileLimit, 8, Math.max(1, Math.round(value)));
+    const requested = Math.min(8, Math.max(1, Math.round(value)));
+    requestedMaxActivePlayersRef.current = requested;
+    const next = Math.min(multiviewTileLimit, requested);
     maxActivePlayersRef.current = next;
     setMaxActivePlayersState(next);
   }, [multiviewTileLimit]);
@@ -820,6 +832,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       qualityPreferenceRef.current = "balanced";
       setMaxActivePlayersState(2);
       maxActivePlayersRef.current = 2;
+      requestedMaxActivePlayersRef.current = 2;
     }
     try {
       const raw = sessionStorage.getItem(SESSION_STORE)
@@ -903,6 +916,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           columnsRef.current = settings.columns;
           mixAudioRef.current = settings.mixAudio;
           maxActivePlayersRef.current = settings.maxActivePlayers;
+          requestedMaxActivePlayersRef.current = typeof parsed.maxActivePlayers === "number"
+            ? Math.min(8, Math.max(1, Math.round(parsed.maxActivePlayers)))
+            : settings.maxActivePlayers;
           autoplayModeRef.current = settings.autoplayMode;
           dataSaverRef.current = settings.dataSaver;
           captionsEnabledRef.current = settings.captionsEnabled;
@@ -1014,7 +1030,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready || subscription.loading) return;
     setChatChannels(chatChannelsRef.current.slice(0, multiviewTileLimit));
-    setMaxActivePlayers(maxActivePlayersRef.current);
+    setMaxActivePlayers(requestedMaxActivePlayersRef.current);
     if (tilesRef.current.length <= multiviewTileLimit) return;
     const allowed = clampMultiviewItems(tilesRef.current, multiviewTileLimit);
     const next = presetRef.current === "freeform"
@@ -1059,14 +1075,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         chatDockSize,
         chatFloatingRect: workspaceGeometryRef.current.chatFloatingRect,
         mixAudio,
-        maxActivePlayers: maxActivePlayersState,
+        maxActivePlayers: requestedMaxActivePlayersRef.current,
         autoplayMode,
         dataSaver,
         captionsEnabled,
         playbackRate,
         qualityPreference,
       }));
-      localStorage.setItem(PREF_STORE, JSON.stringify({
+      // Stamped so Account settings can tell a newer in-player choice from
+      // an older account copy (lib/watch/player-prefs-clock.ts).
+      localStorage.setItem(PREF_STORE, JSON.stringify(stampPlayerPrefs({
         autoplayMode,
         previewAutoplay,
         previewSoundEnabled,
@@ -1074,13 +1092,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         dataSaver,
         ambientLighting,
         mixAudio,
-        maxActivePlayers: maxActivePlayersState,
+        maxActivePlayers: requestedMaxActivePlayersRef.current,
         captionsEnabled,
         playbackRate,
         qualityPreference,
         audioDescription,
         accessibilityPreset,
-      }));
+      }, localStorage.getItem(PREF_STORE))));
     } catch {
       // Private browsing can make storage unavailable.
     }
@@ -1501,14 +1519,21 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     focusTile(id, options);
   }, [focusTile, updateTile]);
 
-  const swapTiles = useCallback((firstId: string, secondId: string) => {
+  const swapTiles = useCallback((firstId: string, secondId: string, displayed?: ReadonlyMap<string, NormalizedRect>) => {
     if (firstId === secondId) return;
-    const first = tilesRef.current.find((tile) => tile.id === firstId);
-    const second = tilesRef.current.find((tile) => tile.id === secondId);
+    const frozen = displayed
+      ? tilesRef.current.map((tile) => {
+          const rect = displayed.get(tile.id);
+          if (!rect) return tile;
+          return { ...tile, ...normalizedRectToGridPosition(rect, columnsRef.current, columnsRef.current), rect };
+        })
+      : tilesRef.current;
+    const first = frozen.find((tile) => tile.id === firstId);
+    const second = frozen.find((tile) => tile.id === secondId);
     if (!first || !second) return;
     const firstPosition = { col: first.col, row: first.row, colSpan: first.colSpan, rowSpan: first.rowSpan, rect: first.rect };
     const secondPosition = { col: second.col, row: second.row, colSpan: second.colSpan, rowSpan: second.rowSpan, rect: second.rect };
-    const next = tilesRef.current.map((tile) => tile.id === firstId
+    const next = frozen.map((tile) => tile.id === firstId
       ? { ...tile, ...secondPosition }
       : tile.id === secondId
         ? { ...tile, ...firstPosition }
@@ -2043,6 +2068,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     columnsRef.current = normalized.columns;
     mixAudioRef.current = nextMixAudio;
     maxActivePlayersRef.current = nextMaxActivePlayers;
+    requestedMaxActivePlayersRef.current = Math.min(8, Math.max(1, Math.round(extended.maxActivePlayers ?? requestedMaxActivePlayersRef.current)));
     autoplayModeRef.current = nextAutoplayMode;
     dataSaverRef.current = nextDataSaver;
     captionsEnabledRef.current = nextCaptionsEnabled;

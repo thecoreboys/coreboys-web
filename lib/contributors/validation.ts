@@ -20,7 +20,9 @@ export const communitySubmissionSchema = z.discriminatedUnion("kind", [
   }).strict(),
   z.object({
     kind: z.literal("suggestion"), name: text(120).default(""), contact: contact.default(""),
-    message: text(2000, 10), ageConfirmed: z.literal(true),
+    // Accept the old field for already-open forms; new suggestions need no
+    // age attestation and must never be stored as if one was collected.
+    message: text(2000, 10), ageConfirmed: z.boolean().optional().default(false),
   }).strict(),
 ]);
 export type CommunitySubmission = z.infer<typeof communitySubmissionSchema>;

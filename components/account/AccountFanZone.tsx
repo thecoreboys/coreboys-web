@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Trophy01, Star01, Zap, Bell01, BarChart01, Heart } from "@untitledui/icons";
+import { useEffect, useState } from "react";
+import { Trophy01, Star01, Zap, BarChart01, Heart } from "@untitledui/icons";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { Badge } from "@/components/base/badges/badges";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
-import { Toggle } from "@/components/base/toggle/toggle";
 import { cx } from "@/utils/cx";
 
 type BadgeTier = "Tier 1 Fan" | "OG" | "Super Fan";
@@ -17,8 +16,6 @@ type Summary = {
   activity: Activity[];
 };
 
-type MemberLite = { slug: string; stageName: string };
-
 const TIER_META: Record<BadgeTier, { icon: typeof Trophy01; floor: number }> = {
   "Tier 1 Fan": { icon: Star01, floor: 0 },
   OG: { icon: Trophy01, floor: 100 },
@@ -26,41 +23,47 @@ const TIER_META: Record<BadgeTier, { icon: typeof Trophy01; floor: number }> = {
 };
 
 /**
- * Fan-zone account cards (Features 1, 5, 6): points + badge tier, recent
- * activity, and notification preferences. All read from the existing account
- * endpoints; nothing here is mocked.
+ * Fan score card: points, badge tier, and recent activity from the account
+ * summary endpoint. Go-live alerts live in Notifications › Creator alerts.
  */
-export function AccountFanZone({ members }: { members: MemberLite[] }) {
-  return (
-    <div className="mt-6 space-y-6">
-      <PointsCard />
-      <NotificationPrefsCard members={members} />
-    </div>
-  );
+export function AccountFanZone() {
+  return <PointsCard />;
 }
 
 function PointsCard() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/account/summary", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: Summary | null) => {
-        if (!cancelled) setSummary(d);
+    setFailed(false);
+    fetch("/api/account/summary", { credentials: "same-origin", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: Summary) => {
+        if (cancelled) return;
+        if (d && typeof d.points === "number" && TIER_META[d.tier]) setSummary(d);
+        else setFailed(true);
       })
       .catch(() => {
-        if (!cancelled) setSummary(null);
+        if (!cancelled) setFailed(true);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
+
+  if (failed && !summary) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3" role="alert">
+        <p className="text-sm text-tertiary">Your fan score couldn&apos;t be loaded.</p>
+        <button type="button" onClick={() => setAttempt((value) => value + 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold text-primary ring-1 ring-inset ring-secondary hover:bg-primary_hover">Try again</button>
+      </div>
+    );
+  }
 
   if (!summary) {
-    return (
-      <section className="h-48 animate-pulse rounded-2xl bg-secondary ring-1 ring-inset ring-secondary" />
-    );
+    return <div className="h-48 animate-pulse rounded-xl bg-secondary" role="status" aria-label="Loading fan score" />;
   }
 
   const meta = TIER_META[summary.tier];
@@ -73,7 +76,7 @@ function PointsCard() {
       : 100;
 
   return (
-    <section className="rounded-2xl bg-secondary p-6 shadow-xl ring-1 ring-inset ring-secondary">
+    <section aria-label="Fan score">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <FeaturedIcon icon={meta.icon} size="lg" color="brand" theme="modern" />
@@ -150,122 +153,6 @@ function PointsCard() {
             })}
           </ul>
         )}
-      </div>
-    </section>
-  );
-}
-
-function NotificationPrefsCard({ members }: { members: MemberLite[] }) {
-  const [prefs, setPrefs] = useState<Record<string, boolean> | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [savedScope, setSavedScope] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/account/notifications", { credentials: "same-origin" });
-      const data = (await res.json()) as {
-        prefs: Array<{ scope: string; liveOptIn: boolean }>;
-      };
-      const map: Record<string, boolean> = {};
-      for (const p of data.prefs ?? []) map[p.scope] = p.liveOptIn;
-      setPrefs(map);
-    } catch {
-      setPrefs({});
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function setScope(scope: string, value: boolean) {
-    setPrefs((p) => ({ ...(p ?? {}), [scope]: value }));
-    setSaving(scope);
-    try {
-      const res = await fetch("/api/account/notifications", {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scope, liveOptIn: value }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      setSavedScope(scope);
-      window.setTimeout(() => setSavedScope((s) => (s === scope ? null : s)), 1800);
-    } catch {
-      // Roll back on failure.
-      setPrefs((p) => ({ ...(p ?? {}), [scope]: !value }));
-    } finally {
-      setSaving((s) => (s === scope ? null : s));
-    }
-  }
-
-  if (!prefs) {
-    return (
-      <section className="h-64 animate-pulse rounded-2xl bg-secondary ring-1 ring-inset ring-secondary" />
-    );
-  }
-
-  const globalOn = prefs.all ?? false;
-
-  return (
-    <section id="go-live-notifications" className="scroll-mt-28 rounded-2xl bg-secondary p-6 shadow-xl ring-1 ring-inset ring-secondary">
-      <div className="flex items-start gap-4">
-        <FeaturedIcon icon={Bell01} size="lg" color="brand" theme="modern" />
-        <div>
-          <h2 className="text-lg font-semibold text-primary">Go-live notifications</h2>
-          <p className="mt-1 text-sm text-tertiary">
-            Opt in and we&apos;ll notify you when they go live. (Delivery is rolling
-            out soon — we&apos;re saving your picks now.)
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-secondary bg-primary p-4 shadow-xs-skeuomorphic">
-        <div>
-          <p className="text-sm font-semibold text-primary">Notify me for everyone</p>
-          <p className="text-xs text-tertiary">Any CORE member going live.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {savedScope === "all" ? (
-            <span className="text-xs font-medium text-brand-secondary">Saved</span>
-          ) : null}
-          <Toggle
-            size="md"
-            isSelected={globalOn}
-            isDisabled={saving === "all"}
-            onChange={(v) => setScope("all", v)}
-            aria-label="Notify me when any member goes live"
-          />
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <p className="mb-3 text-sm font-semibold text-primary">Per member</p>
-        <ul className="flex flex-col divide-y divide-[color:var(--color-border-secondary)]">
-          {members.map((m) => {
-            const on = prefs[m.slug] ?? false;
-            return (
-              <li
-                key={m.slug}
-                className="flex items-center justify-between gap-3 py-3.5 first:pt-0 last:pb-0"
-              >
-                <span className="text-sm font-medium text-secondary">{m.stageName}</span>
-                <div className="flex items-center gap-2">
-                  {savedScope === m.slug ? (
-                    <span className="text-xs font-medium text-brand-secondary">Saved</span>
-                  ) : null}
-                  <Toggle
-                    size="md"
-                    isSelected={on}
-                    isDisabled={saving === m.slug}
-                    onChange={(v) => setScope(m.slug, v)}
-                    aria-label={`Notify me when ${m.stageName} goes live`}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
       </div>
     </section>
   );

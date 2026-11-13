@@ -8,6 +8,7 @@ import {
   type PublicFacePresenceTag,
 } from "@/lib/face-presence-public";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const VISIBILITY_KEY = "core-face-presence-visible:v1";
 const CLIENT_PRESENCE_ENABLED = process.env.NEXT_PUBLIC_FACE_PRESENCE_UI_ENABLED === "true";
@@ -110,9 +111,18 @@ export function OnScreenIdentityOverlay({
   getMediaTimeMs,
   mediaElementRef,
   mediaFit = "contain",
-  enabled = CLIENT_PRESENCE_ENABLED,
+  enabled: featureEnabled = CLIENT_PRESENCE_ENABLED,
   className = "",
 }: OnScreenIdentityOverlayProps) {
+  // The presence API is membership-gated (paid plan or an admin complimentary
+  // grant). Never poll it for accounts the server will refuse, and stop for
+  // the rest of this mount if the server revokes access mid-session.
+  const subscription = useSubscription();
+  const [accessDenied, setAccessDenied] = useState(false);
+  const memberAllowed = subscription.hasFeature("player.creator_tags");
+  const enabled = featureEnabled && memberAllowed && !accessDenied;
+  // A fresh entitlement answer (sign-in, upgrade, grant) earns another try.
+  useEffect(() => setAccessDenied(false), [memberAllowed]);
   const timeReader = useRef(getMediaTimeMs);
   const [tags, setTags] = useState<PublicFacePresenceTag[]>([]);
   const [visible, setVisible] = useState(true);
@@ -244,6 +254,12 @@ export function OnScreenIdentityOverlay({
         cache: "no-store",
         signal,
       });
+      if (response.status === 401 || response.status === 403) {
+        requestSequence.current += 1;
+        setTags([]);
+        setAccessDenied(true);
+        return;
+      }
       if (!response.ok) {
         if (sequence === requestSequence.current) setTags([]);
         return;

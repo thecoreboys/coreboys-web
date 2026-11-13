@@ -1,0 +1,165 @@
+/* Compact Guide + History panels shared by the home page, 24/7 and channel
+   pages. Tokens follow the site theme so both light and dark work. */
+.deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding-inline: 20px;
+}
+@media (min-width: 768px) { .deck { padding-inline: 40px; } }
+@media (max-width: 1023px) { .deck { grid-template-columns: minmax(0, 1fr); } }
+
+.panel {
+  --deck-line: color-mix(in srgb, var(--ink) 10%, transparent);
+  --deck-fill: color-mix(in srgb, var(--ink) 4%, var(--bg));
+  --deck-fill-hover: color-mix(in srgb, var(--ink) 8%, var(--bg));
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--deck-line);
+  border-radius: 18px;
+  background: var(--deck-fill);
+}
+
+.panelHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.panelHeader h2 { color: var(--ink); font-size: 18px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.panelHeader p { margin-top: 2px; color: var(--ink-faint); font-size: 13px; }
+.panelLink {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--deck-line);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+.panelLink:hover { background: var(--deck-fill-hover); }
+
+/* ---------- On now ---------- */
+.nowList { display: grid; gap: 6px; }
+.nowRow {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 12px;
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: inset 3px 0 0 var(--strip-accent, var(--core));
+}
+.nowLogo {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 7px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--strip-accent, var(--core)) 32%, #111), #0d0d0f);
+}
+.nowLogo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.nowCopy { display: grid; gap: 3px; min-width: 0; }
+.nowChannel { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--ink-faint); }
+.nowChannel strong { color: var(--ink-dim); font-weight: 700; white-space: nowrap; }
+.nowChannel > span { white-space: nowrap; }
+.liveBadge,
+.onBadge {
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.liveBadge { background: var(--live); color: #fff; }
+.onBadge { background: color-mix(in srgb, var(--core) 18%, transparent); color: var(--core); }
+.nowTitle { overflow: hidden; color: var(--ink); font-size: 14px; font-weight: 650; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.nextLine { display: flex; gap: 6px; min-width: 0; overflow: hidden; color: var(--ink-faint); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.nextLine span { flex: 0 0 auto; color: var(--ink-dim); font-weight: 650; font-variant-numeric: tabular-nums; }
+.progress { display: block; height: 3px; overflow: hidden; border-radius: 99px; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.progress i { display: block; height: 100%; border-radius: inherit; background: var(--core); }
+.tune {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 700;
+}
+.tune:hover { opacity: 0.9; }
+
+/* ---------- History ---------- */
+.tabs { display: flex; gap: 6px; }
+.tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--deck-line);
+  border-radius: 999px;
+  color: var(--ink-dim);
+  font-size: 13px;
+  font-weight: 650;
+}
+.tabs button[aria-pressed="true"] { border-color: transparent; background: var(--ink); color: var(--bg); }
+.tabs button span { min-width: 18px; padding: 0 5px; border-radius: 99px; background: color-mix(in srgb, currentColor 18%, transparent); font-size: 11px; text-align: center; }
+
+.historyList { display: grid; gap: 4px; }
+.historyItem {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px;
+  border-radius: 12px;
+  text-align: left;
+}
+.historyItem:hover { background: var(--deck-fill-hover); }
+.historyThumb { position: relative; display: block; overflow: hidden; aspect-ratio: 16 / 9; border-radius: 8px; background: var(--bg); }
+.historyThumb img { width: 100%; height: 100%; object-fit: cover; }
+.historyThumb .progress { position: absolute; right: 0; bottom: 0; left: 0; border-radius: 0; }
+.historyCopy { display: grid; gap: 3px; min-width: 0; }
+.historyCopy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.historyCopy span { overflow: hidden; color: var(--ink-faint); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+.empty { padding: 12px 4px; color: var(--ink-faint); font-size: 13.5px; }
+.empty a { color: var(--ink); text-decoration: underline; }
+.skeleton { display: grid; gap: 6px; }
+.skeleton i { display: block; height: 64px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 6%, var(--bg)); animation: deck-pulse 1.4s ease-in-out infinite; }
+@keyframes deck-pulse { 50% { opacity: 0.55; } }
+
+.panel :is(button, a):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+@media (max-width: 639px) {
+  .panel { padding: 12px; border-radius: 16px; }
+  .nowRow { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 10px; padding: 8px 8px 8px 10px; }
+  .nowLogo { width: 36px; height: 36px; padding: 6px; border-radius: 9px; }
+  .tune span { display: none; }
+  .tune { padding: 0; width: 44px; justify-content: center; }
+  .historyItem { grid-template-columns: 96px minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) { .skeleton i { animation: none; } }

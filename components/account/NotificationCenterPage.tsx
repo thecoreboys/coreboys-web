@@ -3,7 +3,7 @@
 import { NotificationArtwork } from "@/components/notifications/NotificationArtwork";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, Check, CheckCheck, Clock3, Inbox, Play, Settings2 } from "lucide-react";
+import { Bell, Check, CheckCheck, Clock3, History, Inbox, Play, Settings2 } from "lucide-react";
 import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
 import type { InboxCategory, InboxNotification, NotificationCenterPage as NotificationCenterData } from "@/lib/inbox-notification";
 import { notificationProviderForUrl, notificationTargetFor } from "@/lib/notification-target";
@@ -246,15 +246,21 @@ export function NotificationCenterPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-tertiary">Creator activity, account updates, and community notices in one place.</p>
           </div>
         </div>
-        <button
-          type="button"
-          disabled={!unreadCount}
-          onClick={() => void markAllRead()}
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-secondary bg-primary px-3.5 text-sm font-semibold text-secondary transition hover:bg-primary_hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          <CheckCheck className="size-4" aria-hidden />
-          Mark {filter === "all" ? "all" : "shown"} read
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link href={"/account/catch-up" as never} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-secondary bg-primary px-3.5 text-sm font-semibold text-secondary transition hover:bg-primary_hover hover:text-primary">
+            <History className="size-4" aria-hidden />
+            Catch up
+          </Link>
+          <button
+            type="button"
+            disabled={!unreadCount}
+            onClick={() => void markAllRead()}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-secondary bg-primary px-3.5 text-sm font-semibold text-secondary transition hover:bg-primary_hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <CheckCheck className="size-4" aria-hidden />
+            Mark {filter === "all" ? "all" : "shown"} read
+          </button>
+        </div>
       </div>
 
       <section className="mt-7 overflow-hidden rounded-2xl border border-secondary bg-primary shadow-sm">

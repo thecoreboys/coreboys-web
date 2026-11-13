@@ -53,3 +53,25 @@ test("DJ Cora uses a bounded level meter driven by speech instead of crossing st
   assert.doesNotMatch(director, /<Strands|components\/ui\/Strands/);
   assert.match(styles, /\.signalBar[^}]*scaleY\(calc\(1 \+ var\(--signal-level/);
 });
+
+test("phones get only the small DJ on/off button and Cora speaks whenever she is enabled", () => {
+  const system = readFileSync(new URL("../components/watch/RadioAudioSystem.tsx", import.meta.url), "utf8");
+  assert.match(system, /^\s*defaultExpanded\s*$/m);
+  assert.match(director, /!autoCollapse && compactScreen \? <button/);
+  assert.match(director, /onClick=\{blocked \? retry : toggleAudio\}/);
+  assert.match(director, /widgetExpandedRef\.current \|\| compactScreenRef\.current/);
+  assert.match(director, /data-voice=\{enabled && \(compactScreen \|\| widgetExpanded\) \? "on" : "off"\}/);
+  assert.match(styles, /@media \(max-width: 767px\) \{\s*\.root \{ display: none; \}\s*\.voiceToggle \{ display: grid; \}/);
+});
+
+test("the viewer discretion advisory takes priority without waiting for DJ Cora", () => {
+  const hero = readFileSync(new URL("../components/watch/NetworkChannelPage.tsx", import.meta.url), "utf8");
+  const player = readFileSync(new URL("../components/watch/PersistentPlayer.tsx", import.meta.url), "utf8");
+  for (const source of [hero, player]) {
+    assert.doesNotMatch(source, /waitForNetworkTuningAudio\(\),/);
+    assert.match(source, /if \(!needsAdvisory\)/);
+    assert.match(source, /skipNetworkTuningAudio\(\)/);
+  }
+  assert.match(hero, /\{advisoryVisible \? \(/);
+  assert.match(player, /contentAdvisoryVisible \? \(/);
+});

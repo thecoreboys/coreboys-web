@@ -1,0 +1,266 @@
+/* CORE motion layer.
+   One vocabulary for how the product moves: shared curves and durations,
+   then quiet, consistent response states for the surfaces people touch most.
+   Everything here animates transform and opacity only, and every flourish
+   steps aside for prefers-reduced-motion, the in-app "calm" and "reduce
+   motion" preferences, and the device "conserve" profile (see the end of the
+   file). It is imported last so it refines the earlier polish layers without
+   rewriting them. Durations mirror `uiDurations` in lib/motion.ts. */
+
+:root {
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --motion-ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Small controls settle with a hint of overshoot; never a bounce. */
+  --motion-ease-settle: cubic-bezier(0.34, 1.32, 0.64, 1);
+  --motion-press: 90ms;
+  --motion-fast: 160ms;
+  --motion-base: 240ms;
+  --motion-slow: 420ms;
+  --motion-art: 700ms;
+  --motion-press-scale: 0.96;
+  --motion-press-scale-card: 0.985;
+  --motion-lift: -3px;
+}
+
+:root,
+[data-theme="dark"] {
+  --motion-card-shadow: 0 18px 30px -18px rgb(0 0 0 / 0.75), 0 6px 14px -8px rgb(0 0 0 / 0.5);
+  --motion-card-edge: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+[data-theme="light"] {
+  --motion-card-shadow: 0 18px 30px -20px rgb(24 24 32 / 0.32), 0 4px 10px -6px rgb(24 24 32 / 0.16);
+  --motion-card-edge: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+   Poster cards. The :is() prefix matches the specificity of the home rail
+   rules in home-polish.css so this single treatment applies everywhere.
+   Lift and art drift need a fine pointer; press feedback works for touch too.
+   ------------------------------------------------------------------------ */
+:is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster {
+  transition:
+    transform var(--motion-base) var(--motion-ease-out),
+    border-color var(--motion-fast) var(--motion-ease-out);
+}
+
+/* The elevation shadow lives on its own layer and fades in, so hovering a
+   card never repaints a blurred box-shadow frame by frame. Inside .watch-os
+   the older sheen/scrim ::after is already retired, so it is reused here. */
+:is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster::after,
+:is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster:is(:hover, :focus-within)::after {
+  content: "";
+  display: block;
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: none;
+  box-shadow: var(--motion-card-shadow);
+  opacity: 0;
+  transform: none;
+  animation: none;
+  pointer-events: none;
+  transition: opacity var(--motion-base) var(--motion-ease-out);
+}
+
+:is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster > .watch-poster-link img {
+  transition: transform var(--motion-art) var(--motion-ease-out), opacity var(--motion-base) var(--motion-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster:is(:hover, :focus-within) {
+    border-color: var(--motion-card-edge);
+    box-shadow: none;
+    transform: translate3d(0, var(--motion-lift), 0);
+  }
+  :is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster:is(:hover, :focus-within)::after { opacity: 1; }
+  :is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster:is(:hover, :focus-within) > .watch-poster-link img {
+    transform: scale(1.035);
+  }
+  /* A rail that is being dragged should glide, not light up every card. */
+  .watch-os [data-drag-scroll-active="true"] .watch-poster.watch-poster:is(:hover, :focus-within) { transform: none; }
+  .watch-os [data-drag-scroll-active="true"] .watch-poster.watch-poster:is(:hover, :focus-within)::after { opacity: 0; }
+}
+
+/* Press: only when the artwork itself is pressed, not the save/menu buttons. */
+:is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster:has(> .watch-poster-link:active) {
+  transform: translate3d(0, -1px, 0) scale(var(--motion-press-scale-card));
+  transition-duration: var(--motion-press);
+}
+
+/* The hover affordance chip rises with the house curve. */
+.watch-poster .watch-poster-affordance {
+  transition: opacity var(--motion-fast) var(--motion-ease-out), transform var(--motion-base) var(--motion-ease-out);
+}
+
+/* Secondary cards on the home page share the same timing and press. */
+.watch-os .watch-home-promo-card,
+.core-home .watch-creator-network-poster,
+.core-home .watch-events-series-poster {
+  transition:
+    transform var(--motion-base) var(--motion-ease-out),
+    outline-color var(--motion-fast) var(--motion-ease-out),
+    box-shadow var(--motion-base) var(--motion-ease-out);
+}
+.watch-os .watch-home-promo-card:active,
+.watch-os .core-home .watch-creator-network-poster:active,
+.watch-os .core-home .watch-events-series-poster:active {
+  transform: translate3d(0, -1px, 0) scale(var(--motion-press-scale-card));
+  transition-duration: var(--motion-press);
+}
+
+/* Rail arrows answer a press like every other control. */
+.watch-rail-arrow {
+  transition:
+    opacity var(--motion-fast) var(--motion-ease-out),
+    transform var(--motion-fast) var(--motion-ease-out),
+    background-color var(--motion-fast) var(--motion-ease-out);
+}
+.watch-rail-frame .watch-rail-arrow:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.9);
+  transition-duration: var(--motion-press);
+}
+
+.watch-home-shelf-action { transition: color var(--motion-fast) var(--motion-ease-out), background-color var(--motion-fast) var(--motion-ease-out), transform var(--motion-fast) var(--motion-ease-out); }
+.watch-home-shelf-action:active { transform: scale(var(--motion-press-scale)); transition-duration: var(--motion-press); }
+
+/* Buttons that had hover motion but no press. */
+.btn-twitch:active,
+.btn-youtube:active,
+.member-hero__action:active,
+.supporter-cta__action:active {
+  transform: scale(var(--motion-press-scale));
+  transition-duration: var(--motion-press);
+}
+
+/* ---------------------------------------------------------------------------
+   Top navigation
+   ------------------------------------------------------------------------ */
+.core-topnav__link {
+  transition-property: color, background-color, transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease-out);
+}
+.core-topnav__link:active {
+  transform: scale(var(--motion-press-scale));
+  transition-duration: var(--motion-press);
+}
+
+/* Menus open with a short settle from their anchor instead of popping in.
+   Tailwind's translate utilities use the independent `translate` property,
+   so animating `transform` here never fights their positioning. */
+.core-topnav [role="menu"] > div:first-child {
+  transform-origin: 50% 0;
+  animation: motion-menu-in var(--motion-base) var(--motion-ease-out);
+}
+.core-topnav #fan-account-menu > div:first-child { transform-origin: 100% 0; }
+.core-topnav__mobile-menu { animation: motion-sheet-down var(--motion-base) var(--motion-ease-out); }
+
+@keyframes motion-menu-in {
+  from { opacity: 0; transform: translate3d(0, -6px, 0) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes motion-sheet-down {
+  from { opacity: 0; transform: translate3d(0, -8px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Mobile bottom navigation: a soft pill settles behind the current tab and
+   the icon gives under the thumb. Members sheet rises instead of appearing.
+   ------------------------------------------------------------------------ */
+@media (max-width: 767px) {
+  .mobile-bottom-nav__item {
+    position: relative;
+    isolation: isolate;
+    transition: color var(--motion-fast) var(--motion-ease-out);
+  }
+  .mobile-bottom-nav__item::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: .1rem .2rem;
+    border-radius: .85rem;
+    background: color-mix(in srgb, var(--core) 13%, transparent);
+    opacity: 0;
+    transform: scale(0.82);
+    transition: opacity var(--motion-base) var(--motion-ease-out), transform var(--motion-slow) var(--motion-ease-out);
+    pointer-events: none;
+  }
+  .mobile-bottom-nav__item:is([aria-current="page"], [data-active="true"])::before { opacity: 1; transform: none; }
+  .mobile-bottom-nav__item:active { background: transparent; }
+  .mobile-bottom-nav__item:active::before { opacity: .7; transform: scale(0.94); transition-duration: var(--motion-press); }
+  .mobile-bottom-nav__item svg { transition: transform var(--motion-base) var(--motion-ease-settle); }
+  .mobile-bottom-nav__item:active svg { transform: scale(0.86); transition-duration: var(--motion-press); }
+
+  .mobile-members-sheet[data-state="open"] { animation: motion-sheet-up var(--motion-slow) var(--motion-ease-out); }
+  .mobile-members-overlay[data-state="open"] { animation: motion-fade-in var(--motion-base) var(--motion-ease-out); }
+}
+
+@keyframes motion-sheet-up {
+  from { transform: translate3d(0, 100%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes motion-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---------------------------------------------------------------------------
+   Section entrances. Home rows rise into place as they scroll in, driven by
+   the scroll timeline (no observers, no JS). Rows already on screen at load
+   are past their range, so first paint is untouched. Browsers without
+   scroll timelines simply show the rows.
+   ------------------------------------------------------------------------ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .core-home .watch-content-rails > :not(.watch-full-library),
+    .core-home .watch-full-library > * {
+      animation: motion-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 200px;
+    }
+  }
+}
+
+@keyframes motion-rise {
+  from { opacity: 0; transform: translate3d(0, 28px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Minimal motion. The OS setting and the in-app "calm" / "reduce motion"
+   choices remove travel and entrances; state still changes, just instantly.
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  :is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster.watch-poster,
+  :is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster.watch-poster:is(:hover, :focus-within, :has(> .watch-poster-link:active)),
+  :is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster.watch-poster > .watch-poster-link img,
+  .watch-os .watch-home-promo-card:is(:hover, :active),
+  .watch-os .core-home :is(.watch-creator-network-poster, .watch-events-series-poster):active,
+  .core-topnav__link:active,
+  .watch-home-shelf-action:active,
+  :is(.btn-twitch, .btn-youtube, .member-hero__action, .supporter-cta__action):active,
+  .mobile-bottom-nav__item::before,
+  .mobile-bottom-nav__item:active svg { transform: none; }
+  :is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster::after,
+  .mobile-bottom-nav__item::before,
+  .mobile-bottom-nav__item svg { transition: none; }
+  .core-topnav [role="menu"] > div:first-child,
+  .core-topnav__mobile-menu,
+  .mobile-members-sheet[data-state="open"],
+  .mobile-members-overlay[data-state="open"] { animation: none; }
+}
+
+html:is([data-watch-motion="calm"], [data-watch-reduced-motion="on"], [data-performance-profile="conserve"]) :is(
+  .core-topnav [role="menu"] > div:first-child,
+  .core-topnav__mobile-menu,
+  .mobile-members-sheet[data-state="open"],
+  .mobile-members-overlay[data-state="open"],
+  .core-home .watch-content-rails > :not(.watch-full-library),
+  .core-home .watch-full-library > *
+) { animation: none; }
+
+html:is([data-watch-motion="calm"], [data-watch-reduced-motion="on"]) :is(.watch-os .core-home .watch-shelf-section, .watch-os) .watch-poster.watch-poster:is(:hover, :focus-within) > .watch-poster-link img { transform: none; }

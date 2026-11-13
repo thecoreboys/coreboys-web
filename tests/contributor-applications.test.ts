@@ -85,16 +85,19 @@ test("admin API rejects non-admin sessions before reading any applications",asyn
 });
 
 const help = { kind: "help", name: "Test helper", contact: "helper@example.com", role: "Developer", portfolio: "", message: "I can improve the mobile experience.", ageConfirmed: true };
-const suggestion = { kind: "suggestion", message: "Please add a way to find saved streams.", ageConfirmed: true };
+const suggestion = { kind: "suggestion", message: "Please add a way to find saved streams." };
 
-test("suggestions only require a message and age confirmation; help signups require name, contact and role", () => {
+test("suggestions need no age attestation; help signups require one along with contact and role", () => {
   const parsed = validation.communitySubmissionSchema.parse(suggestion);
   assert.equal(parsed.contact, "");
+  assert.equal(parsed.ageConfirmed, false);
+  assert.ok(validation.communitySubmissionSchema.safeParse({ ...suggestion, ageConfirmed: false }).success);
+  assert.ok(validation.communitySubmissionSchema.safeParse({ ...suggestion, ageConfirmed: true }).success, "already-open old suggestion forms remain accepted");
   assert.ok(validation.communitySubmissionSchema.safeParse(help).success);
-  for (const change of [{ message: "short" }, { ageConfirmed: false }, { kind: "admin" }, { message: "x".repeat(2001) }, { contact: "<script>" }, { role: "Developer" }]) {
+  for (const change of [{ message: "short" }, { ageConfirmed: "true" }, { kind: "admin" }, { message: "x".repeat(2001) }, { contact: "<script>" }, { role: "Developer" }]) {
     assert.equal(validation.communitySubmissionSchema.safeParse({ ...suggestion, ...change }).success, false);
   }
-  for (const change of [{ name: "" }, { contact: "" }, { role: "admin" }, { message: "Too short" }, { portfolio: "javascript:alert(1)" }]) {
+  for (const change of [{ ageConfirmed: false }, { ageConfirmed: undefined }, { name: "" }, { contact: "" }, { role: "admin" }, { message: "Too short" }, { portfolio: "javascript:alert(1)" }]) {
     assert.equal(validation.communitySubmissionSchema.safeParse({ ...help, ...change }).success, false);
   }
 });
@@ -214,7 +217,7 @@ test("new submissions store their type alongside encrypted details and share the
   for (const submission of [help, suggestion]) {
     assert.equal(await store.saveApplication(validation.submissionSchema.parse(submission), "fingerprint", "token-id"), "saved");
   }
-  assert.equal(JSON.stringify(saved), JSON.stringify([["token-id", "encrypted", "fingerprint", "help"], ["token-id", "encrypted", "fingerprint", "suggestion"]]));
+  assert.equal(JSON.stringify(saved), JSON.stringify([["token-id", "encrypted", "fingerprint", true, "help"], ["token-id", "encrypted", "fingerprint", false, "suggestion"]]));
 });
 test("storage serializes same-visitor limits, deduplicates tokens and binds all input parameters",async()=>{
   let count=0,duplicate=false,inserted:unknown[]=[];const statements:string[]=[];

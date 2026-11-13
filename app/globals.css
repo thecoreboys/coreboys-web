@@ -81,7 +81,12 @@
   animation: core-cursor-click 400ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
+/* A persistent full-viewport layer, even transparent and pointer-events:none,
+   counts as occluding every iframe under Chrome's IntersectionObserver v2
+   visibility check. Twitch uses that check to gate autoplay, so this layer
+   exists in layout only for the half-second it is actually flashing. */
 .core-agent-cursor-station-flash {
+  display: none;
   inset: 0;
   z-index: 2147483644;
   background: radial-gradient(circle 12rem at 50% 50%, color-mix(in srgb, var(--cursor-accent, #f8f8fa) 13%, transparent), transparent 73%);
@@ -89,6 +94,7 @@
 }
 
 .core-agent-cursor-station-flash[data-active="true"] {
+  display: block;
   animation: core-cursor-station-flash 500ms ease-out both;
 }
 
@@ -385,6 +391,9 @@ body[data-cursor="agentic"][data-cursor-idle="true"] .core-agent-cursor-aura[dat
     .core-agent-cursor-particles, .core-agent-cursor-hint, .core-agent-cursor-ripple
   ) {
     opacity: 0 !important;
+    /* Opacity alone still occludes the frame for visibility-gated players
+       (Twitch autoplay); hidden layers are excluded from that hit test. */
+    visibility: hidden !important;
   }
 
   body[data-cursor="agentic"] :where(button:disabled, input:disabled, [aria-disabled="true"]) {

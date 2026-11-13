@@ -49,6 +49,5 @@ test("network dial navigation starts immediately and channel routes expose a lig
   assert.match(transition, /router\.push\(href as Route\);/);
   assert.doesNotMatch(transition, /setTimeout\(\(\) =>\s*\{\s*router\.push/);
   const loading = readFileSync(new URL("../app/channels/[slug]/loading.tsx", import.meta.url), "utf8");
-  assert.match(loading, /aria-label="Loading network"/);
-  assert.match(loading, /animate-pulse/);
+  assert.match(loading, /<PageLoading label="Loading network"/);
 });

@@ -1,5 +1,7 @@
 import "server-only";
 import { query } from "@/lib/db";
+import { cachedPublicData } from "@/lib/server-cache";
+import { curatedOriginalItems, withCuratedOriginalItems } from "./core-originals-curated";
 
 export type CoreOriginal = {
   id: string;
@@ -89,11 +91,33 @@ function mapItem(row: Record<string, unknown>): CoreOriginalItem {
   return { id: String(row.id), originalId: String(row.original_id), sourceUrl: String(row.source_url), platform: String(row.platform) as CoreOriginalItem["platform"], title: String(row.title), subtitle: row.subtitle ? String(row.subtitle) : null, posterUrl: row.poster_url ? String(row.poster_url) : null, format: String(row.format) as CoreOriginalItem["format"], status: String(row.status) as CoreOriginalItem["status"], recommendationNote: row.recommendation_note ? String(row.recommendation_note) : null, sortOrder: Number(row.sort_order) };
 }
 
+function isCoreOriginalSnapshot(value: unknown): value is CoreOriginalSnapshot {
+  return Boolean(value && typeof value === "object" && Array.isArray((value as CoreOriginalSnapshot).originals) && Array.isArray((value as CoreOriginalSnapshot).items));
+}
+
 export async function getCoreOriginalSnapshot(includeUnpublished = false): Promise<CoreOriginalSnapshot> {
+  // The public shelf renders on every home request; serve it from the shared
+  // public cache. Admin (unpublished) reads always go to the database.
+  // Code-curated episodes are merged after the cache so a deploy shows them
+  // immediately; reviewed rows for the same source take precedence.
+  if (!includeUnpublished) {
+    // v2: cached rows now include rejected items, so older builds must not read them.
+    return withCuratedOriginalItems(await cachedPublicData("core-originals:v2",() => loadCoreOriginalSnapshot(false), {
+      freshSeconds: 30,
+      staleSeconds: 3_600,
+      validate: isCoreOriginalSnapshot,
+    }));
+  }
+  return loadCoreOriginalSnapshot(true);
+}
+
+async function loadCoreOriginalSnapshot(includeUnpublished: boolean): Promise<CoreOriginalSnapshot> {
   await ensureCoreOriginalsSchema();
   const [originals, items] = await Promise.all([
     query(`SELECT id::text,slug,title,summary,poster_url,enabled,sort_order FROM core_originals WHERE slug <> 'core-rug' ${includeUnpublished ? "" : "AND enabled"} ORDER BY sort_order,created_at`),
-    query(`SELECT id::text,original_id::text,source_url,platform,title,subtitle,poster_url,format,status,recommendation_note,sort_order FROM core_original_items ${includeUnpublished ? "" : "WHERE status='approved'"} ORDER BY sort_order,created_at DESC`),
+    // Public reads include rejected rows only so they can suppress a matching
+    // curated episode; withCuratedOriginalItems never returns them.
+    query(`SELECT id::text,original_id::text,source_url,platform,title,subtitle,poster_url,format,status,recommendation_note,sort_order FROM core_original_items ${includeUnpublished ? "" : "WHERE status IN ('approved','rejected')"} ORDER BY sort_order,created_at DESC`),
   ]);
   return { originals: originals.rows.map(mapOriginal), items: items.rows.map(mapItem) };
 }
@@ -108,17 +132,15 @@ export async function getCoreOriginal(slug: string) {
     const seed = SEEDS[seedIndex];
     if (!seed) return null;
     const [seedSlug, title, posterUrl] = seed;
-    return {
-      original: {
-        id: `seed:${seedSlug}`,
-        slug: seedSlug,
-        title,
-        summary: null,
-        posterUrl,
-        enabled: true,
-        sortOrder: seedIndex,
-      },
-      items: [],
+    const original = {
+      id: `seed:${seedSlug}`,
+      slug: seedSlug,
+      title,
+      summary: null,
+      posterUrl,
+      enabled: true,
+      sortOrder: seedIndex,
     };
+    return { original, items: curatedOriginalItems(original) };
   }
 }

@@ -18,6 +18,7 @@ import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
 import { tiktokPostThumbnailSource } from "@/lib/watch/thumbs";
 import { clampPreviewPosition, isPreviewPlayerReady, previewPlaybackSample } from "@/lib/watch/preview-progress";
 import { listenToYouTube } from "@/lib/watch/youtube-player";
+import type { TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import type { WatchFeedbackValue } from "@/lib/watch/discovery-state";
@@ -177,6 +178,7 @@ function MediaHoverPreview({
   const keyboardFocusTransferredRef = useRef(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const twitchRef = useRef<TwitchPlayerInstance | null>(null);
   const player = usePlayer();
   const reducedMotion = useReducedMotion();
   const mediaActive = active && !preloadOnly && !handedOff && pageVisible;
@@ -186,7 +188,8 @@ function MediaHoverPreview({
   const sourcePlayable = useMemo(() => itemToPlayable(item), [item]);
   const playable = isPhoto ? null : sourcePlayable;
   const previewMedia = useMemo(() => resolveHoverPreviewMedia(item), [item]);
-  const instagramUrl = useInstagramPlayback(item.platform === "instagram" ? item.sourceUrl ?? item.embedUrl : null, wantsMotion && !previewMedia.nativeUrl);
+  // Photos have no playback; resolving one only delays and can't succeed.
+  const instagramUrl = useInstagramPlayback(item.platform === "instagram" && !isPhoto ? item.sourceUrl ?? item.embedUrl : null, wantsMotion && !previewMedia.nativeUrl);
   const previewPlayable = previewMedia.playable;
   const fallbackHref = item.sourceUrl || item.href;
 
@@ -553,7 +556,7 @@ function MediaHoverPreview({
           rel={isInstagramPhoto ? "noreferrer" : undefined}
           aria-label={isInstagramPhoto
             ? `View ${item.title} on Instagram (opens in a new tab)`
-            : `Play ${item.title}`}
+            : isPhoto ? `View ${item.title}` : `Play ${item.title}`}
           onClick={(event) => {
             if (!playable) return;
             event.preventDefault();
@@ -565,9 +568,11 @@ function MediaHoverPreview({
             src={item.backdrop || item.poster}
             tiktokSourceUrl={tiktokPostThumbnailSource(item)}
             preferTikTokSource={Boolean(tiktokPostThumbnailSource(item))}
+            instagramSourceUrl={item.platform === "instagram" && item.sourceUrl ? item.sourceUrl : undefined}
             className={`watch-preview-still ${motionReady ? "is-hidden" : ""}`}
             focalPoint={item.focalPoint}
             loading="eager"
+            sizes="(max-width: 640px) 92vw, 440px"
           />
           {videoSrc && !motionFailed ? (
             <video
@@ -618,7 +623,6 @@ function MediaHoverPreview({
                 setFailedMotionSource(videoSrc);
               }}
               onCanPlay={(event) => {
-                event.currentTarget.muted = true;
                 if (mediaActive) void event.currentTarget.play().catch(() => {});
               }}
             />
@@ -634,6 +638,7 @@ function MediaHoverPreview({
               onProgress={onTwitchProgress}
               onSelect={playNow}
               onLoadError={() => setFailedMotionSource(twitchSource)}
+              playerRef={twitchRef}
             />
           ) : iframeSrc && !motionFailed ? (
             <iframe
@@ -666,7 +671,7 @@ function MediaHoverPreview({
             <a href={fallbackHref} target="_blank" rel="noopener noreferrer">Open on {item.platform === "youtube" ? "YouTube" : item.platform === "tiktok" ? "TikTok" : item.platform === "instagram" ? "Instagram" : item.platform === "twitch" ? "Twitch" : item.platform === "x" ? "X" : "source"} ↗</a>
           </div>
         ) : null}
-        {!isPhoto && !twitchSource && motionSource && motionReady ? (
+        {!isPhoto && motionSource ? (
           <PreviewAudioControl
             active={mediaActive}
             ready={motionReady}
@@ -674,7 +679,8 @@ function MediaHoverPreview({
             nativeRef={videoRef}
             frameRef={frameRef}
             youtube={Boolean(iframeSrc && previewPlayable?.youtubeId)}
-            unavailableReason={`${item.platform} previews always begin muted.`}
+            twitchRef={twitchSource ? twitchRef : undefined}
+            unavailableReason="This source does not expose a preview sound control. Open the full player for sound."
             onKeepOpen={onPreviewEnter}
             onClose={keyboardActive ? onKeyboardDismiss : onPreviewLeave}
           />
@@ -818,6 +824,8 @@ function MediaHoverPreview({
               redirectToMyListSignIn();
               return;
             }
+            // Still checking (or retrying) membership: never bounce a member to /upgrade.
+            if (subscription.loading || subscription.unavailable) return;
             if (!dvrAllowed) {
               window.location.assign(subscription.featureHref("dvr.extended_retention"));
               return;

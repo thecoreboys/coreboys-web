@@ -14,6 +14,12 @@ export function ensureContributorSchema(): Promise<void> {
     await query(`ALTER TABLE contributor_applications
       ADD COLUMN IF NOT EXISTS submission_type text NOT NULL DEFAULT 'help' CHECK (submission_type IN ('help', 'suggestion')),
       ADD COLUMN IF NOT EXISTS review_status text NOT NULL DEFAULT 'new' CHECK (review_status IN ('new', 'reviewed'))`);
+    await query(`DO $$ BEGIN
+      ALTER TABLE contributor_applications DROP CONSTRAINT IF EXISTS contributor_applications_age_confirmed_check;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='contributor_applications_help_age_check' AND conrelid='contributor_applications'::regclass) THEN
+        ALTER TABLE contributor_applications ADD CONSTRAINT contributor_applications_help_age_check CHECK (submission_type='suggestion' OR age_confirmed=true);
+      END IF;
+    END $$`);
     await query(`CREATE INDEX IF NOT EXISTS contributor_applications_created_idx ON contributor_applications(created_at DESC, id DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS contributor_applications_ip_idx ON contributor_applications(ip_fingerprint, created_at DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS contributor_applications_inbox_idx ON contributor_applications(submission_type, review_status, created_at DESC, id DESC)`);
@@ -27,7 +33,7 @@ export async function saveApplication(details: SubmissionDetails, fingerprint: s
     if (duplicate.rows.length) return "duplicate";
     const count = await db.query(`SELECT count(*)::int AS count FROM contributor_applications WHERE ip_fingerprint=$1 AND created_at > now() - interval '24 hours'`, [fingerprint]);
     if (Number(count.rows[0].count) >= 5) return "limited";
-    await db.query(`INSERT INTO contributor_applications(token_id,details_encrypted,ip_fingerprint,age_confirmed,submission_type) VALUES($1,$2,$3,true,$4)`, [tokenId, encrypted, fingerprint, "kind" in details ? details.kind : "help"]);
+    await db.query(`INSERT INTO contributor_applications(token_id,details_encrypted,ip_fingerprint,age_confirmed,submission_type) VALUES($1,$2,$3,$4,$5)`, [tokenId, encrypted, fingerprint, details.ageConfirmed, "kind" in details ? details.kind : "help"]);
     return "saved";
   });
 }

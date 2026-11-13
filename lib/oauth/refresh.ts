@@ -1,6 +1,7 @@
 import {
   getConnection,
   markExpired,
+  markRefreshRejected,
   markSyncError,
   readAccessToken,
   readRefreshToken,
@@ -9,6 +10,9 @@ import {
 } from "@/lib/oauth/connections";
 import type { OauthProvider } from "@/lib/oauth/providers";
 import { tiktokAppCredentials } from "@/lib/oauth/providers";
+
+/** Provider token/profile calls must not hold a request (or a sign-in) open indefinitely. */
+const OAUTH_FETCH_TIMEOUT_MS = 8_000;
 
 const refreshes = new Map<string, Promise<boolean>>();
 
@@ -19,13 +23,18 @@ class RefreshRequestError extends Error {
   }
 }
 
+/**
+ * invalid_grant / rejected credentials (400, 401) require a reconnect. Rate
+ * limits, provider outages and network failures do not: marking those as
+ * expired would strand a still-valid grant.
+ */
+export function refreshFailureIsPermanent(status: number): boolean {
+  return status === 400 || status === 401;
+}
+
 async function requireRefreshResponse(response: Response, label: string): Promise<void> {
   if (response.ok) return;
-  // invalid_grant / rejected credentials require a reconnect. Rate limits and
-  // provider outages do not: marking those as expired would unnecessarily
-  // strand a still-valid token during the early-refresh window.
-  const permanent = response.status === 400 || response.status === 401;
-  throw new RefreshRequestError(`${label} ${response.status}`, permanent);
+  throw new RefreshRequestError(`${label} ${response.status}`, refreshFailureIsPermanent(response.status));
 }
 
 function soon(expires: Date | null, provider: OauthProvider): boolean {
@@ -42,10 +51,14 @@ export async function accessTokenFor(
 ): Promise<{ token: string; row: ConnectionRow } | null> {
   const row = await getConnection(userId, provider);
   if (!row || !row.access_token_enc) return null;
-  if (row.status === "revoked") return null;
+  // `expired` is only written after the provider rejected the refresh token
+  // (or there is none). Retrying it on every request would hammer the token
+  // endpoint with a dead credential; the fan must reconnect.
+  if (row.status === "revoked" || row.status === "expired") return null;
 
-  if (row.status !== "expired" && !soon(row.token_expires_at, provider)) {
-    return { token: readAccessToken(row), row };
+  if (!soon(row.token_expires_at, provider)) {
+    const token = await readStoredAccessToken(row);
+    return token ? { token, row } : null;
   }
 
   const refreshed = await refreshConnectionOnce(row);
@@ -53,12 +66,30 @@ export async function accessTokenFor(
     const expiresAt = row.token_expires_at?.getTime() ?? 0;
     // A transient refresh failure must not interrupt playback while the old
     // token is still valid. We will retry on the next server request.
-    if (expiresAt > Date.now()) return { token: readAccessToken(row), row };
+    if (expiresAt > Date.now()) {
+      const token = await readStoredAccessToken(row);
+      return token ? { token, row } : null;
+    }
     return null;
   }
   const next = await getConnection(userId, provider);
-  if (!next) return null;
-  return { token: readAccessToken(next), row: next };
+  if (!next || next.status === "expired" || next.status === "revoked") return null;
+  const token = await readStoredAccessToken(next);
+  return token ? { token, row: next } : null;
+}
+
+/**
+ * A ciphertext that no longer decrypts (for example after the token key was
+ * rotated) cannot be used or refreshed. Ask for a reconnect instead of
+ * failing every request that needs the grant.
+ */
+async function readStoredAccessToken(row: ConnectionRow): Promise<string | null> {
+  try {
+    return readAccessToken(row);
+  } catch {
+    await markExpired(row.user_id, row.provider, "stored credential unreadable — reconnect", row.id);
+    return null;
+  }
 }
 
 async function refreshConnectionOnce(row: ConnectionRow): Promise<boolean> {
@@ -73,7 +104,13 @@ async function refreshConnectionOnce(row: ConnectionRow): Promise<boolean> {
 }
 
 async function refreshConnection(row: ConnectionRow): Promise<boolean> {
-  const refresh = readRefreshToken(row);
+  let refresh: string | null;
+  try {
+    refresh = readRefreshToken(row);
+  } catch {
+    await markExpired(row.user_id, row.provider, "stored credential unreadable — reconnect", row.id);
+    return false;
+  }
   if (!refresh) {
     await markExpired(row.user_id, row.provider, "token expired — reconnect", row.id);
     return false;
@@ -89,7 +126,11 @@ async function refreshConnection(row: ConnectionRow): Promise<boolean> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "refresh failed";
     if (err instanceof RefreshRequestError && err.permanent) {
-      await markExpired(row.user_id, row.provider, msg, row.id);
+      // A rotating provider rejects this refresh token when another request
+      // or replica already used it. If the stored token changed, that refresh
+      // won: report success so the caller re-reads the rotated grant.
+      const marked = await markRefreshRejected(row, `${msg} — reconnect`);
+      return !marked;
     } else {
       await markSyncError(row.user_id, row.provider, msg, row.id);
     }
@@ -104,7 +145,7 @@ async function refreshTwitch(row: ConnectionRow, refresh: string): Promise<boole
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  const res = await fetch("https://id.twitch.tv/oauth2/token", {
+  const res = await fetch("https://id.twitch.tv/oauth2/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -128,7 +169,7 @@ async function refreshGoogle(row: ConnectionRow, refresh: string): Promise<boole
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetch("https://oauth2.googleapis.com/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -153,7 +194,7 @@ async function refreshX(row: ConnectionRow, refresh: string): Promise<boolean> {
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  const res = await fetch("https://api.twitter.com/2/oauth2/token", {
+  const res = await fetch("https://api.twitter.com/2/oauth2/token", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -182,7 +223,7 @@ async function refreshTikTok(row: ConnectionRow, refresh: string): Promise<boole
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -203,7 +244,7 @@ async function refreshInstagram(row: ConnectionRow, refresh: string): Promise<bo
   const url = new URL("https://graph.instagram.com/refresh_access_token");
   url.searchParams.set("grant_type", "ig_refresh_token");
   url.searchParams.set("access_token", refresh);
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS), cache: "no-store" });
   await requireRefreshResponse(res, "instagram refresh");
   const json = (await res.json()) as { access_token?: string; expires_in?: number };
   if (!json.access_token) throw new RefreshRequestError("instagram refresh missing token", true);

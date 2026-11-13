@@ -66,10 +66,18 @@ test("the App Store prompt mounts only after identifying a normal website visit"
   for (const nativeApp of [true, null, false]) {
     const component = load<{ AppStoreDownload: () => React.ReactNode }>("components/chrome/AppStoreDownload.tsx", {
       "@/hooks/useNativeApp": { useNativeApp: () => nativeApp },
+      "@/hooks/useDesktopUtilities": { useDesktopUtilities: () => true },
       "@/hooks/useContributorLauncher": { useContributorLauncher: () => assert.fail("placement must not mount inside the app") },
     });
     assert.equal(component.AppStoreDownload() === null, nativeApp !== false);
   }
+  // Phones and tablets never mount the floating badge, even on the website.
+  const phone = load<{ AppStoreDownload: () => React.ReactNode }>("components/chrome/AppStoreDownload.tsx", {
+    "@/hooks/useNativeApp": { useNativeApp: () => false },
+    "@/hooks/useDesktopUtilities": { useDesktopUtilities: () => false },
+    "@/hooks/useContributorLauncher": { useContributorLauncher: () => assert.fail("placement must not mount below desktop width") },
+  });
+  assert.equal(phone.AppStoreDownload(), null);
 });
 
 function elementTypes(node: React.ReactNode): unknown[] {
