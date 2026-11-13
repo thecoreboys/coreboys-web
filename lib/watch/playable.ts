@@ -6,6 +6,37 @@ import type {
   WatchTextTrack,
 } from "./types";
 import { nativeVideoSource } from "./native-media";
+import { MEMBERS } from "@/lib/members";
+
+const TWITCH_LOGIN_RE = /^[a-z0-9_]{2,25}$/i;
+const TWITCH_RESERVED_PATHS = new Set(["videos", "directory", "p", "settings", "subscriptions", "inventory", "wallet", "search", "downloads", "turbo", "jobs", "store", "prime"]);
+
+/**
+ * The channel a live Twitch item plays. Older catalog, guide and hero items can
+ * reach the player with only a twitch.tv permalink (or just the creator), and
+ * without a login the player cannot build the embed and falls back to an
+ * "open on Twitch" card instead of autoplaying.
+ */
+export function twitchLiveLogin(item: Pick<WatchItem, "href" | "sourceUrl" | "embedUrl" | "platform" | "memberSlug" | "live">, search?: URLSearchParams): string | null {
+  const explicit = /\/watch\/live\/([^/?#]+)/.exec(item.href)?.[1] ?? search?.get("login") ?? item.live?.login ?? null;
+  if (explicit) return decodeURIComponent(explicit);
+  if (item.platform !== "twitch") return null;
+  for (const candidate of [item.sourceUrl, item.embedUrl, item.href, search?.get("url") ?? undefined]) {
+    if (!candidate) continue;
+    try {
+      const url = new URL(candidate, "https://core.local");
+      if (/(^|\.)player\.twitch\.tv$/i.test(url.hostname)) {
+        const channel = url.searchParams.get("channel");
+        if (channel && TWITCH_LOGIN_RE.test(channel)) return channel.toLowerCase();
+      }
+      if (/(^|\.)twitch\.tv$/i.test(url.hostname)) {
+        const first = url.pathname.split("/").filter(Boolean)[0];
+        if (first && TWITCH_LOGIN_RE.test(first) && !TWITCH_RESERVED_PATHS.has(first.toLowerCase())) return first.toLowerCase();
+      }
+    } catch { /* Not a URL; try the next reference. */ }
+  }
+  return MEMBERS.find((member) => member.slug === item.memberSlug)?.twitchLogin ?? null;
+}
 
 export type Playable = {
   key: string;
@@ -393,7 +424,7 @@ export function itemToPlayable(item: WatchItem): Playable | null {
     memberLabel: item.memberLabel,
     accountLabel: item.accountLabel,
     youtubeId: yt,
-    twitchLogin: liveLogin ? decodeURIComponent(liveLogin) : item.live?.login ?? null,
+    twitchLogin: kind === "live" || item.live ? twitchLiveLogin(item, search) : liveLogin ? decodeURIComponent(liveLogin) : null,
     vodId: kind === "vod" ? id : null,
     clipSrc: search.get("src"),
     clipId: kind === "clip" ? id : null,

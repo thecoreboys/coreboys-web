@@ -58,3 +58,14 @@ test("Instagram CDN photos are routed through the image optimizer", async () => 
   assert.equal(isInstagramCdnImage("https://cdninstagram.com.evil.test/a.jpg"), false);
   assert.equal(isInstagramCdnImage("/members/lacy/portrait.jpg"), false);
 });
+
+test("expired Instagram CDN links are recognised from their signed expiry", async () => {
+  const { isExpiredInstagramCdnImage } = await import("../lib/watch/thumbs");
+  const now = Date.parse("2026-11-13T12:00:00Z");
+  const hex = (date: string) => Math.floor(Date.parse(date) / 1000).toString(16).toUpperCase();
+  const link = (oe: string) => `https://scontent-lax3-2.cdninstagram.com/v/t51.82787-15/a.jpg?stp=dst-jpg&oe=${oe}`;
+  assert.equal(isExpiredInstagramCdnImage(link(hex("2026-09-15T00:00:00Z")), now), true);
+  assert.equal(isExpiredInstagramCdnImage(link(hex("2026-11-17T00:00:00Z")), now), false);
+  assert.equal(isExpiredInstagramCdnImage("https://scontent.cdninstagram.com/v/a.jpg", now), false);
+  assert.equal(isExpiredInstagramCdnImage(`https://i.ytimg.com/vi/x/hq.jpg?oe=${hex("2020-01-01T00:00:00Z")}`, now), false);
+});

@@ -7,6 +7,7 @@ import { MEMBERS } from "@/lib/members";
 import { GROUP } from "@/lib/group";
 import { getCoreFeed, getHouseFeed, type FeedItem } from "@/lib/social-feed";
 import { PUBLIC_SOCIAL_ARCHIVE_ITEM_LIMIT } from "@/lib/social-feed-events";
+import { isExpiredInstagramCdnImage } from "./thumbs";
 import {
   buildLiveResponse,
   fetchChannelVideos,
@@ -118,7 +119,12 @@ function fromSocial(item: FeedItem): WatchItem | null {
   // Photo APIs often expose the original image as mediaUrl while omitting a
   // separate thumbnail. Keep that real provider image in the card and theater
   // instead of falling through to a generic placeholder.
-  const poster = item.thumbnailUrl ?? (isPhoto ? item.mediaUrl : undefined) ?? "";
+  const imageCandidates = [item.thumbnailUrl, isPhoto ? item.mediaUrl : undefined].filter((url): url is string => Boolean(url));
+  const poster = imageCandidates.find((url) => !isExpiredInstagramCdnImage(url)) ?? imageCandidates[0] ?? "";
+  // A photo is its image. Instagram's signed links die after a few weeks and
+  // older posts are never re-fetched, so a photo whose only image has expired
+  // would render as an empty card. Leave it out until a refresh revives it.
+  if (isPhoto && item.platform === "instagram" && (!poster || isExpiredInstagramCdnImage(poster))) return null;
   const isPost = item.mediaType === "text";
   const isLive = item.isLive === true;
   const isShortForm = !isLive && !isPhoto && !isPost && (

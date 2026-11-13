@@ -34,6 +34,18 @@ export function isInstagramCdnImage(url: string): boolean {
   }
 }
 
+/**
+ * Instagram CDN links are signed and carry their expiry as a hex Unix time in
+ * `oe`. Past it the CDN answers 403, so a known-dead link is skipped instead
+ * of costing a failed optimizer request and a failed original request.
+ */
+export function isExpiredInstagramCdnImage(url: string, now = Date.now()): boolean {
+  if (!isInstagramCdnImage(url)) return false;
+  const hex = new URL(url).searchParams.get("oe");
+  if (!hex || !/^[\da-f]{8,12}$/i.test(hex)) return false;
+  return Number.parseInt(hex, 16) * 1_000 <= now;
+}
+
 /** Highest-quality YouTube stills first. maxres/sd 404 as a 120×90 stub. */
 export function youtubeThumbCandidates(id: string, quality: "card" | "hero" = "hero"): string[] {
   if (quality === "card") return [

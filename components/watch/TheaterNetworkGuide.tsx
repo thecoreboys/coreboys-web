@@ -4,7 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowLeft } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useMemo, useRef, useState } from "react";
-import { useWatchGuide } from "@/hooks/useWatchGuide";
+import { preloadWatchGuide, useWatchGuide } from "@/hooks/useWatchGuide";
 import type { Playable } from "@/lib/watch/playable";
 import type { PlayerGuideSession } from "./GuideGrid";
 
@@ -12,17 +12,26 @@ const SharedGuide = dynamic(() => import("./GuideGrid").then(module => module.Gu
   loading: () => <p className="player-guide-loading" role="status">Loading the guide…</p>,
 });
 
+/** The window the player Guide opens on: aligned to the hour so warming it
+ * ahead of time and opening it share one cached request. */
+function playerGuideWindow() {
+  const now = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+  return { start: now - 26 * 3_600_000, end: now + 18 * 3_600_000 };
+}
+
+/** Fetch the player Guide's data and code when a viewer shows intent to open it. */
+export function prefetchPlayerGuide() {
+  void import("./GuideGrid");
+  void preloadWatchGuide(playerGuideWindow());
+}
+
 /** The same Guide experience as /guide, covering the player until Back or a tune action. */
 export function TheaterNetworkGuide({ session, onReturn, onTune }: {
   session: PlayerGuideSession;
   onReturn: () => void;
   onTune: (item: Playable) => void;
 }) {
-  const [guideWindow] = useState(() => {
-    if (session.filters?.window) return session.filters.window;
-    const now = Math.floor(Date.now() / 3_600_000) * 3_600_000;
-    return { start: now - 26 * 3_600_000, end: now + 18 * 3_600_000 };
-  });
+  const [guideWindow] = useState(() => session.filters?.window ?? playerGuideWindow());
   const { data, error, isValidating, mutate } = useWatchGuide({ window: guideWindow });
   const scroller = useRef<HTMLDivElement>(null);
   const live = useMemo(() => (data?.programs ?? []).flatMap(program => program.status === "live" && program.watchItem ? [program.watchItem] : []), [data]);

@@ -20,13 +20,13 @@ import { SocialIcon } from "@/components/ui/SocialIcon";
 import { MEMBERS_BY_SLUG } from "@/lib/members";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
-import { tiktokPostThumbnailSource, watchThumbCandidates } from "@/lib/watch/thumbs";
+import { isExpiredInstagramCdnImage, tiktokPostThumbnailSource, watchThumbCandidates } from "@/lib/watch/thumbs";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 import { shortFormPlatformLabel } from "@/lib/watch/short-form";
 import type { WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import { HoverPreview } from "./HoverPreview";
-import { WatchThumb } from "./WatchThumb";
+import { PREVIEW_STILL_SIZES, resizedImageProps, WatchThumb } from "./WatchThumb";
 import { XPostPoster } from "./XPostPoster";
 import { DragScrollRail } from "./DragScrollRail";
 import { DeferredHomeRail } from "./DeferredHomeRail";
@@ -103,8 +103,12 @@ function preconnectHoverEmbed(item: WatchItem, startSeconds = 0) {
 
 function warmHoverStill(item: WatchItem, urgent: boolean) {
   if (typeof window === "undefined") return;
-  const src = item.backdrop || item.poster;
-  if (!src) return;
+  const original = item.backdrop || item.poster;
+  if (!original || isExpiredInstagramCdnImage(original)) return;
+  // Warm the same resized file the preview's WatchThumb will request, not the
+  // provider original (Instagram originals are often several megabytes).
+  const resized = resizedImageProps(original, true, PREVIEW_STILL_SIZES);
+  const src = resized?.src ?? original;
   const existing = warmedHoverStills.get(src);
   if (existing) {
     if (urgent) existing.fetchPriority = "high";
@@ -113,6 +117,10 @@ function warmHoverStill(item: WatchItem, urgent: boolean) {
   const image = new Image();
   image.decoding = "async";
   image.fetchPriority = urgent ? "high" : "low";
+  if (resized?.srcSet) {
+    image.sizes = resized.sizes ?? PREVIEW_STILL_SIZES;
+    image.srcset = resized.srcSet;
+  }
   image.src = src;
   warmedHoverStills.set(src, image);
   while (warmedHoverStills.size > MAX_WARMED_HOVER_STILLS) {

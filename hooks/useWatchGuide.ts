@@ -1,11 +1,22 @@
 "use client";
 
-import useSWR from "swr";
+import useSWR, { preload } from "swr";
 import { fetchWatchGuide, guideRefreshInterval, WATCH_GUIDE_KEY, type GuidePayload } from "@/lib/watch/guide-response";
 
+type GuideWindow = { start: number; end: number };
+
+function watchGuideKey(window?: GuideWindow, linear?: boolean): string {
+  return window ? `${WATCH_GUIDE_KEY}?start=${window.start}&end=${window.end}${linear === false ? "&linear=0" : ""}` : WATCH_GUIDE_KEY;
+}
+
+/** Warm the shared snapshot before a Guide opens, so it renders at once. */
+export function preloadWatchGuide(window?: GuideWindow, linear?: boolean) {
+  return preload(watchGuideKey(window, linear), fetchWatchGuide).catch(() => undefined);
+}
+
 /** One public snapshot shared by the full Guide, Tonight, and player guide. */
-export function useWatchGuide(options?: { window?: { start: number; end: number }; initialData?: GuidePayload; linear?: boolean }) {
-  const key = options?.window ? `${WATCH_GUIDE_KEY}?start=${options.window.start}&end=${options.window.end}${options.linear === false ? "&linear=0" : ""}` : WATCH_GUIDE_KEY;
+export function useWatchGuide(options?: { window?: GuideWindow; initialData?: GuidePayload; linear?: boolean }) {
+  const key = watchGuideKey(options?.window, options?.linear);
   return useSWR(key, fetchWatchGuide, {
     fallbackData: options?.initialData,
     revalidateOnMount: options?.initialData?.partial ? true : undefined,

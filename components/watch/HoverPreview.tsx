@@ -22,7 +22,7 @@ import type { TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import type { WatchFeedbackValue } from "@/lib/watch/discovery-state";
-import { WatchThumb } from "./WatchThumb";
+import { PREVIEW_STILL_SIZES, WatchThumb } from "./WatchThumb";
 import { PreviewAudioControl } from "./PreviewAudioControl";
 import { XPostHoverPreview } from "./XPostHoverPreview";
 import { TwitchHoverMedia } from "./TwitchHoverMedia";
@@ -572,7 +572,7 @@ function MediaHoverPreview({
             className={`watch-preview-still ${motionReady ? "is-hidden" : ""}`}
             focalPoint={item.focalPoint}
             loading="eager"
-            sizes="(max-width: 640px) 92vw, 440px"
+            sizes={PREVIEW_STILL_SIZES}
           />
           {videoSrc && !motionFailed ? (
             <video

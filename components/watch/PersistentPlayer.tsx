@@ -73,7 +73,7 @@ import {
   beginCinematicTransition,
   skipNetworkTuningAudio,
 } from "@/components/watch/CinematicRouteTransition";
-import { TheaterNetworkGuide } from "@/components/watch/TheaterNetworkGuide";
+import { prefetchPlayerGuide, TheaterNetworkGuide } from "@/components/watch/TheaterNetworkGuide";
 import type { PlayerGuideSession } from "@/components/watch/GuideGrid";
 import { ChatDock } from "@/components/live/chat";
 import { YouTubeLiveChat } from "@/components/live/YouTubeLiveChat";
@@ -3066,6 +3066,8 @@ export function PersistentPlayer() {
                 }}
                 className={`inline-flex min-h-11 items-center gap-2 rounded-full bg-black/75 px-3.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-xl ring-1 ring-white/20 backdrop-blur-md hover:bg-white hover:text-black hover:ring-white/70 ${CONTROL_FEEDBACK}`}
                 aria-label={guideMenuOpen ? "Return to Now Playing" : "Open Guide"}
+                onPointerEnter={prefetchPlayerGuide}
+                onFocus={prefetchPlayerGuide}
                 aria-pressed={guideMenuOpen}
               >
                 <span>{guideMenuOpen ? "Now Playing" : "Guide"}</span>

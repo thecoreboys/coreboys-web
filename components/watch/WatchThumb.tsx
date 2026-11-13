@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getImageProps } from "next/image";
-import { isInstagramCdnImage, isTinyYoutubeStub, isYoutubePlaceholderPixels, watchThumbCandidates } from "@/lib/watch/thumbs";
+import { isExpiredInstagramCdnImage, isInstagramCdnImage, isTinyYoutubeStub, isYoutubePlaceholderPixels, watchThumbCandidates } from "@/lib/watch/thumbs";
 
 // Repeated cards share failed-image knowledge for this browser session.
 const failedImages = new Map<string, number>();
@@ -55,6 +55,27 @@ function isYoutubePlaceholder(img: HTMLImageElement) {
     // If the provider changes its CORS policy, keep the thumbnail usable.
     return false;
   }
+}
+
+/** Hover previews render this wide at most; their preloads must match. */
+export const PREVIEW_STILL_SIZES = "(max-width: 640px) 92vw, 440px";
+
+/** Local artwork and Instagram photos are resized by the image optimizer. */
+export function canResizeImage(url: string): boolean {
+  const localAsset = url.startsWith("/") && !url.startsWith("//") && !url.startsWith("/api/") && !/\.svg(?:\?|$)/i.test(url);
+  return localAsset || isInstagramCdnImage(url);
+}
+
+/** The exact src/srcSet a WatchThumb requests, so preloads hit the same file. */
+export function resizedImageProps(url: string, eager: boolean, sizes?: string, alt = "") {
+  if (!canResizeImage(url)) return null;
+  return getImageProps({
+    src: url,
+    alt,
+    width: eager ? 1280 : 480,
+    height: eager ? 720 : 270,
+    sizes: sizes ?? (eager ? "100vw" : "(max-width: 640px) 76vw, 336px"),
+  }).props;
 }
 
 export function WatchThumb(props: Parameters<typeof WatchThumbImage>[0]) {
@@ -137,7 +158,7 @@ function WatchThumbImage({
       else candidates.push(instagramCandidate);
     }
     return [...new Set(candidates)]
-      .filter((url) => (failedImages.get(url) ?? 0) < Date.now());
+      .filter((url) => (failedImages.get(url) ?? 0) < Date.now() && !isExpiredInstagramCdnImage(url));
   }, [youtubeId, src, loading, tiktokSourceUrl, preferTikTokSource, instagramSourceUrl, preferInstagramSource]);
   const [index, setIndex] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -145,11 +166,10 @@ function WatchThumbImage({
   const [useOriginal, setUseOriginal] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const handledSource = useRef("");
-  const url = chain[index] ?? ((failedImages.get(src) ?? 0) >= Date.now() ? "" : src);
-  const localAsset = url.startsWith("/") && !url.startsWith("//") && !url.startsWith("/api/") && !/\.svg(?:\?|$)/i.test(url);
+  const url = chain[index] ?? ((failedImages.get(src) ?? 0) >= Date.now() || isExpiredInstagramCdnImage(src) ? "" : src);
   // Resized through the optimizer; a failure falls back to the original URL.
-  const optimize = !useOriginal && (localAsset || isInstagramCdnImage(url));
-  const responsive = optimize ? getImageProps({ src: url, alt, width: loading === "eager" ? 1280 : 480, height: loading === "eager" ? 720 : 270, sizes: sizes ?? (loading === "eager" ? "100vw" : "(max-width: 640px) 76vw, 336px") }).props : null;
+  const optimize = !useOriginal && canResizeImage(url);
+  const responsive = optimize ? resizedImageProps(url, loading === "eager", sizes, alt) : null;
 
   const handleLoaded = useCallback((img: HTMLImageElement) => {
     const completion = `${index}:${optimize}:${img.currentSrc || url}`;

@@ -502,17 +502,23 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Guide temporarily unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
   const snapshot = windowStart !== null && windowEnd !== null ? projectGuideWindow(payload, windowStart, windowEnd, params.get("linear") !== "0") : payload;
-  return NextResponse.json(
-    request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(snapshot) : snapshot,
-    {
-      headers: {
-        "Cache-Control": payload.partial || Object.values(payload.sources ?? {}).some((state) => state === "error" || state === "loading")
-          ? "no-store"
-          : "public, s-maxage=60, stale-while-revalidate=180",
-        "Vary": "X-CORE-Guide-Format",
-      },
-    },
-  );
+  const body = request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(snapshot) : snapshot;
+  const headers = {
+    "Cache-Control": payload.partial || Object.values(payload.sources ?? {}).some((state) => state === "error" || state === "loading")
+      ? "no-store"
+      : "public, s-maxage=60, stale-while-revalidate=180",
+    "Vary": "X-CORE-Guide-Format, Accept-Encoding",
+  };
+  // Route handler responses are not compressed by the Next server, so a day of
+  // programmes (1–4 MB of repetitive JSON) went out raw, a slow first paint on
+  // phones. Gzip it here when the client accepts it (typically ~10x smaller).
+  if (typeof CompressionStream !== "undefined" && /\bgzip\b/i.test(request?.headers.get("accept-encoding") ?? "")) {
+    const compressed = new Blob([JSON.stringify(body)]).stream().pipeThrough(new CompressionStream("gzip"));
+    return new Response(compressed, {
+      headers: { ...headers, "Content-Type": "application/json", "Content-Encoding": "gzip" },
+    });
+  }
+  return NextResponse.json(body, { headers });
 }
 
 let assemblingGuide: Promise<GuidePayload | null> | undefined;
