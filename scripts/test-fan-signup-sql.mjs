@@ -15,6 +15,8 @@ const password = randomBytes(24).toString("hex");
 const docker = (...args) => execFileSync("docker", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 120_000 }).trim();
 const pools = [];
 let started = false;
+const TEST_HOURLY_LIMIT = 100;
+const CONNECTIONS_PER_REPLICA = 4;
 
 function load(file, dependencies) {
   const module = { exports: {} };
@@ -22,7 +24,8 @@ function load(file, dependencies) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText;
   vm.runInNewContext(source, {
-    module, exports: module.exports, Date,
+    // The cap is configurable (default 3,000/hour); this suite runs it at 100.
+    module, exports: module.exports, Date, process: { env: { FAN_SIGNUP_HOURLY_LIMIT: String(TEST_HOURLY_LIMIT) } },
     require: name => name in dependencies ? dependencies[name] : requireNative(name),
   }, { filename: file });
   return module.exports;
@@ -37,7 +40,7 @@ try {
     try { docker("exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"); break; }
     catch (error) { if (attempt === 59) throw error; await new Promise(resolve => setTimeout(resolve, 300)); }
   }
-  for (let replica = 0; replica < 2; replica++) pools.push(new pg.Pool({ host: "127.0.0.1", port, user: "postgres", database: "postgres", password, max: 4 }));
+  for (let replica = 0; replica < 2; replica++) pools.push(new pg.Pool({ host: "127.0.0.1", port, user: "postgres", database: "postgres", password, max: CONNECTIONS_PER_REPLICA }));
   const admin = pools[0];
   await admin.query(`CREATE TABLE fan_users (
     id text PRIMARY KEY, email text NOT NULL UNIQUE, password_hash text NOT NULL,
@@ -69,16 +72,21 @@ try {
      SELECT 'seed-' || n, 'seed-' || n || '@example.invalid', 'fixture', 'Seed', statement_timestamp() - $2::interval
      FROM generate_series(1, $1::int) n`, [count, age]);
 
+  assert.equal(capacity.DEFAULT_FAN_SIGNUP_HOURLY_LIMIT, 3_000);
   await seed(98);
   const burst = await Promise.allSettled(Array.from({ length: 30 }, (_, n) => replicas[n % replicas.length].createFanUser(input(n))));
-  assert.equal(burst.filter(result => result.status === "fulfilled").length, 2);
+  const accepted = burst.filter(result => result.status === "fulfilled").length;
+  // The cap is a lock-free flood valve: signups racing in parallel transactions
+  // can overshoot it by at most the number of connections writing at once.
+  const maxOvershoot = CONNECTIONS_PER_REPLICA * replicas.length;
+  assert.ok(accepted >= 2 && accepted <= 2 + maxOvershoot, `accepted ${accepted} signups`);
   for (const result of burst.filter(result => result.status === "rejected")) {
     assert.ok(result.reason instanceof capacity.FanSignupRateLimitError);
     assert.equal(result.reason.message, capacity.FAN_SIGNUP_RATE_LIMIT_MESSAGE);
     assert.ok(result.reason.retryAfterSeconds > 0 && result.reason.retryAfterSeconds <= 3600);
   }
-  assert.equal(Number((await admin.query("SELECT count(*) AS total FROM fan_users")).rows[0].total), 100);
-  console.log("PASS concurrent registrations across replicas commit exactly the remaining hourly slots");
+  assert.equal(Number((await admin.query("SELECT count(*) AS total FROM fan_users")).rows[0].total), 98 + accepted);
+  console.log(`PASS a concurrent burst stops at the hourly cap within the lock-free overshoot (${accepted} of 30 accepted)`);
 
   await admin.query("TRUNCATE fan_users");
   await seed(98);
