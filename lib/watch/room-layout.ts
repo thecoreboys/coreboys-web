@@ -77,6 +77,44 @@ export function shouldStackTwitchRoom(roomWidth: number, twitchRects: Normalized
   return twitchRects.some((rect) => width * rect.width - 12 < 400 || height * rect.height - 12 - 64 < 300);
 }
 
+export type TheaterRoomFrame = {
+  /** Whether chat (or the room panel) sits in a column beside the stage. */
+  sideColumn: boolean;
+  /** Width of the room content: stage, gap and side column. */
+  container: number;
+  side: number;
+  stage: number;
+  stageHeight: number;
+  /** Height of a chat strip below the stage, when chat sits there. */
+  bottom: number;
+  gap: number;
+};
+
+/**
+ * Pixel proportions of the desktop Theater room at a given window size. This
+ * mirrors MultiPlayerStage's layout (a max-width 1880px container with 28px
+ * gutters, a `minmax(17.5rem, min(chat width, 36vw))` side column below the
+ * `lg` breakpoint, and a `min(height, 48dvh)` bottom chat) so Room Studio can
+ * draw the stage at the same shape the room will use.
+ */
+export function theaterRoomFrame(
+  viewport: { width: number; height: number },
+  chatDockSize: { side: number; bottom: number },
+  chatDock: string,
+): TheaterRoomFrame {
+  const width = Math.max(320, finiteNumber(viewport.width, 1440));
+  const height = Math.max(320, finiteNumber(viewport.height, 900));
+  const sideColumn = width >= 1024;
+  const gutter = width >= 1024 ? 28 : width >= 640 ? 20 : 12;
+  const gap = 12;
+  const container = Math.max(280, Math.min(width, 1880) - gutter * 2);
+  const side = sideColumn ? Math.max(280, Math.min(finiteNumber(chatDockSize.side, 360), width * 0.36)) : 0;
+  const stage = sideColumn ? Math.max(200, container - side - gap) : container;
+  const chatBelow = chatDock === "bottom" || (!sideColumn && (chatDock === "left" || chatDock === "right"));
+  const bottom = chatBelow ? Math.min(finiteNumber(chatDockSize.bottom, 320), height * 0.48) : 0;
+  return { sideColumn, container, side, stage, stageHeight: stage * 9 / 16, bottom, gap };
+}
+
 export type GridTilePosition = {
   col: number;
   row: number;
@@ -594,6 +632,123 @@ export function solveRoomLayout(
     return resolved ? [resolved] : [];
   });
   return { tiles, rejectedIds, valid: rejectedIds.length === 0 && !roomLayoutHasCollisions(tiles) };
+}
+
+export type RoomTileEdge = "left" | "right" | "top" | "bottom";
+
+type UnitRect = { id: string; x: number; y: number; w: number; h: number };
+
+/**
+ * Drag one edge of a tile like a split-pane divider.
+ *
+ * Every tile that shares the seam moves with it: neighbours on the far side
+ * shrink or grow, and tiles on the near side that touch those neighbours keep
+ * the seam straight. A full room therefore stays full (no dead gaps) while a
+ * tile with free space beside it simply grows into that space. Returns null
+ * when the result would leave a tile under one snap cell, leave the board, or
+ * overlap another tile.
+ */
+export function resizeRoomTileEdge(
+  tiles: readonly RoomLayoutTile[],
+  tileId: string,
+  edge: RoomTileEdge,
+  position: number,
+  snapDensity = DEFAULT_ROOM_SNAP_DENSITY,
+): RoomLayoutTile[] | null {
+  const density = normalizeSnapDensity(snapDensity);
+  const units: UnitRect[] = tiles.map((tile) => {
+    const rect = snapRoomRect(tile.rect, density);
+    return {
+      id: tile.id,
+      x: Math.round(rect.x * density),
+      y: Math.round(rect.y * density),
+      w: Math.round(rect.width * density),
+      h: Math.round(rect.height * density),
+    };
+  });
+  const target = units.find((tile) => tile.id === tileId);
+  if (!target) return null;
+  const horizontal = edge === "left" || edge === "right";
+  const start = (tile: UnitRect) => horizontal ? tile.x : tile.y;
+  const end = (tile: UnitRect) => horizontal ? tile.x + tile.w : tile.y + tile.h;
+  const crossOverlap = (first: UnitRect, second: UnitRect) => horizontal
+    ? first.y < second.y + second.h && second.y < first.y + first.h
+    : first.x < second.x + second.w && second.x < first.x + first.w;
+  const trailing = edge === "right" || edge === "bottom";
+  const seam = trailing ? end(target) : start(target);
+  const next = Math.round(clamp(finiteNumber(position, seam / density), 0, 1) * density);
+  if (next === seam) return units.map(unitToTile(density));
+
+  // `near` tiles end (or start) at the seam on the target's side; `far`
+  // tiles sit on the other side of it. Grow both groups through
+  // cross-axis overlaps so the whole straight seam moves together.
+  const isNear = (tile: UnitRect) => trailing ? end(tile) === seam : start(tile) === seam;
+  const isFar = (tile: UnitRect) => trailing ? start(tile) === seam : end(tile) === seam;
+  const near = new Set<UnitRect>([target]);
+  const far = new Set<UnitRect>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const tile of units) {
+      if (!far.has(tile) && isFar(tile) && [...near].some((entry) => crossOverlap(entry, tile))) {
+        far.add(tile);
+        changed = true;
+      }
+      if (!near.has(tile) && isNear(tile) && [...far].some((entry) => crossOverlap(entry, tile))) {
+        near.add(tile);
+        changed = true;
+      }
+    }
+  }
+
+  const moveEnd = (tile: UnitRect) => {
+    if (horizontal) tile.w = next - tile.x;
+    else tile.h = next - tile.y;
+  };
+  const moveStart = (tile: UnitRect) => {
+    if (horizontal) {
+      tile.w = tile.x + tile.w - next;
+      tile.x = next;
+    } else {
+      tile.h = tile.y + tile.h - next;
+      tile.y = next;
+    }
+  };
+  for (const tile of near) (trailing ? moveEnd : moveStart)(tile);
+  for (const tile of far) (trailing ? moveStart : moveEnd)(tile);
+
+  if (units.some((tile) => tile.w < 1 || tile.h < 1 || tile.x < 0 || tile.y < 0 || tile.x + tile.w > density || tile.y + tile.h > density)) {
+    return null;
+  }
+  const resolved = units.map(unitToTile(density));
+  return roomLayoutHasCollisions(resolved) ? null : resolved;
+}
+
+function unitToTile(density: number) {
+  return (tile: UnitRect): RoomLayoutTile => ({
+    id: tile.id,
+    rect: {
+      x: stableNumber(tile.x / density),
+      y: stableNumber(tile.y / density),
+      width: stableNumber(tile.w / density),
+      height: stableNumber(tile.h / density),
+    },
+  });
+}
+
+/** Exchange two tiles' rectangles, leaving every other tile in place. */
+export function swapRoomTiles(
+  tiles: readonly RoomLayoutTile[],
+  firstId: string,
+  secondId: string,
+): RoomLayoutTile[] {
+  const first = tiles.find((tile) => tile.id === firstId);
+  const second = tiles.find((tile) => tile.id === secondId);
+  if (!first || !second || firstId === secondId) return tiles.map((tile) => ({ id: tile.id, rect: { ...tile.rect } }));
+  return tiles.map((tile) => ({
+    id: tile.id,
+    rect: { ...(tile.id === firstId ? second.rect : tile.id === secondId ? first.rect : tile.rect) },
+  }));
 }
 
 /** Move or resize one tile while deterministically resolving every collision. */
