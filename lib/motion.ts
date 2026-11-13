@@ -73,3 +73,28 @@ export const cssEase = {
   in: "cubic-bezier(0.7, 0, 0.84, 0)",
   inOut: "cubic-bezier(0.65, 0, 0.35, 1)",
 } as const;
+
+/**
+ * Durations for the site-wide CSS motion layer (`app/motion.css`). UI
+ * responses stay short so the product feels quick; `page` is the soft cut
+ * between client-side routes.
+ */
+export const uiDurations = {
+  press: 90,
+  fast: 160,
+  base: 240,
+  slow: 420,
+  page: 320,
+} as const;
+
+/**
+ * True when the OS, the in-app motion preferences (calm motion or reduce
+ * motion in WatchExperienceControls) or the device profile ask for minimal
+ * motion. Mirrors the minimal-motion block at the end of `app/motion.css`.
+ */
+export function prefersMinimalMotion(): boolean {
+  if (typeof window === "undefined") return true;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return true;
+  const { watchMotion, watchReducedMotion, performanceProfile } = document.documentElement.dataset;
+  return watchMotion === "calm" || watchReducedMotion === "on" || performanceProfile === "conserve";
+}

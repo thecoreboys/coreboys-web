@@ -160,7 +160,9 @@ export function BillboardCarousel({ items, headingLevel = "h1" }: { items: Watch
   useEffect(() => {
     if (slides.length < 2 || interactionPaused || reducedMotion) return;
     const active = slides[index] ?? slides[0];
-    const delay = active?.kind === "live" ? 30_000 : 12_000;
+    // Twitch needs its SDK, READY and sometimes a preroll before frames
+    // appear; a 12s slide was unmounted before a VOD could start.
+    const delay = active?.kind === "live" || active?.platform === "twitch" ? 30_000 : 12_000;
     const timer = window.setTimeout(() => {
       setIndex((current) => (current + 1) % slides.length);
     }, delay);
@@ -242,7 +244,6 @@ export function BillboardCarousel({ items, headingLevel = "h1" }: { items: Watch
 }
 
 function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchItem; playable: Playable; onSoundChange?: (audible: boolean) => void }) {
-  const reducedMotion = useReducedMotion();
   const introActive = useFirstVisitIntroActive();
   const slotRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -374,8 +375,9 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
     // Do not open a second provider iframe in the billboard behind it.
     !current &&
     !dataSaver &&
+    // The explicit autoplay preference governs muted previews, matching the
+    // channel hero. Reduced motion still stops the carousel from rotating.
     previewAutoplay &&
-    !reducedMotion &&
     slotFitsProvider &&
     providerExposed &&
     pageVisible;
@@ -483,9 +485,9 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
   // waiting for the viewport measurement and player preferences to settle.
   // The actual media player still mounts only when the preview is eligible.
   useEffect(() => {
-    if (!isTwitch || dataSaver || reducedMotion || !previewAutoplay) return;
+    if (!isTwitch || dataSaver || !previewAutoplay) return;
     void loadBillboardTwitch().catch(() => undefined);
-  }, [dataSaver, isTwitch, previewAutoplay, reducedMotion]);
+  }, [dataSaver, isTwitch, previewAutoplay]);
 
   const frameSrc = useMemo(() => {
     if (!wantsAutoplay || !host || isTwitch || nativeVideoUrl || playable.platform === "instagram") return null;
@@ -1036,6 +1038,8 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
                 redirectToMyListSignIn();
                 return;
               }
+              // Still checking (or retrying) membership: never bounce a member to /upgrade.
+              if (subscription.loading || subscription.unavailable) return;
               if (!dvrAllowed) {
                 window.location.assign(subscription.featureHref("dvr.extended_retention"));
                 return;

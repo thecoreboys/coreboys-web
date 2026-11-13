@@ -129,3 +129,15 @@ test("invalid windows are rejected before any archive work starts", async () => 
   assert.equal(response.status, 400);
   assert.equal(reads, 0);
 });
+
+test("concurrent Guide polls share one build; later polls follow the shared catalog", async () => {
+  let reads = 0;
+  const f = fixture({ archive: async () => { reads += 1; return catalog("archive"); } });
+  const [first, second] = await Promise.all([f.GET(f.request()), f.GET(f.request())]);
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(reads, 1, "simultaneous polls coalesce into one archive read");
+  const third = await (await f.GET(f.request())).json() as GuidePayload;
+  assert.equal(reads, 2, "a later poll rebuilds rather than holding a private snapshot");
+  assert.ok(third.programs.some((program) => program.watchItem?.id === "archive"));
+});

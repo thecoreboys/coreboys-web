@@ -2,10 +2,11 @@ import { withPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, ArrowUpRight, PanelsTopLeft, ScanFace, Smartphone, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUpRight } from "lucide-react";
 import { AutoLoopVideo } from "./AutoLoopVideo";
 import { PanoramaViewer } from "./PanoramaViewer";
 import { StoryProgress } from "./StoryProgress";
+import { FeatureIllustration, type FeatureKind } from "./FeatureIllustration";
 import styles from "./special-message.module.css";
 
 export const metadata: Metadata = withPageMetadata("/special-message", {
@@ -58,50 +59,44 @@ const computerClips = [
 
 type SiteFeature = {
   title: string;
-  src?: string;
-  alt?: string;
-  icon?: LucideIcon;
+  illustration: FeatureKind;
   description: string;
 };
 
 const siteFeatures: SiteFeature[] = [
   {
     title: "Home",
-    src: "/special-message/app-screens/home.png",
-    alt: "The CORE home page with a featured live stream.",
+    illustration: "home",
     description: "See who’s live and discover streams, Originals, clips, and posts from the members and their communities in one place.",
   },
   {
     title: "Guide",
-    src: "/special-message/app-screens/guide.png",
-    alt: "The Guide showing broadcasts and timeline filters.",
+    illustration: "guide",
     description: "Browse live broadcasts and 24/7 schedules, or find past shows by member, platform, and format.",
   },
   {
     title: "Theater",
-    src: "/special-message/app-screens/now-playing-guide.png",
-    alt: "Theater with Adapt’s stream and the chat panel open.",
+    illustration: "theater",
     description: "Give a stream or video the main stage, follow its chat, and keep the next thing to watch within reach.",
   },
   {
     title: "Networks",
-    src: "/special-message/app-screens/flock-network.png",
-    alt: "The Flock Network page and its 24/7 programming.",
+    illustration: "networks",
     description: "Explore each community’s own channel, with 24/7 programming and a place to catch up on its creators.",
   },
   {
     title: "On Screen Detection",
-    icon: ScanFace,
+    illustration: "detection",
     description: "See identity tags for the creators appearing on supported streams and replays, with links to their profiles.",
   },
   {
     title: "Multiviewing",
-    icon: PanelsTopLeft,
+    illustration: "multiview",
     description: "Watch several streams together, arrange the view, and choose which source takes the main stage and plays audio.",
   },
   {
     title: "Remote Control",
-    icon: Smartphone,
+    illustration: "remote",
     description: "Pair your phone with your computer to switch the main source and control playback. The remote chat follows the channel you’re watching.",
   },
 ];
@@ -173,8 +168,10 @@ export default function SpecialMessagePage() {
                 <p>
                   I worked behind the scenes. Someone would pitch a challenge or a wild, wacky
                   video idea, and I&apos;d figure out how to make it work in Minecraft. I built maps, mods,
-                  simulators, and tycoons. It was fun knowing something I made could become part
-                  of a video I would&apos;ve watched as a kid.
+                  simulators, and tycoons, including work on some of the most iconic series in
+                  Minecraft gaming history: Hide and Seek, Challenge Games, and Mob Battles.
+                  It was fun knowing something I made could become part of a video I would&apos;ve
+                  watched as a kid.
                 </p>
                 <p>
                   I wanted those maps to put smiles on people&apos;s faces, whether they were
@@ -198,9 +195,9 @@ export default function SpecialMessagePage() {
               <h2>When things got hard</h2>
               <div className={styles.prose}>
                 <p>
-                  COVID hit while I was in high school. After graduation, I moved away for college.
+                  COVID hit while I was in high school, and I was also dealing with a toxic
+                  environment at home. After graduation, I moved away for college.
                   My parents divorced while I was still adjusting, and my health got worse.
-                  I was also dealing with a toxic environment at home.
                 </p>
                 <p>
                   I live with anxiety, and neurodiversity is part of my story too. These
@@ -210,7 +207,9 @@ export default function SpecialMessagePage() {
                 </p>
                 <p>
                   My support system failed me when I needed it, and relying on friends and
-                  family was hard. I still have God, myself, and the will to keep pushing.
+                  family was hard. Even then, I still had God, myself, and the will to keep
+                  pushing. I kept going, and that same faith and determination keep me moving
+                  forward today.
                 </p>
                 <p>
                   I kept working on projects when I had the energy. Some days that meant setting
@@ -225,6 +224,13 @@ export default function SpecialMessagePage() {
               <h2>Why I built this site</h2>
               <div className={styles.prose}>
                 <p>
+                  I look forward to the “cringy” entertainment Twitch has to offer, and maybe
+                  many of you reading this do too. After a long day at school or work, many
+                  of us end the day sharing a laugh with our favorite creators or Twitch streamers.
+                </p>
+                <p>
+                  Six different communities have come together to create CORE, bringing
+                  a gigantic audience with them.
                   On days when I woke up already tired, I&apos;d put on a CORE stream or replay a clip
                   that made me laugh. Sometimes that was the best part of my day.
                 </p>
@@ -244,12 +250,14 @@ export default function SpecialMessagePage() {
                 <p>
                   I recently finished my computer science degree. It&apos;s been tough looking
                   for work while AI is changing what companies hire for. I want to write
-                  software and still get my hands on the equipment.
+                  software, get my hands on the equipment, and work with creators on digital
+                  entertainment, events, and logistics.
                 </p>
                 <p>
                   I build websites, full-stack apps, servers, and gaming PCs. On the production
                   side, I&apos;ve worked with Sony Alpha 7, FX3, and FX5 cameras, DJI drones and
                   wireless mics, RØDE and Shure gear, lighting, and soundboards.
+                  I&apos;ve spent far too much of my own money on technology along the way.
                 </p>
                 <p>
                   I also built my own server and tools for bringing in footage from cameras,
@@ -261,6 +269,13 @@ export default function SpecialMessagePage() {
 
               <PanoramaViewer />
 
+              <div className={styles.ideasIntro}>
+                <h3>Let&apos;s bring your ideas to life.</h3>
+                <p>
+                  Let&apos;s plan and execute them together. I can be another pair of hands
+                  for the logistics and all the work that makes an idea happen.
+                </p>
+              </div>
               <ul className={styles.ideaThumbnails} aria-label="Video ideas">
                 {videoIdeas.map(({ title, image }) => (
                   <li key={image}>
@@ -385,10 +400,9 @@ export default function SpecialMessagePage() {
                 </p>
               </div>
               <div className={styles.platformScreens}>
-                {siteFeatures.map(({ title, src, alt, icon: Icon, description }) => (
+                {siteFeatures.map(({ title, illustration, description }) => (
                   <figure className={styles.platformScreen} key={title}>
-                    {src ? <Image src={src} alt={alt ?? ""} width={1265} height={710} sizes="(max-width: 640px) calc(100vw - 2rem), 42vw" />
-                      : Icon ? <div className={styles.featureArt}><Icon size={64} strokeWidth={1.25} aria-hidden="true" /></div> : null}
+                    <div className={styles.featureArt}><FeatureIllustration kind={illustration} /></div>
                     <figcaption>
                       <h3>{title}</h3>
                       <p>{description}</p>
@@ -411,6 +425,12 @@ export default function SpecialMessagePage() {
                   My technical creativity is what connects all of it. I love developing ideas
                   of my own and bringing other people&apos;s ideas to fruition. I care about the
                   work behind the idea, all the way through to making it happen.
+                </p>
+                <p>
+                  I use the STAR method (Situation, Task, Action, Result). For me, it&apos;s STARR,
+                  because I add another R: Reflect. I take time afterward to understand what
+                  I did well, what I did badly, and how I can improve next time. Even my best
+                  work gives me something to learn from.
                 </p>
                 <p>
                   To me, this goes beyond being a coworker or a fan. I&apos;m a trustworthy, loyal
@@ -442,10 +462,15 @@ export default function SpecialMessagePage() {
                 <p>
                   I have the will to learn whatever the work needs. If you ask for something
                   and there&apos;s no plan and no one knows how to get it done, I will figure out
-                  how. I want to be the problem solver you can count on.
+                  how. I want to be the problem solver you can count on. I will exceed all
+                  expectations, go above and beyond, and keep finding ways to improve even
+                  my best work.
                 </p>
                 <p>
-                  I&apos;d love to talk with Adapt, Woj, Bepsy, or anyone who could use help with
+                  I&apos;d love to talk with{" "}
+                  <Link className={styles.mention} href="/about/adapt">@Adapt</Link>,{" "}
+                  <Link className={styles.mention} href="/crew/wojito">@Woj</Link>,{" "}
+                  <Link className={styles.mention} href="/crew/bepsy">@Bepsy</Link>, or anyone who could use help with
                   software, production, or bringing an idea to life. You can reach me on X at{" "}
                   <a href="https://x.com/berryeyu" target="_blank" rel="noreferrer">@berryeyu</a>.
                 </p>

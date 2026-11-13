@@ -60,3 +60,19 @@ test("real source failures remain errors and cannot replace the saved schedule",
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(await source(async () => { throw new Error("still offline"); }, fallback, 100, loading), { state: "ok", items: [7] });
 });
+
+test("a provider that keeps failing slower than the deadline reports an error, not loading forever", async () => {
+  type Snapshot = { state: string; items: number[] };
+  const source = createGuideSourceCache<Snapshot>(60_000);
+  const failure: Snapshot = { state: "error", items: [] };
+  const loading: Snapshot = { state: "loading", items: [] };
+  const slowFailure = () => new Promise<Snapshot>((_, reject) => setTimeout(() => reject(new Error("quota")), 15));
+  // Cold: nothing has answered yet, so the deadline honestly reports loading.
+  assert.deepEqual(await source(slowFailure, failure, 5, loading), loading);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  // The retry is just as slow, but the source is now known to be failing.
+  assert.deepEqual(await source(slowFailure, failure, 5, loading), failure);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  // A recovery is picked up as soon as it answers.
+  assert.deepEqual(await source(async () => ({ state: "ok", items: [3] }), failure, 50, loading), { state: "ok", items: [3] });
+});

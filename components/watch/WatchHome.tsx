@@ -30,6 +30,8 @@ import { BillboardCarousel } from "./Billboard";
 import { NetworkChannelRail } from "./NetworkChannelPage";
 import { Shelf } from "./PosterCard";
 import { DragScrollRail } from "./DragScrollRail";
+import { GuideNowStrip } from "./GuideNowStrip";
+import { GuideAndHistory, WatchHistoryPanel } from "./WatchHistoryPanel";
 import { LiveHomeXFeeds } from "./LiveHomeXFeeds";
 import { CampaignSection } from "@/components/campaigns/CampaignSection";
 import { MobileAppSection } from "@/components/sections/MobileAppSection";
@@ -146,7 +148,7 @@ export function EventsSeriesChallengesRail({ originals }: { originals: CoreOrigi
   );
 }
 
-export function WatchHome({ catalog, patreon, originals, awards }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode; awards?: ReactNode }) {
+export function WatchHome({ catalog, patreon, originals, awards, mostWatched }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode; awards?: ReactNode; mostWatched?: ReactNode }) {
   const { ids: listIds, user, loading } = useMyList();
   const { map, ready } = useWatchProgress();
   const discovery = useWatchDiscovery();
@@ -406,6 +408,14 @@ export function WatchHome({ catalog, patreon, originals, awards }: { catalog: Wa
             ) : null}
           </Fragment>
         ))}
+
+        {/* What is on now across the channels, beside the viewer's history. */}
+        <GuideAndHistory>
+          <GuideNowStrip headingId="home-guide-title" />
+          <WatchHistoryPanel items={playable} broadcasts={catalog.broadcasts} headingId="home-history-title" />
+        </GuideAndHistory>
+
+        {mostWatched}
 
         <div id="members" className="scroll-mt-28">
           <NetworkChannelRail

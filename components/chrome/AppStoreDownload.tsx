@@ -2,18 +2,17 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/base/buttons/button";
-import { Badge } from "@/components/base/badges/badges";
 import Apple from "@/components/foundations/social-icons/apple";
-import Image from "@/components/ui/SiteImage";
 import { useContributorLauncher } from "@/hooks/useContributorLauncher";
+import { useDesktopUtilities } from "@/hooks/useDesktopUtilities";
 import { useNativeApp } from "@/hooks/useNativeApp";
-import { CORE_APP_ICON, CORE_APP_STORE_URL } from "@/lib/mobile-app";
+import { CORE_APP_STORE_URL } from "@/lib/mobile-app";
 import styles from "./AppStoreDownload.module.css";
 
 export function AppStoreDownload() {
   const nativeApp = useNativeApp();
-  return nativeApp === false ? <WebsiteAppStoreDownload /> : null;
+  const desktop = useDesktopUtilities();
+  return nativeApp === false && desktop ? <WebsiteAppStoreDownload /> : null;
 }
 
 function WebsiteAppStoreDownload() {
@@ -45,36 +44,25 @@ function WebsiteAppStoreDownload() {
     <aside
       ref={ref}
       className={`${styles.download}${pathname === "/" && homePromotionVisible ? ` ${styles.promotionVisible}` : ""}`}
-      aria-label="Download CORE HQ"
+      aria-label="CORE HQ for iPhone"
       data-floating-widget
       data-occluded={placement.hidden ? "true" : undefined}
       style={{ transform: `translateY(-${placement.lift}px)` }}
     >
-      <Image
-        className={styles.appIcon}
-        src={CORE_APP_ICON}
-        alt="CORE HQ app icon"
-        width={56}
-        height={56}
-        sizes="56px"
-      />
-      <Button
+      <a
         className={styles.badge}
-        color="secondary"
-        size="sm"
         href={CORE_APP_STORE_URL}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Download CORE HQ on the Apple App Store (Invite Only)"
-        iconLeading={<Apple className={styles.apple} size={28} aria-hidden="true" />}
-        noTextPadding
+        aria-label="Download CORE HQ on the App Store. Invite-only beta access required."
       >
+        <Apple className={styles.apple} size={24} aria-hidden="true" />
         <span className={styles.label}>
           <span>Download on the</span>
-          <strong>Apple App Store</strong>
+          <strong>App Store</strong>
         </span>
-      </Button>
-      <Badge className={styles.invite} type="pill-color" color="gray" size="sm">Invite Only</Badge>
+      </a>
+      <p className={styles.invite}>Invite-only beta. Access required.</p>
     </aside>
   );
 }

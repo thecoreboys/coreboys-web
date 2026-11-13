@@ -122,3 +122,28 @@ export function isYoutubePlaceholderPixels(
     centerBright / centerCount > 0.015 &&
     centerContrast / centerCount > 0.2;
 }
+
+/**
+ * WatchThumb props for a compact card, using the same source preference as
+ * PosterCard: provider covers win over placeholder or member-portrait posters.
+ */
+export function cardThumbSource(
+  item: { platform: string; poster?: string; sourceUrl?: string | null; href?: string | null },
+  memberPortrait: string | undefined,
+  youtubeId: string | null,
+) {
+  const generic = !item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png";
+  const tiktokSourceUrl = tiktokPostThumbnailSource(item);
+  const preferTikTokSource = Boolean(tiktokSourceUrl) && (generic || /\.hei[cf](?:[?#]|$)/i.test(item.poster ?? ""));
+  const instagramSourceUrl = item.platform === "instagram" && item.sourceUrl ? item.sourceUrl : undefined;
+  const preferInstagramSource = Boolean(instagramSourceUrl) && generic;
+  const preferYouTube = item.platform === "youtube" && Boolean(youtubeId) && generic;
+  return {
+    youtubeId,
+    src: preferYouTube || preferTikTokSource || preferInstagramSource ? "" : item.poster ?? "",
+    tiktokSourceUrl,
+    preferTikTokSource,
+    instagramSourceUrl,
+    preferInstagramSource,
+  };
+}

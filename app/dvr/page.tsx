@@ -31,8 +31,8 @@ export default async function DvrRoute() {
   const dvrAllowed = entitlementDecision(subscription, featureId).allowed;
   const requiredPlanId = minimumPlanForFeature(featureId);
   const planName = requiredPlanId ? PLANS[requiredPlanId].name : "CORE Membership";
-  if (!dvrAllowed) return <DvrMembershipGate planName={planName} />;
   const catalog = await getWatchCatalog();
+  // Non-members keep the full Watch navigation around the upgrade gate.
   const items = dvrAllowed ? await getDvrItems(catalog, userId, entitlementDecision(subscription, "queue.templates").allowed) : [];
 
   return (

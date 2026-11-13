@@ -94,7 +94,7 @@ export function RadioAudioSystem() {
     };
     const warmIntent = (event: Event) => {
       const panel = document.getElementById("dj-cora-panel");
-      if (!panel || panel.getAttribute("aria-hidden") === "true") return;
+      if (!panel || panel.dataset.voice !== "on") return;
       const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
       if (!link) return;
       const url = new URL(link.href, window.location.origin);
@@ -168,8 +168,12 @@ export function RadioAudioSystem() {
   }, [pathname, player.channel?.id]);
   return (
     <RadioAudioDirector
-      defaultExpanded={!pathname.startsWith("/guide") && !pathname.startsWith("/multiview")}
-      enabled={settings.enabled && !player.audioDescription && !player.current}
+      // The widget is shown on every page; on phones it is only the small DJ
+      // on/off button. A player taking over lets a station ID that already
+      // started finish (the player waits for it) but declines new lines.
+      defaultExpanded
+      enabled={settings.enabled && !player.audioDescription}
+      allowNewCues={!player.current}
       volume={settings.volume}
       captions={settings.captions}
       cueCatalog={activeCatalog}

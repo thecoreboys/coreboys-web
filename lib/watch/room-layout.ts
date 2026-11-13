@@ -7,6 +7,9 @@
  */
 
 export type RoomLayoutPreset =
+  | "auto"
+  | "focus-side"
+  | "grid"
   | "theater-first"
   | "solo"
   | "split"
@@ -346,6 +349,46 @@ function theaterRects(count: number, mainWidth: number, density = DEFAULT_ROOM_S
 }
 
 /**
+ * One main view with every companion stacked in a single column beside it.
+ * Unlike Theater, five or six views never spill into a lower rail.
+ */
+function focusSideRects(count: number, mainWidth: number, density = DEFAULT_ROOM_SNAP_DENSITY): NormalizedRect[] {
+  if (count <= 1) return [{ x: 0, y: 0, width: 1, height: 1 }];
+  const companions = count - 1;
+  if (companions > density) return gridRects(count, Math.min(4, count), density);
+  // Very tall stacks make companions unreadable; past five use Theater's rail.
+  if (companions > 5) return theaterRects(count, mainWidth, density);
+  const mainWidthUnits = clamp(Math.round(mainWidth * density), 1, density - 1);
+  const heights = distributedUnits(density, companions);
+  let yUnits = 0;
+  return [
+    { x: 0, y: 0, width: mainWidthUnits / density, height: 1 },
+    ...heights.map((heightUnits) => {
+      const rect = { x: mainWidthUnits / density, y: yUnits / density, width: (density - mainWidthUnits) / density, height: heightUnits / density };
+      yUnits += heightUnits;
+      return rect;
+    }),
+  ];
+}
+
+/** An even grid whose column count grows with the number of views. */
+function evenGridRects(count: number, density = DEFAULT_ROOM_SNAP_DENSITY): NormalizedRect[] {
+  return gridRects(count, count <= 1 ? 1 : count <= 4 ? 2 : count <= 9 ? 3 : 4, density);
+}
+
+/**
+ * Auto picks the arrangement that reads best for the number of views:
+ * 1 fills the stage, 2 sit side by side, 3 and 5 feature a main view with a
+ * companion column, 4 and 6 become even grids.
+ */
+export function autoRoomArrangement(count: number): "solo" | "split" | "focus-side" | "grid" {
+  if (count <= 1) return "solo";
+  if (count === 2) return "split";
+  if (count === 3 || count === 5) return "focus-side";
+  return "grid";
+}
+
+/**
  * Return a bounded 16:9-board layout for the requested preset and count.
  *
  * The snap density is part of the layout contract, not merely a Studio
@@ -363,6 +406,23 @@ export function presetNormalizedRects(
   const density = normalizeSnapDensity(snapDensity);
   let raw: NormalizedRect[];
   switch (preset) {
+    case "auto": {
+      const arrangement = autoRoomArrangement(count);
+      raw = arrangement === "solo"
+        ? [{ x: 0, y: 0, width: 1, height: 1 }]
+        : arrangement === "split"
+          ? gridRects(count, 2, density)
+          : arrangement === "focus-side"
+            ? focusSideRects(count, 2 / 3, density)
+            : evenGridRects(count, density);
+      break;
+    }
+    case "focus-side":
+      raw = focusSideRects(count, 0.75, density);
+      break;
+    case "grid":
+      raw = evenGridRects(count, density);
+      break;
     case "theater-first":
       raw = theaterRects(count, 0.72, density);
       break;
@@ -439,7 +499,11 @@ export function resolvePresetRoomLayout(
 ): RoomLayoutTile[] {
   const density = normalizeSnapDensity(options.snapDensity);
   const source = tiles.filter((tile): tile is Pick<RoomLayoutTile, "id"> => Boolean(tile?.id)).slice(0, 12);
-  const focused = preset === "theater-first" && options.focusedId
+  // Presets with a featured main view keep the focused/pinned source in it.
+  const mainAware = preset === "theater-first"
+    || preset === "focus-side"
+    || (preset === "auto" && autoRoomArrangement(source.length) === "focus-side");
+  const focused = mainAware && options.focusedId
     ? source.find((tile) => tile.id === options.focusedId)
     : null;
   const ordered = focused

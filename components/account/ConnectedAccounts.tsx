@@ -12,6 +12,7 @@ import { PlatformLogo, PLATFORM_BRAND } from "@/components/clips/PlatformLogo";
 import { RefreshCcw01 } from "@untitledui/icons";
 import {
   connectedAccountError,
+  oauthFlashNotice,
   readConnectedAccountResponse,
 } from "./connected-account-request";
 
@@ -140,21 +141,25 @@ function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activityError, setActivityError] = useState<string | null>(null);
 
-  const oauthFlash = useMemo(() => {
-    const oauth = search.get("oauth");
-    const provider = search.get("provider") ?? "account";
-    if (oauth === "ok") return `Connected ${provider} and completed the first sync.`;
-    if (oauth === "account-changed") return ACCOUNT_CHANGED_MESSAGE;
-    if (oauth === "sync-error")
-      return `Connected ${provider}, but its first sync failed. Use Sync now or reconnect if the error persists.`;
-    if (oauth === "denied") return `You cancelled the ${provider} connect.`;
-    if (oauth === "linked")
-      return `That ${provider} account is already linked to another CORE profile. Sign in there, or disconnect it first.`;
-    if (oauth === "unconfigured")
-      return `${provider} isn’t set up on this environment yet (missing app credentials).`;
-    if (oauth === "error") return `Couldn’t finish the ${provider} connect. Try again.`;
-    return null;
-  }, [search]);
+  // The OAuth routes redirect back with `?oauth=<result>&provider=&reason=`.
+  const oauthFlash = useMemo(
+    () => oauthFlashNotice(search, (key) => catalog.find((item) => item.key === key)?.label),
+    [search, catalog],
+  );
+  // Show the redirect result once, then drop it from the URL so it cannot
+  // reappear after a later disconnect, a reload, or a section change.
+  const [flash, setFlash] = useState<typeof oauthFlash>(null);
+  useEffect(() => {
+    if (!oauthFlash || loading) return;
+    setFlash(oauthFlash);
+    const url = new URL(window.location.href);
+    for (const key of ["oauth", "provider", "reason"]) url.searchParams.delete(key);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [oauthFlash, loading]);
+  useEffect(() => {
+    if (notice) setFlash(null);
+  }, [notice]);
+  const labelFor = (provider: string) => catalog.find((item) => item.key === provider)?.label ?? provider;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -210,24 +215,27 @@ function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
   }, [load]);
 
   async function disconnect(provider: string) {
+    const label = labelFor(provider);
     setBusy(`off-${provider}`);
     setNotice(null);
     try {
       const response = await fetch(`/api/oauth/${provider}`, { method: "DELETE", credentials: "same-origin", headers: { "x-core-account-id": accountId } });
-      const result = await readConnectedAccountResponse<{ ok?: boolean; accountId: string }>(
+      const result = await readConnectedAccountResponse<{ ok?: boolean; providerRevokeFailed?: boolean; accountId: string }>(
         response,
-        `Couldn’t disconnect ${provider}.`,
+        `Couldn’t disconnect ${label}.`,
       );
       if (result.accountId !== accountId) throw new Error(ACCOUNT_CHANGED_MESSAGE);
-      if (result.ok !== true) throw new Error(`Couldn’t confirm that ${provider} was disconnected.`);
+      if (result.ok !== true) throw new Error(`Couldn’t confirm that ${label} was disconnected.`);
       const refreshed = await load();
       window.dispatchEvent(new Event("core-account-sync"));
-      setNotice(refreshed
-        ? { message: `Disconnected ${provider}.`, tone: "success" }
-        : { message: `Disconnected ${provider}, but the updated account list could not be loaded.`, tone: "error" });
+      setNotice(result.providerRevokeFailed
+        ? { message: `Disconnected ${label} from CORE, but ${label} didn’t confirm the access was revoked. You can also remove CORE from your ${label} connected apps.`, tone: "error" }
+        : refreshed
+          ? { message: `Disconnected ${label}.`, tone: "success" }
+          : { message: `Disconnected ${label}, but the updated account list could not be loaded.`, tone: "error" });
     } catch (error) {
       setNotice({
-        message: connectedAccountError(error, `Couldn’t disconnect ${provider}. Try again.`),
+        message: connectedAccountError(error, `Couldn’t disconnect ${label}. Try again.`),
         tone: "error",
       });
     } finally {
@@ -254,7 +262,7 @@ function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
       const failures = result.results.filter((entry) => !entry.ok);
       if (failures.length) {
         setNotice({
-          message: `${failures.map((entry) => entry.provider).join(", ")} need attention. Reconnect or try again.`,
+          message: `${failures.map((entry) => labelFor(entry.provider)).join(", ")} ${failures.length === 1 ? "needs" : "need"} attention. Reconnect or try again.`,
           tone: "error",
         });
       } else if (!result.results.length) {
@@ -284,9 +292,16 @@ function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
 
   return (
     <div className="space-y-6">
-      {oauthFlash ? (
-        <p className="rounded-xl bg-secondary px-4 py-3 text-sm text-secondary ring-1 ring-inset ring-secondary">
-          {oauthFlash}
+      {flash ? (
+        <p
+          className={`rounded-xl px-4 py-3 text-sm ring-1 ring-inset ${
+            flash.tone === "error"
+              ? "bg-error-primary text-error-primary ring-error_subtle"
+              : "bg-secondary text-secondary ring-secondary"
+          }`}
+          role={flash.tone === "error" ? "alert" : "status"}
+        >
+          {flash.message}
         </p>
       ) : null}
 
@@ -335,7 +350,18 @@ function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
             const conn = byProvider.get(p.key);
             const platformFollowing = followingByProvider.get(p.key);
             const syncNeedsAttention = Boolean(conn?.lastSyncError);
-            const connectionNeedsReconnect = Boolean(conn && (conn.status !== "active" || syncNeedsAttention));
+            const grantExpired = Boolean(conn && conn.status !== "active");
+            const connectionNeedsReconnect = Boolean(conn && (grantExpired || syncNeedsAttention));
+            // Missing client id/secret on this deployment: a reconnect would
+            // only bounce back, and token refreshes cannot run.
+            const providerUnavailable = p.connectable && !p.configured;
+            const connectionStatus = providerUnavailable
+              ? { label: "Unavailable", color: "gray" as const }
+              : grantExpired
+                ? { label: "Reconnect needed", color: "warning" as const }
+                : syncNeedsAttention
+                  ? { label: "Sync needs attention", color: "warning" as const }
+                  : { label: "Connected", color: "success" as const };
             return (
               <li key={p.key} className="flex min-h-14 flex-wrap items-center justify-between gap-3 py-3.5 first:pt-0 last:pb-0">
                 <div className="min-w-0">
@@ -345,13 +371,13 @@ function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
                     {conn ? (
                       <>
                         <ConnectedIdentity connection={conn} />
-                        <Badge color={conn.status === "active" && !syncNeedsAttention ? "success" : "warning"} size="sm">
-                          {conn.status !== "active" ? "Reconnect needed" : syncNeedsAttention ? "Sync needs attention" : "Connected"}
+                        <Badge color={connectionStatus.color} size="sm">
+                          {connectionStatus.label}
                         </Badge>
                       </>
                     ) : p.connectable ? (
-                      p.configured ? null : (
-                        <Badge color="gray" size="sm">Not configured</Badge>
+                      p.configured ? <Badge color="gray" size="sm">Not connected</Badge> : (
+                        <Badge color="gray" size="sm">Unavailable</Badge>
                       )
                     ) : (
                       <Badge color="gray" size="sm">Coming soon</Badge>
@@ -377,7 +403,7 @@ function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
                       </>
                     ) : (
                       <>
-                      {connectionNeedsReconnect && p.key !== "instagram" ? (
+                      {connectionNeedsReconnect && !providerUnavailable && p.key !== "instagram" ? (
                       <Button
                         color="secondary"
                         size="sm"
@@ -423,7 +449,9 @@ function ConnectedAccountsForUser({ accountId }: { accountId: string }) {
                 </div>
                 {conn ? <div className="w-full pl-0 sm:pl-10">
                   <p className="text-xs text-tertiary">{conn.lastSyncAt ? <>Last synced <time dateTime={conn.lastSyncAt}>{new Date(conn.lastSyncAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time></> : "Waiting for the first successful sync"}</p>
-                  {conn.lastSyncError ? <p className="mt-1 text-xs text-warning-primary">Sync needs attention. Try Sync now or reconnect this account.</p> : null}
+                  {providerUnavailable ? <p className="mt-1 text-xs text-tertiary">{p.label} isn’t available on this site right now, so this connection can’t sync. You can still disconnect it.</p>
+                    : grantExpired ? <p className="mt-1 text-xs text-warning-primary">{p.label} sign-in expired or was revoked. Reconnect to resume syncing.</p>
+                    : conn.lastSyncError ? <p className="mt-1 text-xs text-warning-primary">Sync needs attention. Try Sync now or reconnect this account.</p> : null}
                   <PlatformFollowingDetails following={platformFollowing} label={p.label} />
                 </div> : null}
               </li>

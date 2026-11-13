@@ -15,6 +15,20 @@ import {
 /** Provider token/profile calls must not hold a request (or a sign-in) open indefinitely. */
 const OAUTH_FETCH_TIMEOUT_MS = 8_000;
 
+/**
+ * A connect attempt that failed for a reason the fan can act on. `reason` is
+ * passed back to Account settings as `?reason=` and must stay a short,
+ * non-sensitive code (never a provider error body).
+ */
+export class OauthConnectError extends Error {
+  constructor(readonly reason: "no-channel" | "missing-scopes" | "no-identity", message: string) {
+    super(message);
+    this.name = "OauthConnectError";
+  }
+}
+
+const YOUTUBE_READ_SCOPE = "https://www.googleapis.com/auth/youtube.readonly";
+
 export type ExchangedIdentity = {
   provider: OauthProvider;
   providerUserId: string;
@@ -188,15 +202,24 @@ async function exchangeGoogle(origin: string, code: string, verifier: string): P
     items?: Array<{ id: string; snippet?: { title?: string; thumbnails?: { default?: { url?: string } } } }>;
   };
   const item = json.items?.[0];
+  // A Google account without a YouTube channel has no stable YouTube id.
+  // Storing a shared placeholder id would make every such account collide on
+  // the (provider, provider_user_id) unique index and "link elsewhere".
+  if (!item?.id) throw new OauthConnectError("no-channel", "youtube channel missing");
+  const scopes = (tok.scope ?? "").split(" ").filter(Boolean);
+  // Google's granular consent lets the fan untick scopes. Sync needs read.
+  if (tok.scope !== undefined && !scopes.includes(YOUTUBE_READ_SCOPE)) {
+    throw new OauthConnectError("missing-scopes", "youtube read scope not granted");
+  }
   return {
     provider: "youtube",
-    providerUserId: item?.id ?? "unknown",
-    username: item?.snippet?.title ?? "YouTube",
-    avatarUrl: item?.snippet?.thumbnails?.default?.url ?? null,
+    providerUserId: item.id,
+    username: item.snippet?.title ?? "YouTube",
+    avatarUrl: item.snippet?.thumbnails?.default?.url ?? null,
     accessToken: tok.access_token,
     refreshToken: tok.refresh_token ?? null,
     expiresIn: tok.expires_in ?? 3600,
-    scopes: (tok.scope ?? "").split(" ").filter(Boolean),
+    scopes,
   };
 }
 
@@ -278,7 +301,7 @@ async function exchangeTikTok(origin: string, code: string): Promise<ExchangedId
   const scopes = grantedScopeSet(tok.scope);
   const missingScopes = TIKTOK_CREATOR_FEED_SCOPES.filter((scope) => !scopes.has(scope));
   if (missingScopes.length) {
-    throw new Error(`tiktok scopes missing: ${missingScopes.join(",")}`);
+    throw new OauthConnectError("missing-scopes", `tiktok scopes missing: ${missingScopes.join(",")}`);
   }
   const me = await fetch(
     "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url,username",
@@ -348,9 +371,11 @@ async function exchangeInstagram(origin: string, code: string): Promise<Exchange
   const u = me.ok
     ? ((await me.json()) as { id?: string; username?: string; profile_picture_url?: string })
     : {};
+  const instagramUserId = String(u.id ?? short.user_id ?? "").trim();
+  if (!instagramUserId) throw new OauthConnectError("no-identity", "instagram user id missing");
   return {
     provider: "instagram",
-    providerUserId: String(u.id ?? short.user_id ?? "unknown"),
+    providerUserId: instagramUserId,
     username: u.username ?? "instagram",
     avatarUrl: u.profile_picture_url ?? null,
     accessToken: long.access_token,

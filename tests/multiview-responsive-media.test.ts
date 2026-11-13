@@ -13,7 +13,7 @@ test("phone Multiview offers real multi-player layouts with stable provider fram
   assert.match(source, /type MobileLayout = "split" \| "stack" \| "focus"/);
   assert.match(source, /const MOBILE_LAYOUT_STORE = "core-multiview-mobile-layout:v1"/);
   // Every rendered phone player stays in one keyed list; promotion is CSS order only.
-  assert.match(source, /order: layout === "split" && isMain \? -1 : 0/);
+  assert.match(source, /order: layout === "split" && isMain \? -1 : rank\(tile\.id\)/);
   assert.match(source, /<PlayerTile\s+key=\{tile\.id\}/);
   // Full-bleed stage so wider phones meet Twitch's 400px minimum.
   assert.match(source, /aria-label="Mobile player view" data-mobile-layout=\{layout\} className="-mx-3 sm:-mx-5"/);

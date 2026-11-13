@@ -26,6 +26,8 @@ import {
 } from "@/lib/radio/settings";
 import { cx } from "@/utils/cx";
 import { createDebouncedWorkspaceSave } from "@/lib/account/workspace-save-queue";
+import { EXPERIENCE_STORAGE_KEY } from "@/lib/theme";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useNativeApp } from "@/hooks/useNativeApp";
 
 type AccountSettings = {
@@ -112,6 +114,12 @@ function restoreSettings(value: unknown, defaults: AccountSettings): AccountSett
 function applyExperience(settings: AccountSettings) {
   document.documentElement.dataset.reducedMotion = String(settings.reduceMotion);
   document.documentElement.dataset.contrast = settings.highContrast ? "more" : "standard";
+  // The layout's boot script re-applies these on every page load.
+  try {
+    window.localStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify({ reduceMotion: settings.reduceMotion, highContrast: settings.highContrast }));
+  } catch {
+    // Storage may be blocked; the account copy still applies on this page.
+  }
 }
 
 function isAutoplayMode(value: unknown): value is AutoplayMode {
@@ -134,6 +142,8 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
   const nativeApp = useNativeApp();
   const section = nativeApp && requestedSection === "station-audio" ? "playback" : requestedSection;
   const player = usePlayer();
+  const subscription = useSubscription();
+  const screensLimit = subscription.loading || subscription.unavailable || subscription.hasFeature("multiview.expanded") ? 8 : 2;
   const playerRef = useRef(player);
   playerRef.current = player;
   const { theme, accent, setTheme, setAccent } = useTheme();
@@ -373,7 +383,8 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
           <ToggleRow label="Audio description" detail="Uses described audio where a provider offers it." value={player.audioDescription} onChange={(audioDescription) => updatePlayer({ audioDescription })} />
           <ToggleRow label="Mix multiview audio" detail="Allow more than one stream to play sound at once." value={player.mixAudio} onChange={(mixAudio) => updatePlayer({ mixAudio })} />
           <RangeRow label="Preview volume" value={player.previewVolume} min={0} max={1} step={0.05} format={(value) => `${Math.round(value * 100)}%`} onChange={(previewVolume) => updatePlayer({ previewVolume })} />
-          <RangeRow label="Multiview screens" value={player.maxActivePlayers} min={1} max={8} step={1} format={(value) => String(value)} onChange={(maxActivePlayers) => updatePlayer({ maxActivePlayers })} />
+          <RangeRow label="Multiview screens" value={Math.min(player.maxActivePlayers, screensLimit)} min={1} max={screensLimit} step={1} format={(value) => String(value)} onChange={(maxActivePlayers) => updatePlayer({ maxActivePlayers })} />
+          {screensLimit < 8 ? <p className="pb-4 text-xs leading-5 text-tertiary">Your plan plays up to {screensLimit} screens at once. <Link href={subscription.featureHref("multiview.expanded") as never} className="font-semibold text-brand-secondary underline-offset-4 hover:underline">{subscription.requiredPlanName("multiview.expanded")} unlocks up to 8.</Link></p> : null}
         </div>
       </section> : null}
 

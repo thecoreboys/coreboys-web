@@ -1,0 +1,96 @@
+.card { position: relative; }
+.metadata {
+  position: absolute;
+  z-index: 22;
+  inset: auto 0 0;
+  display: grid;
+  gap: .5rem;
+  padding: 2.5rem .75rem .7rem;
+  background: linear-gradient(transparent, rgb(0 0 0 / .72) 40%, rgb(0 0 0 / .93));
+  color: #fff;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+.title {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: #fff;
+  font-size: .875rem;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -.015em;
+  text-shadow: 0 1px 5px #000b;
+}
+.title :is(button, a) {
+  display: -webkit-box;
+  width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  pointer-events: auto;
+}
+.row { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .5rem; }
+.channel {
+  display: inline-flex;
+  min-width: 0;
+  max-width: calc(100% - 2.25rem);
+  align-items: center;
+  gap: .35rem;
+  padding: .2rem .5rem .2rem .2rem;
+  border: 1px solid rgb(255 255 255 / .2);
+  border-radius: 999px;
+  background: rgb(8 8 10 / .66);
+  color: #fff;
+  font-size: .6875rem;
+  font-weight: 550;
+  line-height: 1.3;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.channel:hover { border-color: rgb(255 255 255 / .6); background: rgb(8 8 10 / .88); }
+.channel > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar {
+  position: relative;
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 50%;
+  background: #51404a;
+  font-size: .625rem;
+}
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.source {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / .18);
+  border-radius: .5rem;
+  background: rgb(8 8 10 / .7);
+  color: #fff;
+}
+.card:global(.is-preview-open) .metadata,
+.card:global(.is-preview-open) :global(.watch-poster-live),
+.card:global(.is-preview-open) :global(.watch-poster-rank),
+.card:global(.is-preview-open) :global(.watch-poster-moment) { opacity: 0; pointer-events: none; }
+.card:global(.is-preview-open) .metadata :is(a, button) { pointer-events: none; }
+.card :global(.watch-poster-more) { top: .45rem; right: 2.85rem; bottom: auto; left: auto; }
+.card:global(.is-live) :global(.watch-poster-more) { top: .45rem; }
+.card :global(.watch-poster-save) { top: .45rem; right: .45rem; bottom: auto; }
+.card :global(.watch-poster-rank) { top: .65rem; bottom: auto; font-size: 1.75rem; }
+.card:global(.is-live) :global(.watch-poster-rank) { left: 3.75rem; }
+.card:global(.is-portrait) .metadata { gap: .4rem; padding: 2rem .45rem .55rem; }
+.card:global(.is-portrait) .title { font-size: .75rem; }
+.card:global(.is-portrait) .channel { gap: .2rem; padding-right: .3rem; font-size: .625rem; }
+.card:global(.is-portrait) .avatar { width: 1.05rem; height: 1.05rem; }
+.card:global(.is-portrait) .source { width: 1.5rem; height: 1.5rem; }
+.card:global(.is-portrait) .row { gap: .2rem; }
+.channel:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .metadata { transition: none; } }

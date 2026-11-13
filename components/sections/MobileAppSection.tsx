@@ -56,7 +56,7 @@ export function MobileAppSection() {
               color="secondary"
               size="lg"
               iconLeading={<Apple size={28} aria-hidden="true" />}
-              aria-label="Download CORE HQ on the Apple App Store (Invite Only)"
+              aria-label="Download CORE HQ on the App Store. Invite-only beta access required."
               noTextPadding
             >
               <span className={styles.storeLabel}><span>Download on the</span><strong>App Store</strong></span>
@@ -65,7 +65,7 @@ export function MobileAppSection() {
               Explore the remote <ArrowUpRight size={18} aria-hidden="true" />
             </Link>
           </div>
-          <p className={styles.accountNote}>Use the same CORE account on your phone and desktop.</p>
+          <p className={styles.accountNote}>Invite-only beta. Access required. Use the same CORE account on your phone and desktop.</p>
         </div>
 
         <figure className={styles.visual} aria-label="CORE HQ Multiview remote and live chat app preview">

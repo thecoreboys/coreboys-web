@@ -99,6 +99,12 @@ type ActiveCuePresentation = {
 export type RadioAudioDirectorProps = {
   /** Local preference supplied by the account/settings layer. */
   enabled?: boolean;
+  /**
+   * False while other media owns the audio. New cues are declined, but a cue
+   * already speaking (a station ID that started the navigation) is allowed to
+   * finish so the player can start after DJ Cora instead of cutting her off.
+   */
+  allowNewCues?: boolean;
   /** 0–1 volume multiplier for DJ Cora only. */
   volume?: number;
   /** Visible, human-reviewed cue captions. */
@@ -246,6 +252,7 @@ function isCue(value: RadioCueRequest | RadioCue): value is RadioCue {
  */
 export function RadioAudioDirector({
   enabled = true,
+  allowNewCues = true,
   volume = 0.72,
   captions = "always",
   cueCatalog = [],
@@ -272,9 +279,15 @@ export function RadioAudioDirector({
   const widgetExpanded = mobileExpanded && !autoCollapse && !(placement?.hiddenEdge && !compactScreen);
   const widgetExpandedRef = useRef(widgetExpanded);
   widgetExpandedRef.current = widgetExpanded;
+  // Phones have no large panel: the small DJ button is the on/off switch and
+  // DJ Cora speaks whenever she is enabled. Desktop keeps the full widget,
+  // where minimizing it also quiets her.
+  const compactScreenRef = useRef(compactScreen);
+  compactScreenRef.current = compactScreen;
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)");
     const update = () => {
+      compactScreenRef.current = media.matches;
       setCompactScreen(media.matches);
       setMobileExpanded(!media.matches && defaultExpanded);
     };
@@ -292,6 +305,7 @@ export function RadioAudioDirector({
   const mountedRef = useRef(false);
   const recentUserGestureAtRef = useRef(0);
   const enabledRef = useRef(enabled);
+  const allowNewCuesRef = useRef(allowNewCues);
   const volumeRef = useRef(clamp(volume));
   const captionsRef = useRef<CaptionMode>(captions);
   const catalogRef = useRef<readonly RadioCue[]>(cueCatalog);
@@ -306,6 +320,7 @@ export function RadioAudioDirector({
   }, []);
 
   enabledRef.current = enabled;
+  allowNewCuesRef.current = allowNewCues;
   volumeRef.current = clamp(volume);
   captionsRef.current = captions;
   catalogRef.current = cueCatalog;
@@ -650,7 +665,7 @@ export function RadioAudioDirector({
       request: RadioCueRequest & { id: string; cue: RadioCue },
       resolve?: (outcome: RadioCueOutcome) => void,
     ) => {
-      if (widgetExpandedRef.current) return false;
+      if (widgetExpandedRef.current || compactScreenRef.current) return false;
       suppress(request, resolve, "widget_collapsed");
       return true;
     };
@@ -668,6 +683,10 @@ export function RadioAudioDirector({
       }
       if (!enabledRef.current) {
         suppress(request, resolve, "disabled");
+        return;
+      }
+      if (!allowNewCuesRef.current) {
+        suppress(request, resolve, "media_playing");
         return;
       }
       if (suppressCollapsedTune(request, resolve)) return;
@@ -841,10 +860,10 @@ export function RadioAudioDirector({
   }, [enabled]);
 
   useEffect(() => {
-    if (widgetExpanded) return;
+    if (widgetExpanded || compactScreen) return;
     window.dispatchEvent(new CustomEvent(RADIO_CUE_SKIP_EVENT, { detail: { reason: "widget_collapsed" } }));
     setPresentation(null);
-  }, [widgetExpanded]);
+  }, [compactScreen, widgetExpanded]);
 
   const retry = () => {
     if (!presentation?.blocked) return;
@@ -968,6 +987,13 @@ export function RadioAudioDirector({
 
   useEffect(() => {
     const show = () => {
+      if (compactScreenRef.current) {
+        // No large panel on phones; the menu entry flips DJ Cora on or off
+        // and hands focus to the small DJ button that shows her state.
+        writeRadioAudioSettings({ enabled: !enabledRef.current });
+        window.requestAnimationFrame(() => toggleRef.current?.focus());
+        return;
+      }
       restoreWidget();
       setMobileExpanded(true);
       window.requestAnimationFrame(() => rootRef.current?.querySelector<HTMLButtonElement>("button")?.focus());
@@ -1006,6 +1032,7 @@ export function RadioAudioDirector({
         style={widgetStyle}
         aria-live="polite"
         aria-hidden={!widgetExpanded ? true : undefined}
+        data-voice={enabled && (compactScreen || widgetExpanded) ? "on" : "off"}
         aria-label={blocked ? "DJ Cora audio needs confirmation" : "DJ Cora radio"}
         onPointerDown={startDragging}
         onPointerMove={continueDragging}
@@ -1066,7 +1093,16 @@ export function RadioAudioDirector({
         <button type="button" className={styles.settings} onClick={user ? openSettings : undefined} aria-disabled={!user} aria-label={user ? "DJ Cora settings" : "Sign in to adjust DJ Cora settings"} title={user ? "DJ Cora settings" : "Sign in to adjust DJ Cora settings"}><Settings2 aria-hidden /></button>
       </div>
       </aside>
-      {!autoCollapse ? <button
+      {!autoCollapse && compactScreen ? <button
+        type="button"
+        ref={toggleRef}
+        className={`${styles.mobileToggle} ${styles.voiceToggle}${isSpeaking ? ` ${styles.isSpeaking}` : ""}`}
+        aria-pressed={enabled}
+        aria-label={blocked ? "Play DJ Cora" : enabled ? "Turn off DJ Cora" : "Turn on DJ Cora"}
+        title={blocked ? "Tap to hear DJ Cora" : enabled ? "DJ Cora is on" : "DJ Cora is off"}
+        onClick={blocked ? retry : toggleAudio}
+      ><span>DJ</span>{enabled ? <Volume2 size={14} aria-hidden /> : <VolumeX size={14} aria-hidden />}</button> : null}
+      {!autoCollapse && !compactScreen ? <button
         type="button"
         ref={toggleRef}
         className={styles.mobileToggle}

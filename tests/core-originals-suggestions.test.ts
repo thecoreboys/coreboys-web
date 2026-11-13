@@ -24,7 +24,7 @@ test("repeat suggestions preserve existing approved and rejected items", async (
   const inserts: unknown[][] = [];
   const dependencies: Record<string, unknown> = {
     "server-only": {}, "./core-originals": { ensureCoreOriginalsSchema: async () => {} },
-    "./core-originals-matching": matching, "./watch/catalog": {},
+    "./core-originals-matching": matching, "./core-originals-curated": { curatedOriginalItems: () => [] }, "./watch/catalog": {},
     "./db": { withTransaction: async (run: (db: unknown) => Promise<unknown>) => run({ query: async (sql: string, args: unknown[]) => {
       if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       if (sql.startsWith("SELECT source_url")) return { rows: links.map((source_url) => ({ source_url })) };

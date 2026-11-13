@@ -14,8 +14,8 @@ import { FirstVisitIntro } from "@/components/editorial/FirstVisitIntro";
 type Resolved = { owner: string; items: WatchItem[]; checked: string[]; error: boolean };
 const EMPTY_ITEMS: WatchItem[] = [];
 
-export function WatchHomeEntry({ catalog: compact, patreon, originals, awards }: {
-  catalog: CompactWatchCatalog; patreon: ReactNode; originals: ReactNode; awards?: ReactNode;
+export function WatchHomeEntry({ catalog: compact, patreon, originals, awards, mostWatched }: {
+  catalog: CompactWatchCatalog; patreon: ReactNode; originals: ReactNode; awards?: ReactNode; mostWatched?: ReactNode;
 }) {
   const base = useMemo(() => expandWatchCatalog(compact), [compact]);
   const { map, ready, accountKey } = useWatchProgress();
@@ -66,6 +66,6 @@ export function WatchHomeEntry({ catalog: compact, patreon, originals, awards }:
     {failed ? <div role="status" className="px-5 pt-20 text-sm text-white/70">
       Your saved history could not load. <button type="button" className="underline" onClick={() => setResolved((value) => ({ ...value, error: false }))}>Retry</button>
     </div> : null}
-    <WatchHome catalog={catalog} patreon={patreon} originals={originals} awards={awards} />
+    <WatchHome catalog={catalog} patreon={patreon} originals={originals} awards={awards} mostWatched={mostWatched} />
   </WatchChrome></FirstVisitIntro>;
 }

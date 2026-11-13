@@ -4,12 +4,19 @@ import { NotificationArtwork } from "./NotificationArtwork";
 import Link from "next/link";
 import useSWR from "swr";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Check, CheckCheck, Inbox, Settings2, Trash2 } from "lucide-react";
+import { Bell, Check, CheckCheck, ChevronRight, History, Inbox, Settings2, Trash2 } from "lucide-react";
 import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
 import type { InboxNotification, NotificationCenterPage } from "@/lib/inbox-notification";
+import { CATCH_UP_CHANGED_EVENT, catchUpSinceLabel, type CatchUpSummary } from "@/lib/catch-up";
 import { cn } from "@/lib/utils";
 
 type Variant = "desktop" | "mobile";
+
+async function getCatchUpSummary(url: string): Promise<CatchUpSummary> {
+  const response = await fetch(url, { credentials: "same-origin" });
+  if (!response.ok) throw new Error("catch_up_unavailable");
+  return response.json() as Promise<CatchUpSummary>;
+}
 
 async function getInbox(url: string): Promise<NotificationCenterPage> {
   const response = await fetch(url, { credentials: "same-origin" });
@@ -81,8 +88,22 @@ export function NotificationBell({ variant }: { variant: Variant }) {
     getInbox,
     { revalidateOnFocus: false, shouldRetryOnError: false },
   );
+  // Catch-up is computed from the Watch catalog, so it refreshes far less often
+  // than the inbox and never blocks the bell.
+  const { data: catchUp, mutate: refreshCatchUp } = useSWR<CatchUpSummary>(
+    active ? "/api/account/catch-up?summary=1" : null,
+    getCatchUpSummary,
+    { revalidateOnFocus: true, focusThrottleInterval: 60_000, refreshInterval: 5 * 60_000, shouldRetryOnError: false },
+  );
   const [open, setOpen] = useState(false);
   const { activate, previewDialog } = useNotificationActivation();
+
+  useEffect(() => {
+    if (!active) return;
+    const refresh = () => { void refreshCatchUp(); };
+    window.addEventListener(CATCH_UP_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(CATCH_UP_CHANGED_EVENT, refresh);
+  }, [active, refreshCatchUp]);
   const [, setClock] = useState(() => Date.now());
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -127,9 +148,12 @@ export function NotificationBell({ variant }: { variant: Variant }) {
 
   if (!active) return null;
   const unread = data?.unreadCount ?? 0;
-  const buttonLabel = unread
-    ? `Open notifications, ${unread} unread`
-    : "Open notifications";
+  const missed = catchUp?.count ?? 0;
+  const buttonLabel = [
+    "Open notifications",
+    unread ? `${unread} unread` : null,
+    missed ? `${missed} new to catch up on` : null,
+  ].filter(Boolean).join(", ");
 
   async function markRead(id: string) {
     const current = data;
@@ -209,6 +233,8 @@ export function NotificationBell({ variant }: { variant: Variant }) {
           <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[9px] font-bold leading-4 text-white ring-2 ring-[color:var(--bg)]">
             {unread > 9 ? "9+" : unread}
           </span>
+        ) : missed ? (
+          <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-brand-solid ring-2 ring-[color:var(--bg)]" aria-hidden />
         ) : null}
       </button>
       {open ? (
@@ -233,6 +259,23 @@ export function NotificationBell({ variant }: { variant: Variant }) {
               Read all
             </button>
           </div>
+          <Link
+            href={"/account/catch-up" as never}
+            onClick={() => setOpen(false)}
+            className="flex min-h-12 items-center gap-3 border-b border-secondary px-4 py-2.5 transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--core)]"
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-primary text-brand-secondary ring-1 ring-inset ring-brand"><History className="size-4" aria-hidden /></span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm font-semibold text-primary">Catch up</strong>
+              <span className="block truncate text-xs text-tertiary">
+                {!catchUp ? "See what you missed"
+                  : missed ? `${missed} new since ${catchUpSinceLabel(catchUp.since)}${catchUp.creators.length ? ` · ${catchUp.creators.map((creator) => creator.label).slice(0, 3).join(", ")}` : ""}`
+                    : "You’re all caught up"}
+              </span>
+            </span>
+            {missed ? <span className="grid min-w-6 place-items-center rounded-full bg-brand-solid px-1.5 text-[11px] font-bold leading-6 text-white">{missed > 99 ? "99+" : missed}</span> : null}
+            <ChevronRight className="size-4 shrink-0 text-quaternary" aria-hidden />
+          </Link>
           <div
             className="max-h-[min(27rem,calc(100dvh-8rem))] overscroll-y-contain overflow-y-auto p-1.5 [scrollbar-gutter:stable]"
             onWheel={(event) => event.stopPropagation()}

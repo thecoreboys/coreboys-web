@@ -167,7 +167,10 @@ export const WORKSPACE_PRESETS: Array<{
   label: string;
   description: string;
 }> = [
+  { id: "auto", label: "Auto", description: "Picks the best arrangement for how many views are open" },
   { id: "theater-first", label: "Theater first", description: "One cinematic main stream with companion views" },
+  { id: "focus-side", label: "Focus + side", description: "One main view with the others stacked beside it" },
+  { id: "grid", label: "Grid", description: "Every view the same size in an even grid" },
   { id: "solo", label: "Solo", description: "One focused player" },
   { id: "split", label: "50 / 50", description: "Two equal players" },
   { id: "quad", label: "Quad", description: "Four equal players" },

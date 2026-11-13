@@ -10,6 +10,8 @@ type Dependencies = {
   write: (key: string, value: unknown, ttl: number) => Promise<unknown>;
   background: (work: () => Promise<void>) => void;
   now?: () => number;
+  /** Start a source load if an optional shared-cache read is slow. */
+  readHedgeMs?: number;
 };
 
 /**
@@ -131,8 +133,52 @@ export function createPublicCache(dependencies: Dependencies) {
     const underway = reads.get(key);
     if (underway) return underway as Promise<T>;
     const read = (async () => {
+      const remoteRead = Promise.resolve().then(() => dependencies.read(key)).catch(() => null);
+      const hedgeMs = dependencies.readHedgeMs;
       let remote: unknown;
-      try { remote = await dependencies.read(key); } catch { remote = null; }
+      if (hedgeMs !== undefined && Number.isFinite(hedgeMs) && hedgeMs > 0) {
+        const slow = Symbol("slow-cache-read");
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          remote = await Promise.race([
+            remoteRead,
+            new Promise<typeof slow>(resolve => { timer = setTimeout(() => resolve(slow), hedgeMs); }),
+          ]);
+        } finally { if (timer) clearTimeout(timer); }
+        if (remote === slow) {
+          // A cold page needn't pay the entire Redis deadline before its source
+          // starts. The first usable result wins; a late Redis response never
+          // overwrites a newer in-process snapshot.
+          let sourceError: unknown;
+          const source = refresh().catch(error => { sourceError = error; throw error; });
+          try {
+            const winner = await Promise.any([
+              source.then(async value => {
+                // A provider's degraded response should not beat a usable
+                // shared snapshot just because it returned first.
+                // refresh() remembers only usable values and memoizes their
+                // validation, so large catalogs are not scanned a second time.
+                const snapshot = memory.get(key);
+                if (!valid(snapshot) || snapshot.value !== value) {
+                  const entry = await remoteRead;
+                  if (valid(entry)) return { kind: "cache" as const, entry };
+                }
+                return { kind: "source" as const, value };
+              }),
+              remoteRead.then(entry => {
+                if (!valid(entry)) throw new Error("shared_cache_miss");
+                return { kind: "cache" as const, entry };
+              }),
+            ]);
+            if (winner.kind === "source") return winner.value;
+            const refreshed = memory.get(key);
+            if (valid(refreshed)) return serve(refreshed);
+            remember(key, winner.entry);
+            background(async () => { await source.catch(() => undefined); });
+            return serve(winner.entry);
+          } catch { throw sourceError; }
+        }
+      } else remote = await remoteRead;
       if (valid(remote)) { remember(key, remote); return serve(remote); }
       return refresh();
     })();

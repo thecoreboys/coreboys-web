@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   Captions,
   ChevronDown,
+  GripHorizontal,
   ChevronUp,
   Info,
   LayoutGrid,
@@ -44,6 +45,7 @@ import { usePlayer, type PlayerAiringContext } from "@/components/providers/Play
 import { contentShape, embedFor, type Playable } from "@/lib/watch/playable";
 import { nativeVideoSource, playWithMutedFallback, safeMediaUrl } from "@/lib/watch/native-media";
 import { useInstagramPlayback } from "@/hooks/useInstagramPlayback";
+import { useMiniPlayerDrag } from "@/hooks/useMiniPlayerDrag";
 import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/lib/watch/content-advisory";
 import { cancelTheaterHandoff, isLeavingPlayerPage, resetTheaterHandoff } from "@/lib/watch/theater-handoff";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
@@ -69,9 +71,7 @@ import { WatchSelect } from "@/components/watch/WatchSelect";
 import { useWatchContextMenu } from "@/components/watch/WatchContextMenu";
 import {
   beginCinematicTransition,
-  hasNetworkTuningAudio,
   skipNetworkTuningAudio,
-  waitForNetworkTuningAudio,
 } from "@/components/watch/CinematicRouteTransition";
 import { TheaterNetworkGuide } from "@/components/watch/TheaterNetworkGuide";
 import type { PlayerGuideSession } from "@/components/watch/GuideGrid";
@@ -875,8 +875,10 @@ export function PersistentPlayer() {
     clearCoveringSidebar(); compact.addEventListener("change", clearCoveringSidebar);
     return () => compact.removeEventListener("change", clearCoveringSidebar);
   }, [guideMenuOpen, setQueueOpen]);
+  // `contentAdvisoryReady` gates media; `contentAdvisoryVisible` shows the
+  // notice. Order: DJ Cora's station ID, then the advisory, then playback.
   const [contentAdvisoryReady, setContentAdvisoryReady] = useState(false);
-  const [waitingForTuningAudio, setWaitingForTuningAudio] = useState(false);
+  const [contentAdvisoryVisible, setContentAdvisoryVisible] = useState(false);
   const [playerStageShellHeight, setPlayerStageShellHeight] = useState<number | null>(null);
   const [pagePointerInside, setPagePointerInside] = useState(true);
   const [shortFormIdleWarmupReady, setShortFormIdleWarmupReady] = useState(false);
@@ -896,7 +898,6 @@ export function PersistentPlayer() {
   const nativeAutoplayRef = useRef<{ key: string | null; attempted: HTMLVideoElement | null; paused: boolean }>({ key: null, attempted: null, paused: false });
   if (nativeAutoplayRef.current.key !== currentItemKey) nativeAutoplayRef.current = { key: currentItemKey, attempted: null, paused: false };
   const [failedInstagramUrl, setFailedInstagramUrl] = useState<string | null>(null);
-  const contentAdvisoryAudioRef = useRef<HTMLAudioElement | null>(null);
   const playerSectionRef = useRef<HTMLElement | null>(null);
   const playerStageShellRef = useRef<HTMLDivElement | null>(null);
   const settingsPanelRef = useRef<HTMLElement | null>(null);
@@ -958,62 +959,55 @@ export function PersistentPlayer() {
     return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
   }, []);
 
-  const startContentAdvisory = useCallback(() => {
-    const audio = contentAdvisoryAudioRef.current;
-    if (!audio) return;
-    void audio.play().catch(() => {
-      // Audible media cannot begin until a direct viewer gesture in many
-      // browsers. The visual advisory is still shown briefly, but never make
-      // a viewer click through a failed audio autoplay attempt before the
-      // provider can begin its own muted autoplay path.
-      window.setTimeout(() => setContentAdvisoryReady(true), 1_400);
-    });
-  }, []);
-
   useEffect(() => {
     if (!currentItemKey) {
+      setContentAdvisoryVisible(false);
       setContentAdvisoryReady(true);
-      setWaitingForTuningAudio(false);
       return;
     }
-    if (hasAcknowledgedContentAdvisory()) {
+    const needsAdvisory = !hasAcknowledgedContentAdvisory();
+    if (!needsAdvisory) {
+      setContentAdvisoryVisible(false);
       setContentAdvisoryReady(true);
-      setWaitingForTuningAudio(false);
       return;
     }
-    // Count the warning when it is presented, rather than when audio happens
-    // to finish. This keeps it from replaying on later visits as well.
-    acknowledgeContentAdvisory();
-    const hasTuningAudio = hasNetworkTuningAudio();
+    // The advisory takes audio priority immediately. A station ID must never
+    // delay opening a program or its provider's muted autoplay path.
+    skipNetworkTuningAudio();
+    setContentAdvisoryVisible(false);
     setContentAdvisoryReady(false);
-    setWaitingForTuningAudio(hasTuningAudio);
     let disposed = false;
     let audio: HTMLAudioElement | null = null;
-    const beginAfterTuning = async () => {
-      // The network stinger is an intentional part of tuning in. Do not let
-      // the spoken age warning overlap it; the second message begins only
-      // once DJ Cora ends or the viewer uses the Skip control.
-      await waitForNetworkTuningAudio();
+    let blockedFallback: number | null = null;
+    const complete = () => {
       if (disposed) return;
-      setWaitingForTuningAudio(false);
+      setContentAdvisoryVisible(false);
+      setContentAdvisoryReady(true);
+    };
+    const beginAdvisory = () => {
+      if (disposed) return;
+      // Count the warning when it is presented, rather than when audio happens
+      // to finish. This keeps it from replaying on later visits as well.
+      acknowledgeContentAdvisory();
+      setContentAdvisoryVisible(true);
       audio = new Audio("/brand/content-advisory.mp3");
       audio.preload = "auto";
-      contentAdvisoryAudioRef.current = audio;
-      const complete = () => {
-        setContentAdvisoryReady(true);
-      };
       audio.addEventListener("ended", complete, { once: true });
       audio.addEventListener("error", complete, { once: true });
-      startContentAdvisory();
+      void audio.play().catch(() => {
+        // Audible media cannot begin until a direct viewer gesture in many
+        // browsers. Show the visual advisory briefly, then let the provider
+        // begin its own muted autoplay path.
+        blockedFallback = window.setTimeout(complete, 1_400);
+      });
     };
-    void beginAfterTuning();
+    beginAdvisory();
     return () => {
       disposed = true;
-      setWaitingForTuningAudio(false);
+      if (blockedFallback !== null) window.clearTimeout(blockedFallback);
       audio?.pause();
-      if (audio && contentAdvisoryAudioRef.current === audio) contentAdvisoryAudioRef.current = null;
     };
-  }, [currentItemKey, startContentAdvisory]);
+  }, [currentItemKey]);
 
   useEffect(() => {
     setGuideDetailsCollapsed(false);
@@ -2678,6 +2672,13 @@ export function PersistentPlayer() {
     [current?.key],
   );
 
+  // The docked mini player can be dragged anywhere and keeps that spot across
+  // routes and reloads. The full player page is never moved.
+  const miniDrag = useMiniPlayerDrag(
+    playerSectionRef,
+    Boolean(current) && !routeHidden && mode !== "theater" && !playerPage && !isFullscreen,
+  );
+
   if (routeHidden) return null;
   if (!current) {
     return availableHandoff ? (
@@ -2956,7 +2957,8 @@ export function PersistentPlayer() {
     ? "relative m-3 w-auto max-h-[60dvh] shrink-0"
     : playerScreen
     ? "fixed bottom-20 right-3 w-[min(27rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-6rem)]"
-    : `absolute ${shape === "portrait" ? "bottom-[8.5rem]" : "bottom-[5.75rem]"} left-0 w-[min(24rem,calc(100vw-1.5rem))]`;
+    // A mini player dragged to the top or right opens its settings inward.
+    : `absolute ${miniDrag.side.vertical === "top" ? "top-0" : shape === "portrait" ? "bottom-[8.5rem]" : "bottom-[5.75rem]"} ${miniDrag.side.horizontal === "right" ? "right-0" : "left-0"} w-[min(24rem,calc(100vw-1.5rem))]`;
   const aspect =
     shape === "portrait" ? "aspect-[9/16]" : shape === "square" ? "aspect-square" : "aspect-video";
   const playerStageWidth = isFullscreen
@@ -2992,11 +2994,13 @@ export function PersistentPlayer() {
       <section
         ref={playerSectionRef}
         onWheel={onShortFormWheel}
+        onPointerDown={playerScreen ? undefined : miniDrag.onPointerDown}
         aria-label="Now playing"
         role={modalTheater ? "dialog" : "region"}
         aria-modal={modalTheater ? true : undefined}
         data-player-fullscreen={isFullscreen ? "true" : undefined}
         data-page-pointer-inside={playerScreen ? pagePointerInside : undefined}
+        data-mini-player={playerScreen ? undefined : miniDrag.placed ? "placed" : "docked"}
         className={
           playerScreen
             ? `watch-player-stage fixed inset-0 z-[80] isolate flex overflow-hidden bg-[#050507] ${isFullscreen ? "p-0" : "p-2 pt-12 md:p-5"}`
@@ -3007,6 +3011,24 @@ export function PersistentPlayer() {
                 : "fixed bottom-3 left-3 z-[80] w-[min(25rem,calc(100vw-1.5rem))] transition-[width,transform,opacity] duration-300"
         }
       >
+        {!playerScreen ? (
+          <>
+            <button
+              type="button"
+              {...miniDrag.handleProps}
+              aria-label="Move mini player"
+              aria-describedby="mini-player-move-hint"
+              aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+ArrowLeft Shift+ArrowRight Home"
+              title="Drag to move. Arrow keys nudge, Home re-docks."
+              className={`absolute -top-3 left-1/2 z-[60] grid h-6 w-14 -translate-x-1/2 touch-none select-none place-items-center rounded-full bg-[#111216]/95 text-white/70 shadow-lg ring-1 ring-white/20 backdrop-blur-md hover:bg-[#1a1b21] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/85 ${miniDrag.dragging ? "cursor-grabbing text-white ring-white/45" : "cursor-grab"}`}
+            >
+              <GripHorizontal className="size-4" aria-hidden />
+            </button>
+            <span id="mini-player-move-hint" className="sr-only">
+              Drag, or use the arrow keys, to move the mini player. Shift with an arrow key moves it to that edge. Home returns it to the bottom-left corner.
+            </span>
+          </>
+        ) : null}
         {ambientActive ? (
           <PlayerAmbientBloom
             key={`${current.key}:${ambientSource ?? "accent"}`}
@@ -3177,7 +3199,7 @@ export function PersistentPlayer() {
               // A cross-origin Twitch frame does not reliably activate its
               // parent's hover state. Keep window actions outside that frame.
               <div className="flex min-h-12 items-center gap-2 px-2 py-1 text-white" aria-label="Compact player actions">
-                <span className="min-w-0 flex-1 truncate px-1 text-xs font-semibold text-white/85">
+                <span className="min-w-0 flex-1 cursor-grab touch-none select-none truncate px-1 text-xs font-semibold text-white/85">
                   {channel?.title ?? current.title}
                 </span>
                 <Tooltip title="Open player page" description="Expand this video in the full media player." placement="top">
@@ -3533,7 +3555,7 @@ export function PersistentPlayer() {
                   })}
                 </div>
               ) : null}
-              </> : (
+              </> : contentAdvisoryVisible ? (
                 <div className="absolute inset-0 z-30 overflow-hidden bg-[#080608]" role="status" aria-label="Mature audience advisory. The following program is intended for audiences ages 13 and older. Viewer discretion is advised.">
                   <Image
                     fill
@@ -3543,12 +3565,19 @@ export function PersistentPlayer() {
                     alt=""
                     className="h-full w-full object-cover"
                   />
-                  {waitingForTuningAudio ? (
-                    <button type="button" onClick={skipNetworkTuningAudio} className={`absolute bottom-4 right-4 min-h-10 rounded-lg border border-white/20 bg-black/45 px-4 text-[11px] font-extrabold text-white shadow-[0_0_24px_rgba(144,22,52,.28)] backdrop-blur-sm ${CONTROL_FEEDBACK}`}>
-                      Skip DJ Cora
-                    </button>
-                  ) : null}
                 </div>
+              ) : (
+                // DJ Cora is still announcing the station: hold on the poster.
+                <Image
+                  fill
+                  sizes="100vw"
+                  unoptimized
+                  loading="eager"
+                  src={current.poster || "/embed-preview.png"}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
+                />
               )}
               {current.kind !== "live" && nativeMedia && current.platform === "house" && !shortFormTheaterNavigation ? (
                 <OnScreenIdentityOverlay
@@ -4250,7 +4279,7 @@ export function PersistentPlayer() {
             {!playerScreen ? (
             <div
               data-player-details
-              className="relative border-t border-white/10"
+              className="relative cursor-grab touch-none select-none border-t border-white/10"
             >
               <div
                 className={

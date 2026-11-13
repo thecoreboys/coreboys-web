@@ -8,6 +8,10 @@
 .player-guide-loading { padding: 32px 20px; color: var(--ink-dim); font-size: 16px; }
 .player-guide-loading button { min-height: 44px; margin-top: 16px; text-decoration: underline; }
 .player-guide-page :is(button,a):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+/* Inside the player the dialog already titles itself "Program guide"; keep
+   the view switch and refresh, drop the page hero copy. */
+.player-guide-page .guide-v2 .guide-page-header > div:first-child { display: none; }
+.player-guide-page .guide-v2 .guide-page-header { justify-content: flex-end; padding-bottom: 1rem; }
 .guide-v2 .guide-now-next-card h3 { display: block; overflow: visible; -webkit-line-clamp: unset; min-height: 0; line-height: 1.5; overflow-wrap: anywhere; }
 .guide-v2 .guide-timeline-card { height: 128px; }
 .guide-v2 .guide-timeline-card:hover, .guide-v2 .guide-timeline-card:focus-visible { transform: none; }

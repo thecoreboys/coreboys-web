@@ -32,9 +32,24 @@ export type ConnectionPublic = {
   scopes: string[];
 };
 
+/**
+ * The status the account UI should show. A row can still say `active` while
+ * its grant is unusable: no stored access token, or an access token past its
+ * expiry with no refresh token to renew it. Those need a reconnect too.
+ */
+export function connectionPublicStatus(
+  row: Pick<ConnectionRow, "status" | "access_token_enc" | "refresh_token_enc" | "token_expires_at">,
+  now = Date.now(),
+): ConnectionPublic["status"] {
+  if (row.status === "expired" || row.status === "revoked") return row.status;
+  if (!row.access_token_enc) return "expired";
+  const expiresAt = row.token_expires_at ? new Date(row.token_expires_at).getTime() : null;
+  if (expiresAt !== null && expiresAt <= now && !row.refresh_token_enc) return "expired";
+  return "active";
+}
+
 function toPublic(row: ConnectionRow): ConnectionPublic {
-  const status =
-    row.status === "expired" || row.status === "revoked" ? row.status : "active";
+  const status = connectionPublicStatus(row);
   return {
     provider: row.provider,
     username: row.provider_username,
@@ -120,6 +135,21 @@ export async function upsertConnection(input: {
   if (existing && existing.user_id !== input.userId) {
     throw new ProviderLinkedElsewhereError(existing.user_id);
   }
+  try {
+    return await saveConnection(input);
+  } catch (error) {
+    // Two fans finishing a link for the same platform account at once: the
+    // unique (provider, provider_user_id) index rejects the second insert.
+    // Report it as the readable "linked elsewhere" outcome, not a crash.
+    if ((error as { code?: unknown })?.code === "23505") {
+      const winner = await findConnectionByProviderUser(input.provider, input.providerUserId);
+      if (winner && winner.user_id !== input.userId) throw new ProviderLinkedElsewhereError(winner.user_id);
+    }
+    throw error;
+  }
+}
+
+async function saveConnection(input: Parameters<typeof upsertConnection>[0]): Promise<ConnectionPublic> {
 
   const expiresAt = input.expiresIn
     ? new Date(Date.now() + input.expiresIn * 1000)
@@ -221,6 +251,42 @@ export async function markExpired(userId: string, provider: OauthProvider, err: 
         SET status = 'expired', last_sync_error = $3
       WHERE user_id = $1 AND provider = $2 AND ($4::text IS NULL OR id::text=$4)`,
     [userId, provider, err.slice(0, 400), expectedConnectionId ?? null],
+  );
+}
+
+/**
+ * Mark a grant as needing reconnect after the provider rejected its refresh
+ * token, but only if the refresh token is still the one that was rejected.
+ * Providers that rotate refresh tokens (X, TikTok, Twitch) reject the old one
+ * once another request or replica has already rotated it; that concurrent
+ * success must not be overwritten with a false "reconnect needed".
+ * Returns false when the row changed underneath (rotated, replaced, removed).
+ */
+export async function markRefreshRejected(
+  row: Pick<ConnectionRow, "id" | "user_id" | "provider" | "refresh_token_enc">,
+  err: string,
+): Promise<boolean> {
+  const result = await query(
+    `UPDATE fan_oauth_connections
+        SET status = 'expired', last_sync_error = $4
+      WHERE user_id = $1 AND provider = $2 AND id::text = $3
+        AND refresh_token_enc IS NOT DISTINCT FROM $5`,
+    [row.user_id, row.provider, row.id, err.slice(0, 400), row.refresh_token_enc],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * The provider rejected the stored access token (HTTP 401) before its
+ * recorded expiry. Pull the expiry forward so the next use refreshes once;
+ * a rejected refresh then marks the grant for reconnect.
+ */
+export async function markAccessTokenRejected(userId: string, provider: OauthProvider, expectedConnectionId: string): Promise<void> {
+  await query(
+    `UPDATE fan_oauth_connections
+        SET token_expires_at = LEAST(COALESCE(token_expires_at, now()), now())
+      WHERE user_id = $1 AND provider = $2 AND id::text = $3 AND status = 'active'`,
+    [userId, provider, expectedConnectionId],
   );
 }
 

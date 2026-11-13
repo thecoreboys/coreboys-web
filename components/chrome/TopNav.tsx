@@ -11,6 +11,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Award,
   Bookmark,
+  History,
   ChevronDown,
   Gem,
   LogOut,
@@ -412,25 +413,25 @@ export function TopNav() {
               type="button"
               onClick={() => setLiveModalOpen(true)}
               className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 transition-colors hover:bg-[color:var(--ui-hover)]"
-              aria-label={`Live — ${liveCount} ${liveCount === 1 ? "person" : "people"} — open picker`}
+              aria-label={`On Air — ${liveCount} ${liveCount === 1 ? "person" : "people"} live — open picker`}
             >
-              <span
-                aria-hidden
-                className="size-1.5 rounded-full bg-[color:var(--live)]"
-              />
-              <span className="text-xs font-medium text-[color:var(--ink)]">
-                LIVE
-                <span className="mx-1.5 text-[color:var(--ink-dim)]">·</span>
+              <span aria-hidden className="relative grid size-2 place-items-center">
+                <span className="absolute inset-0 rounded-full bg-[color:var(--live)] opacity-60 motion-safe:animate-ping" />
+                <span className="relative size-2 rounded-full bg-[color:var(--live)] motion-safe:animate-pulse motion-safe:[animation-duration:1.1s]" />
+              </span>
+              <span className="whitespace-nowrap text-xs font-semibold text-[color:var(--ink)]">
+                On Air
+                <span className="mx-1 text-[color:var(--ink-dim)]">-</span>
                 <span className="tabular-nums">{liveCount}</span>
               </span>
             </button>
           ) : (
             <span
-              className="inline-flex items-center gap-1.5 px-1 text-[11px] font-semibold text-[color:var(--ink-faint)]"
-              aria-label="No one is live"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap px-1 text-[11px] font-semibold text-[color:var(--ink-faint)]"
+              aria-label="Off Air — no one is live"
             >
               <span className="size-1.5 rounded-full bg-[color:var(--ink-faint)]" aria-hidden />
-              Offline
+              Off Air
             </span>
           )}
 
@@ -494,6 +495,13 @@ export function TopNav() {
                         icon={Award}
                         label="CORE Passport"
                         active={pathname.startsWith("/passport")}
+                        onSelect={() => setAccountOpen(false)}
+                      />
+                      <AccountMenuLink
+                        href="/account/catch-up"
+                        icon={History}
+                        label="Catch up"
+                        active={pathname.startsWith("/account/catch-up")}
                         onSelect={() => setAccountOpen(false)}
                       />
                       <AccountMenuLink
@@ -670,6 +678,14 @@ export function TopNav() {
                   >
                     <Bookmark size={16} aria-hidden />
                     DVR
+                  </Link>
+                  <Link prefetch={false}
+                    href={"/account/catch-up" as never}
+                    onClick={() => setOpen(false)}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 py-2 text-sm font-semibold text-[color:var(--ink)] transition-colors hover:bg-[color:var(--surface)]"
+                  >
+                    <History size={16} aria-hidden />
+                    Catch up
                   </Link>
                   <Link prefetch={false}
                     href="/account/settings"

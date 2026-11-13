@@ -32,7 +32,11 @@ export function useSubscription() {
     fetchSubscription,
     {
       revalidateOnFocus: false,
-      shouldRetryOnError: false,
+      // A transient failure must not leave a paying member looking Free for
+      // the whole visit (DVR saves, multiview screens, detection all gate on it).
+      shouldRetryOnError: true,
+      errorRetryCount: 4,
+      errorRetryInterval: 2_000,
     },
   );
 

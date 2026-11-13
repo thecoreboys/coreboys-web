@@ -33,7 +33,13 @@ export async function PUT(request: Request) {
   if (!userId) return privateJson({ error: "unauthorized" }, { status: 401 });
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return privateJson({ error: "invalid_payload" }, { status: 400 });
-  if (parsed.data.emailEnabled || parsed.data.pushEnabled) {
+  // Only turning a paid channel ON needs the plan. Re-sending an already-on
+  // channel (every catch-up toggle PUTs the whole object) must not block a
+  // downgraded account from editing its free in-app rules.
+  const current = parsed.data.emailEnabled || parsed.data.pushEnabled
+    ? await getSocialNotificationSettings(userId)
+    : null;
+  if (current && ((parsed.data.emailEnabled && !current.emailEnabled) || (parsed.data.pushEnabled && !current.pushEnabled))) {
     try {
       await requireAccountEntitlement({ userId, requestHostname: new URL(request.url).hostname, featureId: "notifications.advanced" });
     } catch (error) {

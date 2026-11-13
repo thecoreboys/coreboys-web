@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { TranscriptManager } from "@/components/admin/TranscriptManager";
 import { CreatorTagManager } from "@/components/admin/CreatorTagManager";
+import { CreatorTagAccessManager } from "@/components/admin/CreatorTagAccessManager";
 export const metadata: Metadata = withPageMetadata("/admin/media-intelligence", {
   title: "Media intelligence · Admin",
   robots: { index: false, follow: false },
@@ -11,6 +12,6 @@ export const metadata: Metadata = withPageMetadata("/admin/media-intelligence", 
 export default function MediaIntelligencePage() {
   return <div className="min-h-[var(--page-min-height)] bg-secondary pb-24">
     <AdminPageHeader eyebrow="Media intelligence" title="Media & creator tags" supporting="Review transcripts, maintain creator profiles, and publish tags for specific video moments." />
-    <div className="mx-auto max-w-container space-y-12 px-6 md:px-8"><CreatorTagManager /><TranscriptManager /></div>
+    <div className="mx-auto max-w-container space-y-12 px-6 md:px-8"><CreatorTagManager /><CreatorTagAccessManager /><TranscriptManager /></div>
   </div>;
 }

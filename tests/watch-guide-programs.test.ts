@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import test from "node:test";
 import {
   isActiveTwitchArchiveDuplicate,
   removeActiveTwitchArchiveDuplicates,
 } from "../lib/watch/guide-programs";
 
-const guideGridSource = readFileSync(resolve(process.cwd(), "components/watch/GuideGrid.tsx"), "utf8");
-const guideCss = readFileSync(resolve(process.cwd(), "app/guide/guide.css"), "utf8");
 
 type Program = {
   id: string;
@@ -97,8 +93,3 @@ test("does not merge another channel or platform", () => {
   );
 });
 
-test("the timeline supports pointer dragging without hijacking the page wheel or showing a scrollbar", () => {
-  assert.match(guideGridSource, /useDragScroll<HTMLDivElement>\(\{ wheel: "native" \}\)/);
-  assert.match(guideCss, /\.guide-timeline-scroll \{[\s\S]{0,420}scrollbar-width: none;/);
-  assert.match(guideCss, /\.guide-timeline-scroll::\-webkit-scrollbar \{\s*display: none;/);
-});

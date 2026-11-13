@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type RefObject } from "react";
 import { loadTwitchPlayer, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import { advancingTwitchPlayback, createTwitchAutoplayBudget, exposedTwitchPreview, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import { withTwitchAutoplayPermissions } from "@/lib/watch/player-autoplay";
 
-/** A muted preview that hands a provider-frame click to Theater. */
-export function TwitchHoverMedia({ channel, video, active, title, startSeconds, onPlayingChange, onProgress, onSelect, onLoadError }: {
+/** Starts muted; expanded panels can enable sound through the shared SDK ref. */
+export function TwitchHoverMedia({ channel, video, active, title, startSeconds, onPlayingChange, onProgress, onSelect, onLoadError, playerRef }: {
   channel: string | null;
   video: string | null;
   active: boolean;
@@ -16,6 +16,8 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
   onProgress: (position: number, duration: number) => void;
   onSelect: () => void;
   onLoadError?: () => void;
+  /** Expanded hover panels share this SDK instance with their audio control. */
+  playerRef?: RefObject<TwitchPlayerInstance | null>;
 }) {
   const id = `core-hover-twitch-${useId().replace(/[^a-z0-9_-]/gi, "")}`;
   const mountRef = useRef<HTMLDivElement>(null);
@@ -47,7 +49,7 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
       const frame = mount.querySelector("iframe");
       if (!frame) return;
       frame.setAttribute("allow", withTwitchAutoplayPermissions(frame.getAttribute("allow")));
-      frame.title = `${current.current.title} muted preview`;
+      frame.title = `${current.current.title} preview`;
       frame.tabIndex = -1;
       frame.setAttribute("aria-hidden", "true");
       if (frame !== observedFrame) {
@@ -110,6 +112,7 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
         autoplay: current.current.active, muted: true,
         ...(channel ? { channel } : { video: video?.startsWith("v") ? video : `v${video}` }),
       });
+      if (playerRef) playerRef.current = instance;
       prepareFrame();
       instance.addEventListener(api.Player.READY, () => {
         if (disposed || !instance) return;
@@ -131,7 +134,16 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
         setPlaying(false);
       };
       instance.addEventListener(api.Player.PAUSE, stopped);
-      instance.addEventListener(api.Player.PLAYBACK_BLOCKED, stopped);
+      instance.addEventListener(api.Player.PLAYBACK_BLOCKED, () => {
+        const audibleRequest = instance?.getMuted?.() === false;
+        stopped();
+        if (disposed || !budget.visible || !audibleRequest) return;
+        // Audible autoplay can be denied after muted video has already begun.
+        // Restore playback and let the expanded panel offer a sound gesture.
+        budget.restart();
+        try { instance?.setMuted?.(true); } catch { /* Still becoming ready. */ }
+        requestPlayback();
+      });
       instance.addEventListener(api.Player.OFFLINE, stopped);
       instance.addEventListener(api.Player.ENDED, stopped);
     }).catch(() => {
@@ -171,9 +183,10 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
       document.removeEventListener("visibilitychange", syncActive);
       window.removeEventListener("blur", selectFrame);
       try { instance?.pause?.(); instance?.destroy?.(); } catch { /* Already detached. */ }
+      if (playerRef?.current === instance) playerRef.current = null;
       mount.replaceChildren();
     };
-  }, [channel, id, video]);
+  }, [channel, id, video, playerRef]);
 
   useEffect(() => { syncActiveRef.current?.(); }, [active]);
 

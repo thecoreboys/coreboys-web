@@ -31,7 +31,7 @@ export function TheaterNetworkGuide({ session, onReturn, onTune }: {
     const page = scroller.current;
     if (!page?.querySelector(".guide-v2")) return;
     session.pageScrollTop = page.scrollTop;
-    const timeline = page.querySelector(".guide-timeline-scroll");
+    const timeline = page.querySelector(".guide-epg-scroll");
     if (timeline) session.timelineScroll = { left: timeline.scrollLeft, top: timeline.scrollTop };
   }
 

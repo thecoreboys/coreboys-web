@@ -6,8 +6,21 @@ import { ChatDock, EMPTY_CHAT_FILTERS, type ChatFeedFilters, type ChatSessionCha
 import { useDialogFocus } from "@/hooks/useDialogFocus";
 import { DEFAULT_CHAT_DOCK_SIZE } from "@/lib/watch/workspace";
 
+/** Which chats the side panel shows: the main stage only, every room chat merged, or one per stream. */
+export type RoomChatView = "main" | "combined" | "columns";
+
+const ROOM_CHAT_VIEWS: Array<{ id: RoomChatView; label: string; description: string }> = [
+  { id: "main", label: "Main", description: "Chat for the main stage" },
+  { id: "combined", label: "All", description: "Every stream's chat in one feed" },
+  { id: "columns", label: "Each", description: "A separate chat per stream" },
+];
+
 type MainStageChatProps = {
   channels: ChatSessionChannel[];
+  /** Connected chats for every stream in the room (used by All / Each). */
+  roomChannels?: ChatSessionChannel[];
+  view?: RoomChatView;
+  onViewChange?: (view: RoomChatView) => void;
   selectedLogin: string | null;
   followsMain: boolean;
   onSelectChannel: (login: string | null) => void;
@@ -20,7 +33,9 @@ type MainStageChatProps = {
 };
 
 export function MainStageChat(props: MainStageChatProps) {
-  const { channels, selectedLogin, followsMain, onSelectChannel, textScale, showTimestamps } = props;
+  const { channels, selectedLogin, followsMain, onSelectChannel, textScale, showTimestamps, roomChannels = [], onViewChange } = props;
+  const multiChat = roomChannels.length > 1;
+  const view: RoomChatView = multiChat ? props.view ?? "main" : "main";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filters, setFilters] = useState<ChatFeedFilters>(EMPTY_CHAT_FILTERS);
   const selectedChannel = channels.find((channel) => channel.login === selectedLogin);
@@ -30,9 +45,45 @@ export function MainStageChat(props: MainStageChatProps) {
       <div inert={settingsOpen} className="flex min-h-0 flex-1 flex-col">
         <header className="flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3">
           <span className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold text-white/85"><MessageSquare className="size-4 shrink-0 text-violet-300" aria-hidden />Twitch chat</span>
-          <span className={`inline-flex min-w-0 items-center gap-1 text-[10px] ${followsMain ? "text-emerald-300/85" : "text-white/45"}`} aria-live="polite"><Link2 className="size-3 shrink-0" aria-hidden /><span className="truncate">{followsMain ? "Follows main" : "Browsing"}</span></span>
+          {view === "main" ? (
+            <span className={`inline-flex min-w-0 items-center gap-1 text-[10px] ${followsMain ? "text-emerald-300/85" : "text-white/45"}`} aria-live="polite"><Link2 className="size-3 shrink-0" aria-hidden /><span className="truncate">{followsMain ? "Follows main" : "Browsing"}</span></span>
+          ) : (
+            <span className="truncate text-[10px] text-white/50" aria-live="polite">{roomChannels.length} chats</span>
+          )}
           <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Chat settings" aria-haspopup="dialog" className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl text-white/60 transition hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Settings2 className="size-4" aria-hidden /></button>
         </header>
+        {multiChat && onViewChange ? (
+          <div role="radiogroup" aria-label="Chats to show" className="mx-2 mt-2 grid shrink-0 grid-cols-3 gap-0.5 rounded-xl bg-white/[0.05] p-0.5 ring-1 ring-inset ring-white/10">
+            {ROOM_CHAT_VIEWS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={view === option.id}
+                title={option.description}
+                onClick={() => onViewChange(option.id)}
+                className={`min-h-9 cursor-pointer rounded-[0.6rem] px-2 text-[11px] font-semibold transition focus-visible:outline-2 focus-visible:outline-white ${view === option.id ? "bg-white text-[#101014]" : "text-white/60 hover:bg-white/8 hover:text-white"}`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {view !== "main" ? (
+          <ChatDock
+            key={view}
+            channels={roomChannels}
+            mode={view}
+            textScale={textScale}
+            showTimestamps={showTimestamps}
+            filters={filters}
+            onFiltersChange={setFilters}
+            showToolbar={false}
+            fillContainer
+            themeOverride="dark"
+            className="min-h-0 flex-1 p-2"
+          />
+        ) : <>
         {!followsMain ? <button type="button" onClick={() => onSelectChannel(null)} className="min-h-10 shrink-0 border-b border-white/8 px-3 text-left text-xs font-medium text-emerald-300 transition hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-white">Return to main stage chat</button> : null}
         {selectedChannel ? (
           <ChatDock
@@ -54,6 +105,7 @@ export function MainStageChat(props: MainStageChatProps) {
             <div className="max-w-64"><MessageSquare className="mx-auto size-6 text-white/25" aria-hidden /><p className="mt-3 text-sm font-semibold text-white/75">Chat follows your main stage</p><p className="mt-2 text-xs leading-5 text-white/45">Choose a live stream with a linked Twitch channel. Its chat will appear here automatically.</p></div>
           </div>
         )}
+        </>}
       </div>
       {settingsOpen ? <MainStageChatSettings {...props} filters={filters} onFiltersChange={setFilters} onClose={() => setSettingsOpen(false)} /> : null}
     </section>

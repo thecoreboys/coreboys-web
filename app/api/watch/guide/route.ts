@@ -494,6 +494,30 @@ export async function GET(request: Request) {
     || !Number.isFinite(windowStart) || !Number.isFinite(windowEnd) || windowEnd <= windowStart || windowEnd - windowStart > GUIDE_MAX_WINDOW_MS)) {
     return NextResponse.json({ error: "Invalid guide window" }, { status: 400 });
   }
+  // Every open Guide polls this route. Requests that arrive while a build is
+  // running share it; the next request after it finishes builds afresh, so
+  // the Guide still follows the shared catalog's own freshness.
+  const payload = await (assemblingGuide ??= assembleGuide().finally(() => { assemblingGuide = undefined; }));
+  if (!payload) {
+    return NextResponse.json({ error: "Guide temporarily unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
+  const snapshot = windowStart !== null && windowEnd !== null ? projectGuideWindow(payload, windowStart, windowEnd, params.get("linear") !== "0") : payload;
+  return NextResponse.json(
+    request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(snapshot) : snapshot,
+    {
+      headers: {
+        "Cache-Control": payload.partial || Object.values(payload.sources ?? {}).some((state) => state === "error" || state === "loading")
+          ? "no-store"
+          : "public, s-maxage=60, stale-while-revalidate=180",
+        "Vary": "X-CORE-Guide-Format",
+      },
+    },
+  );
+}
+
+let assemblingGuide: Promise<GuidePayload | null> | undefined;
+
+async function assembleGuide(): Promise<GuidePayload | null> {
   const serverNow = new Date();
   // Only Twitch schedules depend on its directory. Other providers, recorded
   // history and the shared catalog can start immediately.
@@ -516,9 +540,7 @@ export async function GET(request: Request) {
   const catalog = archive.catalog ?? await guideSourceWithDeadline(getHomeWatchCatalog().catch(() => null), null, 4_000);
   if (!archive.catalog) after(async () => { await archiveWork; });
 
-  if (!catalog) {
-    return NextResponse.json({ error: "Guide temporarily unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
-  }
+  if (!catalog) return null;
   const guideCatalog = guideLiveCatalog(catalog);
   const timeline = loadCatalogTimeline(guideCatalog);
   const networks = buildGuideNetworkRows(guideCatalog);
@@ -544,16 +566,5 @@ export async function GET(request: Request) {
         socialTimeline: timeline.length ? "ok" : "empty",
       },
     };
-  const snapshot = windowStart !== null && windowEnd !== null ? projectGuideWindow(payload, windowStart, windowEnd, params.get("linear") !== "0") : payload;
-  return NextResponse.json(
-    request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(snapshot) : snapshot,
-    {
-      headers: {
-        "Cache-Control": payload.partial || Object.values(payload.sources ?? {}).some((state) => state === "error" || state === "loading")
-          ? "no-store"
-          : "public, s-maxage=60, stale-while-revalidate=180",
-        "Vary": "X-CORE-Guide-Format",
-      },
-    },
-  );
+  return payload;
 }

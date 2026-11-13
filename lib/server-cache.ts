@@ -19,6 +19,7 @@ const processCache = globalThis as typeof globalThis & {
 };
 const caches = processCache.__corePublicCaches ??= new Map<string, ReturnType<typeof createPublicCache>>();
 export const cachedPublicData: ReturnType<typeof createPublicCache> = caches.get(namespace) ?? createPublicCache({
+  readHedgeMs: 150,
   read: (key) => redisGetJson(`coreboys:public:${namespace}:${key}`),
   write: (key, value, ttl) => redisSetJson(`coreboys:public:${namespace}:${key}`, value, ttl),
   background: (work) => {

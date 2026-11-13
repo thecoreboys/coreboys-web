@@ -13,10 +13,9 @@ test("timeline links resolve to visible chapters in reading order", () => {
   assert.doesNotMatch(page, /\{false\s*\?/);
 });
 
-test("the original photos, videos, posters, screenshots and panorama remain available", () => {
+test("the original photos, videos, posters and panorama remain available", () => {
   const media = [
     "core-huddle.webp", "popularmmos-profile.jpg", "gamingwithjen-profile.jpg",
-    "app-screens/home.png", "app-screens/guide.png", "app-screens/now-playing-guide.png", "app-screens/flock-network.png",
     "evidence/pc-build-open.webp", "evidence/pc-build-lit.webp", "evidence/pc-build-red-poster.webp",
     "evidence/pc-build-macro.mp4", "evidence/pc-build-tour.mp4", "evidence/pc-build-red.mp4",
     "evidence/army-mercury.webp", "evidence/ucf-mark.webp", "evidence/ucf-degree-redacted.webp",
@@ -33,7 +32,7 @@ test("the personal history and independent-project disclosure remain", () => {
     "Cranberry Crush", "Udonis Haslem", "Norris Cole", "LeBron James, Dwyane Wade,",
     "Lubcubs Gaming", "PopularMMOs", "GamingWithJen", "anxiety",
     "neurodiversity", "July 31, 2026", "DigitalOcean", "Army Reserve",
-    "B.S. in Computer Science", "people who speak Spanish", "Adapt, Woj, Bepsy,",
+    "B.S. in Computer Science", "people who speak Spanish", "@Adapt", "@Woj", "@Bepsy",
     "not affiliated with,", "@berryeyu",
   ]) assert.ok(page.includes(phrase), `Story detail retained: ${phrase}`);
   assert.doesNotMatch(page, /\$3 a month|support the site/i);

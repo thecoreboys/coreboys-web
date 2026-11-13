@@ -4,6 +4,79 @@ import { createPublicCache } from "../lib/public-cache";
 
 const options = { freshSeconds: 20, staleSeconds: 40, validate: (value: unknown): value is string => typeof value === "string" };
 
+test("a stalled Redis read does not delay a ready source or overwrite it when the old snapshot arrives", async () => {
+  let finishRead!: (value: unknown) => void;
+  let loads = 0;
+  const cache = createPublicCache({
+    readHedgeMs: 1,
+    read: () => new Promise(resolve => { finishRead = resolve; }),
+    write: async () => {}, background: () => {},
+  });
+  const load = async () => { loads++; return "fresh source"; };
+  assert.deepEqual(await Promise.all([cache("home", load, options), cache("home", load, options)]), ["fresh source", "fresh source"]);
+  assert.equal(loads, 1);
+  finishRead({ value: "older Redis", freshUntil: Date.now() + 20_000, staleUntil: Date.now() + 60_000 });
+  await Promise.resolve();
+  assert.equal(await cache("home", load, options), "fresh source");
+});
+
+test("a valid Redis snapshot can win while a slower source is being warmed", async () => {
+  let finishRead!: (value: unknown) => void;
+  let finishSource!: (value: string) => void;
+  let sourceStarted!: () => void;
+  const started = new Promise<void>(resolve => { sourceStarted = resolve; });
+  const background: Array<() => Promise<void>> = [];
+  const cache = createPublicCache({ readHedgeMs: 1,
+    read: () => new Promise(resolve => { finishRead = resolve; }), write: async () => {},
+    background: work => { background.push(work); },
+  });
+  const response = cache("home", () => { sourceStarted(); return new Promise<string>(resolve => { finishSource = resolve; }); }, options);
+  await started;
+  finishRead({ value: "Redis snapshot", freshUntil: Date.now() + 20_000, staleUntil: Date.now() + 60_000 });
+  assert.equal(await response, "Redis snapshot");
+  finishSource("fresh source");
+  while (background.length) await background.shift()!();
+  assert.equal(await cache("home", async () => "unused", options), "fresh source");
+});
+
+test("a hedged cold miss preserves the source error when both cache and source fail", async () => {
+  const cache = createPublicCache({ readHedgeMs: 1,
+    read: async () => { await new Promise(resolve => setTimeout(resolve, 5)); return null; },
+    write: async () => {}, background: () => {},
+  });
+  await assert.rejects(cache("home", async () => { throw new Error("source unavailable"); }, options), /source unavailable/);
+});
+
+test("a degraded source cannot beat a usable delayed Redis snapshot", async () => {
+  let finishRead!: (value: unknown) => void;
+  let sourceStarted!: () => void;
+  const started = new Promise<void>(resolve => { sourceStarted = resolve; });
+  const cache = createPublicCache({ readHedgeMs: 1,
+    read: () => new Promise(resolve => { finishRead = resolve; }),
+    write: async () => {}, background: () => {},
+  });
+  const policy = { ...options, shouldCache: (value: string) => value.length > 0 };
+  const response = cache("home", async () => { sourceStarted(); return ""; }, policy);
+  await started;
+  finishRead({ value: "usable archive", freshUntil: Date.now() + 20_000, staleUntil: Date.now() + 60_000 });
+  assert.equal(await response, "usable archive");
+  assert.equal(await cache("home", async () => "unused", policy), "usable archive");
+});
+
+test("a degraded source still returns when the delayed Redis read misses", async () => {
+  let finishRead!: (value: unknown) => void;
+  let sourceStarted!: () => void;
+  const started = new Promise<void>(resolve => { sourceStarted = resolve; });
+  const cache = createPublicCache({ readHedgeMs: 1,
+    read: () => new Promise(resolve => { finishRead = resolve; }),
+    write: async () => {}, background: () => {},
+  });
+  const response = cache("home", async () => { sourceStarted(); return ""; }, { ...options, shouldCache: value => value.length > 0 });
+  await started;
+  finishRead(null);
+  assert.equal(await response, "");
+});
+
 function harness() {
   let clock = 100_000;
   let reads = 0;

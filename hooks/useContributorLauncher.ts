@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { launcherPlacement } from "@/lib/contributors/launcher-placement";
 
 const surfaces = 'section[aria-label="Now playing"], #dj-cora-panel, button[aria-label*="DJ Cora"], .watch-together, .passport-status-toast, .mobile-bottom-nav, [data-floating-widget]';
-export function useContributorLauncher<T extends HTMLElement = HTMLButtonElement>(pathname: string | null) {
+export function useContributorLauncher<T extends HTMLElement = HTMLButtonElement>(pathname: string | null, enabled = true) {
   const ref = useRef<T>(null);
   const lift = useRef(0);
   const [placement, setPlacement] = useState({ lift: 0, hidden: false });
   useEffect(() => {
-    const button = ref.current; if (!button) return;
+    const button = ref.current; if (!button || !enabled) return;
     let frame = 0;
     const observed = new Set<Element>();
     const resize = new ResizeObserver(() => schedule());
@@ -38,6 +38,6 @@ export function useContributorLauncher<T extends HTMLElement = HTMLButtonElement
     resize.observe(button); schedule();
     window.addEventListener('resize', schedule); document.addEventListener('fullscreenchange', schedule); document.addEventListener('transitionend', schedule);
     return () => { resize.disconnect(); mutation.disconnect(); cancelAnimationFrame(frame); window.removeEventListener('resize', schedule); document.removeEventListener('fullscreenchange', schedule); document.removeEventListener('transitionend', schedule); };
-  }, [pathname]);
+  }, [pathname, enabled]);
   return { ref, placement };
 }
