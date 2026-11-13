@@ -103,7 +103,6 @@ export function PatreonLockedShelf({ data }: { data: PatreonShelfData }) {
           >
             CORE on Patreon
           </h2>
-          <p className="mt-2 text-sm text-[color:var(--ink-dim)]">Public previews from the creators. A Patreon membership is separate from supporting this website.</p>
         </div>
       </div>
       <DragScrollRail
