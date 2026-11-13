@@ -1326,23 +1326,31 @@ function WorkspaceSidebar({
   useEffect(() => {
     const sidebar = sidebarRef.current;
     if (!sidebar) return;
+    // Size the desktop chat from where it *sticks*, not from where it happens
+    // to be on screen. Measuring the live position made the panel grow as the
+    // page scrolled. It lines up with the stage, capped to the visible height.
     const fitToViewport = () => {
       if (!window.matchMedia("(min-width: 1024px)").matches) {
         sidebar.style.removeProperty("height");
         return;
       }
-      sidebar.style.height = `${Math.max(288, window.innerHeight - sidebar.getBoundingClientRect().top - 16)}px`;
+      const stickyTop = Number.parseFloat(getComputedStyle(sidebar).top) || 0;
+      const visible = window.innerHeight - stickyTop - 16;
+      const stage = document.getElementById("multiview-stage")?.getBoundingClientRect().height ?? 0;
+      const target = stage > 0 ? Math.min(visible, Math.max(stage, 420)) : visible;
+      const next = `${Math.round(Math.max(288, target))}px`;
+      if (sidebar.style.height !== next) sidebar.style.height = next;
     };
     fitToViewport();
     const observer = new ResizeObserver(fitToViewport);
     const room = sidebar.closest('[aria-label="Multiview room"]');
     if (room) observer.observe(room);
+    const stageElement = document.getElementById("multiview-stage");
+    if (stageElement) observer.observe(stageElement);
     window.addEventListener("resize", fitToViewport);
-    window.addEventListener("scroll", fitToViewport, { passive: true });
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", fitToViewport);
-      window.removeEventListener("scroll", fitToViewport);
     };
     // Re-fit when the sheet opens so a desktop-era inline height never
     // survives into the phone/tablet sheet.
