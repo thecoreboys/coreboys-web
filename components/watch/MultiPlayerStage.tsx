@@ -23,7 +23,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useMultiviewSourceSearch } from "@/hooks/useMultiviewSourceSearch";
 import { useDialogFocus } from "@/hooks/useDialogFocus";
 import { useMultiviewRemoteHost } from "@/hooks/useMultiviewRemote";
-import { MULTIVIEW_LAUNCH_PATH, remoteSourceKey, type RemoteSource } from "@/lib/watch/multiview-remote";
+import { MULTIVIEW_LAUNCH_PATH, remoteSourceKey, type RemoteControl, type RemoteHostState, type RemoteSource } from "@/lib/watch/multiview-remote";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import { catalogPlayables, contentShape, embedFor, playableFromUrl, type Playable } from "@/lib/watch/playable";
 import { listenToYouTube, youtubeCaptionCommands, youtubePlaybackSample } from "@/lib/watch/youtube-player";
@@ -531,10 +531,52 @@ export function MultiPlayerStage({
   const remoteSources = useMemo(() => [...remoteItems.values()].map(({ source }) => source), [remoteItems]);
   const mainSource = mainTile && !mainTile.standby ? remoteSourceFor(mainTile.item) : null;
   const remoteMain = mainSource ? remoteSourceKey(mainSource) : null;
+  const remoteState = useMemo<RemoteHostState>(() => {
+    const audibleTiles = player.tiles.filter((tile) => !tile.standby && !tile.muted && tile.volume > 0);
+    const audible = audibleTiles.flatMap((tile) => {
+      const source = remoteSourceFor(tile.item);
+      const key = source ? remoteSourceKey(source) : null;
+      return key && remoteItems.get(key)?.item.key === tile.item.key ? [key] : [];
+    });
+    return {
+      mainAudible: Boolean(mainTile && audibleTiles.some((tile) => tile.id === mainTile.id)),
+      audibleCount: audibleTiles.length,
+      audible,
+      maximized: Boolean(player.maximizedTileId && player.tiles.some((tile) => tile.id === player.maximizedTileId)),
+      layout: player.layoutPreset,
+    };
+  }, [mainTile, player.layoutPreset, player.maximizedTileId, player.tiles, remoteItems]);
   const { connection: remoteConnection } = useMultiviewRemoteHost({
     accountId: remoteHost && player.ready && !subscription.loading ? user?.id ?? null : null,
     sources: remoteSources,
     main: remoteMain && remoteItems.get(remoteMain)?.item.key === mainTile?.item.key ? remoteMain : null,
+    state: remoteState,
+    applyControl: (control: RemoteControl) => {
+      switch (control) {
+        case "main-sound-on":
+          if (!mainTile) return false;
+          // Unmuting one tile mutes the rest unless the room mixes audio.
+          player.updateTile(mainTile.id, { muted: false, volume: mainTile.volume > 0 ? mainTile.volume : 1 });
+          return true;
+        case "main-sound-off":
+          if (!mainTile) return false;
+          player.updateTile(mainTile.id, { muted: true });
+          return true;
+        case "mute-all":
+          player.muteAll();
+          return true;
+        case "maximize":
+          if (!mainTile) return false;
+          player.setMaximizedTileId(mainTile.id);
+          return true;
+        case "restore":
+          player.setMaximizedTileId(null);
+          return true;
+        case "theater":
+          player.applyPreset("theater-first");
+          return true;
+      }
+    },
     switchSource: (key) => {
       const target = remoteItems.get(key);
       if (!target) return false;

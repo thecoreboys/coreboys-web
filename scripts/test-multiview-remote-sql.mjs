@@ -60,12 +60,14 @@ try {
     '@/lib/watch-together/store':{WatchRoomStoreError:class extends Error{}},
   });
   const http=load('lib/creator-tags/http.ts');
-  const route=load('app/api/watch/multiview-remote/route.ts',{
+  // Each load is a fresh module, so the route re-detects the optional `state` column.
+  const loadRoute=()=>load('app/api/watch/multiview-remote/route.ts',{
     '../rooms/_shared':shared, '@/lib/creator-tags/http':http,
     '@/lib/db':{query:(...args)=>client.query(...args),withTransaction:async(fn)=>{await client.query('BEGIN');try{const result=await fn(client);await client.query('COMMIT');return result;}catch(e){await client.query('ROLLBACK');throw e;}}},
     '@/lib/fan-auth':{getCurrentFanUserId:async()=>auth.getStore()??null},
     '@/lib/members':members,'@/lib/watch/multiview-remote':remote,
   });
+  let route=loadRoute();
   const id=randomUUID(), secret=randomUUID();
   const [first,second]=members.MEMBERS;
   const sources=[{member:first.slug,platform:'twitch'},{member:second.slug,platform:'twitch'}];
@@ -88,6 +90,13 @@ try {
     assert.equal((await call(null,'account-b')).body.sessions.length,0);
     assert.equal((await client.query('SELECT host_secret_hash FROM fan_multiview_sessions WHERE id=$1',[id])).rows[0].host_secret_hash.length,64);
     assert.equal(JSON.stringify(result.body).includes(secret),false);
+  });
+  const hostState={mainAudible:true,audibleCount:1,audible:[main],maximized:false,layout:'theater-first'};
+  await check('before the state migration, hosts that report state keep working and controls are refused',async()=>{
+    const result=await call({...heartbeat,state:hostState});assert.equal(result.status,200);assert.equal(result.body.session.state,null);
+    assert.equal((await call(null)).body.sessions[0].state,null);
+    assert.equal((await call({action:'control',id,control:'mute-all'})).status,409);
+    assert.equal((await call({...heartbeat,state:{...hostState,layout:'nope'}})).status,400);
   });
   await check('only the account and host secret may control a registered host',async()=>{
     assert.equal((await call({action:'select',id,source:target},'account-b')).status,409);
@@ -116,6 +125,42 @@ try {
     await call({action:'end',id,secret:randomUUID()});assert.equal((await call(null)).body.sessions.length,1);
     await call({action:'end',id,secret});assert.equal((await call(null)).body.sessions.length,0);
     assert.equal((await call(heartbeat)).status,409);
+  });
+  const stateMigration=readFileSync(new URL('./migrations/074_multiview_remote_state.sql',import.meta.url),'utf8');
+  await client.query(stateMigration); await client.query(stateMigration);
+  route=loadRoute();
+  const hostId=randomUUID(), hostSecret=randomUUID();
+  const hostBeat={action:'heartbeat',id:hostId,secret:hostSecret,device:'mac',sources,main};
+  await check('state migration is repeatable and older hosts without state refuse controls',async()=>{
+    const result=await call(hostBeat);assert.equal(result.status,200);assert.equal(result.body.session.state,null);
+    assert.equal((await call({action:'control',id:hostId,control:'mute-all'})).status,409);
+  });
+  await check('host state is stored, filtered to its sources and shown to the phone',async()=>{
+    const stale=`${members.MEMBERS[2].slug}:twitch`;
+    const result=await call({...hostBeat,state:{...hostState,audibleCount:2,audible:[main,main,stale]}});
+    assert.equal(result.status,200);
+    assert.deepEqual(result.body.session.state,{...hostState,audibleCount:2,audible:[main]});
+    const listed=(await call(null)).body.sessions.find((entry)=>entry.id===hostId);
+    assert.deepEqual(listed.state.audible,[main]);
+  });
+  await check('playback controls are queued, acknowledged and never change the main source',async()=>{
+    assert.equal((await call({action:'control',id:hostId,control:'explode'})).status,400);
+    assert.equal((await call({action:'control',id:hostId,control:'mute-all'},'account-b')).status,409);
+    let result=await call({action:'control',id:hostId,control:'mute-all'});assert.equal(result.status,200);
+    assert.deepEqual(result.body.session.command,{revision:result.body.session.command.revision,source:null,control:'mute-all',status:'pending'});
+    const revision=result.body.session.command.revision;
+    result=await call({action:'ack',id:hostId,secret:hostSecret,revision,status:'applied'});
+    assert.equal(result.status,200);assert.equal(result.body.session.main,main);assert.equal(result.body.session.command.status,'applied');
+    result=await call({action:'select',id:hostId,source:target});const selectRevision=result.body.session.command.revision;
+    assert.equal(result.body.session.command.control,null);assert.equal(result.body.session.command.source,target);
+    result=await call({action:'control',id:hostId,control:'maximize'});
+    assert.ok(result.body.session.command.revision>selectRevision);
+    assert.equal((await call({action:'ack',id:hostId,secret:hostSecret,revision:selectRevision,status:'applied'})).status,409);
+    result=await call({action:'ack',id:hostId,secret:hostSecret,revision:result.body.session.command.revision,status:'unavailable'});
+    assert.equal(result.body.session.main,main);assert.equal(result.body.session.command.status,'unavailable');
+    result=await call({action:'select',id:hostId,source:target});
+    result=await call({action:'ack',id:hostId,secret:hostSecret,revision:result.body.session.command.revision,status:'applied'});
+    assert.equal(result.body.session.main,target);
   });
   console.log(JSON.stringify({ok:true,localOnly:true,checks:checked}));
 } finally {

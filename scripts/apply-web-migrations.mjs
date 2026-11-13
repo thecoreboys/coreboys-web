@@ -81,6 +81,7 @@ const migrations = [
   "069_community_inbox.sql",
   "072_fan_catch_up.sql",
   "073_community_age_confirmation.sql",
+  "074_multiview_remote_state.sql",
 ];
 
 function loadEnvLocal() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronDown, Copy, MonitorPlay, MoreHorizontal, Share2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Copy, Maximize2, Minimize2, MonitorPlay, MoreHorizontal, Share2, Theater, Volume2, VolumeOff, VolumeX, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
@@ -14,7 +14,7 @@ import { useDialogFocus } from "@/hooks/useDialogFocus";
 import { MEMBERS } from "@/lib/members";
 import {
   MULTIVIEW_LAUNCH_PATH, MULTIVIEW_REMOTE_PATH, remoteDeviceName, remoteSourceKey,
-  type RemotePlatform, type RemoteSession, type RemoteSource,
+  type RemoteControl, type RemoteHostState, type RemotePlatform, type RemoteSession, type RemoteSource,
 } from "@/lib/watch/multiview-remote";
 import "./MultiviewRemote.css";
 
@@ -131,6 +131,57 @@ function RemoteChat({ member, mode, sources, sessionId }: { member: (typeof MEMB
   ) : providerChats;
 }
 
+function memberName(sourceKey: string | null | undefined) {
+  const slug = sourceKey?.split(":")[0];
+  return MEMBERS.find((member) => member.slug === slug)?.stageName ?? null;
+}
+
+function soundSummary(state: RemoteHostState, main: string | null) {
+  if (!state.audibleCount) return "Computer muted";
+  const lead = state.mainAudible ? main : state.audible[0];
+  const name = memberName(lead) ?? (state.mainAudible ? "Main view" : "Another view");
+  return state.audibleCount > 1 ? `${name} +${state.audibleCount - 1}` : name;
+}
+
+/** Mirrors the computer's sound and stage state; each tap sends one control command. */
+function RemoteControls({
+  state, main, busy, onControl,
+}: {
+  state: RemoteHostState;
+  main: string | null;
+  busy: RemoteControl | null;
+  onControl: (control: RemoteControl) => void;
+}) {
+  const summary = soundSummary(state, main);
+  const theater = state.layout === "theater-first";
+  const controls: Array<{
+    control: RemoteControl; label: string; title: string; icon: typeof Volume2; pressed?: boolean; disabled?: boolean;
+  }> = [
+    state.mainAudible
+      ? { control: "main-sound-off", label: "Sound", title: "Mute the main view", icon: Volume2, pressed: true, disabled: !main }
+      : { control: "main-sound-on", label: "Muted", title: "Play the main view’s sound", icon: VolumeX, pressed: false, disabled: !main },
+    { control: "mute-all", label: "Mute all", title: "Mute every view", icon: VolumeOff, disabled: state.audibleCount === 0 },
+    state.maximized
+      ? { control: "restore", label: "Restore", title: "Restore the main view", icon: Minimize2, pressed: true }
+      : { control: "maximize", label: "Maximize", title: "Maximize the main view", icon: Maximize2, pressed: false, disabled: !main },
+    { control: "theater", label: "Theater", title: theater ? "Theater layout is on" : "Switch to the Theater layout", icon: Theater, pressed: theater, disabled: theater },
+  ];
+  return (
+    <div className="flex shrink-0 items-center gap-1 border-b border-[color:var(--rule)] px-2 py-1" role="group" aria-label="Computer playback controls">
+      <p className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-[color:var(--ink-dim)]" aria-live="polite">
+        {state.audibleCount ? <Volume2 className="size-3.5 shrink-0 text-emerald-500" aria-hidden /> : <VolumeX className="size-3.5 shrink-0" aria-hidden />}
+        <span className="truncate"><span className="sr-only">Sound on computer: </span>{summary}</span>
+      </p>
+      {controls.map(({ control, label, title, icon: Icon, pressed, disabled }) => {
+        const working = busy === control;
+        return <button key={label} type="button" title={title} aria-label={title} aria-pressed={pressed} aria-busy={working || undefined} disabled={disabled} onClick={() => onControl(control)} className={"inline-flex h-11 w-14 shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:cursor-default disabled:opacity-45 " + (pressed ? "bg-[color:var(--ink)] text-[color:var(--bg)]" : "text-[color:var(--ink-dim)] enabled:hover:bg-[color:var(--ui-hover)]") + (working ? " animate-pulse" : "")}>
+          <Icon className="size-4" aria-hidden />{label}
+        </button>;
+      })}
+    </div>
+  );
+}
+
 function ConnectedRemote({
   session, sessions, changeSession, onUpdate, onOpenComputer,
 }: {
@@ -141,7 +192,8 @@ function ConnectedRemote({
   onOpenComputer: () => void;
 }) {
   const [choice, setChoice] = useState<{ member: string; mode: ChatMode } | null>(null);
-  const [sending, setSending] = useState(false);
+  const [busy, setBusy] = useState<"select" | RemoteControl | null>(null);
+  const sending = busy === "select";
   const [message, setMessage] = useState("");
   const latestRequest = useRef(0);
   const requestQueue = useRef(Promise.resolve());
@@ -152,7 +204,8 @@ function ConnectedRemote({
   const memberSlug = member?.slug;
   const sources = session.sources.filter(({ member }) => member === memberSlug);
   const mode = platformChoice(sources, choice?.mode);
-  const pending = session.command?.status === "pending";
+  const pending = session.command?.status === "pending" && !session.command.control;
+  const pendingControl = session.command?.status === "pending" ? session.command.control : null;
   const device = deviceLabel(session, sessions);
   const mainMemberSlug = main?.member;
   const mainPlatform = main?.platform;
@@ -164,27 +217,18 @@ function ConnectedRemote({
 
   if (!member || !memberSlug) return null;
 
-  function select(memberSlug: string, preferred?: ChatMode) {
-    const options = session.sources.filter(({ member }) => member === memberSlug);
-    const selectedMode = platformChoice(options, preferred);
-    const target = selectedMode === "both"
-      ? options.find(({ platform }) => platform === main?.platform) ?? options[0]
-      : options.find(({ platform }) => platform === selectedMode);
-    setChoice({ member: memberSlug, mode: selectedMode });
+  // The latest tap wins: earlier queued requests are skipped and their replies ignored.
+  function send(kind: "select" | RemoteControl, body: object, conflict: string) {
     setMessage("");
     const request = ++latestRequest.current;
-    if (!target) {
-      setSending(false);
-      return;
-    }
-    setSending(true);
+    setBusy(kind);
     requestQueue.current = requestQueue.current.then(async () => {
       if (latestRequest.current !== request) return;
       try {
-        const response = await postMultiviewRemote({ action: "select", id: session.id, source: remoteSourceKey(target) });
+        const response = await postMultiviewRemote(body);
         if (latestRequest.current !== request) return;
         if (!response.ok) {
-          setMessage(response.status === 409 ? "That stream is no longer available on this computer." : "Couldn’t connect. Try again.");
+          setMessage(response.status === 409 ? conflict : "Couldn’t connect. Try again.");
           onUpdate();
           return;
         }
@@ -193,9 +237,29 @@ function ConnectedRemote({
       } catch {
         if (latestRequest.current === request) setMessage("Couldn’t connect. Try again.");
       } finally {
-        if (latestRequest.current === request) setSending(false);
+        if (latestRequest.current === request) setBusy(null);
       }
     });
+  }
+
+  function select(memberSlug: string, preferred?: ChatMode) {
+    const options = session.sources.filter(({ member }) => member === memberSlug);
+    const selectedMode = platformChoice(options, preferred);
+    const target = selectedMode === "both"
+      ? options.find(({ platform }) => platform === main?.platform) ?? options[0]
+      : options.find(({ platform }) => platform === selectedMode);
+    setChoice({ member: memberSlug, mode: selectedMode });
+    if (!target) {
+      setMessage("");
+      latestRequest.current += 1;
+      setBusy(null);
+      return;
+    }
+    send("select", { action: "select", id: session.id, source: remoteSourceKey(target) }, "That stream is no longer available on this computer.");
+  }
+
+  function control(next: RemoteControl) {
+    send(next, { action: "control", id: session.id, control: next }, "This computer can’t take playback controls yet. Reload Multiview on it and try again.");
   }
 
   const liveMembers = MEMBERS.filter((entry) => session.sources.some((source) => source.member === entry.slug));
@@ -203,7 +267,7 @@ function ConnectedRemote({
     <section data-remote-chat-screen className="remote-chat-screen" aria-label="Connected Multiview controls">
       <header className="relative z-20 flex shrink-0 items-center gap-1 border-b border-[color:var(--rule)] px-1 py-1">
         <h1 className="sr-only">Multiview remote</h1>
-        <p aria-live="polite" className="sr-only">{sending || pending ? "Switching main source…" : device + " connected"}</p>
+        <p aria-live="polite" className="sr-only">{sending || pending ? "Switching main source…" : busy || pendingControl ? "Sending to " + device + "…" : device + " connected"}</p>
         <Link prefetch={false} href="/" aria-label="Back to CORE" className="grid size-11 shrink-0 place-items-center rounded-xl text-[color:var(--ink-dim)] hover:bg-[color:var(--ui-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"><ArrowLeft className="size-4" aria-hidden /></Link>
         <div className="remote-channel-switcher flex min-w-0 flex-1 gap-1 overflow-x-auto overscroll-contain py-0.5" role="group" aria-label="Main source and chat channel" data-lenis-prevent>
           {liveMembers.map((entry) => {
@@ -223,7 +287,8 @@ function ConnectedRemote({
           </div>
         </details>
       </header>
-      {message || session.command?.status === "unavailable" ? <p role="status" className="shrink-0 border-b border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs leading-5">{message || "The computer couldn’t switch. Choose an available source and try again."}</p> : null}
+      {session.state ? <RemoteControls state={session.state} main={session.main} busy={busy !== "select" ? busy ?? pendingControl : pendingControl} onControl={control} /> : null}
+      {message || session.command?.status === "unavailable" ? <p role="status" className="shrink-0 border-b border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs leading-5">{message || (session.command?.control ? "The computer couldn’t do that. Try again." : "The computer couldn’t switch. Choose an available source and try again.")}</p> : null}
       {sources.length > 1 ? <div className="flex shrink-0 gap-1 border-b border-[color:var(--rule)] px-2 py-1" role="group" aria-label="Chat platform">
         {(["both", "twitch", "youtube"] as const).filter((item) => item === "both" || sources.some(({ platform }) => platform === item)).map((item) => <button key={item} type="button" onClick={() => select(memberSlug, item)} aria-pressed={mode === item} className={"min-h-9 flex-1 cursor-pointer rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current " + (mode === item ? "bg-indigo-600 text-white" : "text-[color:var(--ink-dim)] hover:bg-[color:var(--ui-hover)]")}>{chatLabels[item]}</button>)}
       </div> : null}

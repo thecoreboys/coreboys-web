@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import {
-  MULTIVIEW_REMOTE_API, MULTIVIEW_REMOTE_MOBILE,
-  type RemoteDevice, type RemoteSession, type RemoteSource,
+  MULTIVIEW_REMOTE_API, MULTIVIEW_REMOTE_MOBILE, remoteControlSatisfied,
+  type RemoteControl, type RemoteDevice, type RemoteHostState, type RemoteSession, type RemoteSource,
 } from "@/lib/watch/multiview-remote";
 
 function subscribeToScreenChange(callback: () => void) {
@@ -51,18 +51,21 @@ function hostDevice(): RemoteDevice {
 }
 
 export function useMultiviewRemoteHost({
-  accountId, sources, main, switchSource,
+  accountId, sources, main, state, switchSource, applyControl,
 }: {
   accountId: string | null;
   sources: RemoteSource[];
   main: string | null;
+  /** Reported to the phone so it mirrors sound and maximize state. */
+  state: RemoteHostState;
   switchSource: (source: string) => boolean;
+  applyControl: (control: RemoteControl) => boolean;
 }) {
   const [connection, setConnection] = useState<"signed-out" | "connecting" | "connected" | "reconnecting" | "secure-context-required">("signed-out");
-  const snapshot = useRef({ sources, main, switchSource });
+  const snapshot = useRef({ sources, main, state, switchSource, applyControl });
   useEffect(() => {
-    snapshot.current = { sources, main, switchSource };
-  }, [sources, main, switchSource]);
+    snapshot.current = { sources, main, state, switchSource, applyControl };
+  }, [sources, main, state, switchSource, applyControl]);
 
   useEffect(() => {
     if (!accountId) { setConnection("signed-out"); return; }
@@ -87,11 +90,11 @@ export function useMultiviewRemoteHost({
 
     async function poll() {
       const state = snapshot.current;
-      const serialized = JSON.stringify([state.main, state.sources]);
+      const serialized = JSON.stringify([state.main, state.sources, state.state]);
       try {
         const heartbeat = !registered || serialized !== lastSnapshot || Date.now() - lastHeartbeat >= 12000;
         const response = heartbeat
-          ? await postMultiviewRemote({ action: "heartbeat", id, secret, device, sources: state.sources, main: state.main })
+          ? await postMultiviewRemote({ action: "heartbeat", id, secret, device, sources: state.sources, main: state.main, state: state.state })
           : await fetch(`${MULTIVIEW_REMOTE_API}?host=${id}`, { cache: "no-store", signal: requestTimeout() });
         if (!response.ok) {
           if (!stopped) setConnection(response.status === 401 ? "signed-out" : "reconnecting");
@@ -122,14 +125,21 @@ export function useMultiviewRemoteHost({
           return;
         }
         if (applied?.revision !== command.revision) {
-          const accepted = snapshot.current.switchSource(command.source);
+          const accepted = command.control
+            ? snapshot.current.applyControl(command.control)
+            : command.source ? snapshot.current.switchSource(command.source) : false;
           applied = { revision: command.revision, accepted };
-          // Read the committed player state on the next pass before acknowledging.
+          // Read the committed player state on the next pass before acknowledging;
+          // that pass also heartbeats the new state so the phone sees it with the ack.
           if (accepted) return;
         }
+        const current = snapshot.current;
+        const done = command.control
+          ? remoteControlSatisfied(command.control, current.state)
+          : current.main === command.source;
         await postMultiviewRemote({
           action: "ack", id, secret, revision: command.revision,
-          status: applied.accepted && snapshot.current.main === command.source ? "applied" : "unavailable",
+          status: applied.accepted && done ? "applied" : "unavailable",
         });
       } catch {
         if (!stopped) setConnection("reconnecting");
