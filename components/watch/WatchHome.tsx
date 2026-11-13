@@ -37,6 +37,7 @@ import { CampaignSection } from "@/components/campaigns/CampaignSection";
 import { MobileAppSection } from "@/components/sections/MobileAppSection";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import type { CoreOriginal } from "@/lib/core-originals";
+import { STREAMER_AWARDS_WINNER_ENDS_AT_MS } from "@/lib/streamer-awards";
 
 function unique(items: WatchItem[]) {
   const seen = new Set<string>();
@@ -149,6 +150,12 @@ export function EventsSeriesChallengesRail({ originals }: { originals: CoreOrigi
 }
 
 export function WatchHome({ catalog, patreon, originals, awards, mostWatched }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode; awards?: ReactNode; mostWatched?: ReactNode }) {
+  const heroFeature = useMemo(() => awards ? {
+    id: "core-streamer-awards-winner-2026",
+    title: "CORE — Content Org of the Year",
+    content: awards,
+    expiresAt: STREAMER_AWARDS_WINNER_ENDS_AT_MS,
+  } : undefined, [awards]);
   const { ids: listIds, user, loading } = useMyList();
   const { map, ready } = useWatchProgress();
   const discovery = useWatchDiscovery();
@@ -376,11 +383,10 @@ export function WatchHome({ catalog, patreon, originals, awards, mostWatched }: 
       <h1 className="sr-only">CORE live and latest videos</h1>
 
       <div className="core-home-feature">
-        <BillboardCarousel items={heroItems} headingLevel="h2" />
+        <BillboardCarousel items={heroItems} headingLevel="h2" feature={heroFeature} />
       </div>
 
       <div className="watch-content-rails relative z-10 flex flex-col gap-11 pb-24 pt-8 md:gap-14 md:pt-10">
-        {awards}
         {liveShelfItems.length > 0 ? (
           <Shelf title="Live now" items={visible(liveShelfItems)} {...sharedShelfProps} />
         ) : null}

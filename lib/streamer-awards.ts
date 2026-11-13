@@ -2,6 +2,9 @@
 export const STREAMER_AWARDS_ENDS_AT = "2026-11-13T01:00:00.000Z";
 export const STREAMER_AWARDS_ENDS_AT_MS = Date.parse(STREAMER_AWARDS_ENDS_AT);
 
+/** One week in the home hero: November 13–20, 2026, ending at 3 PM Eastern. */
+export const STREAMER_AWARDS_WINNER_ENDS_AT_MS = Date.parse("2026-11-20T20:00:00.000Z");
+
 export function streamerAwardsCountdown(now: number) {
   const secondsLeft = Math.ceil((STREAMER_AWARDS_ENDS_AT_MS - now) / 1000);
   if (!Number.isFinite(secondsLeft) || secondsLeft <= 0) return null;
