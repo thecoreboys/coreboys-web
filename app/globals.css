@@ -581,7 +581,7 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
   display: inline-block;
   width: .75em;
   height: .75em;
-  margin-inline: .015em .005em;
+  margin-inline: .015em -.09em;
   vertical-align: -.015em;
 }
 
