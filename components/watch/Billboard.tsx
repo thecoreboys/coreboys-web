@@ -146,6 +146,9 @@ export function BillboardCarousel({ items, headingLevel = "h1", feature }: { ite
   const seenLive = useRef(new Set(mediaItems.map(heroLiveIdentity).filter((key): key is string => Boolean(key))));
   const pendingLive = useRef<string | null>(null);
   const previousSlides = useRef(slides);
+  const previousId = previousSlides.current[index]?.id;
+  const matchingIndex = slides.findIndex((slide) => slide.id === previousId);
+  const activeIndex = matchingIndex >= 0 ? matchingIndex : Math.min(index, Math.max(0, slides.length - 1));
   const featureId = feature?.id;
   const featureExpiresAt = feature?.expiresAt;
 
@@ -180,16 +183,16 @@ export function BillboardCarousel({ items, headingLevel = "h1", feature }: { ite
 
   useEffect(() => {
     if (slides.length < 2 || interactionPaused || reducedMotion) return;
-    const active = slides[index] ?? slides[0];
+    const active = slides[activeIndex] ?? slides[0];
     const delay = active?.kind === "media" && active.item.kind === "live" ? 30_000 : 12_000;
     const timer = window.setTimeout(() => {
       setIndex((current) => (current + 1) % slides.length);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [index, interactionPaused, reducedMotion, slides]);
+  }, [activeIndex, interactionPaused, reducedMotion, slides]);
 
   if (!slides.length) return null;
-  const slide = slides[index] ?? slides[0]!;
+  const slide = slides[activeIndex] ?? slides[0]!;
 
   return (
     <div
@@ -234,7 +237,7 @@ export function BillboardCarousel({ items, headingLevel = "h1", feature }: { ite
                 <button
                   type="button"
                   role="tab"
-                  aria-selected={slideIndex === index}
+                  aria-selected={slideIndex === activeIndex}
                   aria-label={`Show ${slide.title}`}
                   className="watch-billboard-dot"
                   onClick={() => setIndex(slideIndex)}
