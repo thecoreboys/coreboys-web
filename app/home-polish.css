@@ -103,8 +103,9 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
 .watch-rail-frame.has-visible-arrows .watch-rail-arrow { opacity: 1; pointer-events: auto; transform: translateY(-50%); }
 .watch-rail-frame.has-visible-arrows .watch-rail-arrow:disabled { opacity: .3; cursor: default; pointer-events: none; }
 
-/* Every home row shares one media height and a compact two-line text panel. */
-.core-home { --home-media-height: clamp(12rem, 16vw, 14rem); --home-copy-height: 106px; }
+/* Every home row shares one media height. Titles and creator details sit on
+   the thumbnail itself (over a dark fade), so there is no text band below. */
+.core-home { --home-media-height: clamp(12rem, 16vw, 14rem); --home-copy-height: 0px; }
 .watch-os .core-home .watch-shelf-section .watch-shelf { align-items: stretch; }
 .watch-os .core-home .watch-shelf-section .watch-shelf .watch-poster {
   position: relative;
@@ -128,6 +129,7 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
   mask-image: none;
 }
 .watch-home-card-placeholder {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
@@ -144,9 +146,9 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
 .watch-home-card-placeholder > img,
 .watch-home-preview-art { display: block; width: 100%; height: var(--home-media-height); flex-shrink: 0; object-fit: cover; background: var(--bg-elev); }
 .watch-home-card-placeholder.is-portrait > img { object-fit: contain; }
-.watch-home-preview-copy { display: grid; align-content: start; gap: .4rem; height: var(--home-copy-height); padding: 12px; }
-.watch-home-preview-copy strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: .875rem; line-height: 1.4; font-weight: 600; }
-.watch-home-preview-copy > span { color: var(--home-muted); font-size: .75rem; line-height: 1.4; }
+.watch-home-preview-copy { position: absolute; inset: auto 0 0; display: grid; align-content: end; gap: .3rem; padding: 2.5rem 12px 12px; background: linear-gradient(transparent, rgb(0 0 0 / .72) 40%, rgb(0 0 0 / .93)); color: #fff; }
+.watch-home-preview-copy strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: .875rem; line-height: 1.35; font-weight: 650; text-shadow: 0 1px 5px #000b; }
+.watch-home-preview-copy > span { color: rgb(255 255 255 / .78); font-size: .75rem; line-height: 1.4; }
 .watch-home-card-placeholder:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
 .watch-home-card-placeholder.is-portrait { width: max(10.5rem, calc(var(--home-media-height) * 9 / 16)); }
 .watch-home-card-placeholder.is-square { width: var(--home-media-height); }
@@ -157,7 +159,7 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
   height: var(--home-media-height);
   flex-shrink: 0;
   aspect-ratio: auto;
-  border-radius: 11px 11px 0 0;
+  border-radius: 11px;
 }
 .watch-os .core-home .watch-shelf-section .watch-shelf .watch-poster { max-width: calc(100vw - 2 * var(--home-gutter)); }
 .watch-os .core-home .watch-shelf-section .watch-shelf .watch-poster.is-portrait > .watch-poster-link img { object-fit: contain; background: #08080a; }
@@ -179,7 +181,7 @@ html[data-theme] .core-home :is(.watch-billboard-details, .watch-billboard-list)
 .core-home .watch-poster-footer-meta .watch-poster-details { flex-shrink: 0; }
 .core-home .watch-poster-footer-meta .watch-poster-sources { display: block; min-width: 0; }
 .core-home .watch-poster-sources a + a { margin-left: 4px; }
-.core-home .watch-card-motion { position: absolute; z-index: 2; inset: 0 0 auto; height: var(--home-media-height); overflow: hidden; border-radius: 11px 11px 0 0; pointer-events: none; opacity: 0; background: #08080a; transition: opacity 180ms ease; }
+.core-home .watch-card-motion { position: absolute; z-index: 2; inset: 0 0 auto; height: var(--home-media-height); overflow: hidden; border-radius: 11px; pointer-events: none; opacity: 0; background: #08080a; transition: opacity 180ms ease; }
 .core-home .watch-card-motion * { pointer-events: none !important; }
 .core-home .watch-card-motion.is-visible { opacity: 1; }
 .core-home .watch-card-motion > *, .core-home .watch-card-motion iframe, .core-home .watch-card-motion video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; }
