@@ -49,3 +49,12 @@ test("YouTube's gray missing-thumbnail graphic is detected without rejecting nor
   }
   assert.equal(isYoutubePlaceholderPixels(colorful, width, height), false);
 });
+
+test("Instagram CDN photos are routed through the image optimizer", async () => {
+  const { isInstagramCdnImage } = await import("../lib/watch/thumbs");
+  assert.equal(isInstagramCdnImage("https://scontent-dfw6-1.cdninstagram.com/v/t51.82787-15/a.jpg?stp=dst-jpg"), true);
+  assert.equal(isInstagramCdnImage("https://scontent.xx.fbcdn.net/v/a.jpg"), true);
+  assert.equal(isInstagramCdnImage("http://scontent.cdninstagram.com/a.jpg"), false);
+  assert.equal(isInstagramCdnImage("https://cdninstagram.com.evil.test/a.jpg"), false);
+  assert.equal(isInstagramCdnImage("/members/lacy/portrait.jpg"), false);
+});
