@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LinkExternal01, PlayCircle } from "@untitledui/icons";
 import type { Clip } from "@/lib/clips";
 import { PlatformLogo, PLATFORM_BRAND } from "@/components/clips/PlatformLogo";
+import { AutoplayEmbed } from "@/components/media/AutoplayEmbed";
 
 const PLATFORM_LABEL: Record<Clip["source"], string> = {
   twitch: "Twitch",
@@ -78,50 +79,14 @@ export function ClipEmbed({ clip, onPlay }: { clip: Clip; onPlay?: () => void })
 }
 
 function ClipIframe({ clip }: { clip: Clip }) {
-  const parent = typeof window !== "undefined" ? window.location.hostname : "thecoreboys.com";
-  switch (clip.source) {
-    case "twitch":
-      return (
-        <iframe
-          title={clip.title}
-          src={`https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.externalId)}&parent=${parent}&autoplay=true`}
-          allowFullScreen
-          className="absolute inset-0 h-full w-full"
-        />
-      );
-    case "youtube":
-      return (
-        <iframe
-          title={clip.title}
-          src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(clip.externalId)}?autoplay=1&rel=0&modestbranding=1&playsinline=1&origin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          className="absolute inset-0 h-full w-full"
-        />
-      );
-    case "tiktok":
-      return (
-        <iframe
-          title={clip.title}
-          src={`https://www.tiktok.com/embed/v2/${encodeURIComponent(clip.externalId)}`}
-          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-          allowFullScreen
-          className="absolute inset-0 h-full w-full"
-        />
-      );
-    case "instagram":
-      return (
-        <iframe
-          title={clip.title}
-          src={`https://www.instagram.com/reel/${encodeURIComponent(clip.externalId)}/embed`}
-          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-          allowFullScreen
-          className="absolute inset-0 h-full w-full"
-        />
-      );
-    default:
-      return null;
-  }
+  const id = encodeURIComponent(clip.externalId);
+  const sourceUrl = {
+    twitch: `https://clips.twitch.tv/${id}`,
+    youtube: `https://www.youtube.com/watch?v=${id}`,
+    tiktok: `https://www.tiktok.com/@_/video/${id}`,
+    instagram: `https://www.instagram.com/reel/${id}/`,
+  }[clip.source];
+  return <AutoplayEmbed sourceUrl={sourceUrl} title={clip.title} />;
 }
 
 export function ClipPlatformBadge({ source }: { source: Clip["source"] }) {

@@ -15,6 +15,10 @@ import {
 import { GuideHistory } from "@/components/watch/GuideHistory";
 import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { useInstagramPlayback } from "@/hooks/useInstagramPlayback";
+import { nativeVideoSource } from "@/lib/watch/native-media";
+import { isPreviewPlayerReady } from "@/lib/watch/preview-progress";
+import { listenToYouTube } from "@/lib/watch/youtube-player";
 import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/lib/watch/content-advisory";
 import { SocialIcon } from "@/components/ui/SocialIcon";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
@@ -444,7 +448,7 @@ function ChannelOnNowPreview({
     const target = frameRef.current?.contentWindow;
     if (!target) return;
     if (playable?.youtubeId) {
-      target.postMessage(JSON.stringify({ event: "listening", id: `core-channel-${entry.key}` }), "*");
+      listenToYouTube(target, `core-channel-${entry.key}`);
       target.postMessage(JSON.stringify({ event: "command", func: next ? "mute" : "unMute", args: [] }), "*");
       if (requestPlay) target.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
       return;
@@ -568,9 +572,10 @@ function ChannelOnNowPreview({
     if (canStartAutoplay) setMediaMounted(true);
   }, [canStartAutoplay]);
 
-  const directVideoUrl = mediaMounted && playable?.mediaUrl && /\.(?:mp4|webm)(?:$|[?#])/i.test(playable.mediaUrl)
-    ? playable.mediaUrl
-    : null;
+  const instagramUrl = useInstagramPlayback(playable?.platform === "instagram" ? playable.sourceUrl ?? playable.url ?? playable.embedUrl : null,
+    mediaMounted && canStartAutoplay && !playable?.mediaUrl);
+  const [failedInstagramUrl, setFailedInstagramUrl] = useState<string | null>(null);
+  const directVideoUrl = mediaMounted && playable ? nativeVideoSource(playable, playable.clipSrc) ?? (instagramUrl !== failedInstagramUrl ? instagramUrl : null) : null;
   const usesTwitchSdk = Boolean(
     mediaMounted &&
       playable &&
@@ -820,7 +825,7 @@ function ChannelOnNowPreview({
       const target = frameRef.current?.contentWindow;
       if (!target) return;
       if (playable?.youtubeId) {
-        target.postMessage(JSON.stringify({ event: "listening", id: `core-channel-${entry.key}` }), "*");
+        listenToYouTube(target, `core-channel-${entry.key}`);
         target.postMessage(JSON.stringify({ event: "command", func: forceMuted || mutedRef.current ? "mute" : "unMute", args: [] }), "*");
         target.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
       } else if (entry.item.platform === "tiktok") {
@@ -850,7 +855,8 @@ function ChannelOnNowPreview({
   useEffect(() => {
     if (!frameSrc) return;
     const onMessage = (event: MessageEvent) => {
-      if (event.source !== frameRef.current?.contentWindow) return;
+      if (event.source !== frameRef.current?.contentWindow || event.origin !== new URL(frameSrc).origin) return;
+      if (isPreviewPlayerReady(event.data)) { postFrameMuted(mutedRef.current, !playbackStartedRef.current); return; }
       let payload: unknown = event.data;
       if (typeof payload === "string") {
         try {
@@ -878,7 +884,7 @@ function ChannelOnNowPreview({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [frameSrc, markPlaying, onProgramBoundary]);
+  }, [frameSrc, markPlaying, onProgramBoundary, postFrameMuted]);
 
   const live = entry.item.kind === "live";
   const actionLabel = `Watch ${entry.item.title}, now on ${channel.name} 24/7, in the media player`;
@@ -931,7 +937,7 @@ function ChannelOnNowPreview({
               if (nextMuted !== mutedRef.current) setHeroMuted(nextMuted);
             }}
             onEnded={onProgramBoundary}
-            onError={markAutoplayBlocked}
+            onError={() => { if (directVideoUrl === instagramUrl) setFailedInstagramUrl(instagramUrl); markAutoplayBlocked(); }}
           />
         ) : usesTwitchSdk ? (
           <div ref={twitchMountRef} id={twitchMountId} className={styles.heroPreviewTwitchMount} />

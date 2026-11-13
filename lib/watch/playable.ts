@@ -5,6 +5,7 @@ import type {
   WatchQualitySource,
   WatchTextTrack,
 } from "./types";
+import { nativeVideoSource } from "./native-media";
 
 export type Playable = {
   key: string;
@@ -380,7 +381,7 @@ export function itemToPlayable(item: WatchItem): Playable | null {
   if (item.kind === "tour" && item.format !== "photo" && !yt && !id) return null;
   const photoMedia = item.format === "photo"
     ? item.mediaUrl ?? item.poster ?? item.backdrop
-    : item.mediaUrl;
+    : item.mediaUrl ?? nativeVideoSource(item, search.get("src")) ?? undefined;
 
   return {
     key: item.id,

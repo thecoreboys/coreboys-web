@@ -13,6 +13,10 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useWatchProgress, youtubeIdFromHref } from "@/hooks/useWatchProgress";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { useInstagramPlayback } from "@/hooks/useInstagramPlayback";
+import { nativeVideoSource } from "@/lib/watch/native-media";
+import { isPreviewPlayerReady, previewPlaybackSample } from "@/lib/watch/preview-progress";
+import { listenToYouTube } from "@/lib/watch/youtube-player";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
@@ -125,11 +129,6 @@ function uniqueBillboards(items: WatchItem[]) {
     seen.add(item.id);
     return true;
   });
-}
-
-function directVideoPreviewUrl(value?: string | null): string | null {
-  if (!value || !/\.(?:mp4|webm)(?:$|[?#])/i.test(value)) return null;
-  return value;
 }
 
 export function BillboardCarousel({ items, headingLevel = "h1" }: { items: WatchItem[]; headingLevel?: "h1" | "h2" }) {
@@ -252,6 +251,8 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
   const twitchMountId = `watch-hero-twitch-${reactId.replace(/[^a-z0-9_-]/gi, "")}`;
   const [host, setHost] = useState<{ parent: string; origin: string } | null>(null);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [playingFrameSrc, setPlayingFrameSrc] = useState<string | null>(null);
+  const frameStartedRef = useRef(false);
   const [twitchMounted, setTwitchMounted] = useState(false);
   const [twitchPlaying, setTwitchPlaying] = useState(false);
   const [twitchRecovering, setTwitchRecovering] = useState(false);
@@ -378,7 +379,10 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
   const isTwitch = item.platform === "twitch";
   const twitchChannel = playable.kind === "live" ? playable.twitchLogin : null;
   const twitchVideo = playable.vodId;
-  const nativeVideoUrl = directVideoPreviewUrl(playable.mediaUrl);
+  const instagramUrl = useInstagramPlayback(playable.platform === "instagram" ? playable.sourceUrl ?? playable.url ?? playable.embedUrl : null,
+    wantsAutoplay && !playable.mediaUrl);
+  const [failedInstagramUrl, setFailedInstagramUrl] = useState<string | null>(null);
+  const nativeVideoUrl = nativeVideoSource(playable, playable.clipSrc) ?? (instagramUrl !== failedInstagramUrl ? instagramUrl : null);
 
   const setHeroMuted = useCallback((next: boolean) => {
     mutedRef.current = next;
@@ -387,8 +391,14 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
 
   const requestFramePlayback = useCallback((nextMuted: boolean, requestPlay = false) => {
     const target = frameRef.current?.contentWindow;
-    if (!target || !playable.youtubeId) return;
-    target.postMessage(JSON.stringify({ event: "listening", id: `core-billboard-${item.id}` }), "*");
+    if (!target) return;
+    if (playable.platform === "tiktok") {
+      target.postMessage({ "x-tiktok-player": true, type: nextMuted ? "mute" : "unmute" }, "https://www.tiktok.com");
+      if (requestPlay) target.postMessage({ "x-tiktok-player": true, type: "play" }, "https://www.tiktok.com");
+      return;
+    }
+    if (!playable.youtubeId) return;
+    listenToYouTube(target, `core-billboard-${item.id}`);
     if (!nextMuted) target.postMessage(JSON.stringify({ event: "command", func: "setVolume", args: [100] }), "*");
     target.postMessage(JSON.stringify({
       event: "command",
@@ -398,7 +408,7 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
     if (requestPlay) {
       target.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
     }
-  }, [item.id, playable.youtubeId]);
+  }, [item.id, playable.platform, playable.youtubeId]);
 
   const toggleHeroMute = useCallback(() => {
     const nextMuted = !mutedRef.current;
@@ -475,7 +485,7 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
   }, [dataSaver, isTwitch, previewAutoplay, reducedMotion]);
 
   const frameSrc = useMemo(() => {
-    if (!wantsAutoplay || !host || isTwitch || nativeVideoUrl) return null;
+    if (!wantsAutoplay || !host || isTwitch || nativeVideoUrl || playable.platform === "instagram") return null;
     return embedFor(playable, {
       parent: host.parent,
       origin: host.origin,
@@ -494,11 +504,28 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
 
   useEffect(() => {
     if (isTwitch || !frameSrc || loadedSrc !== frameSrc) return;
-    const requestPlayback = () => requestFramePlayback(mutedRef.current, true);
+    const requestPlayback = () => { if (!frameStartedRef.current) requestFramePlayback(mutedRef.current, true); };
     requestPlayback();
-    const retries = [500, 1_500].map((delay) => window.setTimeout(requestPlayback, delay));
-    return () => retries.forEach((timer) => window.clearTimeout(timer));
+    let attempts = 0;
+    const retry = window.setInterval(() => { if (++attempts <= 24) requestPlayback(); }, 700);
+    return () => window.clearInterval(retry);
   }, [frameSrc, isTwitch, loadedSrc, requestFramePlayback]);
+
+  useEffect(() => {
+    frameStartedRef.current = false;
+    if (!frameSrc) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== frameRef.current?.contentWindow || event.origin !== new URL(frameSrc).origin) return;
+      if (isPreviewPlayerReady(event.data)) { requestFramePlayback(mutedRef.current, true); return; }
+      const sample = previewPlaybackSample(event.data);
+      if (sample?.playing != null) {
+        if (sample.playing) frameStartedRef.current = true;
+        setPlayingFrameSrc(sample.playing ? frameSrc : null);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [frameSrc, requestFramePlayback]);
 
   // First-party/direct programming uses a real media element instead of an
   // opaque iframe. Give it the same browser-safe muted retry path as YouTube
@@ -749,7 +776,9 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
   const soundControlReady = isTwitch ? twitchMounted : (nativeVideoUrl
       ? wantsAutoplay
       : Boolean(frameSrc && loadedSrc === frameSrc));
-  const previewState = frameReady
+  const previewState = frameSrc && loadedSrc === frameSrc
+    ? playingFrameSrc === frameSrc ? "playing" : "warming"
+    : frameReady
     ? "playing"
     : twitchMounted
       ? twitchRecovering ? "recovering" : "warming"
@@ -758,7 +787,7 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
   return (
     <div
       ref={slotRef}
-      className={`watch-billboard-live-player is-preview ${isTwitch ? "is-twitch" : nativeVideoUrl ? "is-native" : "is-youtube"} ${twitchMounted ? "is-mounted" : ""} ${frameReady ? "is-ready" : ""} ${twitchPlaying ? "is-playing" : ""}`}
+      className={`watch-billboard-live-player is-preview ${isTwitch ? "is-twitch" : nativeVideoUrl ? "is-native" : playable.platform === "tiktok" ? "is-tiktok" : "is-youtube"} ${twitchMounted ? "is-mounted" : ""} ${frameReady ? "is-ready" : ""} ${twitchPlaying ? "is-playing" : ""}`}
       data-preview-state={previewState}
       data-cursor-native={isTwitch ? "true" : undefined}
     >
@@ -790,7 +819,7 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
           }}
           onPlaying={() => setNativePlaying(true)}
           onPause={() => setNativePlaying(false)}
-          onError={() => setNativePlaying(false)}
+          onError={() => { setNativePlaying(false); if (nativeVideoUrl === instagramUrl) setFailedInstagramUrl(instagramUrl); }}
         />
       ) : frameSrc ? (
         <iframe
@@ -849,13 +878,13 @@ export function Billboard({ item, headingLevel: Heading = "h1", onSoundChange }:
   const live = item.kind === "live" || item.format === "live";
   const shape = contentShape(item);
   const heroPlayable = useMemo(() => {
-    const hasDirectVideo = Boolean(directVideoPreviewUrl(playable?.mediaUrl));
+    const hasDirectVideo = Boolean(playable && nativeVideoSource(playable, playable.clipSrc));
     if (
       item.live?.type === "audio" ||
       item.embeddable === false ||
       item.previewStrategy === "external" ||
       item.previewStrategy === "image" ||
-      (item.platform !== "twitch" && !playable?.youtubeId && !hasDirectVideo)
+      (item.platform !== "twitch" && item.platform !== "tiktok" && item.platform !== "instagram" && !playable?.youtubeId && !hasDirectVideo)
     ) {
       return null;
     }

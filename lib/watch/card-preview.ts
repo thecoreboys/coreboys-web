@@ -1,12 +1,9 @@
 import { itemToPlayable, playableFromUrl, type Playable } from "./playable";
 import type { WatchItem } from "./types";
+import { nativeVideoSource } from "./native-media";
 
 /** Provider names in legacy `src` parameters are not native video URLs. */
-export function nativeCardPreviewUrl(item: { previewStrategy?: string; mediaUrl?: string | null }, clipSrc?: string | null): string | null {
-  const safe = (url: string) => /^(?:https:\/\/|\/(?!\/))/i.test(url);
-  if (item.previewStrategy === "video" && item.mediaUrl && safe(item.mediaUrl)) return item.mediaUrl;
-  return [clipSrc, item.mediaUrl].find((url): url is string => Boolean(url && safe(url) && /\.(?:mp4|webm)(?:\?|$)/i.test(url))) ?? null;
-}
+export const nativeCardPreviewUrl = nativeVideoSource;
 /** Only use supplied media or a matching catalog cross-post; never scrape a provider. */
 export function resolveHoverPreviewMedia(item: WatchItem): { nativeUrl: string | null; playable: Playable | null; platform: WatchItem["platform"] | null } {
   if (item.format === "photo") return { nativeUrl: null, playable: null, platform: null };

@@ -11,6 +11,7 @@ import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { useInstagramPlayback } from "@/hooks/useInstagramPlayback";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
@@ -185,6 +186,7 @@ function MediaHoverPreview({
   const sourcePlayable = useMemo(() => itemToPlayable(item), [item]);
   const playable = isPhoto ? null : sourcePlayable;
   const previewMedia = useMemo(() => resolveHoverPreviewMedia(item), [item]);
+  const instagramUrl = useInstagramPlayback(item.platform === "instagram" ? item.sourceUrl ?? item.embedUrl : null, wantsMotion && !previewMedia.nativeUrl);
   const previewPlayable = previewMedia.playable;
   const fallbackHref = item.sourceUrl || item.href;
 
@@ -277,7 +279,7 @@ function MediaHoverPreview({
     return () => window.cancelAnimationFrame(frame);
   }, [keyboardActive, position]);
 
-  const videoSrc = wantsMotion ? previewMedia.nativeUrl : null;
+  const videoSrc = wantsMotion ? previewMedia.nativeUrl ?? instagramUrl : null;
   const twitchChannel = previewPlayable?.platform === "twitch" && previewPlayable.kind === "live" ? previewPlayable.twitchLogin : null;
   const twitchVideo = previewPlayable?.platform === "twitch" ? previewPlayable.vodId : null;
   const twitchSource = !videoSrc && host && wantsMotion && (twitchChannel || twitchVideo)
@@ -304,7 +306,7 @@ function MediaHoverPreview({
   }, [host, initialSeekSeconds, isInstagramPhoto, previewPlayable, twitchSource, videoSrc, wantsMotion]);
   const motionSource = videoSrc ?? twitchSource ?? iframeSrc;
   const motionFailed = Boolean(motionSource && failedMotionSource === motionSource);
-  const previewUnavailable = motionFailed || Boolean(host && wantsMotion && !isPhoto && !previewMedia.nativeUrl && !previewPlayable);
+  const previewUnavailable = motionFailed || Boolean(host && wantsMotion && !isPhoto && !videoSrc && !previewPlayable);
   const motionReady = Boolean(motionSource && readyMotionSource === motionSource);
 
   const requestProviderPlayback = useCallback(() => {

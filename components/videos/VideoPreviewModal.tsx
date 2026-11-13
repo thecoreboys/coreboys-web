@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Minus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AutoplayEmbed } from "@/components/media/AutoplayEmbed";
 
 export type PreviewState = {
   /** YouTube video id. */
   id: string;
   title: string;
   authorLabel: string;
-  /** Pinned (click) → unmuted + sticky; hover → muted + auto-dismiss. */
+  /** Pinned (click) → interactive + sticky; hover → muted + auto-dismiss. */
   pinned: boolean;
 };
 
@@ -20,7 +21,7 @@ export type PreviewState = {
  *  - HOVER mode (pinned=false): muted autoplay; the parent closes it the
  *    moment the pointer leaves the originating card. The overlay itself is
  *    pointer-events:none so it never steals the hover.
- *  - CLICK mode (pinned=true): unmuted autoplay, dimmed backdrop, sticky.
+ *  - CLICK mode (pinned=true): muted autoplay with provider controls, dimmed backdrop, sticky.
  *    Dismissed by clicking the backdrop, the close/minimize buttons, or
  *    pressing Escape.
  *
@@ -76,21 +77,6 @@ export function VideoPreviewModal({
   if (!mounted || !preview) return null;
 
   const pinned = preview.pinned;
-  const muteParam = pinned ? "0" : "1";
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const qs = new URLSearchParams({
-    autoplay: "1",
-    mute: muteParam,
-    rel: "0",
-    playsinline: "1",
-    modestbranding: "1",
-  });
-  if (origin) {
-    qs.set("origin", origin);
-    qs.set("widget_referrer", origin);
-  }
-  const src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(preview.id)}?${qs.toString()}`;
-
   return createPortal(
     <div
       className={cn(
@@ -160,19 +146,18 @@ export function VideoPreviewModal({
         </div>
 
         <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/15 bg-black shadow-2xl ring-1 ring-black/40">
-          <iframe
+          <AutoplayEmbed
             key={preview.id}
-            src={src}
+            sourceUrl={`https://www.youtube.com/watch?v=${encodeURIComponent(preview.id)}`}
             title={preview.title}
-            className="absolute inset-0 h-full w-full"
-            allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
+            controls={pinned}
+            loop={!pinned}
           />
         </div>
 
         {!pinned ? (
           <p className="mt-3 text-center text-xs font-medium uppercase tracking-[0.18em] text-white/60">
-            Click to play with sound
+            Click to open player
           </p>
         ) : null}
       </div>

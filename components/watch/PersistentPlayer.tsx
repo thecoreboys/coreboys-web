@@ -42,6 +42,8 @@ import {
 } from "lucide-react";
 import { usePlayer, type PlayerAiringContext } from "@/components/providers/PlayerProvider";
 import { contentShape, embedFor, type Playable } from "@/lib/watch/playable";
+import { nativeVideoSource, playWithMutedFallback, safeMediaUrl } from "@/lib/watch/native-media";
+import { useInstagramPlayback } from "@/hooks/useInstagramPlayback";
 import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/lib/watch/content-advisory";
 import { cancelTheaterHandoff, isLeavingPlayerPage, resetTheaterHandoff } from "@/lib/watch/theater-handoff";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
@@ -724,16 +726,17 @@ function preferredNativeSource(
   preference: "auto" | "best" | "balanced" | "data-saver",
   described: boolean,
 ) {
-  const playableUrl = (value?: string) => Boolean(value && (value.startsWith("https://") || value.startsWith("/")));
+  const playableUrl = safeMediaUrl;
+  const mediaUrl = safeMediaUrl(item.mediaUrl) ? item.mediaUrl : nativeVideoSource(item, item.clipSrc) ?? undefined;
   if (described && playableUrl(item.audioDescriptionUrl)) return item.audioDescriptionUrl;
   const sources = item.qualities?.filter((source) => playableUrl(source.src)) ?? [];
-  if (!sources.length || preference === "auto") return item.mediaUrl;
+  if (!sources.length || preference === "auto") return mediaUrl;
   const sorted = [...sources].sort((a, b) => (a.width ?? a.bitrate ?? 0) - (b.width ?? b.bitrate ?? 0));
-  if (preference === "data-saver") return sorted[0]?.src ?? item.mediaUrl;
-  if (preference === "best") return sorted.at(-1)?.src ?? item.mediaUrl;
+  if (preference === "data-saver") return sorted[0]?.src ?? mediaUrl;
+  if (preference === "best") return sorted.at(-1)?.src ?? mediaUrl;
   return [...sorted].reverse().find((source) => (source.width ?? 0) <= 1_280)?.src
     ?? sorted[Math.floor(sorted.length / 2)]?.src
-    ?? item.mediaUrl;
+    ?? mediaUrl;
 }
 
 function HandoffPrompt({
@@ -890,6 +893,9 @@ export function PersistentPlayer() {
   });
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const nativeAutoplayRef = useRef<{ key: string | null; attempted: HTMLVideoElement | null; paused: boolean }>({ key: null, attempted: null, paused: false });
+  if (nativeAutoplayRef.current.key !== currentItemKey) nativeAutoplayRef.current = { key: currentItemKey, attempted: null, paused: false };
+  const [failedInstagramUrl, setFailedInstagramUrl] = useState<string | null>(null);
   const contentAdvisoryAudioRef = useRef<HTMLAudioElement | null>(null);
   const playerSectionRef = useRef<HTMLElement | null>(null);
   const playerStageShellRef = useRef<HTMLDivElement | null>(null);
@@ -1182,10 +1188,12 @@ export function PersistentPlayer() {
   const selectedNativeMedia = current
     ? preferredNativeSource(current, qualityPreference, audioDescription)
     : undefined;
+  const instagramUrl = useInstagramPlayback(current?.platform === "instagram" ? current.sourceUrl ?? current.url ?? current.embedUrl : null,
+    Boolean(current && !routeHidden && current.format !== "photo" && !selectedNativeMedia));
+  const resolvedNativeMedia = selectedNativeMedia ?? (instagramUrl !== failedInstagramUrl ? instagramUrl : null);
   const nativeSourceSupported = Boolean(
     current?.format !== "photo" &&
-      selectedNativeMedia &&
-      (selectedNativeMedia.startsWith("https://") || selectedNativeMedia.startsWith("/")),
+      safeMediaUrl(resolvedNativeMedia),
   );
   const twitchInteractive = Boolean(
     current && ((current.kind === "live" && current.twitchLogin) || current.vodId),
@@ -2395,7 +2403,7 @@ export function PersistentPlayer() {
     current?.key,
     current?.youtubeId,
     playbackRate,
-    selectedNativeMedia,
+    resolvedNativeMedia,
   ]);
 
   const refreshNativeCapabilities = useCallback((media: DeviceVideo) => {
@@ -2511,6 +2519,7 @@ export function PersistentPlayer() {
     const shouldPlay = action === "play";
     const media = videoRef.current;
     if (media) {
+      nativeAutoplayRef.current.paused = !shouldPlay;
       if (shouldPlay && media.paused) {
         void media.play().catch(() => {
           playingRef.current = false;
@@ -2755,7 +2764,7 @@ export function PersistentPlayer() {
   const imageMedia = current.format === "photo"
     ? current.mediaUrl ?? current.poster ?? current.url
     : null;
-  const nativeMedia = nativeSourceSupported ? selectedNativeMedia! : null;
+  const nativeMedia = nativeSourceSupported ? resolvedNativeMedia! : null;
   const futureShortFormPreloadCount = shortFormPreloadBudget({
     dataSaver,
     qualityPreference,
@@ -2773,6 +2782,9 @@ export function PersistentPlayer() {
   const shortFormFrameDeck = !dataSaver && qualityPreference !== "data-saver" && shortFormTheaterNavigation
     ? [current, ...futureShortFormPreloads].flatMap((item) => {
         const active = item.key === current.key;
+        // A freshly resolved Reel must replace its active iframe, including
+        // the preloaded deck; otherwise that iframe covers the native video.
+        if (active && nativeMedia) return [];
         const instagramNativeSource = item.platform === "instagram"
           ? preferredNativeSource(item, qualityPreference, false)
           : null;
@@ -3395,7 +3407,13 @@ export function PersistentPlayer() {
                     refreshNativeCapabilities(media);
                   }}
                   onCanPlay={(event) => {
-                    if (autoStartMuted) void event.currentTarget.play().catch(() => undefined);
+                    const media = event.currentTarget;
+                    const intent = nativeAutoplayRef.current;
+                    if (intent.paused || intent.attempted === media) return;
+                    intent.attempted = media;
+                    void playWithMutedFallback(media, () => videoRef.current === media && !intent.paused)
+                      .then(() => { if (videoRef.current === media) setIsMuted(media.muted); })
+                      .catch(() => { if (videoRef.current === media) setIsPlaying(false); });
                   }}
                   onPlaying={() => {
                     playingRef.current = true;
@@ -3414,6 +3432,7 @@ export function PersistentPlayer() {
                     finish();
                   }}
                   onError={() => {
+                    if (nativeMedia === instagramUrl) setFailedInstagramUrl(instagramUrl);
                     setPlaybackError(true);
                     analytics("watch_error", current, { reason: "native_media" });
                   }}
@@ -3481,7 +3500,7 @@ export function PersistentPlayer() {
               {shortFormFrameDeck.length ? (
                 <div
                   data-short-form-preload-deck
-                  className="absolute inset-0"
+                  className="pointer-events-none absolute inset-0"
                 >
                   {shortFormFrameDeck.map(({ item, src: frameSrc }) => {
                     const active = item.key === current.key;
@@ -3508,7 +3527,7 @@ export function PersistentPlayer() {
                           setPlaybackError(false);
                         }}
                         className={`absolute inset-0 h-full w-full transition-opacity duration-100 ${active ? "z-[1] opacity-100" : "pointer-events-none z-0 opacity-0"}`}
-                        style={active && !item.youtubeId ? undefined : { pointerEvents: "none", userSelect: "none" }}
+                        style={active && !item.youtubeId ? { pointerEvents: "auto" } : { pointerEvents: "none", userSelect: "none" }}
                       />
                     );
                   })}

@@ -6,7 +6,7 @@ export type YouTubePlayerCommand = {
 /** Reconnect after load: an iframe can finish booting after React's first effect. */
 export function listenToYouTube(source: Pick<Window, "postMessage">, id: string) {
   source.postMessage(JSON.stringify({ event: "listening", id, channel: "widget" }), "*");
-  for (const name of ["onReady", "onStateChange", "onError", "onApiChange"]) {
+  for (const name of ["onReady", "onStateChange", "onError", "onApiChange", "onAutoplayBlocked"]) {
     source.postMessage(JSON.stringify({ event: "command", func: "addEventListener", args: [name], id, channel: "widget" }), "*");
   }
 }

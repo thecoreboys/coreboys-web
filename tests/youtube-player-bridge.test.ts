@@ -30,6 +30,7 @@ test("YouTube bridge listening can reattach after a late iframe load", () => {
   assert.equal(messages.filter((message) => message.event === "listening").length, 2);
   assert.ok(messages.every((message) => message.channel === "widget" && message.id === "late-player"));
   assert.ok(messages.some((message) => message.func === "addEventListener" && (message.args as string[])[0] === "onStateChange"));
+  assert.ok(messages.some((message) => message.func === "addEventListener" && (message.args as string[])[0] === "onAutoplayBlocked"));
   for (const file of ["PersistentPlayer", "MultiPlayerStage"]) {
     const component = readFileSync(`components/watch/${file}.tsx`, "utf8");
     assert.match(component, /onLoad=\{\(\) => \{\s*setFrameReadyToken/);

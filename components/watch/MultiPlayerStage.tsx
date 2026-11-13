@@ -1,4 +1,6 @@
 "use client";
+import { useInstagramPlayback } from "@/hooks/useInstagramPlayback";
+import { nativeVideoSource } from "@/lib/watch/native-media";
 /* eslint-disable @next/next/no-img-element -- Runtime media posters can come from user-added third-party URLs outside the Next Image allowlist. */
 
 import { RoomSidebarResize } from "./RoomSidebarResize";
@@ -2070,7 +2072,9 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           ? [...sortedNativeSources].reverse().find((source) => (source.width ?? 0) <= 1_280)?.src
             ?? sortedNativeSources[Math.floor(sortedNativeSources.length / 2)]?.src
           : undefined;
-  const nativeCandidate = preferredNative ?? tile.item.mediaUrl;
+  const instagramUrl = useInstagramPlayback(tile.item.platform === "instagram" ? tile.item.sourceUrl ?? tile.item.url ?? tile.item.embedUrl : null,
+    !standby && inViewport && tile.item.format !== "photo" && !tile.item.mediaUrl);
+  const nativeCandidate = preferredNative ?? tile.item.mediaUrl ?? nativeVideoSource(tile.item, tile.item.clipSrc) ?? instagramUrl;
   const native = tile.item.format !== "photo" && playableNativeUrl(nativeCandidate)
     && failedNativeSource !== `${tile.item.key}:${nativeCandidate}`
     ? nativeCandidate

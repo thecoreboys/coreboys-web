@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Play } from "lucide-react";
+import { AutoplayEmbed } from "@/components/media/AutoplayEmbed";
 
 /**
  * Lazy-loading video embed. Renders a thumbnail with a play button until
@@ -21,12 +22,6 @@ export function VideoEmbed({
   thumbnailUrl: string | null;
 }) {
   const [played, setPlayed] = useState(false);
-
-  // YouTube auto-play on click via &autoplay=1.
-  const finalUrl =
-    platform === "youtube" && played
-      ? embedUrl + (embedUrl.includes("?") ? "&" : "?") + "autoplay=1&rel=0"
-      : embedUrl;
 
   return (
     <figure className="overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black">
@@ -56,15 +51,7 @@ export function VideoEmbed({
         </button>
       ) : (
         <div className="relative aspect-video w-full bg-black">
-          <iframe
-            src={finalUrl}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full"
-            referrerPolicy="no-referrer-when-downgrade"
-            title={`${platform} embed`}
-            loading="lazy"
-          />
+          <AutoplayEmbed sourceUrl={sourceUrl} embedUrl={embedUrl} title={`${platform} video`} />
         </div>
       )}
       <figcaption className="sr-only">
