@@ -32,10 +32,6 @@
   mask-image: linear-gradient(135deg, #0009, transparent 42%, transparent 70%, #0007);
 }
 .copy { position: relative; z-index: 2; min-width: 0; }
-.appIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; margin-bottom: 1.65rem; font-size: .875rem; font-weight: 650; }
-.appIdentity > img { width: 40px; height: 40px; border: 1px solid #ffffff24; border-radius: 10px; }
-.forIphone { margin-left: .25rem; color: #bcb5cd; font-size: .8rem; font-weight: 450; }
-.invite { background: #ffffff0d; color: #e8dff0; --tw-ring-color: #ffffff29; }
 .heading { margin: 0; font-size: clamp(2.3rem, 3.85vw, 4.25rem); font-weight: 650; line-height: 1.06; letter-spacing: -.055em; text-wrap: balance; }
 .heading > span { background: linear-gradient(110deg, #ffc9b1 0%, #ff98cb 45%, #c9a4ff 100%); background-clip: text; -webkit-text-fill-color: transparent; }
 .description { max-width: 37ch; margin: 1.35rem 0 0; color: #c8c1d5; font-size: 1rem; line-height: 1.75; }
@@ -61,24 +57,18 @@
 .screen { position: absolute; z-index: 1; inset: 2.1% 5.8%; overflow: hidden; border-radius: 15% / 7%; background: #08080a; }
 .screenImage { object-fit: cover; object-position: top; }
 .phoneFrame { position: absolute; z-index: 2; top: -1.7%; left: -29.15%; width: 158.3%; max-width: none; height: 103.4%; pointer-events: none; }
-.connected { position: absolute; z-index: 3; display: inline-flex; align-items: center; gap: .6rem; padding: .8rem 1rem; border: 1px solid #ffffff26; border-radius: 999px; background: #17121fe8; color: #f2eafc; box-shadow: 0 6px 24px #0004; font-size: .75rem; font-weight: 550; line-height: 1.2; backdrop-filter: blur(12px); }
-.connected { top: 3%; left: -2%; transform: rotate(-4deg); }
-.connectedDot { width: 7px; height: 7px; border-radius: 50%; background: #77e6b7; box-shadow: 0 0 12px #77e6b780; }
 
 @media (min-width: 1600px) { .visual { height: 650px; } .phone { width: 320px; } }
 @media (max-width: 1100px) {
   .card { gap: 1rem; padding: 2rem; }
   .heading { font-size: clamp(2.25rem, 4vw, 3rem); }
   .phone { width: 86%; max-width: 275px; }
-  .connected { left: -7%; }
 }
 @media (max-width: 767px) {
   .section { margin-inline: 1.25rem; }
   .card { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 1.4rem 1.5rem; border-radius: 22px; }
   .scene { object-position: 71% center; }
   .card::before { background: linear-gradient(180deg, #0e0b15fc 0%, #0e0b15f5 39%, #0e0b15bb 57%, #0e0b151a 100%); }
-  .appIdentity { gap: .5rem; margin-bottom: 1.4rem; }
-  .forIphone { display: none; }
   .heading { font-size: clamp(2.15rem, 7.5vw, 3.5rem); }
   .desktopBreak { display: none; }
   .description { max-width: 40ch; margin-top: 1.1rem; font-size: .9375rem; line-height: 1.7; }
@@ -88,7 +78,6 @@
   .remoteLink { font-size: .8rem; }
   .visual { height: 525px; margin-top: 1.5rem; }
   .phone { width: 240px; max-width: 87%; }
-  .connected { top: 0; left: -.4rem; padding: .7rem .85rem; font-size: .7rem; }
 }
 @media (max-width: 380px) {
   .card { padding-inline: 1.2rem; }

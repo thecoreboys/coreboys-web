@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { ArrowUpRight, MessageCircle, MonitorPlay } from "lucide-react";
-import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import Apple from "@/components/foundations/social-icons/apple";
 import Image from "@/components/ui/SiteImage";
-import { CORE_APP_ICON, CORE_APP_STORE_URL } from "@/lib/mobile-app";
+import { CORE_APP_STORE_URL } from "@/lib/mobile-app";
 import styles from "./MobileAppSection.module.css";
 
 export function MobileAppSection() {
@@ -22,12 +21,6 @@ export function MobileAppSection() {
         <div className={styles.pattern} aria-hidden="true" />
 
         <div className={styles.copy}>
-          <div className={styles.appIdentity}>
-            <Image src={CORE_APP_ICON} alt="" width={40} height={40} sizes="40px" />
-            <span>CORE HQ <span className={styles.forIphone}>for iPhone</span></span>
-            <Badge type="pill-color" color="gray" size="sm" className={styles.invite}>Invite Only</Badge>
-          </div>
-
           <h2 id="mobile-app-heading" className={styles.heading}>
             Your desktop plays.<br />
             <span>Your phone calls<br className={styles.desktopBreak} /> the shots.</span>
@@ -97,9 +90,6 @@ export function MobileAppSection() {
               sizes="(max-width: 767px) 440px, 540px"
               loading="lazy"
             />
-          </div>
-          <div className={styles.connected} aria-hidden="true">
-            <span className={styles.connectedDot} /> Desktop connected
           </div>
         </figure>
       </div>

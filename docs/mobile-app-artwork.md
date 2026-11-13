@@ -8,7 +8,7 @@ The home page combines generated artwork with an unchanged screenshot of the act
 - `public/mobile-app/bedroom-scene.webp`: generated bedroom and desktop illustration.
 - `public/mobile-app/remote-preview.png`: browser capture of the existing `ConnectedRemote` and `TwitchChat` components at phone width, with live public Twitch messages. The remote connection uses isolated demonstration session data; no production account or remote session was changed. A temporary development-only capture page was removed after capture. The screenshot is layered behind the generated frame in HTML, so the app interface is never redrawn by the image model.
 
-The section uses live HTML text, gradients, and a dot pattern. The App Store destination remains the configured CORE HQ app ID, and the section carries the requested Invite Only badge.
+The section uses live HTML text, gradients, and a dot pattern. The App Store destination remains the configured CORE HQ app ID.
 
 ## Final phone-frame prompt
 
