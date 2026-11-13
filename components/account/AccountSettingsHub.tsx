@@ -28,6 +28,7 @@ import { cx } from "@/utils/cx";
 import { createDebouncedWorkspaceSave } from "@/lib/account/workspace-save-queue";
 import { EXPERIENCE_STORAGE_KEY } from "@/lib/theme";
 import { useSubscription } from "@/hooks/useSubscription";
+import { PLAYER_PREFS_STORAGE_KEY, localPlayerPrefsUpdatedAt, remotePlayerPrefsWin } from "@/lib/watch/player-prefs-clock";
 import { useNativeApp } from "@/hooks/useNativeApp";
 
 type AccountSettings = {
@@ -234,6 +235,11 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
     }
   }, 350), [accountId]);
 
+  // Hydration runs once per account; reach the latest provider snapshot and
+  // save queue through a ref instead of restarting it on every player change.
+  const syncLocalPlayerRef = useRef(() => {});
+  syncLocalPlayerRef.current = () => playerSaveQueue.schedule(playerSettings());
+
   const updatePlayer = useCallback((patch: Partial<PlayerSettings>) => {
     if (patch.autoplayMode !== undefined) player.setAutoplayMode(patch.autoplayMode);
     if (patch.previewAutoplay !== undefined) player.setPreviewAutoplay(patch.previewAutoplay);
@@ -274,7 +280,7 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
       try {
         const preferencesResponse = await fetch("/api/account/workspaces?kind=account-settings", { credentials: "same-origin", signal: controller.signal, headers: { "x-core-account-id": accountId } });
         if (preferencesResponse.ok) {
-          const data = await preferencesResponse.json() as { items?: Array<{ name: string; payload: unknown }> };
+          const data = await preferencesResponse.json() as { items?: Array<{ name: string; payload: unknown; updatedAt?: string }> };
           if (!Array.isArray(data.items)) throw new Error("settings_incomplete");
           const stored = data.items?.find((item) => item.name === "experience")?.payload;
           const next = restoreSettings(stored, defaultSettings(theme, accent));
@@ -283,8 +289,21 @@ export function AccountSettingsHub({ section: requestedSection, accountId }: { s
           setTheme(next.theme);
           setAccent(next.accent);
           applyExperience(next);
-          const playerStored = data.items?.find((item) => item.name === "player")?.payload;
-          if (playerStored && typeof playerStored === "object") {
+          const playerItem = data.items?.find((item) => item.name === "player");
+          const playerStored = playerItem?.payload;
+          let localPrefsMs = 0;
+          try {
+            localPrefsMs = localPlayerPrefsUpdatedAt(window.localStorage.getItem(PLAYER_PREFS_STORAGE_KEY));
+          } catch {
+            // Without local storage the account copy is the only copy.
+          }
+          // A choice made in the player after the account copy was saved
+          // (captions, quality, data saver…) wins; the account copy catches up.
+          const remoteWins = remotePlayerPrefsWin(playerItem?.updatedAt, localPrefsMs);
+          if (playerStored && typeof playerStored === "object" && !remoteWins && playerRef.current.ready) {
+            syncLocalPlayerRef.current();
+          }
+          if (playerStored && typeof playerStored === "object" && remoteWins) {
             // Hydration is a single request; playback changes must not restart
             // it or reapply older saved preferences while the viewer edits.
             const player = playerRef.current;

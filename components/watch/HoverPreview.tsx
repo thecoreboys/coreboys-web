@@ -188,7 +188,8 @@ function MediaHoverPreview({
   const sourcePlayable = useMemo(() => itemToPlayable(item), [item]);
   const playable = isPhoto ? null : sourcePlayable;
   const previewMedia = useMemo(() => resolveHoverPreviewMedia(item), [item]);
-  const instagramUrl = useInstagramPlayback(item.platform === "instagram" ? item.sourceUrl ?? item.embedUrl : null, wantsMotion && !previewMedia.nativeUrl);
+  // Photos have no playback; resolving one only delays and can't succeed.
+  const instagramUrl = useInstagramPlayback(item.platform === "instagram" && !isPhoto ? item.sourceUrl ?? item.embedUrl : null, wantsMotion && !previewMedia.nativeUrl);
   const previewPlayable = previewMedia.playable;
   const fallbackHref = item.sourceUrl || item.href;
 
@@ -555,7 +556,7 @@ function MediaHoverPreview({
           rel={isInstagramPhoto ? "noreferrer" : undefined}
           aria-label={isInstagramPhoto
             ? `View ${item.title} on Instagram (opens in a new tab)`
-            : `Play ${item.title}`}
+            : isPhoto ? `View ${item.title}` : `Play ${item.title}`}
           onClick={(event) => {
             if (!playable) return;
             event.preventDefault();
@@ -567,9 +568,11 @@ function MediaHoverPreview({
             src={item.backdrop || item.poster}
             tiktokSourceUrl={tiktokPostThumbnailSource(item)}
             preferTikTokSource={Boolean(tiktokPostThumbnailSource(item))}
+            instagramSourceUrl={item.platform === "instagram" && item.sourceUrl ? item.sourceUrl : undefined}
             className={`watch-preview-still ${motionReady ? "is-hidden" : ""}`}
             focalPoint={item.focalPoint}
             loading="eager"
+            sizes="(max-width: 640px) 92vw, 440px"
           />
           {videoSrc && !motionFailed ? (
             <video

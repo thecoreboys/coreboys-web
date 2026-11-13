@@ -18,6 +18,22 @@ export function tiktokPostThumbnailSource(item: { platform: string; sourceUrl?: 
   return undefined;
 }
 
+/**
+ * Instagram's CDN serves photos at full camera resolution (often 3000px+ and
+ * several MB). These hosts are allowed in next.config's remotePatterns so the
+ * image optimizer can resize them to the card instead.
+ */
+export function isInstagramCdnImage(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    return parsed.protocol === "https:"
+      && (host === "cdninstagram.com" || host.endsWith(".cdninstagram.com") || host === "fbcdn.net" || host.endsWith(".fbcdn.net"));
+  } catch {
+    return false;
+  }
+}
+
 /** Highest-quality YouTube stills first. maxres/sd 404 as a 120×90 stub. */
 export function youtubeThumbCandidates(id: string, quality: "card" | "hero" = "hero"): string[] {
   if (quality === "card") return [

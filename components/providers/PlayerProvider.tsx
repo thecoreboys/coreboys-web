@@ -36,6 +36,7 @@ import {
   type WorkspaceTile,
 } from "@/lib/watch/workspace";
 import { gridTileToNormalizedRect, normalizedRectToGridPosition, type NormalizedRect } from "@/lib/watch/room-layout";
+import { PLAYER_PREFS_STORAGE_KEY, stampPlayerPrefs } from "@/lib/watch/player-prefs-clock";
 import { detectWeakGpu, devicePerformanceProfile } from "@/lib/device-performance";
 import type { ChatViewMode } from "@/lib/chat-layouts";
 import type { PlayerCompanionView } from "@/lib/watch/player-companion";
@@ -314,7 +315,7 @@ const SESSION_STORE = "core-now-playing:v4";
 const PREVIOUS_SESSION_STORE = "core-now-playing:v3";
 const SECONDARY_SESSION_STORE = "core-now-playing:v2";
 const LEGACY_STORE = "core-now-playing:v1";
-const PREF_STORE = "core-player-prefs:v2";
+const PREF_STORE = PLAYER_PREFS_STORAGE_KEY;
 const PREVIOUS_PREF_STORE = "core-player-prefs:v1";
 const LAYOUT_STORE = "core-player-layouts:v1";
 const LAYOUT_TOMBSTONE_STORE = "core-player-layout-tombstones:v1";
@@ -1081,7 +1082,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         playbackRate,
         qualityPreference,
       }));
-      localStorage.setItem(PREF_STORE, JSON.stringify({
+      // Stamped so Account settings can tell a newer in-player choice from
+      // an older account copy (lib/watch/player-prefs-clock.ts).
+      localStorage.setItem(PREF_STORE, JSON.stringify(stampPlayerPrefs({
         autoplayMode,
         previewAutoplay,
         previewSoundEnabled,
@@ -1095,7 +1098,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         qualityPreference,
         audioDescription,
         accessibilityPreset,
-      }));
+      }, localStorage.getItem(PREF_STORE))));
     } catch {
       // Private browsing can make storage unavailable.
     }

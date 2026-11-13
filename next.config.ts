@@ -27,6 +27,9 @@ const config: NextConfig = {
       { protocol: "https", hostname: "media.thecoreboys.com" },
       { protocol: "https", hostname: "coreboys-media.nyc3.cdn.digitaloceanspaces.com" },
       { protocol: "https", hostname: "coreboys-media.nyc3.digitaloceanspaces.com" },
+      // Instagram photos arrive at full camera resolution; resize them.
+      { protocol: "https", hostname: "**.cdninstagram.com" },
+      { protocol: "https", hostname: "**.fbcdn.net" },
     ],
   },
   transpilePackages: ["@coreboys/shared"],

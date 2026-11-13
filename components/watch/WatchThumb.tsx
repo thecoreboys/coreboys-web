@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getImageProps } from "next/image";
-import { isTinyYoutubeStub, isYoutubePlaceholderPixels, watchThumbCandidates } from "@/lib/watch/thumbs";
+import { isInstagramCdnImage, isTinyYoutubeStub, isYoutubePlaceholderPixels, watchThumbCandidates } from "@/lib/watch/thumbs";
 
 // Repeated cards share failed-image knowledge for this browser session.
 const failedImages = new Map<string, number>();
@@ -146,7 +146,9 @@ function WatchThumbImage({
   const imageRef = useRef<HTMLImageElement>(null);
   const handledSource = useRef("");
   const url = chain[index] ?? ((failedImages.get(src) ?? 0) >= Date.now() ? "" : src);
-  const optimize = !useOriginal && url.startsWith("/") && !url.startsWith("//") && !url.startsWith("/api/") && !/\.svg(?:\?|$)/i.test(url);
+  const localAsset = url.startsWith("/") && !url.startsWith("//") && !url.startsWith("/api/") && !/\.svg(?:\?|$)/i.test(url);
+  // Resized through the optimizer; a failure falls back to the original URL.
+  const optimize = !useOriginal && (localAsset || isInstagramCdnImage(url));
   const responsive = optimize ? getImageProps({ src: url, alt, width: loading === "eager" ? 1280 : 480, height: loading === "eager" ? 720 : 270, sizes: sizes ?? (loading === "eager" ? "100vw" : "(max-width: 640px) 76vw, 336px") }).props : null;
 
   const handleLoaded = useCallback((img: HTMLImageElement) => {

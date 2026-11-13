@@ -640,6 +640,9 @@ function ChannelOnNowPreview({
       ((playable.kind === "live" && playable.twitchLogin) || playable.vodId),
   );
   const twitchChannel = playable?.kind === "live" ? playable.twitchLogin : null;
+  // Twitch only plays (and keeps ads running) in an embed nothing paints
+  // over. While this preview is on screen, floating widgets stay clear of it.
+  const twitchClearance = usesTwitchSdk && mostlyVisible && !autoplayBlocked;
   const twitchVideo = playable?.vodId ?? null;
   // Keep a single, observable state for the browser-safe autoplay path. This
   // is useful to styling/telemetry without confusing a mounted-but-paused
@@ -840,8 +843,13 @@ function ChannelOnNowPreview({
     }).catch(() => { if (!disposed) markAutoplayBlocked(); });
     const poll = window.setInterval(() => {
       if (disposed || !ready || !instance || !budget.visible) return;
+      // Twitch says it is playing (an ad, typically) even when frame stats
+      // cannot confirm it yet. Keep the bounded retries, but do not label
+      // the preview blocked while the provider itself reports it running.
+      let providerRunning = false;
       try {
         const paused = instance.isPaused?.();
+        providerRunning = providerPlaying && paused === false;
         const position = twitchVideo ? instance.getCurrentTime() : 0;
         const verified = twitchChannel
           ? observedTwitchLivePlayback(providerPlaying, paused, instance.getPlaybackStats?.())
@@ -855,7 +863,7 @@ function ChannelOnNowPreview({
         previousPosition = position;
       } catch { /* Provider stats can be unavailable during startup and ads. */ }
       if (!budget.started && !budget.manuallyPaused) {
-        if (budget.exhausted) markAutoplayBlocked();
+        if (budget.exhausted) { if (!providerRunning) markAutoplayBlocked(); }
         else requestPlayback();
       }
     }, 750);
@@ -982,6 +990,7 @@ function ChannelOnNowPreview({
       data-autoplay={autoStart ? (playing ? "playing" : autoplayBlocked ? "blocked" : "pending") : "preference"}
       data-provider-playing={providerAutoplayPlaying ? "true" : undefined}
       data-provider={entry.item.platform}
+      data-twitch-clearance={twitchClearance || undefined}
       data-inline-channel-player={autoStart && mediaMounted ? "true" : undefined}
     >
       <div className={styles.heroPreviewMedia} data-cursor-native={usesTwitchSdk || playable?.youtubeId ? "" : undefined} aria-hidden={usesTwitchSdk || playable?.youtubeId ? undefined : "true"}>

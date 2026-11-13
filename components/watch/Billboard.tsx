@@ -382,6 +382,9 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
     providerExposed &&
     pageVisible;
   const isTwitch = item.platform === "twitch";
+  // Twitch only plays (and keeps ads running) in an embed nothing paints
+  // over. While this preview is on screen, floating widgets stay clear of it.
+  const twitchClearance = isTwitch && wantsAutoplay && !twitchLoadError;
   const twitchChannel = playable.kind === "live" ? playable.twitchLogin : null;
   const twitchVideo = playable.vodId;
   const instagramUrl = useInstagramPlayback(playable.platform === "instagram" ? playable.sourceUrl ?? playable.url ?? playable.embedUrl : null,
@@ -794,6 +797,7 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
       ref={slotRef}
       className={`watch-billboard-live-player is-preview ${isTwitch ? "is-twitch" : nativeVideoUrl ? "is-native" : playable.platform === "tiktok" ? "is-tiktok" : "is-youtube"} ${twitchMounted ? "is-mounted" : ""} ${frameReady ? "is-ready" : ""} ${twitchPlaying ? "is-playing" : ""}`}
       data-preview-state={previewState}
+      data-twitch-clearance={twitchClearance || undefined}
       data-cursor-native={isTwitch ? "true" : undefined}
     >
       <WatchThumb

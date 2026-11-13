@@ -217,7 +217,12 @@ test("network 24/7 Twitch preview verifies and recovers actual paused playback",
 test("network hero starts muted and keeps the scheduled item through provider recovery", () => {
   assert.match(channelPage, /muted:\s*true,[\s\S]{0,220}autoplay:\s*true/);
   assert.match(channelPage, /createTwitchAutoplayBudget\(16\)/);
-  assert.match(channelPage, /if \(budget\.exhausted\) markAutoplayBlocked\(\)/);
+  // A Twitch ad reports "playing" before frame stats can confirm it; the
+  // retries stay bounded, but the preview is not labelled blocked meanwhile.
+  assert.match(channelPage, /if \(budget\.exhausted\) \{ if \(!providerRunning\) markAutoplayBlocked\(\); \}/);
+  assert.match(channelPage, /providerRunning = providerPlaying && paused === false/);
+  // Floating widgets stay clear of an on-screen Twitch hero preview.
+  assert.match(channelPage, /data-twitch-clearance=\{twitchClearance \|\| undefined\}/);
   assert.doesNotMatch(channelPage, /const mutedFallbackTimer = window\.setTimeout/);
   assert.match(channelPage, /className=\{styles\.heroPreviewSound\}/);
   assert.match(channelPage, /className=\{styles\.heroPreviewRetry\}/);

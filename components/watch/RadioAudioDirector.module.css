@@ -134,6 +134,13 @@
 :global(body:has([role="dialog"])) .root,
 :global(body:has([role="dialog"])) .mobileToggle,
 :global(body:has([role="dialog"])) .edgeRestore { visibility: hidden; pointer-events: none; }
+/* Twitch only autoplays, and only keeps its ads running, in an embed that
+   nothing paints over. This widget sits over the bottom-right of the home and
+   channel heroes, so it steps aside (hidden is not an occluder) while a hero
+   Twitch preview is on screen, and returns once the viewer scrolls past it. */
+:global(body:has([data-twitch-clearance])) .root,
+:global(body:has([data-twitch-clearance])) .mobileToggle,
+:global(body:has([data-twitch-clearance])) .edgeRestore { visibility: hidden; pointer-events: none; }
 :global(body:has(.watch-together[data-open="true"])) .root,
 :global(body:has(.watch-together[data-open="true"])) .mobileToggle,
 :global(body:has(.watch-together[data-open="true"])) .edgeRestore { visibility: hidden; pointer-events: none; }

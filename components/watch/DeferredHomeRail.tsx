@@ -1,8 +1,22 @@
 "use client";
 
 import { startTransition, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { getImageProps } from "next/image";
+import { isInstagramCdnImage } from "@/lib/watch/thumbs";
 import { observeViewportApproach } from "@/lib/watch/viewport-approach";
 import { HOME_INTRO_PRELOAD_EVENT } from "@/lib/first-visit-intro";
+
+/** Full-resolution Instagram photos are resized to the placeholder card. */
+function PreviewCover({ src }: { src: string }) {
+  const resized = isInstagramCdnImage(src)
+    ? getImageProps({ src, alt: "", width: 480, height: 600, sizes: "(max-width: 640px) 46vw, 240px" }).props
+    : null;
+  return (
+    // Native lazy loading keeps covers available before hydration.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={resized?.src ?? src} srcSet={resized?.srcSet} sizes={resized?.sizes} alt="" loading="lazy" decoding="async" fetchPriority="low" />
+  );
+}
 
 export function DeferredHomeRail({ title, previews, children }: {
   title: string;
@@ -51,11 +65,7 @@ export function DeferredHomeRail({ title, previews, children }: {
         <div className="watch-shelf watch-home-shelf-placeholder">
           {previews.map((preview) => (
             <a key={preview.id} href={preview.href} target={/^https?:\/\//.test(preview.href) ? "_blank" : undefined} rel="noopener noreferrer" className={`watch-home-card-placeholder is-${preview.shape}`} data-home-preview={preview.id}>
-              {preview.poster ? (
-                // Native lazy loading keeps covers available before hydration.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={preview.poster} alt="" loading="lazy" decoding="async" fetchPriority="low" />
-              ) : <span className="watch-home-preview-art" aria-hidden="true" />}
+              {preview.poster ? <PreviewCover src={preview.poster} /> : <span className="watch-home-preview-art" aria-hidden="true" />}
               <span className="watch-home-preview-copy">
                 <strong>{preview.title}</strong>
                 <span>{preview.subtitle}</span>
