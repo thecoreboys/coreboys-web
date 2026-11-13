@@ -77,6 +77,10 @@ const config: NextConfig = {
         headers: [staticMediaCache],
       },
       {
+        source: "/intro/:path*.mp4",
+        headers: [staticMediaCache],
+      },
+      {
         // These are immutable narrative / product visuals. Next serves files
         // in public/ with max-age=0 by default, which makes every revisit
         // redownload the same posters and film clips.

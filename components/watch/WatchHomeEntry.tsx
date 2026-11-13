@@ -9,6 +9,7 @@ import { useMyList } from "@/hooks/useMyList";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { WatchChrome } from "./WatchChrome";
 import { WatchHome } from "./WatchHome";
+import { FirstVisitIntro } from "@/components/editorial/FirstVisitIntro";
 
 type Resolved = { owner: string; items: WatchItem[]; checked: string[]; error: boolean };
 const EMPTY_ITEMS: WatchItem[] = [];
@@ -61,10 +62,10 @@ export function WatchHomeEntry({ catalog: compact, patreon, originals, awards }:
     return () => { cancelled = true; window.clearTimeout(timeout); controller.abort(); };
   }, [accountKey, failed, loading, lookupKey, ready]);
 
-  return <WatchChrome catalog={catalog}>
+  return <FirstVisitIntro><WatchChrome catalog={catalog}>
     {failed ? <div role="status" className="px-5 pt-20 text-sm text-white/70">
       Your saved history could not load. <button type="button" className="underline" onClick={() => setResolved((value) => ({ ...value, error: false }))}>Retry</button>
     </div> : null}
     <WatchHome catalog={catalog} patreon={patreon} originals={originals} awards={awards} />
-  </WatchChrome>;
+  </WatchChrome></FirstVisitIntro>;
 }

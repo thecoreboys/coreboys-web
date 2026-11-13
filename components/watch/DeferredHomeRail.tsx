@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { startTransition, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { observeViewportApproach } from "@/lib/watch/viewport-approach";
+import { HOME_INTRO_PRELOAD_EVENT } from "@/lib/first-visit-intro";
 
 export function DeferredHomeRail({ title, previews, children }: {
   title: string;
@@ -11,6 +12,14 @@ export function DeferredHomeRail({ title, previews, children }: {
   const ref = useRef<HTMLDivElement>(null);
   const focusOnLoad = useRef(false);
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const preload = (event: Event) => {
+      if ((event as CustomEvent<HTMLElement>).detail === ref.current) startTransition(() => setReady(true));
+    };
+    window.addEventListener(HOME_INTRO_PRELOAD_EVENT, preload);
+    return () => window.removeEventListener(HOME_INTRO_PRELOAD_EVENT, preload);
+  }, []);
 
   useEffect(() => {
     if (ready || !ref.current) return;

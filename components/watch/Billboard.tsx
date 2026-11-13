@@ -18,6 +18,7 @@ import { nativeVideoSource } from "@/lib/watch/native-media";
 import { isPreviewPlayerReady, previewPlaybackSample } from "@/lib/watch/preview-progress";
 import { listenToYouTube } from "@/lib/watch/youtube-player";
 import { usePlayer } from "@/components/providers/PlayerProvider";
+import { useFirstVisitIntroActive } from "@/components/editorial/FirstVisitIntro";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import type { Playable } from "@/lib/watch/playable";
@@ -242,6 +243,7 @@ export function BillboardCarousel({ items, headingLevel = "h1" }: { items: Watch
 
 function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchItem; playable: Playable; onSoundChange?: (audible: boolean) => void }) {
   const reducedMotion = useReducedMotion();
+  const introActive = useFirstVisitIntroActive();
   const slotRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const nativeVideoRef = useRef<HTMLVideoElement>(null);
@@ -367,6 +369,7 @@ function BillboardHeroPlayer({ item, playable, onSoundChange }: { item: WatchIte
 
   const wantsAutoplay =
     playerReady &&
+    !introActive &&
     // A persistent Theater/mini-player session owns playback across routes.
     // Do not open a second provider iframe in the billboard behind it.
     !current &&
