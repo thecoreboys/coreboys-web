@@ -1,0 +1,360 @@
+/* CORE Originals episode cards.
+   Equal-height cards whose action row is pinned to the bottom, so buttons
+   line up across a row however the titles wrap. The collection page keeps its
+   cinematic dark surface in both appearance modes, so the card tokens are
+   tuned for that surface and only borrow the brand accent and the shared
+   motion curves from the site. */
+
+.grid {
+  --ep-ink: #fff;
+  --ep-ink-dim: rgb(255 255 255 / 0.72);
+  --ep-ink-faint: rgb(255 255 255 / 0.56);
+  --ep-surface: rgb(255 255 255 / 0.045);
+  --ep-surface-hover: rgb(255 255 255 / 0.07);
+  --ep-edge: rgb(255 255 255 / 0.11);
+  --ep-edge-hover: rgb(255 255 255 / 0.24);
+  --ep-on-ink: #0b0b0e;
+  --ep-accent: var(--core, #db0368);
+  --ep-focus: #fff;
+  --ep-radius: 14px;
+  --ep-control-radius: 10px;
+  --ep-ease: var(--motion-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+}
+
+@media (min-width: 1024px) {
+  .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; }
+}
+
+/* ---- Card ------------------------------------------------------------- */
+
+.card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--ep-edge);
+  border-radius: var(--ep-radius);
+  background: var(--ep-surface);
+  transition:
+    transform var(--motion-base, 240ms) var(--ep-ease),
+    border-color var(--motion-fast, 160ms) var(--ep-ease),
+    background-color var(--motion-fast, 160ms) var(--ep-ease);
+}
+
+/* Elevation lives on its own layer and fades in, matching the poster cards
+   in app/motion.css, so hover never repaints a blurred shadow per frame. */
+.card::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: var(--motion-card-shadow, 0 18px 30px -18px rgb(0 0 0 / 0.75));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-base, 240ms) var(--ep-ease);
+}
+
+.card:focus-within {
+  border-color: var(--ep-edge-hover);
+  background: var(--ep-surface-hover);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    border-color: var(--ep-edge-hover);
+    background: var(--ep-surface-hover);
+    transform: translate3d(0, var(--motion-lift, -3px), 0);
+  }
+  .card:is(:hover, :focus-within)::after { opacity: 1; }
+}
+
+/* ---- Thumbnail -------------------------------------------------------- */
+
+.media {
+  position: relative;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.06);
+}
+
+.thumb {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.thumb:disabled { cursor: default; }
+
+.thumbImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--motion-art, 700ms) var(--ep-ease);
+}
+
+/* A soft top-and-bottom scrim keeps the badge and progress readable on bright
+   thumbnails without dimming the art itself. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 0.42) 0%, transparent 34%),
+    linear-gradient(0deg, rgb(0 0 0 / 0.38) 0%, transparent 30%);
+  pointer-events: none;
+  transition: background-color var(--motion-base, 240ms) var(--ep-ease);
+}
+
+.playOverlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: -1.75rem 0 0 -1.75rem;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 999px;
+  background: rgb(10 10 12 / 0.62);
+  color: #fff;
+  box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  transform: scale(0.86);
+  pointer-events: none;
+  transition:
+    opacity var(--motion-base, 240ms) var(--ep-ease),
+    transform var(--motion-base, 240ms) var(--motion-ease-settle, cubic-bezier(0.34, 1.32, 0.64, 1)),
+    background-color var(--motion-fast, 160ms) var(--ep-ease);
+}
+
+.playOverlay svg { margin-left: 3px; }
+
+.card:focus-within .scrim { background-color: rgb(0 0 0 / 0.18); }
+.card:focus-within .playOverlay { opacity: 1; transform: none; }
+.card:has(.primary:focus-visible) .playOverlay { background: var(--ep-accent); border-color: transparent; }
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .scrim { background-color: rgb(0 0 0 / 0.18); }
+  .card:hover .playOverlay { opacity: 1; transform: none; }
+  .thumb:hover .playOverlay { background: var(--ep-accent); border-color: transparent; }
+  .card:hover .thumbImage { transform: scale(1.04); }
+}
+
+/* Touch screens have no hover, so the glyph stays as a quiet tap cue. */
+@media (hover: none) {
+  .playOverlay { width: 2.75rem; height: 2.75rem; margin: -1.375rem 0 0 -1.375rem; opacity: 0.92; transform: none; }
+  .playOverlay svg { width: 18px; height: 18px; }
+}
+
+.badge,
+.status {
+  position: absolute;
+  top: 0.625rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.5rem;
+  padding: 0 0.55rem;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 999px;
+  background: rgb(10 10 12 / 0.72);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.badge { left: 0.625rem; }
+.status { right: 0.625rem; color: rgb(255 255 255 / 0.9); }
+
+.progress {
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: rgb(0 0 0 / 0.55);
+  pointer-events: none;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--ep-accent);
+}
+
+/* ---- Body ------------------------------------------------------------- */
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.title {
+  /* Always reserve two lines so meta and actions align across a row. */
+  display: -webkit-box;
+  min-height: calc(2 * 1.35em);
+  margin: 0;
+  overflow: hidden;
+  color: var(--ep-ink);
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.45rem;
+  margin: 0;
+  color: var(--ep-ink-faint);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.meta > span + span::before {
+  content: "·";
+  margin-right: 0.45rem;
+  color: rgb(255 255 255 / 0.35);
+}
+
+.metaStrong { color: var(--ep-ink-dim); font-weight: 550; }
+
+/* ---- Actions ---------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.875rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--ep-control-radius);
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast, 160ms) var(--ep-ease),
+    border-color var(--motion-fast, 160ms) var(--ep-ease),
+    color var(--motion-fast, 160ms) var(--ep-ease),
+    transform var(--motion-press, 90ms) var(--ep-ease);
+}
+
+.button svg { flex: none; }
+
+.button:active { transform: scale(var(--motion-press-scale, 0.96)); }
+
+.grid .button:focus-visible,
+.grid .thumb:focus-visible {
+  outline: 2px solid var(--ep-focus);
+  outline-offset: 3px;
+  border-radius: var(--ep-control-radius);
+}
+
+.primary {
+  flex: 1 1 9rem;
+  background: var(--ep-ink);
+  color: var(--ep-on-ink);
+}
+
+.primary:hover { background: rgb(255 255 255 / 0.86); }
+
+.secondary {
+  flex: 0 1 auto;
+  border-color: rgb(255 255 255 / 0.2);
+  background: rgb(255 255 255 / 0.04);
+  color: var(--ep-ink-dim);
+}
+
+.secondary:hover {
+  border-color: rgb(255 255 255 / 0.36);
+  background: rgb(255 255 255 / 0.1);
+  color: var(--ep-ink);
+}
+
+.secondary svg { opacity: 0.8; }
+
+/* When an episode cannot play here, opening the source is the main action. */
+.secondaryAsPrimary { flex: 1 1 auto; }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Minimal motion --------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card::after,
+  .thumbImage,
+  .playOverlay,
+  .button { transition: none; }
+  .card:hover,
+  .card:hover .thumbImage,
+  .button:active { transform: none; }
+}
+
+:global(html:is([data-watch-motion="calm"], [data-watch-reduced-motion="on"], [data-performance-profile="conserve"])) .card,
+:global(html:is([data-watch-motion="calm"], [data-watch-reduced-motion="on"], [data-performance-profile="conserve"])) .card .thumbImage,
+:global(html:is([data-watch-motion="calm"], [data-watch-reduced-motion="on"], [data-performance-profile="conserve"])) .button:active {
+  transform: none;
+}
