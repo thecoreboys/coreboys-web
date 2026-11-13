@@ -12,12 +12,8 @@
   pointer-events: none !important;
 }
 
-:global(html[data-tile-dragging]),
-:global(html[data-tile-dragging]) * {
-  cursor: grabbing !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-}
+/* The page-wide grabbing cursor lives in app/globals.css: CSS Modules reject
+   a rule without a local class. */
 
 .root :global([data-swap-target]) {
   transition:

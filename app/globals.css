@@ -2729,3 +2729,12 @@ html[data-watch-motion="calm"] .cinematic-route-transition,html[data-watch-motio
 @keyframes access-gate-drift { to { transform: rotate(360deg); } }
 @media (max-width: 420px) { .access-gate-card { padding: 1.55rem 1.25rem; border-radius: 1.25rem; } .access-gate-code-slots { inset-inline: 1.25rem; gap: .38rem; } }
 @media (prefers-reduced-motion: reduce) { .access-gate-shell::before { animation: none; } .access-gate-code-slots i { transition: none; } .access-gate-intro,.access-gate-intro::before,.access-gate-intro-wordmark,.access-gate-intro-beam { animation:none; } }
+
+/* Multiview tile pick-up (components/watch/TileSwapDrag): while a tile is in
+   hand the whole page shows a grabbing cursor and nothing selects. */
+html[data-tile-dragging],
+html[data-tile-dragging] * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
