@@ -28,8 +28,8 @@ export const metadata: Metadata = withPageMetadata("/admin", {
 const TILES = [
   {
     href: "/admin/contributors",
-    title: "Community applications",
-    desc: "Review private applications from designers, editors, clippers, developers, and community members.",
+    title: "Community inbox",
+    desc: "Review help signups and suggestions, copy contact details, and mark submissions as reviewed.",
     Icon: UserPlus01,
   },
   {

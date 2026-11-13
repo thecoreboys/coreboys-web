@@ -45,7 +45,7 @@ function WebsiteAppStoreDownload() {
     <aside
       ref={ref}
       className={`${styles.download}${pathname === "/" && homePromotionVisible ? ` ${styles.promotionVisible}` : ""}`}
-      aria-label="Download CORE HQ"
+      aria-label="CORE HQ for iPhone"
       data-floating-widget
       data-occluded={placement.hidden ? "true" : undefined}
       style={{ transform: `translateY(-${placement.lift}px)` }}
@@ -65,13 +65,13 @@ function WebsiteAppStoreDownload() {
         href={CORE_APP_STORE_URL}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Download CORE HQ on the Apple App Store (Invite Only)"
+        aria-label="CORE HQ on the App Store (Invite Only)"
         iconLeading={<Apple className={styles.apple} size={28} aria-hidden="true" />}
         noTextPadding
       >
         <span className={styles.label}>
-          <span>Download on the</span>
-          <strong>Apple App Store</strong>
+          <span>On the</span>
+          <strong>App Store</strong>
         </span>
       </Button>
       <Badge className={styles.invite} type="pill-color" color="gray" size="sm">Invite Only</Badge>

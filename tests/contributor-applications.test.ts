@@ -12,7 +12,7 @@ import * as validation from "../lib/contributors/validation";
 function load<T>(path: string, dependencies: Record<string,unknown>, environment = "production"): T {
   const filename=resolve(path), native=createRequire(filename), module={exports:{}};
   vm.runInNewContext(ts.transpileModule(readFileSync(filename,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,
-    {module,exports:module.exports,require:(name:string)=>name in dependencies?dependencies[name]:native(name),Buffer,Date,URL,Request,Response,Headers,TextDecoder,Uint8Array,console,process:{env:{NODE_ENV:environment,FAN_SESSION_SECRET:"test-secret-for-contributor-security-123456789"}}},{filename});
+    {module,exports:module.exports,require:(name:string)=>name in dependencies?dependencies[name]:native(name),Buffer,Date,URL,Request,Response,Headers,TextDecoder,Uint8Array,Error,console,process:{env:{NODE_ENV:environment,FAN_SESSION_SECRET:"test-secret-for-contributor-security-123456789"}}},{filename});
   return module.exports as T;
 }
 const details={firstName:"Test",lastName:"Applicant",phone:"",twitter:"@test",discord:"",portfolio:"https://example.com/work",role:"Developer",how:"I can improve accessibility and mobile layouts.",ageConfirmed:true};
@@ -45,13 +45,14 @@ test("form tokens reject immediate sends, wrong visitors, tampering and expiry",
 type PublicRoute={POST(request:Request):Promise<Response>};
 function route(options:{limited?:boolean;broken?:boolean;development?:boolean}={}) {
   let saves=0;
+  let received: unknown;
   const api=load<PublicRoute>("app/api/contributors/route.ts",{
     "@/lib/x/security":{requestHasSameOrigin:(r:Request)=>r.headers.get("origin")==="https://site.test"},
     "@/lib/site-access-rate-limit":{consumeSiteAccessRateLimit:async()=>{if(options.broken)throw Error("db");return{ok:!options.limited,retryAfterSeconds:600}}},
     "@/lib/contributors/validation":validation,
     "@/lib/contributors/security":{contributorFingerprint:()=>"hashed",verifyApplicationToken:async(token:string)=>token==="valid"?"token-id":null},
-    "@/lib/contributors/store":{saveApplication:async()=>{saves++;return"saved"}},
-  },options.development?"development":"production");return{api,saves:()=>saves};
+    "@/lib/contributors/store":{saveApplication:async(details: unknown)=>{saves++;received=details;return"saved"}},
+  },options.development?"development":"production");return{api,saves:()=>saves,received:()=>received};
 }
 const request=(body:unknown,origin="https://site.test")=>new Request("https://site.test/api/contributors",{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify(body)});
 const envelope={details,token:"valid",website:""};
@@ -78,7 +79,142 @@ test("admin API rejects non-admin sessions before reading any applications",asyn
   let reads=0;const api=load<{GET(r:Request):Promise<Response>}>("app/api/admin/contributors/route.ts",{
     "@/lib/admin-api":{requireAdmin:async()=>({ok:false,response:new Response("forbidden",{status:403})})},
     "@/lib/contributors/store":{listApplications:async()=>{reads++;return{}}},
+    "@/lib/contributors/validation":validation,
+    "@/lib/x/security":{requestHasSameOrigin:()=>false},
   });assert.equal((await api.GET(new Request("https://site.test/api/admin/contributors"))).status,403);assert.equal(reads,0);
+});
+
+const help = { kind: "help", name: "Test helper", contact: "helper@example.com", role: "Developer", portfolio: "", message: "I can improve the mobile experience.", ageConfirmed: true };
+const suggestion = { kind: "suggestion", message: "Please add a way to find saved streams.", ageConfirmed: true };
+
+test("suggestions only require a message and age confirmation; help signups require name, contact and role", () => {
+  const parsed = validation.communitySubmissionSchema.parse(suggestion);
+  assert.equal(parsed.contact, "");
+  assert.ok(validation.communitySubmissionSchema.safeParse(help).success);
+  for (const change of [{ message: "short" }, { ageConfirmed: false }, { kind: "admin" }, { message: "x".repeat(2001) }, { contact: "<script>" }, { role: "Developer" }]) {
+    assert.equal(validation.communitySubmissionSchema.safeParse({ ...suggestion, ...change }).success, false);
+  }
+  for (const change of [{ name: "" }, { contact: "" }, { role: "admin" }, { message: "Too short" }, { portfolio: "javascript:alert(1)" }]) {
+    assert.equal(validation.communitySubmissionSchema.safeParse({ ...help, ...change }).success, false);
+  }
+});
+
+test("both form types reach storage privately, including an anonymous suggestion", async () => {
+  for (const submission of [help, suggestion]) {
+    const r = route();
+    const response = await r.api.POST(request({ ...envelope, details: submission }));
+    assert.equal(response.status, 201);
+    assert.equal(await response.text(), '{"ok":true}');
+    const saved = r.received() as validation.CommunitySubmission;
+    assert.equal(saved.kind, submission.kind);
+    assert.equal(saved.message, submission.message);
+    assert.equal(saved.contact, submission.kind === "help" ? help.contact : "");
+  }
+});
+
+test("normalization preserves existing applications and all their contact fields", () => {
+  const old = { ...details, phone: "+1 555 555 0100", discord: "test-helper" };
+  const normalized = validation.normalizeSubmission(old);
+  assert.equal(normalized.kind, "help");
+  assert.equal(normalized.name, "Test Applicant");
+  assert.equal(normalized.message, details.how);
+  assert.deepEqual(normalized.legacyContacts, { twitter: old.twitter, discord: old.discord, phone: old.phone });
+  assert.equal(validation.normalizeSubmission(suggestion).kind, "suggestion");
+  for (const submission of [help, suggestion]) {
+    const s = security();
+    assert.equal(JSON.stringify(s.decryptApplication(s.encryptApplication(submission))), JSON.stringify(submission));
+  }
+});
+
+type AdminRoute = { GET(request: Request): Promise<Response>; PATCH(request: Request): Promise<Response> };
+function adminRoute(options: { authorized?: boolean; missing?: boolean; broken?: boolean } = {}) {
+  const reads: unknown[][] = [], writes: unknown[][] = [];
+  const api = load<AdminRoute>("app/api/admin/contributors/route.ts", {
+    "@/lib/admin-api": { requireAdmin: async () => options.authorized === false ? { ok: false, response: new Response("forbidden", { status: 403 }) } : { ok: true } },
+    "@/lib/x/security": { requestHasSameOrigin: (r: Request) => r.headers.get("origin") === "https://site.test" },
+    "@/lib/contributors/validation": validation,
+    "@/lib/contributors/store": {
+      listApplications: async (...args: unknown[]) => { reads.push(args); return { applications: [], nextCursor: null, counts: { total: 0, help: 0, suggestion: 0, new: 0 } }; },
+      updateApplicationStatus: async (...args: unknown[]) => { writes.push(args); if (options.broken) throw Error("db"); return !options.missing; },
+    },
+  });
+  return { api, reads, writes };
+}
+const submissionId = "12345678-1234-4234-8234-123456789abc";
+const updateRequest = (body: unknown, origin = "https://site.test") => new Request("https://site.test/api/admin/contributors", { method: "PATCH", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(body) });
+
+test("admin inbox validates filters and cursors before reading and passes valid filters to storage", async () => {
+  const r = adminRoute();
+  for (const query of ["kind=admin", "status=deleted", "at=not-a-date&id=" + submissionId, "id=" + submissionId]) {
+    assert.equal((await r.api.GET(new Request("https://site.test/api/admin/contributors?" + query))).status, 400);
+  }
+  assert.equal(r.reads.length, 0);
+  const response = await r.api.GET(new Request("https://site.test/api/admin/contributors?kind=suggestion&status=new"));
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("cache-control")!, /no-store/);
+  assert.equal(JSON.stringify(r.reads[0]), JSON.stringify([null, { kind: "suggestion", status: "new" }]));
+});
+
+test("review writes require admin, same origin and a valid bounded update", async () => {
+  const unauthorized = adminRoute({ authorized: false });
+  assert.equal((await unauthorized.api.PATCH(updateRequest({ id: submissionId, status: "reviewed" }))).status, 403);
+  assert.equal(unauthorized.writes.length, 0);
+  const r = adminRoute();
+  assert.equal((await r.api.PATCH(updateRequest({ id: submissionId, status: "reviewed" }, "https://evil.test"))).status, 403);
+  for (const body of [{ id: "bad-id", status: "new" }, { id: submissionId, status: "deleted" }, { id: submissionId, status: "new", contact: "overwrite" }]) {
+    assert.equal((await r.api.PATCH(updateRequest(body))).status, 400);
+  }
+  assert.equal((await r.api.PATCH(updateRequest({ id: submissionId, status: "new", excess: "x".repeat(17000) }))).status, 413);
+  assert.equal(r.writes.length, 0);
+  for (const status of ["reviewed", "new"]) {
+    const response = await r.api.PATCH(updateRequest({ id: submissionId, status }));
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), '{"ok":true}');
+  }
+  assert.equal(JSON.stringify(r.writes), JSON.stringify([[submissionId, "reviewed"], [submissionId, "new"]]));
+  assert.equal((await adminRoute({ missing: true }).api.PATCH(updateRequest({ id: submissionId, status: "reviewed" }))).status, 404);
+  assert.equal((await adminRoute({ broken: true }).api.PATCH(updateRequest({ id: submissionId, status: "reviewed" }))).status, 503);
+});
+
+test("inbox filters the full query, paginates and decrypts legacy and new submissions", async () => {
+  let pageParameters: unknown[] = [], statusParameters: unknown[] = [];
+  const rows = Array.from({ length: 26 }, (_, index) => ({ id: String(index), created_at: new Date(Date.UTC(2026, 0, 26 - index)).toISOString(), details_encrypted: JSON.stringify(index ? suggestion : details), review_status: "new" }));
+  const store = load<typeof import("../lib/contributors/store")>("lib/contributors/store.ts", {
+    "server-only": {}, "./validation": validation, "./security": { decryptApplication: JSON.parse },
+    "@/lib/db": { query: async (sql: string, params: unknown[]) => {
+      if (sql.startsWith("SELECT id::text")) { pageParameters = params; assert.match(sql, /submission_type=\$3/); assert.match(sql, /review_status=\$4/); return { rows }; }
+      if (sql.startsWith("SELECT count(*)")) return { rows: [{ total: 26, help: 1, suggestion: 25, new: 26 }] };
+      if (sql.startsWith("UPDATE")) { statusParameters = params; return { rows: [{ id: submissionId }] }; }
+      return { rows: [] };
+    } },
+  });
+  const cursor = { at: "2026-02-01T00:00:00.000Z", id: submissionId };
+  const result = await store.listApplications(cursor, { kind: "suggestion", status: "new" });
+  assert.equal(result.applications.length, 25);
+  assert.equal(result.applications[0]?.name, "Test Applicant");
+  assert.equal(result.applications[1]?.kind, "suggestion");
+  assert.equal(result.applications[1]?.contact, "");
+  assert.equal(result.nextCursor?.id, "24");
+  assert.equal(result.counts.suggestion, 25);
+  assert.equal(JSON.stringify(pageParameters), JSON.stringify([cursor.at, cursor.id, "suggestion", "new"]));
+  assert.equal(await store.updateApplicationStatus(submissionId, "reviewed"), true);
+  assert.equal(JSON.stringify(statusParameters), JSON.stringify([submissionId, "reviewed"]));
+});
+
+test("new submissions store their type alongside encrypted details and share the existing limits", async () => {
+  const saved: unknown[][] = [];
+  const store = load<typeof import("../lib/contributors/store")>("lib/contributors/store.ts", {
+    "server-only": {}, "./validation": validation, "./security": { encryptApplication: () => "encrypted" },
+    "@/lib/db": { query: async () => ({ rows: [] }), withTransaction: async (fn: (db: unknown) => unknown) => fn({ query: async (sql: string, params: unknown[]) => {
+      if (sql.includes("count(*)")) return { rows: [{ count: 0 }] };
+      if (sql.startsWith("INSERT")) saved.push(params);
+      return { rows: [] };
+    } }) },
+  });
+  for (const submission of [help, suggestion]) {
+    assert.equal(await store.saveApplication(validation.submissionSchema.parse(submission), "fingerprint", "token-id"), "saved");
+  }
+  assert.equal(JSON.stringify(saved), JSON.stringify([["token-id", "encrypted", "fingerprint", "help"], ["token-id", "encrypted", "fingerprint", "suggestion"]]));
 });
 test("storage serializes same-visitor limits, deduplicates tokens and binds all input parameters",async()=>{
   let count=0,duplicate=false,inserted:unknown[]=[];const statements:string[]=[];

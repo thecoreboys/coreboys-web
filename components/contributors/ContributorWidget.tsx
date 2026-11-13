@@ -3,19 +3,31 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
+import * as Tabs from "@radix-ui/react-tabs";
 import { ArrowUpRight, Check, Sparkles, X } from "lucide-react";
-import { CONTRIBUTOR_ROLES, contributorSchema } from "@/lib/contributors/validation";
+import { CONTRIBUTOR_ROLES, communitySubmissionSchema, type CommunitySubmission } from "@/lib/contributors/validation";
 import { useContributorLauncher } from "@/hooks/useContributorLauncher";
 import { OPEN_CONTRIBUTOR_FORM_EVENT } from "@/lib/site-utility-events";
 
+type Kind = CommunitySubmission["kind"];
+type Draft = { name: string; contact: string; role: string; portfolio: string; message: string; ageConfirmed: boolean };
+const emptyDraft = (): Draft => ({ name: "", contact: "", role: "", portfolio: "", message: "", ageConfirmed: false });
+
 export function ContributorWidget() {
-  const pathname = usePathname(); const prefix = useId();
+  const pathname = usePathname();
+  const prefix = useId();
   const launcher = useContributorLauncher(pathname);
   const modalRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [viewport, setViewport] = useState<{ height: number; top: number } | null>(null);
-  const [open, setOpen] = useState(false); const [token, setToken] = useState("");
-  const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [sent, setSent] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [kind, setKind] = useState<Kind>("help");
+  const [drafts, setDrafts] = useState<Record<Kind, Draft>>({ help: emptyDraft(), suggestion: emptyDraft() });
+
   useEffect(() => {
     const show = () => setOpen(true);
     window.addEventListener(OPEN_CONTRIBUTOR_FORM_EVENT, show);
@@ -23,10 +35,15 @@ export function ContributorWidget() {
   }, []);
   useEffect(() => {
     if (!open) return;
-    const controller = new AbortController(); setToken(""); setError(""); setSent(false);
+    const controller = new AbortController();
+    setToken(""); setError(""); setSent(false);
     fetch("/api/contributors", { cache: "no-store", signal: controller.signal }).then(async response => {
-      const data = await response.json(); if (!response.ok || !data.token) throw new Error(data.error || "Please try again later."); setToken(data.token);
-    }).catch(error => { if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Please try again later."); });
+      const data = await response.json();
+      if (!response.ok || !data.token) throw new Error(data.error || "Please try again later.");
+      setToken(data.token);
+    }).catch(error => {
+      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Please try again later.");
+    });
     return () => controller.abort();
   }, [open]);
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -34,50 +51,117 @@ export function ContributorWidget() {
     if (!open || !window.visualViewport) return;
     const visual = window.visualViewport;
     const update = () => setViewport({ height: visual.height, top: visual.offsetTop });
-    update(); visual.addEventListener('resize', update); visual.addEventListener('scroll', update);
-    return () => { visual.removeEventListener('resize', update); visual.removeEventListener('scroll', update); };
+    update(); visual.addEventListener("resize", update); visual.addEventListener("scroll", update);
+    return () => { visual.removeEventListener("resize", update); visual.removeEventListener("scroll", update); };
   }, [open]);
   useEffect(() => {
     if (!sent) return;
     modalRef.current?.scrollTo({ top: 0 });
     titleRef.current?.focus({ preventScroll: true });
   }, [sent]);
+
   if (pathname?.startsWith("/admin") || pathname?.startsWith("/studio") || pathname?.startsWith("/access")) return null;
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (busy || !token) return;
+    event.preventDefault();
+    if (busy || !token) return;
     const form = new FormData(event.currentTarget);
-    const parsed = contributorSchema.safeParse({ ...Object.fromEntries(["firstName", "lastName", "phone", "twitter", "discord", "portfolio", "role", "how"].map(key => [key, form.get(key) || ""])), ageConfirmed: form.get("ageConfirmed") === "on" });
-    if (!parsed.success) { setError(parsed.error.issues[0]?.message || "Please check your details."); return; }
+    const draft = drafts[kind];
+    const parsed = communitySubmissionSchema.safeParse({
+      kind, contact: draft.contact, message: draft.message, ageConfirmed: draft.ageConfirmed,
+      ...(kind === "help" ? { name: draft.name, role: draft.role, portfolio: draft.portfolio } : {}),
+    });
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message || "Please check the form."); return; }
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/contributors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ details: parsed.data, token, website: form.get("website") || "" }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not send your application.");
+      const response = await fetch("/api/contributors", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ details: parsed.data, token, website: form.get("website") || "" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not send your submission.");
+      setDrafts(previous => ({ ...previous, [kind]: emptyDraft() }));
       setSent(true);
-    } catch (error) { setError(error instanceof Error ? error.message : "Could not send your application. Please try again."); }
-    finally { setBusy(false); }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not send your submission. Please try again.");
+    } finally { setBusy(false); }
   }
-  const field = (name: string, label: string, options: { optional?: boolean; type?: string; placeholder?: string; max?: number; autoComplete?: string } = {}) => <label className="contribute-field" htmlFor={`${prefix}-${name}`}><span>{label}{options.optional ? <small>Optional</small> : null}</span><input id={`${prefix}-${name}`} name={name} type={options.type || "text"} required={!options.optional} maxLength={options.max || 60} placeholder={options.placeholder} autoComplete={options.autoComplete || "off"} /></label>;
-  return <Dialog.Root open={open} onOpenChange={value => { if (!busy) setOpen(value); }}>
-    <Dialog.Trigger asChild><button ref={launcher.ref} className="contribute-launcher" data-occluded={launcher.placement.hidden ? "true" : undefined} style={{ transform: `translateY(-${launcher.placement.lift}px)` }}><Sparkles size={17} aria-hidden /><span>Help make this site better!</span><ArrowUpRight size={14} aria-hidden /></button></Dialog.Trigger>
-    <Dialog.Portal><Dialog.Overlay className="contribute-overlay" /><div className="contribute-viewport" style={viewport ? { height: viewport.height, top: viewport.top } : undefined}><Dialog.Content ref={modalRef} className={`contribute-modal${sent ? ' is-confirmation' : ''}`} data-lenis-prevent onOpenAutoFocus={event => { event.preventDefault(); titleRef.current?.focus(); }} onCloseAutoFocus={event => { if (!launcher.ref.current?.getClientRects().length) { event.preventDefault(); document.querySelector<HTMLButtonElement>('[aria-controls="mobile-navigation"]')?.focus(); } }}>
-      <Dialog.Close className="contribute-close" aria-label="Close application" disabled={busy}><X size={19} aria-hidden /></Dialog.Close>
-      <header className="contribute-intro">{sent ? <div className="contribute-success-icon"><Check size={28} aria-hidden /></div> : null}<Dialog.Title ref={titleRef} tabIndex={-1}>{sent ? 'Application received.' : 'Make your mark.'}</Dialog.Title><Dialog.Description>{sent ? 'Thanks for helping make this site better. Your application has been sent to our admins.' : 'A little skill. A big difference. Help shape the next version of this fan site.'}</Dialog.Description></header>
-      {sent ? <div className="contribute-success"><div className="contribute-next"><h3>What happens next?</h3><p>The admins will review your application and can get in touch through the contact details you provided.</p></div><Dialog.Close className="contribute-submit">Back to the site<ArrowUpRight size={16} aria-hidden /></Dialog.Close></div> : <form onSubmit={submit} className="contribute-form" aria-busy={busy}>
-        <div className="contribute-grid">
-          {field("firstName", "First name", { autoComplete: "given-name" })}{field("lastName", "Last name", { autoComplete: "family-name" })}
-          {field("twitter", "Twitter / X handle", { optional: true, placeholder: "@yourhandle", max: 80 })}{field("discord", "Discord handle", { optional: true, placeholder: "yourusername", max: 80 })}
-          {field("phone", "Phone number", { optional: true, type: "tel", autoComplete: "tel", max: 35 })}{field("portfolio", "Portfolio", { optional: true, type: "url", placeholder: "https://yourwork.com", max: 500 })}
-        </div>
-        <p className="contribute-hint">Add at least one handle so we can get in touch.</p>
-        <label className="contribute-field" htmlFor={`${prefix}-role`}><span>Your role</span><select id={`${prefix}-role`} name="role" required defaultValue=""><option value="" disabled>Choose where you fit</option>{CONTRIBUTOR_ROLES.map(role => <option key={role}>{role}</option>)}</select></label>
-        <label className="contribute-field" htmlFor={`${prefix}-how`}><span>How can you help?</span><textarea id={`${prefix}-how`} name="how" required minLength={20} maxLength={2000} rows={3} placeholder="Tell us what you’d love to work on…" /></label>
-        <div className="contribute-trap" aria-hidden="true"><label>Leave this empty<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
-        <label className="contribute-age"><input name="ageConfirmed" type="checkbox" required /><span>I confirm that I am 13 years old or older.</span></label>
-        <p className="contribute-privacy">Your details are shared with site admins to review your application and contact you. Please don’t include sensitive information. <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy policy ↗</a></p>
+
+  function renderForm(mode: Kind) {
+    const draft = drafts[mode];
+    const update = (value: Partial<Draft>) => setDrafts(previous => ({ ...previous, [mode]: { ...previous[mode], ...value } }));
+    const id = (name: string) => `${prefix}-${mode}-${name}`;
+    return (
+      <form onSubmit={submit} className="contribute-form" aria-busy={busy}>
+        <fieldset className="contribute-fields" disabled={busy}>
+          {mode === "help" ? <>
+            <div className="contribute-grid">
+              <label className="contribute-field" htmlFor={id("name")}>
+                <span>Name</span><input id={id("name")} name="name" required maxLength={120} autoComplete="name" value={draft.name} onChange={event => update({ name: event.target.value })} />
+              </label>
+              <label className="contribute-field" htmlFor={id("contact")}>
+                <span>Email or handle</span><input id={id("contact")} name="contact" required minLength={2} maxLength={120} placeholder="Email, X, or Discord" value={draft.contact} onChange={event => update({ contact: event.target.value })} />
+              </label>
+            </div>
+            <label className="contribute-field" htmlFor={id("role")}>
+              <span>How would you like to help?</span>
+              <select id={id("role")} name="role" required value={draft.role} onChange={event => update({ role: event.target.value })}>
+                <option value="" disabled>Choose a role</option>{CONTRIBUTOR_ROLES.map(role => <option key={role}>{role}</option>)}
+              </select>
+            </label>
+            <label className="contribute-field" htmlFor={id("portfolio")}>
+              <span>Link to your work<small>Optional</small></span>
+              <input id={id("portfolio")} name="portfolio" type="url" maxLength={500} placeholder="https://" value={draft.portfolio} onChange={event => update({ portfolio: event.target.value })} />
+            </label>
+          </> : null}
+          <label className="contribute-field" htmlFor={id("message")}>
+            <span>{mode === "help" ? "Tell us a little about what you can do" : "What would you like to suggest?"}</span>
+            <textarea id={id("message")} name="message" required minLength={mode === "help" ? 20 : 10} maxLength={2000} rows={mode === "help" ? 3 : 5} placeholder={mode === "help" ? "Your skills, ideas, or what you’d like to work on…" : "An idea, improvement, or something we should fix…"} value={draft.message} onChange={event => update({ message: event.target.value })} />
+          </label>
+          {mode === "suggestion" ? <label className="contribute-field" htmlFor={id("contact")}>
+            <span>Email or handle<small>Optional</small></span>
+            <input id={id("contact")} name="contact" maxLength={120} placeholder="If you’d like a reply" value={draft.contact} onChange={event => update({ contact: event.target.value })} />
+          </label> : null}
+          <div className="contribute-trap" aria-hidden="true"><label>Leave this empty<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
+          <label className="contribute-age"><input name="ageConfirmed" type="checkbox" required checked={draft.ageConfirmed} onChange={event => update({ ageConfirmed: event.target.checked })} /><span>I’m 13 or older.</span></label>
+        </fieldset>
+        <p className="contribute-privacy">Sent privately to site admins. <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy policy ↗</a></p>
         {error ? <p className="contribute-error" role="alert">{error}</p> : null}
-        <button type="submit" className="contribute-submit" disabled={busy || !token}>{busy ? "Sending…" : !token && !error ? "Preparing form…" : "Send application"}<ArrowUpRight size={16} aria-hidden /></button>
-        {!token && error ? <button type="button" className="contribute-retry" onClick={() => { setOpen(false); }}>Close and try again</button> : null}
-      </form>}
-    </Dialog.Content></div></Dialog.Portal>
-  </Dialog.Root>;
+        <button type="submit" className="contribute-submit" disabled={busy || !token}>{busy ? "Sending…" : !token && !error ? "Preparing form…" : mode === "help" ? "Sign up to help" : "Send suggestion"}<ArrowUpRight size={16} aria-hidden /></button>
+        {!token && error ? <button type="button" className="contribute-retry" onClick={() => setOpen(false)}>Close and try again</button> : null}
+      </form>
+    );
+  }
+
+  return (
+    <Dialog.Root open={open} onOpenChange={value => { if (!busy) setOpen(value); }}>
+      <Dialog.Trigger asChild><button ref={launcher.ref} className="contribute-launcher" data-occluded={launcher.placement.hidden ? "true" : undefined} style={{ transform: `translateY(-${launcher.placement.lift}px)` }}><Sparkles size={17} aria-hidden /><span>Help make this site better!</span><ArrowUpRight size={14} aria-hidden /></button></Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="contribute-overlay" />
+        <div className="contribute-viewport" style={viewport ? { height: viewport.height, top: viewport.top } : undefined}>
+          <Dialog.Content ref={modalRef} className={`contribute-modal${sent ? " is-confirmation" : ""}`} data-lenis-prevent
+            onOpenAutoFocus={event => { event.preventDefault(); titleRef.current?.focus(); }}
+            onCloseAutoFocus={event => { if (!launcher.ref.current?.getClientRects().length) { event.preventDefault(); document.querySelector<HTMLButtonElement>('[aria-controls="mobile-navigation"]')?.focus(); } }}>
+            <Dialog.Close className="contribute-close" aria-label="Close form" disabled={busy}><X size={19} aria-hidden /></Dialog.Close>
+            <header className="contribute-intro">
+              {sent ? <div className="contribute-success-icon"><Check size={28} aria-hidden /></div> : null}
+              <Dialog.Title ref={titleRef} tabIndex={-1}>{sent ? "Thanks!" : "Help & suggestions"}</Dialog.Title>
+              <Dialog.Description className={sent ? undefined : "contribute-sr-only"}>{sent ? (kind === "help" ? "Your signup is in the admin inbox. We can follow up using your contact details." : "Your suggestion is in the admin inbox.") : "Sign up to help with the site or send an idea to the admins."}</Dialog.Description>
+            </header>
+            {sent ? <div className="contribute-success"><Dialog.Close className="contribute-submit">Done<Check size={16} aria-hidden /></Dialog.Close></div> : (
+              <Tabs.Root className="contribute-tabs" value={kind} onValueChange={value => { setKind(value as Kind); setError(""); }}>
+                <Tabs.List className="contribute-switch" aria-label="Choose a form" data-kind={kind}>
+                  <span className="contribute-switch-indicator" aria-hidden="true" />
+                  <Tabs.Trigger value="help" disabled={busy}>Sign up to help</Tabs.Trigger>
+                  <Tabs.Trigger value="suggestion" disabled={busy}>Suggest something</Tabs.Trigger>
+                </Tabs.List>
+                <Tabs.Content value="help">{renderForm("help")}</Tabs.Content>
+                <Tabs.Content value="suggestion">{renderForm("suggestion")}</Tabs.Content>
+              </Tabs.Root>
+            )}
+          </Dialog.Content>
+        </div>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
 }

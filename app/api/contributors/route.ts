@@ -21,7 +21,7 @@ function validOrigin(request: Request): boolean {
 }
 export async function GET(request: Request) {
   try { return json({ token: await issueApplicationToken(contributorFingerprint(request)) }); }
-  catch { return json({ error: "Applications are temporarily unavailable. Please try again later." }, 503); }
+  catch { return json({ error: "The form is temporarily unavailable. Please try again later." }, 503); }
 }
 export async function POST(request: Request) {
   if (!validOrigin(request)) return json({ error: "Invalid origin." }, 403);
@@ -33,12 +33,12 @@ export async function POST(request: Request) {
     let body: unknown;
     try { body = await readApplicationJson(request); } catch (error) { return json({ error: "The form is invalid or too large." }, error instanceof Error && error.message === "body_too_large" ? 413 : 400); }
     const parsed = applicationEnvelope.safeParse(body);
-    if (!parsed.success) return json({ error: "Check your details, add a Twitter or Discord handle, and confirm you are 13 or older." }, 400);
+    if (!parsed.success) return json({ error: "Check the form fields and confirm you are 13 or older." }, 400);
     if (parsed.data.website) return json({ error: "We could not verify the form. Please reopen it and try again." }, 400);
     const tokenId = await verifyApplicationToken(parsed.data.token, fingerprint);
     if (!tokenId) return json({ error: "Your form expired or could not be verified. Reopen it and try again." }, 400);
     const result = await saveApplication(parsed.data.details, fingerprint, tokenId);
-    if (result === "limited") return json({ error: "You have reached today’s application limit. Please try tomorrow." }, 429, { "Retry-After": "86400" });
+    if (result === "limited") return json({ error: "You have reached today’s submission limit. Please try tomorrow." }, 429, { "Retry-After": "86400" });
     return json({ ok: true }, result === "saved" ? 201 : 200);
-  } catch { return json({ error: "We couldn’t save your application. Your details are still here. Please try again later." }, 503); }
+  } catch { return json({ error: "We couldn’t save your submission. Your details are still here. Please try again later." }, 503); }
 }
