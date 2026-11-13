@@ -113,7 +113,7 @@ test("Twitch VODs start at their offset through the embed time option, never a R
     const source = readFileSync(file, "utf8");
     assert.match(source, /twitchStartTime\(/, `${file} passes the start offset at creation`);
     const ready = source.slice(source.indexOf("Player.READY"), source.indexOf("Player.READY") + 1_400);
-    assert.doesNotMatch(ready.split(/Player\.PLAYING/)[0], /\.seek\??\.?\(/, `${file} must not seek on READY`);
+    assert.doesNotMatch(ready.split(/Player\.PLAYING/)[0] ?? "", /\.seek\??\.?\(/, `${file} must not seek on READY`);
   }
   // The full player resumes through `time` and marks that resume done, so its
   // READY handler skips the seek it keeps for resume points set later.
