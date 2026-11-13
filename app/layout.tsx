@@ -28,7 +28,6 @@ import { CookieBanner } from "@/components/legal/CookieBanner";
 import { ExternalNavigation } from "@/components/chrome/ExternalNavigation";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { ContributorWidget } from "@/components/contributors/ContributorWidget";
-import { AppStoreDownload } from "@/components/chrome/AppStoreDownload";
 import { NavigationPrefetch } from "@/components/chrome/NavigationPrefetch";
 import "./contributors.css";
 import "./globals.css";
@@ -140,7 +139,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
                <GlobalWatchEnhancements />
               <ContributorWidget />
-              <AppStoreDownload />
               <Suspense fallback={null}>
                 <AuthModal />
               </Suspense>

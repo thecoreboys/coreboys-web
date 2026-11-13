@@ -2,9 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { launcherPlacement } from "@/lib/contributors/launcher-placement";
 
-const surfaces = 'section[aria-label="Now playing"], #dj-cora-panel, button[aria-label*="DJ Cora"], .watch-together, .passport-status-toast, .mobile-bottom-nav, [data-floating-widget]';
-export function useContributorLauncher<T extends HTMLElement = HTMLButtonElement>(pathname: string | null, enabled = true) {
-  const ref = useRef<T>(null);
+const surfaces = 'section[aria-label="Now playing"], #dj-cora-panel, button[aria-label*="DJ Cora"], .watch-together, .passport-status-toast, .mobile-bottom-nav';
+export function useContributorLauncher(pathname: string | null, enabled = true) {
+  const ref = useRef<HTMLButtonElement>(null);
   const lift = useRef(0);
   const [placement, setPlacement] = useState({ lift: 0, hidden: false });
   useEffect(() => {
@@ -24,9 +24,9 @@ export function useContributorLauncher<T extends HTMLElement = HTMLButtonElement
         return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) !== 0 && rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight && rect.bottom > 0;
       });
       const ceiling = Math.max(12, document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 12);
-      // The draggable mini player is never an obstacle: these widgets are hidden
-      // while it is on screen (see the `[data-mini-player]` CSS rules), so they
-      // must not jump around as it is dragged over or near them.
+      // The draggable mini player is never an obstacle: the launcher is hidden
+      // while it is on screen (see the `[data-mini-player]` rule in
+      // contributors.css), so it must not jump as the player is dragged near it.
       const obstacles = visible.filter(el => !el.hasAttribute('data-mini-player'));
       const next = launcherPlacement(base, obstacles.map(el => el.getBoundingClientRect()), ceiling);
       if (document.fullscreenElement || visible.some(el => el.getAttribute('aria-modal') === 'true')) next.hidden = true;

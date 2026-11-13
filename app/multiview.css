@@ -136,11 +136,3 @@ html[data-theme="light"] .multiview-studio :where(button, a, input):focus-visibl
   outline-color: var(--core);
 }
 
-/* Phone Multiview is a full-bleed room with its own control bar. The floating
-   app-store badge would sit on top of those controls, so it steps aside here. */
-@media (max-width: 767px) {
-  body:has(.multiview-room) aside[aria-label="CORE HQ for iPhone"] {
-    display: none;
-  }
-}
-

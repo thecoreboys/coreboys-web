@@ -7,7 +7,7 @@ body:has([data-remote-chat-screen]) {
   overflow: hidden;
 }
 
-body:has([data-remote-chat-screen]) :is(.site-header, .site-footer, .mobile-bottom-nav, [data-floating-widget], .contribute-launcher) {
+body:has([data-remote-chat-screen]) :is(.site-header, .site-footer, .mobile-bottom-nav, .contribute-launcher) {
   display: none;
 }
 
