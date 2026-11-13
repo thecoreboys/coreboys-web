@@ -99,3 +99,26 @@ test("live watch time excludes pause, buffering, hidden tabs, and suspended poll
   assert.equal(clock.sample(110000, true), 3);
   assert.equal(clock.sample(111000, true), 4);
 });
+
+test("Twitch VODs start at their offset through the embed time option, never a READY seek", async () => {
+  const { twitchStartTime } = await import("../lib/watch/playable");
+  assert.equal(twitchStartTime(0), null);
+  assert.equal(twitchStartTime(0.4), null);
+  assert.equal(twitchStartTime(Number.NaN), null);
+  assert.equal(twitchStartTime(85), "0h1m25s");
+  assert.equal(twitchStartTime(3_723.9), "1h2m3s");
+  // seek() right after READY cancels Twitch's own autoplay: the VOD freezes
+  // at the offset behind the click-to-play overlay.
+  for (const file of ["components/watch/TwitchHoverMedia.tsx", "components/watch/TwitchTileMedia.tsx"]) {
+    const source = readFileSync(file, "utf8");
+    assert.match(source, /twitchStartTime\(/, `${file} passes the start offset at creation`);
+    const ready = source.slice(source.indexOf("Player.READY"), source.indexOf("Player.READY") + 1_400);
+    assert.doesNotMatch(ready.split(/Player\.PLAYING/)[0], /\.seek\??\.?\(/, `${file} must not seek on READY`);
+  }
+  // The full player resumes through `time` and marks that resume done, so its
+  // READY handler skips the seek it keeps for resume points set later.
+  const player = readFileSync("components/watch/PersistentPlayer.tsx", "utf8");
+  const creation = player.indexOf("instance = new api.Player(id, options)");
+  const resumed = player.indexOf("resumedOwnerRef.current = resume.resumeOwner;");
+  assert.ok(player.includes("twitchStartTime(resume.resumeAt)") && resumed > 0 && resumed < creation);
+});

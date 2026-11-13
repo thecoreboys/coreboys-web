@@ -2655,6 +2655,28 @@
   top: calc(300px + 0.65rem);
 }
 
+/* The preview sound control sat on the player's top-left corner, which made
+   Twitch refuse to autoplay VOD and live previews. Below the player it pairs
+   with the Save control on the right. */
+.watch-preview.has-twitch-player .watch-preview-audio,
+.watch-preview.is-twitch.has-motion .watch-preview-audio {
+  top: calc(300px + 0.65rem);
+}
+
+.watch-preview.has-twitch-player .watch-preview-meta,
+.watch-preview.is-twitch.has-motion .watch-preview-meta {
+  padding-left: 3.4rem;
+}
+
+/* The media box is its own isolation group (for the light-sweep blend, which
+   Twitch previews do not show) nested inside the isolated preview. Inside
+   that nested group Twitch's visibility check fails: VOD and live previews
+   froze behind the click-to-play overlay, while the same player one level up
+   autoplayed. */
+.watch-preview.is-twitch .watch-preview-media {
+  isolation: auto;
+}
+
 .watch-preview.has-twitch-player .watch-preview-meta {
   padding-right: 4rem;
 }

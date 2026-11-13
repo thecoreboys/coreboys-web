@@ -42,7 +42,7 @@ import {
   X,
 } from "lucide-react";
 import { usePlayer, type PlayerAiringContext } from "@/components/providers/PlayerProvider";
-import { contentShape, embedFor, type Playable } from "@/lib/watch/playable";
+import { contentShape, embedFor, twitchStartTime, type Playable } from "@/lib/watch/playable";
 import { nativeVideoSource, playWithMutedFallback, safeMediaUrl } from "@/lib/watch/native-media";
 import { useInstagramPlayback } from "@/hooks/useInstagramPlayback";
 import { useMiniPlayerDrag } from "@/hooks/useMiniPlayerDrag";
@@ -283,7 +283,18 @@ function TwitchMedia({
           muted: startMuted,
         };
         if (item.kind === "live" && item.twitchLogin) options.channel = item.twitchLogin;
-        else if (item.vodId) options.video = item.vodId.startsWith("v") ? item.vodId : `v${item.vodId}`;
+        else if (item.vodId) {
+          options.video = item.vodId.startsWith("v") ? item.vodId : `v${item.vodId}`;
+          // Resume through the embed's `time` option instead of a seek() on
+          // READY, which cancels Twitch's autoplay and leaves the VOD paused
+          // behind its click-to-play overlay.
+          const resume = resumeRef.current;
+          if (resume.resumeOwner) {
+            const time = twitchStartTime(resume.resumeAt);
+            if (time) options.time = time;
+            resumedOwnerRef.current = resume.resumeOwner;
+          }
+        }
         else throw new Error("missing_twitch_source");
         instance = new api.Player(id, options);
         instanceRef.current = instance;

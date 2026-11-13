@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useId, useRef, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { loadTwitchPlayer, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import { advancingTwitchPlayback, createTwitchAutoplayBudget, exposedTwitchPreview, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import { withTwitchAutoplayPermissions } from "@/lib/watch/player-autoplay";
+import { twitchStartTime } from "@/lib/watch/playable";
 
 /** Starts muted; expanded panels can enable sound through the shared SDK ref. */
 export function TwitchHoverMedia({ channel, video, active, title, startSeconds, onPlayingChange, onProgress, onSelect, onLoadError, playerRef }: {
@@ -24,10 +25,19 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
   const syncActiveRef = useRef<(() => void) | null>(null);
   const current = useRef({ active, title, startSeconds, onPlayingChange, onProgress, onSelect, onLoadError });
   current.current = { active, title, startSeconds, onPlayingChange, onProgress, onSelect, onLoadError };
+  // Twitch starts a VOD only through the embed's own `autoplay` at creation:
+  // a player created paused (on hover intent) and started later with play()
+  // stays behind Twitch's click-to-play overlay. Intent only warms the SDK;
+  // the player itself is created once the preview is active, autoplaying.
+  const [armed, setArmed] = useState(active);
+  useEffect(() => {
+    if (active) setArmed(true);
+    else void loadTwitchPlayer().catch(() => undefined);
+  }, [active]);
 
   useEffect(() => {
     const mount = mountRef.current;
-    if (!mount || (!channel && !video)) return;
+    if (!mount || (!channel && !video) || !armed) return;
     mount.dataset.previewState = "loading";
     let disposed = false;
     let instance: TwitchPlayerInstance | null = null;
@@ -76,7 +86,13 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
         providerPlaying = false;
         previousPosition = -1;
         setPlaying(false);
-        try { instance?.pause?.(); } catch { /* The iframe may still be loading. */ }
+        // Only pause a preview that was actually on screen. Before the first
+        // observer report the frame merely looks "not visible"; pausing then
+        // cancels Twitch's own autoplay, and a VOD will not restart from a
+        // scripted play() (it stays behind the click-to-play overlay).
+        if (wasVisible) {
+          try { instance?.pause?.(); } catch { /* The iframe may still be loading. */ }
+        }
       } else if (!wasVisible) {
         budget.restart();
         requestPlayback();
@@ -105,12 +121,13 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
     void loadTwitchPlayer().then((api) => {
       if (disposed) return;
       const bounds = mount.getBoundingClientRect();
+      // Start a VOD at its resume point through the embed's `time` option: a
+      // seek() right after READY cancels Twitch's autoplay.
+      const time = video ? twitchStartTime(current.current.startSeconds) : null;
       instance = new api.Player(id, {
         width: Math.round(bounds.width), height: Math.round(bounds.height), parent: [window.location.hostname],
-        // Active hover windows request autoplay immediately. Intent-only
-        // mounts remain paused until their visibility observer promotes them.
-        autoplay: current.current.active, muted: true,
-        ...(channel ? { channel } : { video: video?.startsWith("v") ? video : `v${video}` }),
+        autoplay: true, muted: true,
+        ...(channel ? { channel } : { video: video?.startsWith("v") ? video : `v${video}`, ...(time ? { time } : {}) }),
       });
       if (playerRef) playerRef.current = instance;
       prepareFrame();
@@ -119,7 +136,6 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
         ready = true;
         mount.dataset.previewState = "ready";
         instance.setMuted?.(true);
-        if (video && current.current.startSeconds > 0) instance.seek?.(current.current.startSeconds);
         requestPlayback();
       });
       instance.addEventListener(api.Player.PLAYING, () => {
@@ -186,7 +202,7 @@ export function TwitchHoverMedia({ channel, video, active, title, startSeconds, 
       if (playerRef?.current === instance) playerRef.current = null;
       mount.replaceChildren();
     };
-  }, [channel, id, video, playerRef]);
+  }, [armed, channel, id, video, playerRef]);
 
   useEffect(() => { syncActiveRef.current?.(); }, [active]);
 

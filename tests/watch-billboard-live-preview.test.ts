@@ -70,7 +70,10 @@ test("active hover previews honor motion preferences and hand playback off to th
 });
 
 test("the mounted Twitch hover player stays muted, visible, and bounded by provider readiness", () => {
-  assert.match(twitchHover, /autoplay: current\.current\.active, muted: true/);
+  // Created only once the preview is active (`armed`), so it always autoplays:
+  // a VOD created paused and started later with play() stays frozen.
+  assert.match(twitchHover, /autoplay: true, muted: true/);
+  assert.match(twitchHover, /\|\| !armed\) return/);
   assert.match(twitchHover, /channel \? \{ channel \} : \{ video: video\?\.startsWith\("v"\)/);
   assert.match(twitchHover, /if \(disposed \|\| !ready \|\| !instance \|\| !budget\.takeAttempt\(\)\) return/);
   assert.match(twitchHover, /current\.current\.active && inView && document\.visibilityState === "visible"/);

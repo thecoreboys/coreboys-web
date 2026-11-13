@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { loadTwitchPlayer, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, exposedTwitchPlayer, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import { withTwitchAutoplayPermissions } from "@/lib/watch/player-autoplay";
+import { twitchStartTime } from "@/lib/watch/playable";
 
 export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, onPlaying, onPaused, onProgress, onEnded, statusContainer }: {
   statusContainer?: HTMLElement | null;
@@ -91,10 +92,13 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
     }, 10_000);
     void loadTwitchPlayer().then((api) => {
       if (disposed) return;
+      // A VOD starts at its offset through the embed's `time` option; a seek()
+      // right after READY cancels Twitch's autoplay.
+      const time = video ? twitchStartTime(current.current.startSeconds) : null;
       instance = new api.Player(id, {
         width: "100%", height: "100%", parent: [window.location.hostname],
         autoplay: true, muted: true,
-        ...(channel ? { channel } : { video: video?.startsWith("v") ? video : `v${video}` }),
+        ...(channel ? { channel } : { video: video?.startsWith("v") ? video : `v${video}`, ...(time ? { time } : {}) }),
       });
       playerRef.current = instance;
       prepareFrame();
@@ -107,7 +111,6 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
         // confirms real playback; unmuting here can block the initial start.
         instance.setMuted?.(true);
         instance.setVolume?.(current.current.volume);
-        if (video && current.current.startSeconds > 0) instance.seek?.(current.current.startSeconds);
         requestStart();
         poll = window.setInterval(() => {
           if (disposed || !instance) return;

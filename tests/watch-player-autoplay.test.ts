@@ -137,7 +137,7 @@ test("Twitch VOD previews start at the current 24/7 clock position", () => {
   });
   const url = new URL(src!);
 
-  assert.equal(url.searchParams.get("video"), "123456789");
+  assert.equal(url.searchParams.get("video"), "v123456789");
   assert.equal(url.searchParams.get("time"), "1h2m3s");
   assert.equal(url.searchParams.get("muted"), "true");
 });

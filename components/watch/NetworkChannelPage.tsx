@@ -36,7 +36,7 @@ import type { WatchItem, WatchPlatform } from "@/lib/watch/types";
 import type { WatchHomeXPost } from "@/lib/watch/x-posts";
 import type { TwitchTrackerChannelSnapshot } from "@/lib/twitchtracker-snapshots";
 import type { AirtimeDailyRecord, AirtimeHistorySession } from "@/lib/watch/airtime-history";
-import { embedFor, itemToPlayable } from "@/lib/watch/playable";
+import { embedFor, itemToPlayable, twitchStartTime } from "@/lib/watch/playable";
 import { loadTwitchPlayer, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import { advancingTwitchPlayback, createTwitchAutoplayBudget, exposedTwitchPlayer, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import { withTwitchAutoplayPermissions } from "@/lib/watch/player-autoplay";
@@ -808,7 +808,7 @@ function ChannelOnNowPreview({
       instance = new api.Player(twitchMountId, {
         width: "100%", height: "100%", parent: [host.parent], autoplay: true, muted: true,
         ...(twitchChannel ? { channel: twitchChannel } : { video: twitchVideo?.startsWith("v") ? twitchVideo : `v${twitchVideo}` }),
-        ...(!twitchChannel && previewStartSeconds > 0 ? { time: `${Math.floor(previewStartSeconds / 3600)}h${Math.floor((previewStartSeconds % 3600) / 60)}m${Math.floor(previewStartSeconds % 60)}s` } : {}),
+        ...(!twitchChannel && twitchStartTime(previewStartSeconds) ? { time: twitchStartTime(previewStartSeconds) } : {}),
       });
       twitchPlayerRef.current = instance;
       prepareIframe();

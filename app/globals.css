@@ -396,6 +396,24 @@ body[data-cursor="agentic"][data-cursor-idle="true"] .core-agent-cursor-aura[dat
     visibility: hidden !important;
   }
 
+  /* A Twitch hover preview opens under a pointer that has not moved, so the
+     frame may not match :hover yet. Twitch refuses to autoplay anything that is
+     painted over, so hide the cursor layers while a Twitch preview is open. */
+  body[data-cursor="agentic"]:has(.watch-preview.is-twitch.is-active) :where(
+    .core-agent-cursor, .core-agent-cursor-aura, .core-agent-cursor-trail,
+    .core-agent-cursor-particles, .core-agent-cursor-hint, .core-agent-cursor-ripple
+  ) {
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
+  /* The same applies to floating chrome near a preview (App Store badge,
+     Help & suggestions); hidden layers are not occluders. */
+  body:has(.watch-preview.is-twitch.is-active) :is([data-floating-widget], .contribute-launcher) {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
   body[data-cursor="agentic"] :where(button:disabled, input:disabled, [aria-disabled="true"]) {
     cursor: not-allowed !important;
   }

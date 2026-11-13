@@ -464,6 +464,20 @@ export function catalogPlayables(catalog: WatchCatalog): Playable[] {
   return out;
 }
 
+/**
+ * Twitch VOD start offset in the embed's `time` format (`1h2m3s`). Pass it when
+ * the player is created: seeking right after READY races Twitch's own autoplay
+ * and leaves the VOD paused behind its click-to-play overlay.
+ */
+export function twitchStartTime(startSeconds: number | null | undefined) {
+  if (!startSeconds || !Number.isFinite(startSeconds) || startSeconds < 1) return null;
+  const totalSeconds = Math.floor(startSeconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}h${minutes}m${seconds}s`;
+}
+
 export function embedFor(
   item: Playable,
   opts: {
@@ -519,18 +533,14 @@ export function embedFor(
   }
   if (item.vodId && parent) {
     const qs = new URLSearchParams({
-      video: item.vodId,
+      // Twitch documents VOD ids with their "v" prefix; the SDK paths add it too.
+      video: item.vodId.startsWith("v") ? item.vodId : `v${item.vodId}`,
       parent,
       autoplay: autoplay ? "true" : "false",
       muted: muted ? "true" : "false",
     });
-    if (opts.startSeconds && opts.startSeconds > 0) {
-      const totalSeconds = Math.floor(opts.startSeconds);
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
-      qs.set("time", `${hours}h${minutes}m${seconds}s`);
-    }
+    const time = twitchStartTime(opts.startSeconds);
+    if (time) qs.set("time", time);
     return `https://player.twitch.tv/?${qs}`;
   }
   if (item.kind === "clip" && item.clipSrc === "twitch" && item.clipId && parent) {
