@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import useSWRInfinite from "swr/infinite";
-import { ArrowUpRight, Flame, LayoutGrid, Play, Sparkles, Trophy, Tv } from "lucide-react";
+import { ArrowUpDown, ArrowUpRight, Layers, LayoutGrid, Play, Tv, X } from "lucide-react";
 import { useBrowseFilters } from "@/hooks/useBrowseFilters";
 import { youtubeIdFromHref } from "@/hooks/useWatchProgress";
 import { SocialIcon } from "@/components/ui/SocialIcon";
@@ -11,10 +11,7 @@ import {
   BROWSE_FORMATS,
   BROWSE_PLATFORM_LABEL,
   BROWSE_PLATFORMS,
-  BROWSE_SORT_LABEL,
-  BROWSE_SORTS,
   BROWSE_WINDOW_LABEL,
-  BROWSE_WINDOWS,
   DEFAULT_BROWSE_FILTERS,
   browseFormatOf,
   browseSearchParams,
@@ -43,7 +40,24 @@ type BrowsePage = {
 
 const URL_DEFAULTS: Record<keyof BrowseFilters, string> = { ...DEFAULT_BROWSE_FILTERS };
 
-const SORT_ICON = { latest: Sparkles, top: Trophy, watched: Flame } as const;
+/** Order and time range share one menu: "Top this week" reads as one choice. */
+const SORT_OPTIONS: ReadonlyArray<{ sort: BrowseFilters["sort"]; window: BrowseFilters["window"]; label: string }> = [
+  { sort: "latest", window: "all", label: "Newest" },
+  { sort: "top", window: "week", label: "Top this week" },
+  { sort: "top", window: "month", label: "Top this month" },
+  { sort: "top", window: "year", label: "Top this year" },
+  { sort: "top", window: "all", label: "Top of all time" },
+  { sort: "watched", window: "week", label: "Most watched this week" },
+  { sort: "watched", window: "month", label: "Most watched this month" },
+  { sort: "watched", window: "all", label: "Most watched ever" },
+];
+
+function sortLabel(filters: Pick<BrowseFilters, "sort" | "window">): string {
+  const preset = SORT_OPTIONS.find((option) => option.sort === filters.sort && option.window === filters.window);
+  if (preset) return preset.label;
+  const base = filters.sort === "latest" ? "Newest" : filters.sort === "top" ? "Top" : "Most watched";
+  return `${base} · ${BROWSE_WINDOW_LABEL[filters.window].toLowerCase()}`;
+}
 
 async function fetchPage(url: string): Promise<BrowsePage> {
   const response = await fetch(url);
@@ -140,16 +154,15 @@ export function ChannelBrowser({ channelSlug, channelName, onPlay, children }: {
     fetchPage,
     { revalidateFirstPage: false, revalidateOnFocus: false, keepPreviousData: true, dedupingInterval: 60_000 },
   );
-  const controlsRef = useRef<HTMLDivElement>(null);
-  // Keep the active chip visible in its horizontally scrolling row on phones.
+  const platformsRef = useRef<HTMLDivElement>(null);
+  // Keep the selected platform visible in the horizontally scrolling phone strip.
   useEffect(() => {
-    for (const row of controlsRef.current?.querySelectorAll<HTMLElement>("[data-chip-row]") ?? []) {
-      const chip = row.querySelector<HTMLElement>('[aria-checked="true"]');
-      if (chip && (chip.offsetLeft < row.scrollLeft || chip.offsetLeft + chip.offsetWidth > row.scrollLeft + row.clientWidth)) {
-        row.scrollLeft = Math.max(0, chip.offsetLeft - 24);
-      }
+    const row = platformsRef.current;
+    const chip = row?.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (row && chip && (chip.offsetLeft < row.scrollLeft || chip.offsetLeft + chip.offsetWidth > row.scrollLeft + row.clientWidth)) {
+      row.scrollLeft = Math.max(0, chip.offsetLeft - 16);
     }
-  }, [filters.platform, filters.format, data]);
+  }, [filters.platform, data]);
   const first = data?.[0];
   const facets = first?.facets;
   const entries = useMemo(() => {
@@ -173,62 +186,71 @@ export function ChannelBrowser({ channelSlug, channelName, onPlay, children }: {
     platform === "all" || platform === filters.platform || (facets?.platforms[platform] ?? 0) > 0);
   const visibleFormats = BROWSE_FORMATS.filter((format) =>
     format === "all" || format === filters.format || (facets?.formats[format] ?? 0) > 0);
-  const headline = isDefault ? null
-    : `${filters.sort === "latest" ? "Newest" : BROWSE_SORT_LABEL[filters.sort]}${filters.window === "all" ? (filters.sort === "latest" ? "" : " · all time") : ` · ${BROWSE_WINDOW_LABEL[filters.window].toLowerCase()}`}`;
+  const currentSort = `${filters.sort}:${filters.window}`;
+  const sortOptions = SORT_OPTIONS.some((option) => `${option.sort}:${option.window}` === currentSort)
+    ? SORT_OPTIONS
+    : [...SORT_OPTIONS, { sort: filters.sort, window: filters.window, label: sortLabel(filters) }];
+  const summary = [
+    filters.platform === "all" ? null : BROWSE_PLATFORM_LABEL[filters.platform],
+    filters.format === "all" ? null : BROWSE_FORMAT_LABEL[filters.format],
+    sortLabel(filters),
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className={styles.browser}>
-      <div ref={controlsRef} className={styles.controls} role="group" aria-label={`Browse ${channelName}'s library`}>
-        <div className={styles.sortRow}>
-          <div className={styles.segmented} role="radiogroup" aria-label="Order">
-            {BROWSE_SORTS.map((sort) => {
-              const Icon = SORT_ICON[sort];
-              return (
-                <button key={sort} type="button" role="radio" aria-checked={filters.sort === sort}
-                  onClick={() => set({ sort })}>
-                  <Icon size={14} aria-hidden />
-                  <span>{sort === "watched" ? "Most watched" : BROWSE_SORT_LABEL[sort]}</span>
-                </button>
-              );
-            })}
+      <header className={styles.header}>
+        <div className={styles.heading}>
+          <span className={styles.eyebrow}>Library</span>
+          <h2 id={`${channelSlug}-library-heading`}>From {channelName}</h2>
+        </div>
+        <div className={styles.toolbar} role="group" aria-labelledby={`${channelSlug}-library-heading`}>
+          <div ref={platformsRef} className={styles.platforms} role="radiogroup" aria-label="Platform">
+            {visiblePlatforms.map((platform) => (
+              <button key={platform} type="button" role="radio" aria-checked={filters.platform === platform}
+                title={`${platform === "all" ? "All platforms" : BROWSE_PLATFORM_LABEL[platform]}${facets?.platforms[platform] !== undefined ? ` · ${facets.platforms[platform]!.toLocaleString("en-US")} items` : ""}`}
+                onClick={() => set({ platform })}>
+                <PlatformGlyph platform={platform} />
+                <span>{platform === "all" ? "All" : BROWSE_PLATFORM_LABEL[platform]}</span>
+              </button>
+            ))}
           </div>
-          <label className={styles.windowSelect}>
-            <span className="sr-only">Time range</span>
-            <select value={filters.window} onChange={(event) => set({ window: event.target.value as BrowseFilters["window"] })}>
-              {BROWSE_WINDOWS.map((window) => <option key={window} value={window}>{BROWSE_WINDOW_LABEL[window]}</option>)}
-            </select>
-          </label>
-          {!isDefault ? (
-            <button type="button" className={styles.reset} onClick={() => set({ ...DEFAULT_BROWSE_FILTERS })}>Reset</button>
-          ) : null}
+          <div className={styles.menus}>
+            <label className={styles.menu} data-active={filters.format !== "all" || undefined}>
+              <Layers size={15} aria-hidden />
+              <span className="sr-only">Format</span>
+              <select value={filters.format} onChange={(event) => set({ format: event.target.value as BrowseFilters["format"] })}>
+                {visibleFormats.map((format) => (
+                  <option key={format} value={format}>{format === "all" ? "All formats" : BROWSE_FORMAT_LABEL[format]}</option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.menu} data-active={filters.sort !== "latest" || undefined}>
+              <ArrowUpDown size={15} aria-hidden />
+              <span className="sr-only">Sort</span>
+              <select value={currentSort} onChange={(event) => {
+                const [sort, window] = event.target.value.split(":") as [BrowseFilters["sort"], BrowseFilters["window"]];
+                set({ sort, window });
+              }}>
+                {sortOptions.map((option) => (
+                  <option key={`${option.sort}:${option.window}`} value={`${option.sort}:${option.window}`}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            {!isDefault ? (
+              <button type="button" className={styles.clear} onClick={() => set({ ...DEFAULT_BROWSE_FILTERS })} aria-label="Clear filters" title="Clear filters">
+                <X size={16} aria-hidden />
+              </button>
+            ) : null}
+          </div>
         </div>
-        <div className={styles.chipRow} data-chip-row role="radiogroup" aria-label="Platform">
-          {visiblePlatforms.map((platform) => (
-            <button key={platform} type="button" role="radio" aria-checked={filters.platform === platform}
-              className={styles.chip} onClick={() => set({ platform })}>
-              <PlatformGlyph platform={platform} />
-              <span>{platform === "all" ? "All" : BROWSE_PLATFORM_LABEL[platform]}</span>
-              {facets?.platforms[platform] !== undefined ? <small>{facets.platforms[platform]}</small> : null}
-            </button>
-          ))}
-        </div>
-        <div className={styles.chipRow} data-chip-row role="radiogroup" aria-label="Format">
-          {visibleFormats.map((format) => (
-            <button key={format} type="button" role="radio" aria-checked={filters.format === format}
-              className={`${styles.chip} ${styles.formatChip}`} onClick={() => set({ format })}>
-              <span>{BROWSE_FORMAT_LABEL[format]}</span>
-              {facets?.formats[format] !== undefined ? <small>{facets.formats[format]}</small> : null}
-            </button>
-          ))}
-        </div>
-      </div>
+      </header>
 
       {isDefault ? children : (
         <section className={styles.results} aria-live="polite" aria-busy={isLoading || loadingMore}>
-          <header className={styles.resultsHeader}>
-            <h2>{headline}</h2>
-            {first ? <span>{first.total} {first.total === 1 ? "item" : "items"}</span> : null}
-          </header>
+          <p className={styles.resultsHeader}>
+            <strong>{summary}</strong>
+            {first ? <span>{first.total.toLocaleString("en-US")} {first.total === 1 ? "item" : "items"}</span> : null}
+          </p>
           {first?.note ? <p className={styles.note}>{first.note}</p> : null}
           {error && !entries.length ? (
             <p className={styles.empty} role="status">

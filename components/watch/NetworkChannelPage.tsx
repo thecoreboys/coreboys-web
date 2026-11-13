@@ -1810,6 +1810,7 @@ export function NetworkChannelPage({
         railTotals={railTotals}
         sources={nonXSourceDescriptors}
         onPlay={playSourceItem}
+        hideIntro
       />
       </ChannelBrowser>
       </div>

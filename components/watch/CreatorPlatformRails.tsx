@@ -40,6 +40,8 @@ export type CreatorPlatformRailsProps = {
   className?: string;
   archiveEndpoint?: string;
   railTotals?: Readonly<Record<string, number>>;
+  /** Hide the built-in heading when a parent (the channel library toolbar) provides one. */
+  hideIntro?: boolean;
 };
 
 const PLATFORM_LABEL: Record<CuratedChannelPlatform, string> = {
@@ -232,6 +234,7 @@ export const CreatorPlatformRails = memo(function CreatorPlatformRails({
   className = "",
   archiveEndpoint,
   railTotals,
+  hideIntro = false,
 }: CreatorPlatformRailsProps) {
   const discovery = useWatchDiscovery();
   const setFeedback = discovery.setFeedback;
@@ -292,12 +295,12 @@ export const CreatorPlatformRails = memo(function CreatorPlatformRails({
   if (!contentRails.length) return null;
 
   return (
-    <section className={`${styles.section} ${className}`.trim()} aria-labelledby="creator-platform-rails-heading">
-      <div className={styles.intro}>
+    <section className={`${styles.section} ${className}`.trim()} aria-labelledby={hideIntro ? undefined : "creator-platform-rails-heading"} aria-label={hideIntro ? `${channelName} by platform` : undefined}>
+      {hideIntro ? null : <div className={styles.intro}>
         <span>Creator platforms</span>
         <h2 id="creator-platform-rails-heading">From {channelName}</h2>
         <p>Every available video plus fresh posts, broadcasts, Shorts, and live rooms from each official source.</p>
-      </div>
+      </div>}
 
       <div className={styles.rails}>
         {contentRails.map((rail) => {
