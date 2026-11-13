@@ -75,7 +75,11 @@ function LiveNowCard({ sources, onClose, reserveSourceSpace }: { sources: ModalL
   const href = youtubeEntry
     ? youtubeLiveHref(youtubeEntry)
     : `/watch/live/${twitchEntry!.login}`;
-  const viewers = source.entry.viewerCount;
+  // When a creator streams on several platforms at once, the thumbnail shows
+  // their whole audience; the per-platform split stays on the source chips.
+  const counted = sources.filter((item) => item.entry.viewerCount != null);
+  const viewers = counted.length ? counted.reduce((total, item) => total + (item.entry.viewerCount ?? 0), 0) : null;
+  const multiPlatformViewers = counted.length > 1;
   const startedAt = source.entry.startedAt;
   const creator = source.member?.stageName ?? source.memberLabel;
   const platform = isYoutube ? "YouTube" : "Twitch";
@@ -87,7 +91,15 @@ function LiveNowCard({ sources, onClose, reserveSourceSpace }: { sources: ModalL
           <WatchThumb src={poster} youtubeId={youtubeEntry?.youtubeId} alt="" className={styles.posterImage} fallback={<span className={styles.posterFallback}>{creator}</span>} />
           <span className={styles.posterShade} />
           <span className={styles.liveBadge}><span />Live</span>
-          {viewers != null ? <span className={styles.viewerBadge}><Eye aria-hidden size={12} />{formatCount(viewers)}</span> : null}
+          {viewers != null ? (
+            <span
+              className={styles.viewerBadge}
+              title={multiPlatformViewers ? counted.map((item) => `${item.platform === "youtube" ? "YouTube" : "Twitch"} ${(item.entry.viewerCount ?? 0).toLocaleString("en-US")}`).join(" · ") : undefined}
+              aria-label={`${viewers.toLocaleString("en-US")} viewers${multiPlatformViewers ? ` across ${counted.length} platforms` : ""}`}
+            >
+              <Eye aria-hidden size={12} />{formatCount(viewers)}{multiPlatformViewers ? <span aria-hidden> · {counted.length} platforms</span> : null}
+            </span>
+          ) : null}
           <span className={styles.playOverlay} aria-hidden><span className={styles.playCircle}><Play size={22} fill="currentColor" strokeWidth={1.5} /></span></span>
           <span className={styles.platformBadge}>{platform}</span>
         </span>
