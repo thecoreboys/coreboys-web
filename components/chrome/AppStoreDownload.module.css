@@ -40,7 +40,8 @@
 
 .download[data-occluded="true"],
 .promotionVisible,
-:global(body[data-cookie-consent-open="true"]) .download { visibility: hidden; pointer-events: none; }
+:global(body[data-cookie-consent-open="true"]) .download,
+:global(body:has(section[data-mini-player])) .download { visibility: hidden; pointer-events: none; }
 
 @media (max-width: 1023px) { .download { display: none; } }
 

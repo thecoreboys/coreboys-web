@@ -46,7 +46,8 @@ body[data-cookie-consent-open="true"] .contribute-launcher { visibility: hidden;
 @media (prefers-reduced-motion: reduce) { .contribute-switch-indicator { transition: none; } }
 @media (forced-colors: active) { .contribute-launcher,.contribute-modal,.contribute-submit { border: 1px solid ButtonText; } }
 
-.contribute-launcher[data-occluded="true"] { visibility: hidden; pointer-events: none; }
+.contribute-launcher[data-occluded="true"],
+body:has(section[data-mini-player]) .contribute-launcher { visibility: hidden; pointer-events: none; }
 /* Mobile entry lives in the header menu, clear of media and primary actions. */
 @media (max-width: 1023px) { .contribute-launcher { display: none; } }
 .contribute-modal.is-confirmation { max-width: 520px; }

@@ -24,7 +24,11 @@ export function useContributorLauncher<T extends HTMLElement = HTMLButtonElement
         return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) !== 0 && rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight && rect.bottom > 0;
       });
       const ceiling = Math.max(12, document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 12);
-      const next = launcherPlacement(base, visible.map(el => el.getBoundingClientRect()), ceiling);
+      // The draggable mini player is never an obstacle: these widgets are hidden
+      // while it is on screen (see the `[data-mini-player]` CSS rules), so they
+      // must not jump around as it is dragged over or near them.
+      const obstacles = visible.filter(el => !el.hasAttribute('data-mini-player'));
+      const next = launcherPlacement(base, obstacles.map(el => el.getBoundingClientRect()), ceiling);
       if (document.fullscreenElement || visible.some(el => el.getAttribute('aria-modal') === 'true')) next.hidden = true;
       lift.current = next.lift;
       setPlacement(previous => previous.lift === next.lift && previous.hidden === next.hidden ? previous : next);
