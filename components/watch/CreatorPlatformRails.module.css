@@ -698,9 +698,9 @@
 }
 
 :global(html[data-theme="light"]) .section { color: var(--ink); }
-:global(html[data-theme="light"]) .intro > span { color: var(--ink-faint); }
+:global(html[data-theme="light"]) .intro > span { color: var(--ink-dim); }
 :global(html[data-theme="light"]) .intro p { color: var(--ink-dim); }
-:global(html[data-theme="light"]) .railHeading small { color: var(--ink-faint); }
+:global(html[data-theme="light"]) .railHeading small { color: var(--ink-dim); }
 :global(html[data-theme="light"]) .empty,
 :global(html[data-theme="light"]) .embedFallback {
   border-color: var(--rule);
@@ -735,4 +735,14 @@
   color: var(--ink);
 }
 :global(html[data-theme="light"]) .media { background: var(--surface); }
-:global(html[data-theme="light"]) .copy > span { color: var(--ink-faint); }
+:global(html[data-theme="light"]) .copy > span { color: var(--ink-dim); }
+
+/* Source links and archive actions sit on the channel page, outside posters. */
+:global(html[data-theme="light"]) .archiveControls,
+:global(html[data-theme="light"]) .instagramLinkCard small { color: var(--ink-dim); }
+:global(html[data-theme="light"]) .archiveControls button,
+:global(html[data-theme="light"]) .railHeading > a { border-color: var(--rule-strong); background: var(--bg-elev); color: var(--ink); }
+:global(html[data-theme="light"]) .archiveControls button:is(:hover, :focus-visible),
+:global(html[data-theme="light"]) .railHeading > a:is(:hover, :focus-visible) { border-color: var(--ink-dim); background: var(--surface); color: var(--ink); }
+:global(html[data-theme="light"]) .embedNote a { color: var(--ink); }
+:global(html[data-theme="light"]) .instagramProfileMark { color: #a61955; }

@@ -171,3 +171,28 @@
   .mobileToggle { transition: none; }
   .mobileToggle:hover, .mobileToggle:active { transform: none; }
 }
+
+/* The tuner display, close action and status indicators need a light
+   palette too; changing only the radio's outer chassis leaves dark islands. */
+:global(html[data-theme="light"]) .dialTrack { background: linear-gradient(180deg, #d7e1d4, #edf2e9); box-shadow: inset 0 1px 3px #263c2f24, 0 1px #fff; }
+:global(html[data-theme="light"]) .dialTrack::before { background: repeating-linear-gradient(90deg, #60756488 0 1px, transparent 1px 5%); }
+:global(html[data-theme="light"]) .dialTicks span { background: #647969; }
+:global(html[data-theme="light"]) .dialTicks .activeTick { background: #233d2c; }
+:global(html[data-theme="light"]) .dialNeedle { background: #ab4529; box-shadow: 0 0 3px #ab452933; }
+:global(html[data-theme="light"]) .dialNeedle::before { background: #8d371f; }
+:global(html[data-theme="light"]) .signal { border-color: #bdcbbf; background: radial-gradient(ellipse at center, #f5faee, transparent 72%), #dde7db; }
+:global(html[data-theme="light"]) .signal::before { border-color: #74897455; }
+:global(html[data-theme="light"]) .signal::after { background: radial-gradient(ellipse at center, transparent 20%, #50684b16 100%); }
+:global(html[data-theme="light"]) .signalBar { background: #32664c; opacity: .7; }
+:global(html[data-theme="light"]) .isSpeaking .signalBar { opacity: 1; }
+:global(html[data-theme="light"]) .networkMark { padding: .08rem; border-radius: .25rem; background: #131316; }
+:global(html[data-theme="light"]) .panelClose { border-color: #b8c3b9; background: #f6f7f2; color: #263c2f; }
+:global(html[data-theme="light"]) .panelClose:hover { border-color: #6a7a70; background: #fff; }
+:global(html[data-theme="light"]) .isSpeaking .statusDot { background: #b8373a; box-shadow: 0 0 .45rem #b8373a44; }
+:global(html[data-theme="light"]) .isBlocked .statusDot { background: #996113; }
+:global(html[data-theme="light"]) .isTuned:not(.isSpeaking) .statusDot { background: #28745c; }
+:global(html[data-theme="light"]) :is(.play, .stop, .power, .settings):not([aria-disabled="true"]):hover { border-color: #6a7a70; box-shadow: 0 2px 6px #17201c18; }
+:global(html[data-theme="light"]) .stop:hover { color: #7d272b; background: #fae5e3; }
+:global(html[data-theme="light"]) .edgeRestore:hover { border-color: #6a7a70; background: #fff; color: #263c2f; }
+:global(html[data-theme="light"]) .dialTrack:focus-within,
+:global(html[data-theme="light"]) :is(.panelClose, .play, .stop, .power, .settings, .edgeRestore):focus-visible { outline-color: #224839; }
