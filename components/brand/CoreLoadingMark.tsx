@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { CoreSymbolArt } from "./CoreSymbol";
+import { CoreSymbolArt, CoreSymbolClipShapes } from "./CoreSymbol";
 import styles from "./CoreLoadingMark.module.css";
 
 /** Static forged-metal artwork; only the tilt and reflected light move. */
@@ -48,7 +48,7 @@ export function CoreLoadingMark() {
               <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="8" stitchTiles="stitch" />
               <feColorMatrix type="saturate" values="0" />
             </filter>
-            <clipPath id={silhouette}><CoreSymbolArt /></clipPath>
+            <clipPath id={silhouette}><CoreSymbolClipShapes /></clipPath>
           </defs>
           <CoreSymbolArt fill="#20252d" stroke="#11151b" strokeWidth=".65" strokeLinejoin="round" transform="translate(.35 .7)" />
           <CoreSymbolArt fill={`url(#${metal})`} stroke={`url(#${edge})`} strokeWidth=".65" strokeLinejoin="round" />
