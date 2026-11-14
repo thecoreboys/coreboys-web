@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 import test from "node:test";
 import type { Metadata, MetadataRoute } from "next";
 import ts from "typescript";
+import sharp from "sharp";
 import * as seo from "../lib/seo";
 import { MEMBERS } from "../lib/members";
 import MemberOG from "../app/about/[slug]/opengraph-image";
@@ -27,7 +28,7 @@ test("article and creator metadata retain their own image and tags instead of in
   }, seo.creatorShareImage("ron", "StableRonaldo"));
   assert.equal((metadata.openGraph as { type: string }).type, "article");
   assert.ok(JSON.stringify(metadata.openGraph).includes("creator news"));
-  assert.ok(JSON.stringify(metadata.twitter?.images).includes("/social/ron-share-2026.png"));
+  assert.ok(JSON.stringify(metadata.twitter?.images).includes(seo.socialShareImagePath("ron")));
   assert.equal((metadata.robots as { index: boolean }).index, false);
 });
 
@@ -59,13 +60,21 @@ test("all exported static page metadata includes complete social cards and a rou
   assert.ok(checked >= 60, "audit covers the site's page metadata");
 });
 
-test("share images are real PNGs with accurate dimensions and usable file sizes", () => {
-  for (const filename of ["core-boys-share-2026.png", ...MEMBERS.map(member => `${member.slug}-share-2026.png`)]) {
-    const image = readFileSync(join("public/social", filename));
+test("share images are real PNGs with accurate dimensions, usable file sizes, and the visible CORE emblem", async () => {
+  for (const filename of [seo.CORE_SHARE_IMAGE.url, ...MEMBERS.map(member => seo.creatorShareImage(member.slug, member.stageName).url)]) {
+    const image = readFileSync(join("public", filename.replace(/^\/+/, "")));
     assert.equal(image.subarray(1, 4).toString(), "PNG", filename);
     assert.equal(image.readUInt32BE(16), 1200, filename);
     assert.equal(image.readUInt32BE(20), 630, filename);
     assert.ok(image.length > 10_000 && image.length < 5_000_000, filename);
+    // A renderer can silently drop the SVG O while keeping C and RE. Check
+    // the emblem's interior, away from both text glyphs, on every actual PNG.
+    const emblem = await sharp(image).extract({ left: 108, top: 72, width: 34, height: 42 }).removeAlpha().raw().toBuffer();
+    let bright = 0;
+    for (let offset = 0; offset < emblem.length; offset += 3) {
+      if (emblem[offset]! > 220 && emblem[offset + 1]! > 220 && emblem[offset + 2]! > 220) bright++;
+    }
+    assert.ok(bright > 100, `${filename}: star-and-ring O must be visible`);
   }
 });
 
@@ -73,7 +82,7 @@ test("creator image endpoints return the same published image and reject missing
   const response = await MemberOG({ params: { slug: "ron" } });
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Content-Type"), "image/png");
-  assert.deepEqual(Buffer.from(await response.arrayBuffer()), readFileSync("public/social/ron-share-2026.png"));
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), readFileSync(join("public", seo.socialShareImagePath("ron").replace(/^\/+/, ""))));
   assert.equal((await MemberOG({ params: { slug: "not-a-member" } })).status, 404);
 });
 

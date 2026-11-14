@@ -5,16 +5,22 @@ export const SITE_NAME = "The Core Boys";
 export const SITE_DESCRIPTION = "Watch live streams, videos, clips, and shows from StableRonaldo, JasonTheWeen, Lacy, Marlon, Silky, and Adapt on the independent CORE fan site.";
 export const SITE_KEYWORDS = ["The Core Boys", "CORE", "StableRonaldo", "JasonTheWeen", "Lacy", "Marlon", "Silky", "Adapt", "live streams", "Twitch", "YouTube"];
 export const INDEXABLE_SITE_PATHS = ["/", "/guide", "/multiview", "/videos", "/clips", "/shorts", "/media", "/chat", "/fanzone", "/news", "/links", "/timeline", "/tonight", "/theater", "/fan-mail", "/clips/submit", "/logo-submissions", "/special-message", "/legal/terms", "/legal/privacy", "/legal/cookies", "/legal/data-deletion"];
+
+/** New image URLs let fresh shares pick up the current brand artwork. */
+export function socialShareImagePath(slug: string): string {
+  return `/social/${encodeURIComponent(slug)}-share-2026-logo-v2.png`;
+}
+
 export const CORE_SHARE_IMAGE = {
-  url: "/social/core-boys-share-2026.png",
+  url: socialShareImagePath("core-boys"),
   width: 1200,
   height: 630,
-  alt: "The Core Boys: Adapt, StableRonaldo, Lacy, Marlon, JasonTheWeen, and Silky gathered around the camera.",
+  alt: "The CORE logo beside Adapt, StableRonaldo, Lacy, Marlon, JasonTheWeen, and Silky gathered around the camera.",
   type: "image/png",
 };
 
 export function creatorShareImage(slug: string, name: string) {
-  return { ...CORE_SHARE_IMAGE, url: `/social/${encodeURIComponent(slug)}-share-2026.png`, alt: `${name} from The Core Boys — streams, videos, and community.` };
+  return { ...CORE_SHARE_IMAGE, url: socialShareImagePath(slug), alt: `The CORE logo and ${name} — streams, videos, and community.` };
 }
 
 export function absoluteSiteUrl(path: string | URL): string {

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
+import { creatorShareImage } from "@/lib/seo";
 
 export const runtime = "nodejs";
 export const revalidate = 86400;
@@ -24,6 +25,6 @@ export default async function MemberOG({ params }: Props) {
   const { slug } = await params;
   const member = MEMBERS_BY_SLUG[slug];
   if (!member) return new Response("Not found", { status: 404 });
-  const image = await readFile(join(process.cwd(), "public", "social", member.slug + "-share-2026.png"));
+  const image = await readFile(join(process.cwd(), "public", creatorShareImage(member.slug, member.stageName).url.replace(/^\/+/, "")));
   return new Response(new Uint8Array(image), { headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=86400" } });
 }
