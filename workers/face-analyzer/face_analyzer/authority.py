@@ -176,7 +176,7 @@ def _approved_reference_hashes(cursor: Any, authority: DbIdentityAuthority) -> f
          WHERE identity_id=%s AND consent_id=%s
            AND subject_approved AND state='approved' AND revoked_at IS NULL
            AND reviewed_at IS NOT NULL AND reviewed_by IS NOT NULL
-           AND reviewed_by <> created_by AND retention_expires_at > now()
+           AND face_reference_review_is_valid(id) AND retention_expires_at > now()
         """,
         (authority.identity_uuid, authority.consent_uuid),
     )
@@ -205,7 +205,7 @@ def assert_db_enrollment_authority(
                 approved = _approved_reference_hashes(cursor, authority)
                 if not requested or not requested.issubset(approved):
                     raise PolicyError(
-                        "every enrollment image must match a current, independently reviewed protected reference hash"
+                        "every enrollment image must match a current protected reference with independent or authorized owner approval"
                     )
                 return {
                     "db_authoritative": True,

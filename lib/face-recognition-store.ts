@@ -413,6 +413,10 @@ async function insertConsent(
   context: FaceMutationContext,
 ): Promise<ConsentRow> {
   assertConsentDates(input);
+  if(input.captureMethod==="owner_attested_email"){
+    const allowed=await db.query<{allowed:boolean}>("SELECT face_owner_photo_review_is_allowed($1) AS allowed",[context.actor.id]);
+    if(!allowed.rows[0]?.allowed)throw new FaceStoreError("conflict","Owner email confirmation is not enabled for this account.");
+  }
   const identity = await db.query(`SELECT canonical_kind, canonical_slug FROM face_identities WHERE id=$1`, [identityId]);
   if (identity.rows[0]) await assertGuestProfileReviewed(db, identity.rows[0].canonical_kind, identity.rows[0].canonical_slug);
   const result = await db.query<ConsentRow>(
@@ -757,6 +761,7 @@ type ReferenceRow = {
   created_by: string;
   reviewed_by: string | null;
   review_note: string | null;
+  review_mode: "independent" | "owner";
   created_at: string;
   updated_at: string;
 };
@@ -784,6 +789,7 @@ function referenceResponse(row: ReferenceRow) {
     uploadedBy: row.created_by,
     reviewedBy: row.reviewed_by,
     reviewNote: row.review_note,
+    reviewMode: row.review_mode,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -794,7 +800,7 @@ export async function listFaceReferences(identityId?: string) {
     `SELECT id::text, identity_id::text, consent_id::text, storage_key, content_sha256,
             file_name, source_kind, subject_approved, captured_at::text,
             state, quality_issues, retention_expires_at::text,
-            created_by::text, reviewed_by::text, review_note,
+            created_by::text, reviewed_by::text, review_note, review_mode,
             created_at::text, updated_at::text
        FROM face_reference_assets
       ${identityId ? "WHERE identity_id=$1" : ""}
@@ -1005,14 +1011,15 @@ export async function reviewFaceReference(
       `SELECT id::text, identity_id::text, consent_id::text, storage_key, content_sha256,
               file_name, source_kind, subject_approved, captured_at::text,
               state, quality_issues, retention_expires_at::text,
-              created_by::text, reviewed_by::text, review_note,
+              created_by::text, reviewed_by::text, review_note, review_mode,
               created_at::text, updated_at::text
          FROM face_reference_assets WHERE id=$1 FOR UPDATE`,
       [referenceId],
     );
     const row = result.rows[0];
     if (!row) throw new FaceStoreError("not_found", "Reference was not found.");
-    if (input.action === "approve") {
+    const approving=input.action === "approve" || input.action === "approve_owner";
+    if (approving) {
       if (row.state !== "pending_review") {
         throw new FaceStoreError("invalid_state", "Only pending references can be approved.");
       }
@@ -1029,7 +1036,11 @@ export async function reviewFaceReference(
           "Reference approval requires current template consent and unexpired private storage.",
         );
       }
-      if (context.actor.id === row.created_by || context.actor.id === consent.granted_by) {
+      if (input.action === "approve_owner") {
+        if(input.ownerConfirmed!==true)throw new FaceStoreError("invalid_state","Explicit owner confirmation is required.");
+        const allowed=await db.query<{allowed:boolean}>("SELECT face_owner_photo_review_is_allowed($1) AS allowed",[context.actor.id]);
+        if(!allowed.rows[0]?.allowed)throw new FaceStoreError("conflict","Owner photo review is not enabled for this account.");
+      } else if (context.actor.id === row.created_by || context.actor.id === consent.granted_by) {
         throw new FaceStoreError(
           "conflict",
           "A different staff member must review enrollment from the uploader and consent recorder.",
@@ -1038,7 +1049,7 @@ export async function reviewFaceReference(
       await db.query(
         `UPDATE face_reference_assets
             SET state='approved', reviewed_by=$2, reviewed_at=now(),
-                review_note=$3,
+                review_note=$3, review_mode=$6,
                 retention_expires_at=LEAST($4::timestamptz, $5::timestamptz),
                 updated_at=now()
           WHERE id=$1`,
@@ -1048,6 +1059,7 @@ export async function reviewFaceReference(
           input.note ?? null,
           new Date(Date.now() + FACE_REFERENCE_APPROVED_RETENTION_MS).toISOString(),
           consent.expires_at,
+          input.action === "approve_owner" ? "owner" : "independent",
         ],
       );
     } else if (input.action === "confirm_deleted") {
@@ -1087,7 +1099,7 @@ export async function reviewFaceReference(
       before: { state: row.state },
       after: input.action === "confirm_deleted"
         ? { state: "deleted", storageDeleted: true }
-        : { state: input.action === "approve" ? "approved" : "deletion_pending" },
+        : { state: approving ? "approved" : "deletion_pending",...(approving?{reviewMode:input.action==="approve_owner"?"owner":"independent"}:{}) },
     });
     return { id: referenceId, ok: true };
   });
@@ -2455,9 +2467,9 @@ export async function queueFaceEnrollment(identityId: string, context: FaceMutat
     if (!consent.rows[0]) throw new FaceStoreError("consent_required", "Current permission to create face templates is required.");
     const references = await db.query<{id:string;content_sha256:string}>(`SELECT DISTINCT ON (content_sha256) id,content_sha256 FROM face_reference_assets
       WHERE identity_id=$1 AND consent_id=$2 AND state='approved' AND subject_approved AND revoked_at IS NULL
-        AND reviewed_at IS NOT NULL AND reviewed_by<>created_by AND retention_expires_at>now()
+        AND face_reference_review_is_valid(id) AND retention_expires_at>now()
         AND storage_key ~ '^[0-9a-f-]{36}\\.webp$' ORDER BY content_sha256,created_at DESC LIMIT 20`, [identityId,consent.rows[0].id]);
-    if (references.rows.length<3) throw new FaceStoreError("consent_required", "Upload at least 3 different photos and have a second admin approve them before enrollment.");
+    if (references.rows.length<3) throw new FaceStoreError("consent_required", "Upload at least 3 different photos and record independent or authorized owner approval before enrollment.");
     const ready=await db.query<{id:string}>(`SELECT id::text FROM face_template_sets WHERE identity_id=$1 AND consent_id=$2 AND state='active' AND expires_at>now()
       AND model_name='opencv_sface' AND model_version=$3 AND reference_hashes @> $4::text[] AND reference_hashes <@ $4::text[] LIMIT 1`,
       [identityId,consent.rows[0].id,FACE_ENROLLMENT_MODEL_VERSION,references.rows.map(r=>r.content_sha256)]);
@@ -2484,7 +2496,12 @@ export async function faceWorkerHasPendingWork(){
   return result.rows[0]?.pending===true;
 }
 
-export async function getFaceAdminOverview() {
+export async function getFaceOwnerPhotoReviewAllowed(actorId:string){
+  const result=await query<{allowed:boolean}>("SELECT face_owner_photo_review_is_allowed($1) AS allowed",[actorId]);
+  return result.rows[0]?.allowed===true;
+}
+
+export async function getFaceAdminOverview(actorId?:string) {
   const [identities, references, sources, jobs, reviews, publishedRows, auditRows, heartbeatRows, guests, photoCandidates] = await Promise.all([
     listFaceIdentities(),
     listFaceReferences(),
@@ -2629,6 +2646,7 @@ export async function getFaceAdminOverview() {
     && heartbeat?.automatic_capable === true;
   return {
     apiVersion: "2026-08-21",
+    ownerPhotoReviewAllowed:actorId?await getFaceOwnerPhotoReviewAllowed(actorId):false,
     service: {
       status: serviceReady ? "ready" as const : analyzerEnabled ? "degraded" as const : "offline" as const,
       message: serviceReady ? null : faceWorkerWakeConfigured()&&!heartbeatFresh

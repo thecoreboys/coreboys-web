@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const auth = await requireAdmin();
   if (!auth.ok) return facePrivateResponse(auth.response);
-  return facePrivateJson({ overview: await getFaceAdminOverview() });
+  return facePrivateJson({ overview: await getFaceAdminOverview(auth.id) });
 }

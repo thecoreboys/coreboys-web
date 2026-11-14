@@ -40,10 +40,10 @@ try {
       await new Promise((done) => setTimeout(done, 300));
     }
   }
-  await client.query("CREATE TABLE admin_users (id uuid PRIMARY KEY, email text, role text DEFAULT 'admin', deleted_at timestamptz)");
+  await client.query("CREATE TABLE admin_users (id uuid PRIMARY KEY, email text, role text DEFAULT 'admin', deleted_at timestamptz, totp_enabled boolean DEFAULT true)");
   await client.query("CREATE ROLE core_face_worker NOLOGIN");
   await client.query("CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO anon,authenticated; ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO anon,authenticated");
-  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql", "062_face_profile_review.sql", "062_face_profile_review.sql", "063_face_photo_candidates.sql", "063_face_photo_candidates.sql", "064_face_processing_costs.sql", "064_face_processing_costs.sql"]) {
+  for (const file of ["024_face_presence.sql", "056_face_guest_profiles.sql", "056_face_guest_profiles.sql", "057_face_site_enrollment.sql", "057_face_site_enrollment.sql", "061_face_private_access.sql", "061_face_private_access.sql", "062_face_profile_review.sql", "062_face_profile_review.sql", "063_face_photo_candidates.sql", "063_face_photo_candidates.sql", "064_face_processing_costs.sql", "064_face_processing_costs.sql", "065_face_owner_photo_review.sql", "065_face_owner_photo_review.sql"]) {
     await client.query(readFileSync(resolve(root, "scripts/migrations", file), "utf8"));
   }
 
@@ -53,6 +53,7 @@ try {
     await assert.rejects(client.query("SELECT * FROM face_photo_candidates"),/permission denied/);
     await assert.rejects(client.query("SELECT * FROM face_browser_reviews"),/permission denied/);
     await assert.rejects(client.query("SELECT * FROM face_browser_marks"),/permission denied/);
+    await assert.rejects(client.query("SELECT * FROM face_owner_photo_reviewers"),/permission denied/);
     await assert.rejects(client.query("SELECT * FROM face_presence_public_safe"),/permission denied/);
     await assert.rejects(client.query("SELECT claim_face_enrollment('untrusted')"),/permission denied/);
     await assert.rejects(client.query("SELECT purge_face_audit_retention()"),/permission denied/);
@@ -329,6 +330,62 @@ try {
   await importResearch(client,researchEntries,actor.email,true);
   assert.equal((await store.listFaceGuestProfiles()).find(profile=>profile.slug===staged.slug).review.status,"approved","Reimports must preserve admin decisions");
   console.log("PASS: research staging, stale review protection, independent admin approval, private provenance and idempotent import.");
+  const owner={id:randomUUID(),email:"owner-photos@example.invalid"},ownerContext={actor:owner,requestId:"owner-photo-fixture"};
+  await client.query("INSERT INTO admin_users(id,email) VALUES ($1,$2)",[owner.id,owner.email]);
+  const ownerGuest=profiles.FaceGuestProfileSchema.parse({slug:"owner-photo-fixture",displayName:"Owner photo fixture"});
+  await store.saveFaceGuestProfile(ownerGuest,"create",ownerContext);
+  const ownerConsent={...consent,captureMethod:"owner_attested_email",evidenceRef:"Owner fixture email-permission attestation",
+    permissions:{allowTemplateCreation:true,allowLiveMatching:false,allowArchiveMatching:false,allowPublicTag:false,allowProfileLinks:false},approvedContentIds:[],approvedArchiveScopes:[]};
+  const ownerInput=contracts.FaceIdentityCreateSchema.parse({canonicalKind:"guest",canonicalSlug:ownerGuest.slug,consent:ownerConsent});
+  await assert.rejects(store.createFaceIdentity(ownerInput,ownerContext),/not enabled/);
+  await client.query("INSERT INTO face_owner_photo_reviewers(admin_user_id,grant_source) VALUES ($1,'Explicit synthetic owner workflow request')",[owner.id]);
+  await client.query("UPDATE admin_users SET totp_enabled=false WHERE id=$1",[owner.id]);
+  assert.equal(await store.getFaceOwnerPhotoReviewAllowed(owner.id),false);
+  await assert.rejects(store.createFaceIdentity(ownerInput,ownerContext),/not enabled/);
+  await client.query("UPDATE admin_users SET totp_enabled=true WHERE id=$1",[owner.id]);
+  assert.equal((await store.getFaceAdminOverview(owner.id)).ownerPhotoReviewAllowed,true);
+  assert.equal((await store.getFaceAdminOverview(actor.id)).ownerPhotoReviewAllowed,false,"Being an admin does not grant owner review");
+  const ownerIdentity=await store.createFaceIdentity(ownerInput,ownerContext);
+  const ownerHashes=["a","b","c"].map(x=>x.repeat(64));const ownerRefs=[];
+  for(const hash of ownerHashes){
+    const ref=await store.registerFaceReference({...upload,identityId:ownerIdentity.id,storageKey:`${randomUUID()}.webp`,contentSha256:hash},ownerContext);ownerRefs.push(ref.id);
+    await assert.rejects(store.reviewFaceReference(ref.id,{action:"approve",note:"Cannot impersonate independent review"},ownerContext),/different/);
+    await assert.rejects(store.reviewFaceReference(ref.id,{action:"approve_owner",ownerConfirmed:true,note:"No owner entitlement"},context),/not enabled/);
+    await assert.rejects(store.reviewFaceReference(ref.id,{action:"approve_owner",ownerConfirmed:false,note:"Missing explicit confirmation"},ownerContext),/Explicit owner confirmation/);
+    await assert.rejects(client.query("UPDATE face_reference_assets SET state='approved',review_mode='owner',reviewed_by=$2,reviewed_at=now() WHERE id=$1",[ref.id,actor.id]),/not enabled/);
+    await store.reviewFaceReference(ref.id,{action:"approve_owner",ownerConfirmed:true,note:"Synthetic owner confirms image quality and exact-photo permission"},ownerContext);
+    assert.equal((await client.query("SELECT face_reference_review_is_valid($1) valid",[ref.id])).rows[0].valid,true);
+  }
+  assert.ok((await store.listFaceReferences(ownerIdentity.id)).every(r=>r.reviewMode==="owner"&&r.status==="accepted"));
+  assert.equal((await client.query("SELECT count(*)::int n FROM face_audit_log WHERE action='reference.approve_owner' AND actor_id=$1 AND after_state->>'reviewMode'='owner'",[owner.id])).rows[0].n,3);
+  assert.equal((await client.query("SELECT count(*)::int n FROM face_enrollment_jobs WHERE identity_id=$1",[ownerIdentity.id])).rows[0].n,0,"Owner review alone never starts enrollment");
+  const ownerJob=await store.queueFaceEnrollment(ownerIdentity.id,ownerContext);
+  // The normal migration runner replays these older files on every deployment.
+  // Existing owner reviews must remain valid throughout that replay, not only
+  // after the newest migration re-runs.
+  for(const file of ["024_face_presence.sql","057_face_site_enrollment.sql"]){
+    await client.query(readFileSync(resolve(root,"scripts/migrations",file),"utf8"));
+    assert.equal((await client.query("SELECT face_enrollment_is_current($1) current",[ownerJob.id])).rows[0].current,true);
+  }
+  for(let repeat=0;repeat<2;repeat++)await client.query(readFileSync(resolve(root,"scripts/migrations/065_face_owner_photo_review.sql"),"utf8"));
+  await client.query("SET ROLE core_face_worker");
+  await assert.rejects(client.query("SELECT * FROM face_owner_photo_reviewers"),/permission denied/);
+  await assert.rejects(client.query("SELECT face_owner_photo_review_is_allowed($1)",[owner.id]),/permission denied/);
+  assert.equal((await client.query("SELECT face_reference_review_is_valid($1) valid",[ownerRefs[0]])).rows[0].valid,true);
+  const ownedClaim=(await client.query("SELECT claim_face_enrollment('fixture-worker') job")).rows[0].job;
+  assert.equal(ownedClaim.id,ownerJob.id);assert.equal(ownedClaim.references.length,3);
+  const ownedTemplate=(await client.query("SELECT sync_face_template_set('fixture-worker',$1,$2,$3,$4,3,$5::text[],now()+interval '1 hour') id",[ownerIdentity.id,ownedClaim.consent_id,currentModel,"e".repeat(64),ownerHashes])).rows[0].id;
+  assert.equal((await client.query("SELECT finish_face_enrollment($1,'fixture-worker',$2,NULL) ok",[ownerJob.id,ownedTemplate])).rows[0].ok,true);
+  await client.query("RESET ROLE");
+  await client.query("UPDATE face_owner_photo_reviewers SET revoked_at=now() WHERE admin_user_id=$1",[owner.id]);
+  assert.equal(await store.getFaceOwnerPhotoReviewAllowed(owner.id),false);
+  assert.equal((await client.query("SELECT face_reference_review_is_valid($1) valid",[ownerRefs[0]])).rows[0].valid,true,"A historically authorized review remains attributed honestly");
+  const extraOwned=await store.registerFaceReference({...upload,identityId:ownerIdentity.id,storageKey:`${randomUUID()}.webp`,contentSha256:"f".repeat(64)},ownerContext);
+  await assert.rejects(store.reviewFaceReference(extraOwned.id,{action:"approve_owner",ownerConfirmed:true,note:"Entitlement was withdrawn"},ownerContext),/not enabled/);
+  await store.updateFaceIdentity(ownerIdentity.id,{action:"revoke_consent",reason:"Synthetic subject withdrawal"},ownerContext);
+  assert.equal((await client.query("SELECT face_reference_review_is_valid($1) valid",[ownerRefs[0]])).rows[0].valid,false);
+  assert.equal((await client.query("SELECT state FROM face_template_sets WHERE id=$1",[ownedTemplate])).rows[0].state,"purge_pending");
+  console.log("PASS: owner-only email attestation and photo review require an explicit account grant, MFA and confirmation; preserve normal review rules and replay safety; worker accepts approved owner references and honors withdrawal.");
   console.log("PASS: guest persistence, duplicate protection, consent, review, YouTube/Twitch VOD/clip tag metadata, time boundaries, profile updates, revocation and audit; disposable database only.");
 } finally {
   if (priorPublicGate === undefined) delete process.env.FACE_PRESENCE_PUBLIC_ENABLED;

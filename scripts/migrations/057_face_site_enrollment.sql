@@ -27,6 +27,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS face_enrollment_one_active
   ON face_enrollment_jobs(identity_id) WHERE state IN ('queued','running');
 REVOKE ALL ON face_enrollment_jobs FROM PUBLIC;
 
+DO $owner_compat$ BEGIN
+IF to_regprocedure('public.face_reference_review_is_valid(uuid)') IS NULL THEN
+EXECUTE $original_definition$
 CREATE OR REPLACE FUNCTION face_enrollment_is_current(p_job_id uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public AS $$
   SELECT EXISTS (
@@ -44,6 +47,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public AS $$
       )
   )
 $$;
+$original_definition$;
+END IF;
+END $owner_compat$;
 REVOKE ALL ON FUNCTION face_enrollment_is_current(uuid) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION claim_face_enrollment(p_worker_id text) RETURNS jsonb

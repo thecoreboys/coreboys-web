@@ -26,7 +26,7 @@ const UiConsent = z.object({
   canonicalKey: FaceCanonicalKeySchema,
   adultConfirmed: z.literal(true),
   subjectConfirmed: z.literal(true),
-  confirmationMethod: z.enum(["signed_release", "subject_portal"]),
+  confirmationMethod: z.enum(["signed_release", "subject_portal", "owner_attested_email"]),
   subjectConfirmedAt: z.string().datetime({ offset: true }),
   evidenceReference: z.string().trim().min(3).max(500).refine((value) => !value.includes("://")),
   expiresAt: z.string().datetime({ offset: true }),

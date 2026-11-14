@@ -1,7 +1,7 @@
 Site enrollment operations
 
 The website queues an enrollment after checking current adult template permission,
-3–20 distinct independently approved reference photos. A continuous worker needs
+3–20 distinct reference photos with independent or authorized owner review. A continuous worker needs
 a fresh enrollment heartbeat; an on-demand worker is woken after the durable request
 is saved. The worker claims it through restricted database functions,
 checks the exact approved bytes, creates local SFace templates and reports completion.
@@ -9,11 +9,32 @@ Consent and reference approval are checked again before the website shows comple
 Unknown faces and public recognition are outside this enrollment operation.
 
 Use `/admin/faces`: add/import a person, record template-creation permission,
-upload 5–10 subject-approved JPEG/PNG/WebP photos, have a different admin approve
-at least three, and select **Enroll approved photos**. The reviewer must also differ
-from the person who recorded consent. Adding photos does not approve them automatically.
+upload 5–10 subject-approved JPEG/PNG/WebP photos, approve at least three through
+the applicable review path, and select **Enroll approved photos**. Normal review
+requires a different admin from the uploader and consent recorder. An explicitly
+enabled owner can instead choose **Approve as owner**. The reference and audit
+record say `owner`, never `independent`. Adding photos does not approve them automatically.
 Template-only enrollment does not require a recording; permission for specific
 recordings is added separately before analysis. Failed enrollment can be retried.
+
+Migration 065 adds the private `face_owner_photo_reviewers` allowlist. A trusted
+operator must enable the chosen existing MFA-ready admin; an administrator role
+alone does not confer owner review. Migrations do not seed grants. Public HTTP
+requests and the account-management form cannot write the allowlist. New owner
+approvals require an active grant, the explicit `approve_owner` action,
+`ownerConfirmed:true` and a review note. Each approval retains the exact grant
+that authorized it. Withdrawing owner-review access blocks new approvals; past
+approvals remain honestly attributable. Subject withdrawal or expiry still
+invalidates references and queues template purges. The worker cannot read the
+owner allowlist; it receives only a narrow reference-validity predicate.
+
+**Email permission · owner confirmation** records `owner_attested_email`. It does
+not claim a signed release or a subject-portal response. Its time field means the
+owner's permission-review time, and its expiry is an explicit enrollment-access
+cutoff. The optional 90-day button is the owner's chosen limit, not an assertion
+about an email's date or expiry. Actual adult confirmation, subject permission,
+exact-photo approval and bounded recording scopes remain required. This option
+does not inspect inboxes, infer pictured identities, or publish names.
 
 Azure runs one 0.5-vCPU/1-GiB worker with no public ingress. Its private reference
 share is read-only; its separate template share is never mounted in the web app.
