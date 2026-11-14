@@ -14,7 +14,7 @@
 
 .networkNav {
   position: sticky;
-  top: 3.5rem;
+  top: var(--site-header-h, 8rem);
   z-index: 35;
   display: flex;
   align-items: center;
@@ -661,6 +661,8 @@
   position: relative;
   overflow: hidden;
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32rem;
   padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem);
   border-top: 1px solid rgba(255,255,255,.09);
   background:
@@ -712,6 +714,9 @@
    viewer out of the TV layout. */
 .teamSection {
   width: 100%;
+  scroll-margin-top: 6rem;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32rem;
   padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem);
   border-top: 1px solid rgba(255,255,255,.09);
   background:
@@ -806,12 +811,56 @@
 .teamCardCopy > span { display: inline-flex; align-items: center; gap: .08rem; margin-top: .1rem; color: rgba(255,255,255,.46); font-size: .62rem; font-weight: 700; }
 .teamCardCopy svg { transition: transform .16s ease; }
 .teamCard:hover .teamCardCopy svg { transform: translateX(2px); }
+.teamJumpLink {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  margin-left: 1rem;
+  padding: .75rem 0;
+  color: rgba(255,255,255,.72);
+  font-size: .78rem;
+  font-weight: 700;
+}
+.teamJumpLink:hover { color: #fff; }
+.teamSocials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  margin: .55rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.teamSocials a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  min-height: 2.5rem;
+  padding: .45rem .6rem;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: .5rem;
+  background: rgba(255,255,255,.035);
+  color: rgba(255,255,255,.76);
+  font-size: .65rem;
+  font-weight: 700;
+  transition: background .18s ease, color .18s ease;
+}
+.teamSocials a:hover { background: rgba(255,255,255,.12); color: #fff; }
+.teamSocials a:focus-visible, .teamJumpLink:focus-visible, .teamEmpty a:focus-visible {
+  outline: 2px solid var(--channel-accent);
+  outline-offset: 3px;
+}
+.teamEmpty { padding: 1.25rem; border: 1px solid rgba(255,255,255,.12); border-radius: .9rem; }
+.teamEmpty p { margin: 0 0 .75rem; color: rgba(255,255,255,.6); font-size: .86rem; }
+.teamEmpty a { display: inline-flex; align-items: center; gap: .2rem; color: #fff; font-size: .78rem; font-weight: 700; }
 
 .mailSection {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 24rem;
   padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem) 1rem;
 }
 .mailPostcard { display: flex; width: 100%; justify-content: center; grid-column: 1 / -1; }
@@ -856,6 +905,8 @@
 .channelHub {
   width: 100%;
   max-width: none;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36rem;
   margin: 0;
   padding: 1rem clamp(1rem, 4vw, 3rem) clamp(3rem, 6vw, 5.25rem);
 }
@@ -869,6 +920,7 @@
 }
 .channelHubIdentity { display: flex; min-width: 0; align-items: center; gap: .9rem; }
 .channelHubPortrait { width: clamp(3.8rem, 6vw, 5.25rem); height: clamp(3.8rem, 6vw, 5.25rem); flex: 0 0 auto; border: 2px solid color-mix(in srgb, var(--channel-accent) 58%, rgba(255,255,255,.72)); border-radius: 50%; background: #131316; box-shadow: 0 .75rem 2rem rgba(0,0,0,.34), 0 0 1.4rem color-mix(in srgb, var(--channel-accent) 22%, transparent); object-fit: cover; }
+.channelHubCoreMark { display: grid; place-items: center; color: #fff; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -.09em; text-shadow: 0 0 1.1rem color-mix(in srgb, var(--channel-accent) 50%, transparent); }
 .channelHubIdentity > div { min-width: 0; }
 .channelHubIntro h2 {
   margin-top: 0;
@@ -1113,6 +1165,8 @@
 .xCommunityLink svg { width: .85rem; height: .85rem; }
 .xOwnerPosts {
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 30rem;
   padding-bottom: clamp(4rem, 7vw, 6rem);
 }
 .xArchiveActions {
@@ -1246,7 +1300,7 @@
 .homeChannelCopy small { margin-top: .15rem; color: rgba(255,255,255,.58); font-size: .65rem; }
 
 @media (min-width: 960px) {
-  .networkNav { top: 4rem; }
+  .networkNav { top: var(--site-header-h, 8rem); }
   .hero {
     display: grid;
     grid-template-columns: minmax(21rem, .78fr) minmax(32rem, 1.22fr);

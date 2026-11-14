@@ -36,7 +36,7 @@ export function LegalLayout({
   const HeaderIcon = KIND_ICON[kind];
 
   return (
-    <main className="legal-page">
+    <div className="legal-page">
       <header className="legal-page-header">
         <div className="legal-page-width">
           <div className="legal-title-row">
@@ -100,6 +100,6 @@ export function LegalLayout({
           </footer>
         </article>
       </div>
-    </main>
+    </div>
   );
 }

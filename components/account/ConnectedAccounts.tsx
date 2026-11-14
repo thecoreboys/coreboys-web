@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -107,7 +108,7 @@ function ConnectedIdentity({ connection }: { connection: Connection }) {
   return (
     <span className="inline-flex max-w-[15rem] items-center gap-1.5 rounded-full bg-primary py-1 pl-1 pr-2 text-xs font-medium text-primary ring-1 ring-inset ring-secondary" title={accountName}>
       {connection.avatarUrl && !imageFailed ? (
-        <img src={connection.avatarUrl} alt="" onError={() => setImageFailed(true)} className="size-5 shrink-0 rounded-full object-cover" />
+        <SiteImage width={20} height={20} src={connection.avatarUrl} alt="" onError={() => setImageFailed(true)} className="size-5 shrink-0 rounded-full object-cover" />
       ) : (
         <span className="grid size-5 shrink-0 place-items-center rounded-full bg-secondary text-[10px] font-bold text-tertiary" aria-hidden>@</span>
       )}
@@ -455,6 +456,7 @@ function ConnectedAccountsForUser({
                     )
                   )}
                 </div>
+                <div className="w-full space-y-1 pl-0 text-sm text-tertiary sm:pl-10"><p>{p.why}</p><p>{p.interactionLabel}{p.interactionNote ? ` · ${p.interactionNote}` : ""}</p>{!conn ? <p>{p.watchHistorySync.detail}</p> : null}</div>
                 {conn ? <div className="w-full pl-0 sm:pl-10">
                   <p className="text-xs text-tertiary">{conn.lastSyncAt ? <>Last synced <time dateTime={conn.lastSyncAt}>{new Date(conn.lastSyncAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time></> : "Waiting for the first successful sync"}</p>
                   {conn.lastSyncError ? <p className="mt-1 text-xs text-warning-primary">Sync needs attention. Try Sync now or reconnect this account.</p> : null}

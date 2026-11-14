@@ -1,4 +1,17 @@
 import type { WatchCatalog, WatchItem } from "./types";
+import { sanitizeAvailableContent } from "../content-identity";
+
+/** Preserve each editorial variant while reusing a sanitized shared item across shelves. */
+export function sanitizeWatchCatalog(catalog: WatchCatalog, unavailable: ReadonlySet<string>): WatchCatalog {
+  const projected = new Map<WatchItem, WatchItem | null>();
+  const project = (item: WatchItem): WatchItem | null => {
+    if (!projected.has(item)) {
+      projected.set(item, sanitizeAvailableContent([item], unavailable)[0] ?? null);
+    }
+    return projected.get(item)!;
+  };
+  return filterWatchCatalog(catalog, (item) => project(item) !== null, (item) => project(item)!);
+}
 
 /** Project every shelf, including cached hero entries, through the same decision. */
 export function filterWatchCatalog(catalog: WatchCatalog, allowed: (item: WatchItem) => boolean,

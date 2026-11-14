@@ -18,17 +18,17 @@ export default async function PostcardBinderPage() {
   if (!(await getCurrentFanUserId())) redirect("/login?next=/binder/postcards");
   return (
     <>
-      <main className="min-h-screen pb-24 pt-24 md:pt-28">
+      <div className="min-h-[var(--page-min-height)] pb-24">
         <div className="mx-auto max-w-container px-6 md:px-8">
           <Link href="/passport" className="text-sm font-semibold text-tertiary hover:text-primary">← CORE Passport</Link>
           <header className="mt-6 max-w-2xl">
             <p className="text-sm font-semibold text-brand-secondary">Private collection</p>
             <h1 className="mt-2 text-display-sm font-semibold tracking-tight text-primary md:text-display-md">Your postcard binder</h1>
-            <p className="mt-3 text-lg text-tertiary">Chosen variants and server-issued serials from accepted live postcard orders.</p>
+            <p className="mt-3 text-lg text-tertiary">Your postcards and order details, visible only to you. New postcard orders are currently paused.</p>
           </header>
           <div className="mt-10"><PostcardBinder /></div>
         </div>
-      </main>
+      </div>
       <SiteFooter />
     </>
   );

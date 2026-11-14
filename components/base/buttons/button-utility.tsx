@@ -11,7 +11,7 @@ import { isReactComponent } from "@/utils/is-react-component";
 
 export const styles = {
     secondary:
-        "bg-primary text-fg-quaternary shadow-xs-skeuomorphic ring-1 ring-primary ring-inset hover:bg-primary_hover hover:text-fg-quaternary_hover disabled:shadow-xs",
+        "bg-[color:var(--ui-surface)] text-fg-quaternary ring-1 ring-[color:var(--ui-line)] ring-inset hover:bg-primary_hover hover:text-fg-quaternary_hover",
     tertiary: "text-fg-quaternary hover:bg-primary_hover hover:text-fg-quaternary_hover",
 };
 
@@ -92,7 +92,7 @@ export const ButtonUtility = ({
             aria-label={tooltip}
             {...props}
             className={cx(
-                "group relative inline-flex h-max cursor-pointer items-center justify-center rounded-md p-1.5 outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                "group relative inline-flex min-h-10 min-w-10 max-sm:min-h-11 max-sm:min-w-11 cursor-pointer items-center justify-center rounded-xl p-2 outline-focus-ring transition duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
                 styles[color],
 
                 // Icon styles

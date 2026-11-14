@@ -8,6 +8,7 @@ import { usePlayer } from "@/components/providers/PlayerProvider";
 import { platformForPlayback, type Playable } from "@/lib/watch/playable";
 import type { WatchKind } from "@/lib/watch/types";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
+import { isActiveTheaterDestination } from "@/lib/watch/theater-handoff";
 
 const KINDS = new Set<WatchKind>(["live", "youtube", "vod", "clip", "post", "tour"]);
 const FORMATS = new Set<NonNullable<Playable["format"]>>(["long", "short", "live", "photo"]);
@@ -26,6 +27,7 @@ function safeImageUrl(value: string): string | null {
 
 export function TheaterStage() {
   const params = useSearchParams();
+  const renderedSearch = params.toString();
   const rawKind = params.get("kind") ?? "live";
   const kind: WatchKind = KINDS.has(rawKind as WatchKind) ? (rawKind as WatchKind) : "clip";
   const id = params.get("id") ?? "";
@@ -119,6 +121,9 @@ export function TheaterStage() {
 
   useEffect(() => {
     if (!playable || !player.ready) return;
+    // The persistent player can show its controls before this streamed route
+    // hydrates. A late handoff must not undo a viewer's Minimize or Close.
+    if (!isActiveTheaterDestination(window.location, renderedSearch)) return;
     // During an in-Theater short-form step, the provider changes first and
     // PersistentPlayer replaces the query immediately after render. Do not
     // let the previous query race that channel-owned current item backward.
@@ -133,7 +138,7 @@ export function TheaterStage() {
     player.play(playable, undefined, { mode: "theater" });
     // The stable query-derived key intentionally controls this handoff.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playable?.key, player.ready]);
+  }, [playable?.key, player.ready, renderedSearch]);
 
   if (!playable) {
     return (

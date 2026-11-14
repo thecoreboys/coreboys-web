@@ -47,14 +47,15 @@ export function ArticleSidebar({ headings }: { headings: Heading[] }) {
   const onJump = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 88;
-    window.scrollTo({ top, behavior: "smooth" });
+    const headerHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--site-header-h")) || 128;
+    const top = el.getBoundingClientRect().top + window.scrollY - headerHeight - 16;
+    window.scrollTo({ top, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   };
 
   if (headings.length === 0) return null;
 
   return (
-    <aside className="sticky top-24 flex max-h-[calc(100vh-7rem)] flex-col gap-3 overflow-hidden">
+    <aside className="sticky top-[calc(var(--site-header-h,8rem)+1rem)] flex max-h-[calc(100dvh-var(--site-header-h,8rem)-2rem)] min-w-0 flex-col gap-3 overflow-hidden">
       <Input
         size="sm"
         type="text"

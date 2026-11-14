@@ -32,7 +32,7 @@ export default async function MetricsPage() {
   }));
 
   return (
-    <main className="relative pt-20 md:pt-24">
+    <div className="relative">
       <section className="border-b border-secondary">
         <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
           <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
@@ -80,6 +80,6 @@ export default async function MetricsPage() {
       </section>
 
       <SiteFooter />
-    </main>
+    </div>
   );
 }

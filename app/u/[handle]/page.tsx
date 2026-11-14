@@ -49,7 +49,7 @@ export default async function PublicFanCardPage({ params }: Params) {
 
   return (
     <>
-      <main className="mx-auto max-w-lg px-6 py-20">
+      <div className="mx-auto max-w-lg px-6 py-20">
         <p className="text-sm font-semibold text-brand-secondary">Fan card</p>
         <h1 className="mt-2 text-display-sm font-semibold tracking-tight text-primary">
           {user.display_name}
@@ -79,7 +79,7 @@ export default async function PublicFanCardPage({ params }: Params) {
           </div>
         </dl>
         {passport ? <PublicPassportShowcase passport={passport} /> : null}
-      </main>
+      </div>
       <SiteFooter />
     </>
   );

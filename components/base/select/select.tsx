@@ -39,7 +39,7 @@ const SelectValue = ({ isOpen, isFocused, isDisabled, size, placeholder, icon, r
         <AriaButton
             ref={ref}
             className={cx(
-                "relative flex w-full cursor-pointer items-center rounded-lg bg-primary shadow-xs ring-1 ring-primary outline-hidden transition duration-100 ease-linear ring-inset",
+                "relative flex min-h-11 w-full cursor-pointer items-center rounded-xl bg-[color:var(--ui-surface)] ring-1 ring-[color:var(--ui-line)] outline-hidden transition duration-150 ease-out ring-inset",
                 (isFocused || isOpen) && "ring-2 ring-brand",
                 isDisabled && "cursor-not-allowed opacity-50",
             )}

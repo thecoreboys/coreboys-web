@@ -1,23 +1,21 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { notFound } from "next/navigation";
 import "../../watch/watch.css";
 import "../../guide/guide.css";
 import { WatchChrome } from "@/components/watch/WatchChromeServer";
 import { buildBroadcastHistoryFallback } from "@/lib/watch/airtime-history";
-import { loadAirtimeDailyArchive } from "@/lib/watch/airtime-archive";
-import { NetworkChannelPage, type ChannelCrewMember } from "@/components/watch/NetworkChannelPage";
+import { NetworkChannelPage, type ChannelCrewMember } from "@/components/watch/NetworkChannelPageServer";
 import { getWatchCatalog } from "@/lib/watch/catalog";
-import { GROUP } from "@/lib/group";
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
-import { getCrewPortrait, getGroupPhotos, getMemberPhotos } from "@/lib/asset-index";
+import { getCrewPortrait } from "@/lib/asset-index";
 import { getCrewRoleLabel } from "@/lib/crew";
-import { getMemberGalleryPhotos } from "@/lib/member-gallery";
-import { loadTwitchTrackerAnalytics } from "@/lib/twitchtracker-snapshots";
-import { getCreatorSocialAvatarMap } from "@/lib/watch/creator-profile-avatars";
-import { socialCredentialDiagnosticFor } from "@/lib/watch/social-credentials";
+import {
+  getCachedCreatorSocialAvatarMap,
+  getCreatorSocialAvatarMap,
+} from "@/lib/watch/creator-profile-avatars";
 import { getXCommunityForMemberSlug } from "@/lib/x/config";
 import { selectWatchHomeXPosts } from "@/lib/watch/x-posts";
-import type { CuratedChannelSourceDiagnostic } from "@/lib/watch/creator-platform-rails";
 import {
   buildNetworkChannelHub,
   buildNetworkChannelLineup,
@@ -73,39 +71,6 @@ function modeDescription(channel: NetworkChannel, mode: NetworkChannelMode): str
     : `A shuffled, always-on mix of ${channel.host}'s videos, Twitch broadcasts, and short-form posts.`;
 }
 
-async function channelSourceDiagnostics(
-  channel: NetworkChannel,
-): Promise<CuratedChannelSourceDiagnostic[]> {
-  const sources = channel.memberSlug
-    ? (MEMBERS_BY_SLUG[channel.memberSlug]?.socials ?? [])
-    : Object.entries(GROUP.socials).map(([platform, social]) => ({
-        platform,
-        handle: social.handle,
-        url: social.url,
-      }));
-  const ingestible: Array<{
-    platform: "tiktok" | "instagram";
-    accountRef: string;
-  }> = [];
-  for (const source of sources) {
-    if (source.platform !== "tiktok" && source.platform !== "instagram") continue;
-    ingestible.push({
-      platform: source.platform,
-      accountRef: source.handle || source.url,
-    });
-  }
-  return Promise.all(
-    ingestible.map(async ({ platform, accountRef }) => {
-      const status = await socialCredentialDiagnosticFor(platform, accountRef);
-      return {
-        platform,
-        handle: status.handle,
-        state: status.state,
-      } satisfies CuratedChannelSourceDiagnostic;
-    }),
-  );
-}
-
 export async function generateMetadata({ params, searchParams }: RouteProps): Promise<Metadata> {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const channel = resolveNetworkChannel(slug);
@@ -125,23 +90,23 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
 
   const mode = selectedMode(query.mode, channel);
   const xCommunity = getXCommunityForMemberSlug(channel.memberSlug);
-  const legacyGalleryPhotos = channel.memberSlug
-    ? [...getMemberPhotos(channel.memberSlug), ...getGroupPhotos()]
-    : [];
-  const [catalog, sourceDiagnostics, twitchTracker, galleryPhotos, archivedDaily] = await Promise.all([
-    getWatchCatalog(),
-    channelSourceDiagnostics(channel),
-    loadTwitchTrackerAnalytics().catch(() => ({ latest: [], history: [], games: [] })),
-    getMemberGalleryPhotos(channel.memberSlug ?? "", legacyGalleryPhotos),
-    loadAirtimeDailyArchive({ memberSlug: channel.memberSlug }),
-  ]);
+  const avatarMember = channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] ?? null : null;
+  // Resolve the catalog-dependent avatar read while independent history and
+  // gallery queries are still running, rather than adding another DB round trip
+  // after the slowest of those queries finishes.
+  const channelCatalog = getWatchCatalog().then(async (catalog) => {
+    const hub = buildNetworkChannelHub(catalog, channel);
+    const socialAvatarByUrl = await getCachedCreatorSocialAvatarMap(avatarMember, hub.all);
+    return { catalog, hub, socialAvatarByUrl };
+  });
+  // History and photos load when their tab opens, independently of watch content.
+  const { catalog, hub, socialAvatarByUrl } = await channelCatalog;
   const serverNow = new Date().toISOString();
   const airtimeFallback = buildBroadcastHistoryFallback(catalog.broadcasts, Date.parse(serverNow));
   const items = buildNetworkChannelLineup(catalog, channel, mode);
   const continuousItems = mode === "continuous"
     ? items
     : buildNetworkChannelLineup(catalog, channel, "continuous");
-  const hub = buildNetworkChannelHub(catalog, channel);
   const ownerXItems = catalog.byPlatform.x.filter((item) =>
     channel.memberSlug === null
       ? item.memberSlug === null
@@ -150,11 +115,13 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
   const ownerXPosts = selectWatchHomeXPosts({
     byMember: catalog.byMember,
     byPlatform: { ...catalog.byPlatform, x: ownerXItems },
-  }, { limit: 8, perMember: 8 });
-  const socialAvatarByUrl = await getCreatorSocialAvatarMap(
-    channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] ?? null : null,
-    hub.all,
-  );
+  }, { limit: 24, perMember: 24 });
+  // Network pages should not wait for Instagram/TikTok/Twitch profile pages to
+  // resolve before returning their useful content. Warm provider avatars for
+  // the next visit without putting those remote requests on this render path.
+  after(async () => {
+    await getCreatorSocialAvatarMap(avatarMember, hub.all).catch(() => {});
+  });
   // This is the same canonical assignment that powers the member About page.
   // CORE Network shows the complete house crew; individual channels only show
   // the people assigned to that creator.
@@ -165,6 +132,7 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
       name: crew.name,
       roleLabel: getCrewRoleLabel(crew),
       portrait: getCrewPortrait(crew.slug),
+      socials: crew.socials,
     }));
 
   return (
@@ -176,13 +144,9 @@ export default async function ChannelPage({ params, searchParams }: RouteProps) 
         continuousItems={continuousItems}
         hub={hub}
         serverNow={serverNow}
-        twitchTracker={twitchTracker.latest}
         airtimeFallback={airtimeFallback}
-        archivedDaily={archivedDaily}
-        sourceDiagnostics={sourceDiagnostics}
         xCommunityUrl={xCommunity?.communityUrl ?? null}
         ownerXPosts={ownerXPosts}
-        galleryPhotos={galleryPhotos}
         team={team}
         socialAvatarByUrl={socialAvatarByUrl}
       />

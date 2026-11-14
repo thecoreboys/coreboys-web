@@ -14,8 +14,8 @@ import "../watch/watch.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DVR",
-  description: "A private, membership-included CORE DVR with saved titles and watch progress.",
+  title: "Saved library",
+  description: "Your private saved titles, folders, notes, and watch progress. Saving a title does not record its video.",
   alternates: { canonical: "/dvr" },
   robots: { index: false, follow: false },
 };
@@ -23,7 +23,6 @@ export const metadata: Metadata = {
 export default async function DvrRoute() {
   const userId = await getCurrentFanUserId();
   if (!userId) redirect("/login?next=/dvr");
-  const catalog = await getWatchCatalog();
   const requestHeaders = await headers();
   const requestHostname = (requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "thecoreboys.com").split(",")[0]!.trim();
   const subscription = await getAccountSubscriptionState({ userId, requestHostname });
@@ -31,6 +30,8 @@ export default async function DvrRoute() {
   const dvrAllowed = entitlementDecision(subscription, featureId).allowed;
   const requiredPlanId = minimumPlanForFeature(featureId);
   const planName = requiredPlanId ? PLANS[requiredPlanId].name : "CORE Membership";
+  if (!dvrAllowed) return <DvrMembershipGate planName={planName} />;
+  const catalog = await getWatchCatalog();
   const items = dvrAllowed ? await getDvrItems(catalog, userId, entitlementDecision(subscription, "queue.templates").allowed) : [];
 
   return (

@@ -44,8 +44,11 @@ function richness(item: WatchItem): number {
 function normalizedItem(item: WatchItem): WatchItem {
   const published = timestamp(item.publishedAt);
   const sources = `${item.sourceUrl ?? ""}\n${item.href ?? ""}`;
-  const isLive = item.kind === "live" || item.format === "live";
+  const isLive = item.kind === "live";
   const isPhoto = item.format === "photo";
+  const nonLiveFormat = item.format === "live" && !isLive
+    ? item.kind === "vod" || item.kind === "youtube" ? "long" : undefined
+    : item.format;
   const shortForm =
     !isLive &&
     !isPhoto &&
@@ -54,7 +57,7 @@ function normalizedItem(item: WatchItem): WatchItem {
       (item.platform === "youtube" && /\/shorts\//i.test(sources)) ||
       (item.platform === "instagram" && /\/reels?\//i.test(sources)));
   const format =
-    isLive ? "live" : isPhoto ? "photo" : shortForm ? "short" : item.format;
+    isLive ? "live" : isPhoto ? "photo" : shortForm ? "short" : nonLiveFormat;
   const ratio = item.width && item.height ? item.width / item.height : null;
   const measuredOrientation =
     ratio == null
@@ -107,7 +110,7 @@ export function normalizeWatchItems(items: readonly WatchItem[]): WatchItem[] {
     const preferred = richness(item) > richness(existing) ? item : existing;
     const fallback = preferred === item ? existing : item;
     const mergedFormat =
-      preferred.format === "live" || fallback.format === "live"
+      preferred.kind === "live" || fallback.kind === "live"
         ? "live"
         : preferred.format === "photo" || fallback.format === "photo"
           ? "photo"
@@ -136,8 +139,8 @@ export function normalizeWatchItems(items: readonly WatchItem[]): WatchItem[] {
 
   const platformIndex = new Map(PLATFORM_ORDER.map((platform, index) => [platform, index]));
   return [...byKey.values()].sort((a, b) => {
-    const aLive = a.kind === "live" || a.format === "live";
-    const bLive = b.kind === "live" || b.format === "live";
+    const aLive = a.kind === "live";
+    const bLive = b.kind === "live";
     if (aLive !== bLive) return aLive ? -1 : 1;
     const aTimestamp = timestamp(a.publishedAt);
     const bTimestamp = timestamp(b.publishedAt);
