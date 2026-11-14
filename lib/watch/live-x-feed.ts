@@ -4,6 +4,7 @@ import type { PublicXFeedSnapshot } from "@/lib/x-feed-snapshot";
 import type { PublicXFeedStatus } from "@/lib/x-feed-freshness";
 import type { WatchCatalog, WatchItem } from "./types";
 import { selectWatchHomeXPosts, type WatchHomeXPost } from "./x-posts";
+import { crewXAuthorSlug } from "@/lib/x/crew-roster";
 
 export type LiveXFeedResponse = {
   members: WatchHomeXPost[];
@@ -44,6 +45,18 @@ function xWatchItem(item: FeedItem): WatchItem {
     ...(item.isLive ? { live: { startedAt: item.publishedAt } } : {}),
     x: item.x,
   };
+}
+
+/** Crew profiles read only their own posts from the shared, cached snapshot. */
+export function selectCrewProfileXPosts(snapshot: Pick<PublicXFeedSnapshot, "items">, slug: string): WatchHomeXPost[] {
+  const authorSlug = crewXAuthorSlug(slug);
+  return selectWatchHomeXPosts({
+    byMember: [],
+    byPlatform: {
+      x: snapshot.items.filter((item) => item.platform === "x" && item.authorSlug === authorSlug).map(xWatchItem),
+      twitch: [], youtube: [], instagram: [], tiktok: [], house: [],
+    },
+  }, { audience: "crew", limit: 12, perMember: 12 });
 }
 
 /** Shape both audiences from the same durable snapshot, without loading Watch. */

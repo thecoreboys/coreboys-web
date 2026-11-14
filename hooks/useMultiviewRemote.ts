@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import {
   MULTIVIEW_REMOTE_API, MULTIVIEW_REMOTE_MOBILE,
@@ -24,7 +24,7 @@ export function useRemoteSessions(userId: string | null, interval = 8000) {
   return useSWR(
     userId ? [MULTIVIEW_REMOTE_API, userId] : null,
     async ([url]) => {
-      const response = await fetch(url, { cache: "no-store" });
+      const response = await fetch(url, { cache: "no-store", signal: requestTimeout() });
       if (!response.ok) throw new Error("Couldn’t check for Multiview sessions.");
       return ((await response.json()) as { sessions: RemoteSession[] }).sessions;
     },
@@ -58,13 +58,16 @@ export function useMultiviewRemoteHost({
   main: string | null;
   switchSource: (source: string) => boolean;
 }) {
+  const [connection, setConnection] = useState<"signed-out" | "connecting" | "connected" | "reconnecting" | "secure-context-required">("signed-out");
   const snapshot = useRef({ sources, main, switchSource });
   useEffect(() => {
     snapshot.current = { sources, main, switchSource };
   }, [sources, main, switchSource]);
 
   useEffect(() => {
-    if (!accountId || window.matchMedia("(pointer: coarse) and (hover: none)").matches) return;
+    if (!accountId) { setConnection("signed-out"); return; }
+    if (!window.crypto?.randomUUID) { setConnection("secure-context-required"); return; }
+    setConnection("connecting");
     const id = window.crypto.randomUUID();
     const secret = window.crypto.randomUUID();
     const device = hostDevice();
@@ -90,7 +93,10 @@ export function useMultiviewRemoteHost({
         const response = heartbeat
           ? await postMultiviewRemote({ action: "heartbeat", id, secret, device, sources: state.sources, main: state.main })
           : await fetch(`${MULTIVIEW_REMOTE_API}?host=${id}`, { cache: "no-store", signal: requestTimeout() });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!stopped) setConnection(response.status === 401 ? "signed-out" : "reconnecting");
+          return;
+        }
         if (heartbeat) {
           registered = true;
           lastHeartbeat = Date.now();
@@ -106,8 +112,10 @@ export function useMultiviewRemoteHost({
         if (!active) {
           registered = false;
           applied = undefined;
+          setConnection("reconnecting");
           return;
         }
+        setConnection("connected");
         const command = active.command;
         if (command?.status !== "pending") {
           applied = undefined;
@@ -124,6 +132,7 @@ export function useMultiviewRemoteHost({
           status: applied.accepted && snapshot.current.main === command.source ? "applied" : "unavailable",
         });
       } catch {
+        if (!stopped) setConnection("reconnecting");
         // A connection drop leaves the player running and the lease expires on its own.
       } finally {
         if (!stopped) timer = window.setTimeout(poll, registered ? 1500 : 5000);
@@ -145,4 +154,5 @@ export function useMultiviewRemoteHost({
       stop();
     };
   }, [accountId]);
+  return { connection };
 }

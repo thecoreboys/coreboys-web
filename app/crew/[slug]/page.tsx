@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, MessageCircle } from "lucide-react";
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
 import { getCrewRoleLabel } from "@/lib/crew";
 import { getCrewPhotos, getCrewPortrait } from "@/lib/asset-index";
@@ -12,6 +12,9 @@ import { crewMetricSlug } from "@/lib/social-metric-format";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { PlatformLink, type PlatformKey } from "@/components/ui/PlatformLink";
 import { AutoScrollGallery } from "@/components/ui/AutoScrollGallery";
+import { XTweetsRail } from "@/components/watch/XTweetsRail";
+import { getPublicXFeedSnapshot } from "@/lib/x-feed-snapshot";
+import { selectCrewProfileXPosts } from "@/lib/watch/live-x-feed";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -67,6 +70,10 @@ export default async function CrewMemberPage({ params }: Params) {
     .filter((m): m is NonNullable<typeof m> => !!m);
   const accent = works[0]?.accent ?? "#a1a1aa";
   const roleLabel = getCrewRoleLabel(c);
+  const xProfile = c.socials.find((social) => social.platform === "x");
+  const postsPromise = xProfile
+    ? getPublicXFeedSnapshot().then((snapshot) => selectCrewProfileXPosts(snapshot, c.slug)).catch(() => [])
+    : Promise.resolve([]);
   const socialMetricsPromise = getProfileSocialMetrics({
     snapshotSlug: crewMetricSlug(c.slug),
     socials: c.socials,
@@ -83,6 +90,7 @@ export default async function CrewMemberPage({ params }: Params) {
     avatars = {};
   }
   const metricByUrl = await socialMetricsPromise;
+  const xPosts = await postsPromise;
 
   // Other crew (excluding this one), for the bottom rail.
   const otherCrew = CREW.filter((x) => x.slug !== c.slug);
@@ -275,10 +283,31 @@ export default async function CrewMemberPage({ params }: Params) {
                   </ul>
                 </div>
               ) : null}
+              {xProfile ? <a href="#crew-posts"
+                className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--rule)] px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary_hover">
+                <MessageCircle size={16} aria-hidden="true" /> Posts on X <ArrowUpRight size={16} aria-hidden="true" />
+              </a> : null}
             </div>
           </div>
         </div>
       </section>
+
+      {xProfile ? <section id="crew-posts" aria-labelledby="crew-posts-heading"
+        className="scroll-mt-[calc(var(--site-header-h,8rem)+1rem)] border-t border-[color:var(--rule)] bg-[color:var(--bg)]">
+        <div className="mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
+          <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-brand-secondary">From the crew</p>
+              <h2 id="crew-posts-heading" className="mt-2 text-display-sm font-semibold tracking-tight text-primary md:text-display-md">{c.name} on X</h2>
+            </div>
+            <a href={xProfile.url} target="_blank" rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary underline underline-offset-4">
+              Open {xProfile.handle ?? c.name} on X <ArrowUpRight size={16} aria-hidden="true" />
+            </a>
+          </header>
+          {xPosts.length ? <XTweetsRail items={xPosts} title={`${c.name}'s posts on X`} maxItems={12} showHeading={false} /> : null}
+        </div>
+      </section> : null}
 
       {/* GALLERY — auto-scrolling marquee, same component as the member page. */}
       {photos.length > 0 ? (

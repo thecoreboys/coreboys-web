@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { THEME_STORAGE_KEY as STORAGE_KEY, ACCENT_STORAGE_KEY, themePreference, accentPreference, type Theme, type Accent } from "@/lib/theme";
 export type { Theme, Accent } from "@/lib/theme";
 
@@ -20,6 +20,10 @@ const ThemeCtx = createContext<Ctx>({
   setAccent: () => {},
   toggle: () => {},
 });
+
+const subscribeToHydration = () => () => {};
+const clientHydrationSnapshot = () => true;
+const serverHydrationSnapshot = () => false;
 
 function resolvedTheme(preference: Theme): "dark" | "light" {
   if (preference !== "system") return preference;
@@ -106,5 +110,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useTheme() {
-  return useContext(ThemeCtx);
+  const appearance = useContext(ThemeCtx);
+  const hydrated = useSyncExternalStore(subscribeToHydration, clientHydrationSnapshot, serverHydrationSnapshot);
+  // A streamed consumer can hydrate after the provider restores a saved light
+  // theme. Match its server markup first; the head script already paints the
+  // correct palette, and the current theme is exposed immediately afterward.
+  return hydrated ? appearance : { ...appearance, theme: "dark" as const, resolvedTheme: "dark" as const, accent: "core" as const };
 }

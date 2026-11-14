@@ -4,6 +4,7 @@ import { unpackGuidePayload, type CompactGuidePayload } from "./guide-transport"
 
 export type GuideStatus = "live" | "upcoming" | "replay" | "published";
 export type GuideContentType = "live" | "broadcast" | "video" | "short" | "clip" | "photo" | "post";
+export type GuideSourceState = "ok" | "empty" | "unconfigured" | "loading" | "error";
 
 export type GuideProgram = {
   id: string;
@@ -37,14 +38,20 @@ export type GuidePayload = {
   programs: GuideProgram[];
   networks?: GuideNetworkGroup[];
   sources?: {
-    twitchSchedule?: "ok" | "empty" | "unconfigured" | "error";
-    youtubeUpcoming?: "ok" | "empty" | "unconfigured" | "error";
-    socialTimeline?: "ok" | "empty" | "unconfigured" | "error";
-    recordedSessions?: "ok" | "error";
+    catalog?: GuideSourceState;
+    twitchSchedule?: GuideSourceState;
+    youtubeUpcoming?: GuideSourceState;
+    socialTimeline?: GuideSourceState;
+    recordedSessions?: GuideSourceState;
   };
 };
 
 export const WATCH_GUIDE_KEY = "/api/watch/guide";
+
+/** Pick up a cold background load promptly, then return to normal polling. */
+export function guideRefreshInterval(data?: GuidePayload): number {
+  return (data?.partial && data.sources?.catalog !== "error") || Object.values(data?.sources ?? {}).includes("loading") ? 5_000 : 60_000;
+}
 
 export async function fetchWatchGuide(url: string): Promise<GuidePayload> {
   const response = await fetch(url, {

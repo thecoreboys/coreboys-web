@@ -1,0 +1,60 @@
+.download {
+  position: fixed;
+  z-index: 34;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px));
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 6px 10px;
+  max-width: calc(100vw - 32px);
+}
+
+.appIcon {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border: 1px solid #ffffff24;
+  border-radius: 13px;
+  background: #08080a;
+  box-shadow: 0 4px 12px #0002;
+}
+
+.badge {
+  min-height: 56px;
+  gap: 9px;
+  padding: 7px 13px;
+  border: 1px solid #ffffff45;
+  border-radius: 12px;
+  background: #101012;
+  color: #fff;
+  box-shadow: 0 4px 12px #0002;
+  text-decoration: none;
+}
+
+.badge:hover {
+  border-color: #ffffff80;
+  background: #252528;
+  color: #fff;
+}
+
+.badge:focus-visible { outline: 2px solid var(--core); outline-offset: 4px; }
+.apple { flex: none; }
+.label { display: grid; gap: 2px; text-align: left; line-height: 1.15; }
+.label > span { font-size: 11px; font-weight: 450; letter-spacing: .015em; }
+.label > strong { font-size: 18px; font-weight: 600; letter-spacing: -.035em; }
+.invite { grid-column: 2; justify-self: center; }
+
+.download[data-occluded="true"],
+:global(body[data-cookie-consent-open="true"]) .download { visibility: hidden; pointer-events: none; }
+
+@media (max-width: 767px) {
+  .download { left: max(12px, env(safe-area-inset-left)); bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--now-playing-h, 0px) + var(--mobile-nav-space, 0px)); gap: 6px 8px; }
+  .appIcon { width: 48px; height: 48px; border-radius: 11px; }
+  .badge { min-height: 48px; padding: 5px 11px; border-radius: 10px; }
+  .label > strong { font-size: 17px; }
+}
+
+@media (forced-colors: active) {
+  .appIcon, .badge { border: 1px solid ButtonText; }
+}

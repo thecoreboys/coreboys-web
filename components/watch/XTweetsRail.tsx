@@ -3,12 +3,12 @@
 import { isRecentItem } from "@/lib/watch/presentation";
 import { xLinkPresentation } from "@/lib/watch/x-link-presentation";
 
-import { ExternalLink, Link2, MessageCircle, Mic2, Play, Radio } from "lucide-react";
+import { ChevronLeft, ChevronRight, Expand, ExternalLink, ImageOff, Link2, MessageCircle, Mic2, Play, Radio } from "lucide-react";
 import { FilterSelect } from "@/components/ui/FilterSelect";
-import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { PlatformLogo } from "@/components/clips/PlatformLogo";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { BrowserRelativeTime } from "@/components/ui/BrowserDateTime";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { BrowserDateTime, BrowserRelativeTime } from "@/components/ui/BrowserDateTime";
 import { useSeenXPost } from "@/components/x/useSeenXPost";
 import type { WatchHomeXPost, WatchHomeXSpace } from "@/lib/watch/x-posts";
 import styles from "./XTweetsRail.module.css";
@@ -344,7 +344,12 @@ function XQuotePreview({
   );
 }
 
-function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; onOpen?: (post: WatchHomeXPost) => void; priority?: boolean }) {
+function XPostCard({ post, onOpen, priority = false, expanded = false }: {
+  post: WatchHomeXPost;
+  onOpen?: (post: WatchHomeXPost, trigger: HTMLElement, mediaIndex?: number) => void;
+  priority?: boolean;
+  expanded?: boolean;
+}) {
   const { rootRef, isNew } = useSeenXPost(post.statusId);
   const visibleMedia = post.media.flatMap((media) => {
     const source = media.thumbnailUrl ?? (media.kind === "image" ? media.mediaUrl : null);
@@ -357,18 +362,13 @@ function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; o
       className={styles.postCard}
       style={{ "--member-accent": post.author.accent } as CSSProperties}
       data-openable={onOpen ? "true" : undefined}
-      tabIndex={onOpen ? 0 : undefined}
+      data-expanded={expanded || undefined}
       onClick={(event) => {
         if (!onOpen || (event.target instanceof Element && event.target.closest("a,button"))) return;
-        onOpen(post);
-      }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget || !onOpen || (event.key !== "Enter" && event.key !== " ")) return;
-        event.preventDefault();
-        onOpen(post);
+        onOpen(post, event.currentTarget.querySelector<HTMLButtonElement>("[data-x-post-open]") ?? event.currentTarget);
       }}
     >
-      {isNew && isRecentItem(post) ? <span className={styles.newBadge}>New</span> : null}
+      {!expanded && isNew && isRecentItem(post) ? <span className={styles.newBadge}>New</span> : null}
       <header className={styles.postHeader}>
         <a
           className={styles.avatarLink}
@@ -408,7 +408,7 @@ function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; o
         </a>
       </header>
 
-      <XPostText text={post.text} entities={post.entities} sourceUrl={post.sourceUrl} hasMedia={visibleMedia.length > 0}
+      <XPostText text={post.text} entities={post.entities} sourceUrl={post.sourceUrl} hasMedia={post.media.length > 0}
         suppressStatusId={post.quote?.statusId ?? post.unavailableQuote?.statusId} />
 
       <XQuotePreview quote={post.quote} unavailableQuote={post.unavailableQuote} />
@@ -417,11 +417,11 @@ function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; o
         entities={post.entities}
         sourceUrl={post.sourceUrl}
         suppressStatusId={post.quote?.statusId ?? post.unavailableQuote?.statusId}
-        hasMedia={visibleMedia.length > 0}
+        hasMedia={post.media.length > 0}
         priority={priority}
       />
 
-      {visibleMedia.length ? (
+      {!expanded && visibleMedia.length ? (
         <div
           className={styles.mediaGrid}
           data-count={Math.min(4, visibleMedia.length)}
@@ -439,7 +439,9 @@ function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; o
               {index === 3 && visibleMedia.length > 4 ? <span className={styles.moreMedia}>+{visibleMedia.length - 4}</span> : null}
             </>;
             return onOpen ? (
-              <button className={styles.mediaTile} key={media.id} type="button" onClick={() => onOpen(post)} aria-label={`Preview ${post.author.label}'s post, media ${index + 1}`}>
+              <button className={styles.mediaTile} key={media.id} type="button" aria-haspopup="dialog"
+                onClick={(event) => onOpen(post, event.currentTarget, post.media.findIndex((entry) => entry.id === media.id))}
+                aria-label={`Preview ${post.author.label}'s post, media ${index + 1}`}>
                 {content}
               </button>
             ) : (
@@ -453,9 +455,13 @@ function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; o
 
       <footer className={styles.postFooter}>
         <a className={styles.timestamp} href={post.sourceUrl} target="_blank" rel={EXTERNAL_REL}>
-          <BrowserRelativeTime value={post.publishedAt} fallback="Recent" />
+          {expanded ? <BrowserDateTime value={post.publishedAt} fallback="Posted on X" />
+            : <BrowserRelativeTime value={post.publishedAt} fallback="Recent" />}
         </a>
-        <a
+        {onOpen ? <button className={styles.previewButton} type="button" data-x-post-open aria-haspopup="dialog"
+          onClick={(event) => onOpen(post, event.currentTarget)} aria-label={`Preview post from ${post.author.label}`}>
+          <Expand aria-hidden="true" /> Preview post
+        </button> : !expanded ? <a
           className={styles.viewLink}
           href={post.sourceUrl}
           target="_blank"
@@ -463,19 +469,93 @@ function XPostCard({ post, onOpen, priority = false }: { post: WatchHomeXPost; o
           aria-label={`View ${post.author.label}'s post on X (opens in a new tab)`}
         >
           View on X <ExternalLink aria-hidden="true" />
-        </a>
+        </a> : null}
       </footer>
     </article>
   );
 }
 
-function XPostModal({ post, onClose }: { post: WatchHomeXPost | null; onClose: () => void }) {
+function XPostAttachments({ post, initialIndex }: { post: WatchHomeXPost; initialIndex: number }) {
+  const [index, setIndex] = useState(Math.max(0, Math.min(initialIndex, post.media.length - 1)));
+  const [failed, setFailed] = useState<string[]>([]);
+  const media = post.media[index];
+  if (!media) return null;
+  const image = [media.kind === "image" ? media.mediaUrl : null, media.thumbnailUrl]
+    .find((source) => source && !failed.includes(source)) ?? null;
+  const canPlayVideo = media.kind === "video" && media.mediaUrl && !failed.includes(media.mediaUrl);
+  const unavailable = !canPlayVideo && !image;
+  const fail = (source: string) => setFailed((current) => current.includes(source) ? current : [...current, source]);
+  const change = (direction: number) => setIndex((current) => (current + direction + post.media.length) % post.media.length);
+
+  return (
+    <section className={styles.attachmentViewer} aria-label="Post attachments"
+      onKeyDown={(event) => {
+        if (event.target instanceof Element && event.target.closest("video")) return;
+        if (post.media.length < 2 || !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+        event.preventDefault();
+        change(event.key === "ArrowRight" ? 1 : -1);
+      }}>
+      <div className={styles.attachmentStage}>
+        {unavailable ? <div className={styles.attachmentFallback} role="status">
+          <ImageOff aria-hidden="true" /><strong>This attachment couldn’t load</strong>
+          <a href={post.sourceUrl} target="_blank" rel={EXTERNAL_REL}>View it on X <ExternalLink aria-hidden="true" /></a>
+        </div> : canPlayVideo ? (
+          <video key={media.id} className={styles.attachmentMedia} src={media.mediaUrl!}
+            poster={media.thumbnailUrl ?? undefined} controls playsInline preload="metadata" onError={() => fail(media.mediaUrl!)}
+            aria-label={`Video ${index + 1} from ${post.author.label}`} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={media.id} className={styles.attachmentMedia} src={image!}
+            alt={`${media.kind === "video" ? "Video preview" : "Photo"} ${index + 1} attached to ${post.author.label}'s post`}
+            decoding="async" referrerPolicy="no-referrer" onError={() => fail(image!)} />
+        )}
+        {!unavailable && media.kind === "video" && !canPlayVideo ? <a className={styles.attachmentVideoLink}
+          href={post.sourceUrl} target="_blank" rel={EXTERNAL_REL}>
+          <Play aria-hidden="true" /> Watch video on X <ExternalLink aria-hidden="true" />
+        </a> : null}
+      </div>
+      {post.media.length > 1 ? <div className={styles.attachmentControls}>
+        <button type="button" onClick={() => change(-1)} aria-label="Previous attachment"><ChevronLeft aria-hidden="true" /></button>
+        <span aria-live="polite" aria-atomic="true">{index + 1} <span>/ {post.media.length}</span></span>
+        <button type="button" onClick={() => change(1)} aria-label="Next attachment"><ChevronRight aria-hidden="true" /></button>
+      </div> : null}
+    </section>
+  );
+}
+
+function XPostModal({ post, posts, initialMediaIndex, onSelect, onClose, onRestoreFocus }: {
+  post: WatchHomeXPost | null;
+  posts: readonly WatchHomeXPost[];
+  initialMediaIndex: number;
+  onSelect: (post: WatchHomeXPost) => void;
+  onClose: () => void;
+  onRestoreFocus: () => void;
+}) {
+  const postIndex = posts.findIndex((entry) => entry.id === post?.id);
   return (
     <Dialog open={Boolean(post)} onOpenChange={(open) => { if (!open) onClose(); }}>
       {post ? (
-        <DialogContent className="w-[min(42rem,calc(100vw-1.5rem))] max-h-[min(48rem,calc(100dvh-1.5rem))] overflow-y-auto bg-[color:var(--bg)] p-3 sm:p-5">
-          <DialogTitle className="sr-only">Post from {post.author.label}</DialogTitle>
-          <XPostCard post={post} priority />
+        <DialogContent className={`${styles.postModal} ${post.media.length ? styles.postModalWithMedia : ""} overflow-hidden p-0`}
+          onCloseAutoFocus={(event) => { event.preventDefault(); onRestoreFocus(); }}>
+          <header className={styles.modalHeader}>
+            <PlatformLogo platform="x" size={20} />
+            <DialogTitle className={styles.modalTitle}>Post preview</DialogTitle>
+            <DialogDescription className="sr-only">Full post and attachments from {post.author.label} on X.</DialogDescription>
+          </header>
+          <div key={post.id} className={styles.modalBody} data-has-media={Boolean(post.media.length)}>
+            {post.media.length ? <XPostAttachments post={post} initialIndex={initialMediaIndex} /> : null}
+            <div className={styles.modalDetails}>
+              <XPostCard post={post} priority expanded />
+            </div>
+          </div>
+          <footer className={styles.modalFooter}>
+            {posts.length > 1 && postIndex >= 0 ? <div className={styles.postNavigation} aria-label="Browse posts">
+              <button type="button" disabled={postIndex === 0} onClick={() => onSelect(posts[postIndex - 1]!)} aria-label="Previous post"><ChevronLeft aria-hidden="true" /></button>
+              <span aria-live="polite" aria-atomic="true">{postIndex + 1} <span>of {posts.length}</span></span>
+              <button type="button" disabled={postIndex === posts.length - 1} onClick={() => onSelect(posts[postIndex + 1]!)} aria-label="Next post"><ChevronRight aria-hidden="true" /></button>
+            </div> : null}
+            <a className={styles.modalSourceLink} href={post.sourceUrl} target="_blank" rel={EXTERNAL_REL}>View on X <ExternalLink aria-hidden="true" /></a>
+          </footer>
         </DialogContent>
       ) : null}
     </Dialog>
@@ -523,6 +603,13 @@ export function XTweetsRail({
   const headingId = useId();
   const [creator, setCreator] = useState("all");
   const [selectedPost, setSelectedPost] = useState<WatchHomeXPost | null>(null);
+  const [initialMediaIndex, setInitialMediaIndex] = useState(0);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const openPost = (post: WatchHomeXPost, trigger: HTMLElement, mediaIndex = 0) => {
+    returnFocusRef.current = trigger;
+    setInitialMediaIndex(mediaIndex);
+    setSelectedPost(post);
+  };
 
   const creators = useMemo(() => {
     const seen = new Set<string>();
@@ -597,13 +684,15 @@ export function XTweetsRail({
               // deliberately does not make featured posts span rows.
               data-featured={post.media.length > 0 && index % 7 === 0 ? "true" : undefined}
             >
-              <XPostCard post={post} onOpen={setSelectedPost} priority={index < 6} />
+              <XPostCard post={post} onOpen={openPost} priority={index < 6} />
             </div>
           ))}
         </div>
         </div>
       ) : null}
-      <XPostModal post={selectedPost} onClose={() => setSelectedPost(null)} />
+      <XPostModal post={selectedPost} posts={posts} initialMediaIndex={initialMediaIndex}
+        onSelect={(post) => { setInitialMediaIndex(0); setSelectedPost(post); }}
+        onClose={() => setSelectedPost(null)} onRestoreFocus={() => returnFocusRef.current?.focus({ preventScroll: true })} />
     </section>
   );
 }

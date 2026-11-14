@@ -2,163 +2,94 @@
 
 [![Security checks](https://github.com/thecoreboys/coreboys-web/actions/workflows/security-checks.yml/badge.svg)](https://github.com/thecoreboys/coreboys-web/actions/workflows/security-checks.yml) [![CodeQL](https://github.com/thecoreboys/coreboys-web/actions/workflows/codeql.yml/badge.svg)](https://github.com/thecoreboys/coreboys-web/actions/workflows/codeql.yml)
 
-The public-facing landing page for **The Core Boys** — a six-person creator
-group. This is a Next.js 15 / React 19 / Tailwind v4 site with a Three.js hero
-scene, GSAP-driven manifesto reveal, and a live Twitch status integration.
+The public CORE site for The Core Boys: home and channel discovery, live and
+archived playback, Multiview, fan accounts, community features, and staff
+administration. The application uses Next.js 15, React 19, TypeScript,
+Tailwind CSS, and pnpm.
 
 ![The Core Boys site preview](./public/embed-preview.png)
 
-> Tagline: **Create. Own. Run. Everything.**
-
-## Stack
-
-- Next.js 15 (App Router, Turbopack dev) · React 19
-- Tailwind v4 with CSS-vars-based theming
-- `@react-three/fiber` + `@react-three/drei` + `@react-three/postprocessing`
-- Framer Motion (UI motion) + GSAP/ScrollTrigger (scroll choreography)
-- Lenis smooth scroll
-- Radix primitives (Dialog, Tabs) — restyled
-- SWR for the Twitch live-status hook
-- Zod for env + API validation
-- pnpm
+> Create. Own. Run. Everything.
 
 ## Architecture
 
-```
-app/
-  layout.tsx              fonts, metadata, Lenis + nuqs providers
-  page.tsx                composes the seven sections
-  globals.css             Tailwind v4 + CSS-var design tokens
-  api/twitch/live/route.ts  Twitch Helix integration
-components/
-  sections/               HeroCore, Manifesto, Roster, LiveNow, HouseReveal, Crew, Footer
-  three/                  CoreScene, CoreObject, OrbitNodes
-  ui/                     Pill, Dialog, Tabs, MemberHex, MemberDialog, SocialIcon, LiveDot
-  providers/LenisProvider.tsx
-hooks/
-  useLiveStatus.ts        SWR hook over /api/twitch/live, refreshes every 60s
-  useReducedMotion.ts
-lib/
-  env.ts                  Zod-validated env (Twitch creds)
-  twitch.ts               Helix client (app token cache + streams fetch)
-  members.ts              Wraps @coreboys/shared with web-only extras (bio, twitchLogin, portrait, display order)
-  utils.ts
-scripts/sync-assets.mjs   one-shot copy from ../../assets → ./public
-```
+Read [the current architecture](docs/ARCHITECTURE.md) for service boundaries,
+authentication, data storage, deployment, and migration ownership.
 
-## Shared package
+| Location | Responsibility |
+| --- | --- |
+| `app/` | App Router pages, layouts, and server API handlers. |
+| `components/watch/`, `lib/watch/` | Catalog, playback, channels, guide, and Multiview. |
+| `components/providers/` | Fan authentication, persistent player, and other client contexts. |
+| `app/admin/`, `app/studio/`, `lib/admin-api.ts` | Staff interfaces and database-backed authorization. |
+| `lib/fan-auth.ts`, `app/api/auth/`, `app/api/oauth/` | Custom fan sessions and provider connections. |
+| `scripts/migrations/` | Web-owned SQL registered by `scripts/apply-web-migrations.mjs`. |
+| `workers/` | Separately operated face analyzer and chat listener. |
+| `native/expo/` | Expo WebView client with independent dependencies and checks. |
 
-Member data (`MEMBERS`), crew data (`CREW`), and all domain types live in
-[`@coreboys/shared`](../coreboys-shared). This repo wraps the shared `Member`
-with web-only fields (bio, derived `twitchLogin`, portrait path, stage-name
-override, display order) in `lib/members.ts`. **Do not duplicate canonical data
-here** — update the shared package and bump the dependency.
+## Development and checks
 
-The `package.json` currently uses `file:../coreboys-shared` for local dev. In CI
-and production this is intended to be a GitHub install:
+Use Node.js 20 or later and pnpm 10. Run these commands from this repository:
 
-```bash
-pnpm add github:thecoreboys/coreboys-shared
-```
-
-## CI
-
-`.github/workflows/ci.yml` calls the reusable workflow from
-[`coreboys-infra`](../coreboys-infra):
-
-```yaml
-jobs:
-  ci:
-    uses: thecoreboys/coreboys-infra/.github/workflows/reusable-node-ci.yml@main
-    with:
-      node-version: "20"
-      pnpm-version: "10"
-      run-test: false
-```
-
-Test step is disabled until we add a vitest harness.
-
-## Twitch integration
-
-Live status stays inside this repo for now (it will move to `coreboys-api` in
-Phase 3). The route at `app/api/twitch/live/route.ts`:
-
-1. Acquires an app-access token via the client-credentials grant (cached in
-   module scope, refreshed ~60s before expiry).
-2. Calls `GET /helix/streams?user_login=...` once with all six member logins.
-3. Returns `{ live: LiveEntry[], fetchedAt }` with
-   `Cache-Control: public, s-maxage=30, stale-while-revalidate=60`.
-
-The client uses `useLiveStatus()` (SWR, 60s refresh). Per-member dots use
-`useLoginIsLive(login)` derived from the same payload.
-
-## Environment
-
-```
-TWITCH_CLIENT_ID=
-TWITCH_CLIENT_SECRET=
-NEXT_PUBLIC_SITE_URL=http://localhost:3000   # optional
-```
-
-`lib/env.ts` validates on first use and throws a readable error if missing.
-
-## Dev
-
-```bash
-pnpm install
-pnpm sync-assets   # one-time: copies ../../assets into ./public (incl. ~110MB house-reveal.mp4)
-pnpm dev           # http://localhost:3000
+```sh
+pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm lint
-pnpm build
+pnpm test
+pnpm dev
 ```
 
-The build does not require the assets to exist (Next does not validate
-`/public` paths at build time), but the dev server will 404 on missing
-portraits and the hero video.
+The development pre-hook runs `scripts/sync-db-firewall.mjs`; configure the
+local environment before starting against a shared database. Create a local
+`.env.local` with the settings needed for the features being developed. The
+[architecture and integration references](docs/ARCHITECTURE.md#integration-and-operation-references)
+identify the feature-specific setup documents.
 
-## Adding a social link / new member
+`pnpm typecheck` runs `next typegen` before `tsc --noEmit`. This generates route
+and page definitions in a fresh checkout and refreshes them when routes are
+added. `pnpm lint` uses the ESLint CLI and the rules in `eslint.config.mjs`.
+Generated `next-env.d.ts`, TypeScript caches, `.next*`, `.tmp/`, and `output/`
+files are ignored.
 
-Members and crew are sourced from `@coreboys/shared`. To change canonical data:
+`pnpm build` creates the production Next.js build. Windows contributors who
+cannot create standalone symlinks can set `CORE_NEXT_STANDALONE=0` for a local
+build. Custom builds can isolate output with `CORE_NEXT_DIST_DIR` and a matching
+`CORE_NEXT_TSCONFIG`; keep temporary build paths out of the shared config.
 
-1. Edit `repos/coreboys-shared/src/data/members.ts` (or `team.ts`).
-2. `pnpm build && pnpm test` in `coreboys-shared`.
-3. Back here, `pnpm install` (re-resolves the file: dep) then `pnpm typecheck`.
+## CI and production
 
-To add a **web-only** detail for a member (bio, alternate portrait), edit the
-`EXTRAS` map in `lib/members.ts`. Don't put bios in the shared package.
+[CI](.github/workflows/ci.yml) installs locked dependencies and runs web
+typecheck, lint, tests, and isolated SQL verification. Separate jobs check the
+face worker and the Expo client.
 
-To **reorder** members on the landing page, edit `DISPLAY_ORDER` in
-`lib/members.ts`. Do **not** reorder the shared array — other consumers depend
-on it.
+[Production deployment](.github/workflows/deploy-azure.yml) runs on pushes to
+`main` or manual dispatch. It builds the standalone Docker image, pushes a
+commit SHA tag to Azure Container Registry, applies registered web and media
+intelligence migrations, configures runtime secrets, deploys Azure Container
+Apps, checks the application URL, and configures scheduled ingestion jobs.
+`NEXT_PUBLIC_*` values are image build inputs; server credentials are runtime
+secrets. The workflow defines the exact inputs and feature flags.
 
-## Performance notes (v0)
+## Shared data
 
-- Hero text uses CSS gradient + WebKit background-clip — paints with the font.
-- The R3F canvas is dynamic-imported with `ssr: false` so it doesn't gate first paint.
-- The drone video is loaded `preload="metadata"`. Production should serve a
-  720p variant on mobile via `<source media>` and route the file through a CDN.
-- DPR cap on the canvas is `[1, 1.6]`. Bloom + chromatic aberration are on,
-  but at modest intensity.
+The web dependency is `@coreboys/shared` from `file:vendor/coreboys-shared`.
+The vendored built package is committed so private-repository cloud builds
+need no extra GitHub token. Canonical member and crew data is maintained in the
+separate `coreboys-shared` repository; update its source and the vendored build
+together when changing those records.
 
-## Roadmap → Phase 3
+Web-only biographies, portrait paths, stage names, and display order are
+wrapped in `lib/members.ts`. Keep canonical social and identity data in the
+shared package. Use `DISPLAY_ORDER` in the web wrapper to change its ordering.
 
-- Move `app/api/twitch/live` into `coreboys-api` and consume from web via
-  `INTERNAL_API_URL`.
-- Asset optimization pipeline (`sharp`-based AVIF/WebP) when portraits are finalized.
-- OG image generator at `app/opengraph-image.tsx` (currently uses default
-  metadata).
-- Real bios per member, cleared by each member's team.
-- Multi-bitrate video sources for the hero plate.
+## Feature references
 
-## Theming
-
-See [`THEMING.md`](./THEMING.md).
-
-## Live member and crew X feeds
-
-See [X feed delivery and setup](./docs/x-live-feed.md) for the shared scheduled
-reader, signed stream webhook, crew notification controls, and provider setup.
+- [Watch reliability](docs/WATCH_RELIABILITY.md) and [performance](docs/performance.md).
+- [Social connections](docs/SOCIAL_MEDIA_CONNECTIONS.md) and [X feeds](docs/x-live-feed.md).
+- [Mobile external navigation](docs/mobile-external-navigation.md).
+- [Billing setup](docs/STRIPE_MEMBERSHIP_SETUP.md) and [email](docs/RESEND_EMAIL.md).
+- [Contributor applications](docs/community-applications.md).
+- [Design conventions](docs/DESIGN.md) and [theming](THEMING.md).
 
 ## Attribution
 

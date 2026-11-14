@@ -15,5 +15,5 @@ test("Guide details never widen the initial portrait Theater item", () => {
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
   assert.match(player.slice(start, end), /shape === "landscape"/);
-  assert.match(player, /shape === "portrait"\s*\? "max-w-\[calc\(\(100dvh-8rem\)\*9\/16\)\]"/);
+  assert.match(player, /shape === "portrait"\s*\? "max-w-\[calc\(\(100dvh-8rem-var\(--watch-creator-tags-height,0px\)\)\*9\/16\)\]"/);
 });

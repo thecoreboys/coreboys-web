@@ -7,10 +7,11 @@ import test from "node:test";
 import * as React from "react";
 import ts from "typescript";
 import * as client from "../lib/radio-client";
+import { OPEN_RADIO_CONTROLS_EVENT } from "../lib/site-utility-events";
 
 // Exercise the mounted director's real request/skip handlers with a small hook
 // host and fake audio, so silent requests cannot accidentally allocate media.
-function mountDirector() {
+function mountDirector(defaultExpanded = true) {
   const filename = resolve("components/watch/RadioAudioDirector.tsx");
   const nativeRequire = createRequire(filename);
   const slots: Array<{ value?: unknown; deps?: unknown[]; cleanup?: void | (() => void) }> = [];
@@ -19,7 +20,7 @@ function mountDirector() {
   let cursor = 0;
   let dirty = false;
   let tree: unknown;
-  let props = { autoCollapse: false };
+  let props = { autoCollapse: false, defaultExpanded };
   const browser = Object.assign(new EventTarget(), {
     matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
     cancelAnimationFrame() {}, requestAnimationFrame: () => 1,
@@ -79,6 +80,7 @@ function mountDirector() {
       if (name === "@/lib/radio-client") return { ...client, emitRadioCueLifecycle: (event: client.RadioCueLifecycleEvent) => lifecycle.push(event), setRadioAudioDirectorMounted() {} };
       if (name === "@/hooks/useReducedMotion") return { useReducedMotion: () => true };
       if (name === "@/components/providers/AuthProvider") return { useAuth: () => ({ user: null }) };
+      if (name === "@/lib/site-utility-events") return { OPEN_RADIO_CONTROLS_EVENT };
       if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };
       if (name.startsWith("@/")) return new Proxy({}, { get: () => () => null });
       return nativeRequire(name);
@@ -104,7 +106,8 @@ function mountDirector() {
     lifecycle,
     audio: AudioStub.created,
     toggle() { findToggle(tree)!.props.onClick!(); render(); },
-    autoCollapse(value: boolean) { props = { autoCollapse: value }; render(); },
+    openFromMenu() { browser.dispatchEvent(new Event(OPEN_RADIO_CONTROLS_EVENT)); render(); },
+    autoCollapse(value: boolean) { props = { ...props, autoCollapse: value }; render(); },
     async request(id: string, kind: client.RadioCueKind = "network_tune_in", queueIfBusy = false) {
       const result = await new Promise<client.RadioCueOutcome>((complete) => browser.dispatchEvent(new CustomEvent(client.RADIO_CUE_REQUEST_EVENT, {
         detail: { id, kind, queueIfBusy, audioUrl: "/audio/network-tunes/core-247.mp3", allowRepeat: true, resolve: complete },
@@ -115,6 +118,19 @@ function mountDirector() {
     unmount() { for (const slot of slots) slot?.cleanup?.(); },
   };
 }
+
+test("a page can start minimized and open DJ controls from the mobile menu", async () => {
+  const director = mountDirector(false);
+  try {
+    assert.equal((await director.request("initial-route")).reason, "widget_collapsed");
+    assert.equal(director.audio.length, 0);
+    director.openFromMenu();
+    assert.equal((await director.request("opened-route")).status, "started");
+    assert.equal(director.audio.length, 1);
+    director.toggle();
+    assert.equal(director.audio[0]!.paused, true);
+  } finally { director.unmount(); }
+});
 
 test("collapsed DJ suppresses transition audio without creating or replaying it", async () => {
   const director = mountDirector();

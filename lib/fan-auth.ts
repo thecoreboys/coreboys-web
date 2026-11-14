@@ -6,6 +6,7 @@
  */
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { query } from "@/lib/db";
 
 export const FAN_SESSION_COOKIE = "coreboys-fan-session";
 const ALG = "HS256";
@@ -26,10 +27,11 @@ export type FanSession = {
   sub: string;
   iat: number;
   exp: number;
+  ver?: number;
 };
 
-export async function signFanSessionToken(userId: string): Promise<string> {
-  return new SignJWT({})
+export async function signFanSessionToken(userId: string, sessionVersion = 0): Promise<string> {
+  return new SignJWT({ ver: sessionVersion })
     .setProtectedHeader({ alg: ALG })
     .setSubject(userId)
     .setIssuedAt()
@@ -41,6 +43,7 @@ export async function verifyFanSessionToken(token: string): Promise<FanSession |
   try {
     const { payload } = await jwtVerify(token, getSecret(), { algorithms: [ALG] });
     if (typeof payload.sub !== "string") return null;
+    if (payload.ver !== undefined && (!Number.isSafeInteger(payload.ver) || Number(payload.ver) < 0)) return null;
     return payload as FanSession;
   } catch {
     return null;
@@ -66,5 +69,10 @@ export async function getCurrentFanUserId(): Promise<string | null> {
   const token = store.get(FAN_SESSION_COOKIE)?.value;
   if (!token) return null;
   const session = await verifyFanSessionToken(token);
-  return session?.sub ?? null;
+  if (!session) return null;
+  const user = (await query<{ session_version: number }>(
+    `SELECT session_version FROM fan_users WHERE id=$1`,
+    [session.sub],
+  )).rows[0];
+  return user && user.session_version === (session.ver ?? 0) ? session.sub : null;
 }

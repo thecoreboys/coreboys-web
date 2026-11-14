@@ -33,8 +33,10 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    ".next-guide-refresh/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    ".next-guide-qa/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

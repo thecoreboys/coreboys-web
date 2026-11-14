@@ -1,16 +1,16 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { GROUP } from "@/lib/group";
 import { MEMBERS } from "@/lib/members";
 import { query } from "@/lib/db";
 import { resolveYouTubeChannelId } from "@/lib/social-feed";
 import { fetchUsersByLogin } from "@/lib/twitch";
-import { getWatchCatalog } from "@/lib/watch/catalog";
+import { getHomeWatchCatalog, getWatchCatalog } from "@/lib/watch/catalog";
 import { buildGuideNetworkRows } from "@/lib/watch/channels";
 import { guideLiveCatalog } from "@/lib/watch/guide-live-catalog";
 import { createGuideSourceCache, guideSourceWithDeadline } from "@/lib/watch/guide-source-deadline";
 import { removeActiveTwitchArchiveDuplicates } from "@/lib/watch/guide-programs";
 import type { WatchCatalog, WatchItem, WatchPlatform } from "@/lib/watch/types";
-import type { GuidePayload } from "@/lib/watch/guide-response";
+import type { GuidePayload, GuideSourceState } from "@/lib/watch/guide-response";
 import { packGuidePayload } from "@/lib/watch/guide-transport";
 import { GUIDE_MAX_WINDOW_MS, projectGuideWindow } from "@/lib/watch/guide-window";
 
@@ -41,7 +41,7 @@ type GuideProgram = {
   watchItem?: WatchItem;
 };
 
-type SourceState = "ok" | "empty" | "unconfigured" | "error";
+type SourceState = GuideSourceState;
 
 const REPLAY_DAYS = 14;
 const SCHEDULE_DAYS = 7;
@@ -50,6 +50,7 @@ const YOUTUBE_SCHEDULE_TTL = 4 * 60 * 60;
 const OPTIONAL_SOURCE_TIMEOUT_MS = 2_500;
 const cachedTwitchSchedule = createGuideSourceCache<{ items: GuideProgram[]; state: SourceState }>(5 * 60_000);
 const cachedYoutubeUpcoming = createGuideSourceCache<{ items: GuideProgram[]; state: SourceState }>(5 * 60_000);
+const cachedRecordedSessions = createGuideSourceCache<{ items: GuideProgram[]; state: SourceState }>(60_000);
 
 let twitchTokenCache: { value: string; expiresAt: number } | null = null;
 
@@ -496,15 +497,24 @@ export async function GET(request: Request) {
   const serverNow = new Date();
   // Only Twitch schedules depend on its directory. Other providers, recorded
   // history and the shared catalog can start immediately.
-  const [twitchSchedule, youtubeUpcoming, sessions, catalog] = await Promise.all([
+  const archiveWork = getWatchCatalog().then(
+    (catalog) => ({ catalog, state: "ok" as const }),
+    () => ({ catalog: null, state: "error" as const }),
+  );
+  const [twitchSchedule, youtubeUpcoming, sessions, archive] = await Promise.all([
     cachedTwitchSchedule(() => fetchUsersByLogin(MEMBERS.map((member) => member.twitchLogin))
-      .catch(() => ({})).then((users) => loadTwitchSchedules(users, serverNow)), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS),
-    cachedYoutubeUpcoming(() => loadYoutubeUpcoming(serverNow), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS),
-    guideSourceWithDeadline<{ items: GuideProgram[]; state: "ok" | "error" }>(loadRecordedSessions().then((items) => ({ items, state: "ok" })), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS),
+      .then((users) => loadTwitchSchedules(users, serverNow)), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS, { items: [], state: "loading" }),
+    cachedYoutubeUpcoming(() => loadYoutubeUpcoming(serverNow), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS, { items: [], state: "loading" }),
+    cachedRecordedSessions(() => loadRecordedSessions().then((items) => ({ items, state: "ok" })), { items: [], state: "error" }, OPTIONAL_SOURCE_TIMEOUT_MS, { items: [], state: "loading" }),
     // getWatchCatalog already coalesces and caches public data. Another
     // five-minute cache here hid live changes and cached failures as null.
-    getWatchCatalog().catch(() => null),
+    guideSourceWithDeadline<{ catalog: WatchCatalog | null; state: GuideSourceState }>(archiveWork, { catalog: null, state: "loading" }, 8_000),
   ]);
+
+  // A cold archive can outlast the browser timeout. Serve the same recent
+  // catalog that already rendered the page while it warms in the background.
+  const catalog = archive.catalog ?? await guideSourceWithDeadline(getHomeWatchCatalog().catch(() => null), null, 4_000);
+  if (!archive.catalog) after(async () => { await archiveWork; });
 
   if (!catalog) {
     return NextResponse.json({ error: "Guide temporarily unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
@@ -521,11 +531,13 @@ export async function GET(request: Request) {
   ).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
 
   const payload: GuidePayload = {
+      ...(archive.catalog ? {} : { partial: true }),
       serverNow: serverNow.toISOString(),
       horizonEnd: new Date(serverNow.getTime() + SCHEDULE_DAYS * 86_400_000).toISOString(),
       programs,
       networks,
       sources: {
+        catalog: archive.state,
         twitchSchedule: twitchSchedule.state,
         youtubeUpcoming: youtubeUpcoming.state,
         recordedSessions: sessions.state,
@@ -537,7 +549,7 @@ export async function GET(request: Request) {
     request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(snapshot) : snapshot,
     {
       headers: {
-        "Cache-Control": Object.values(payload.sources ?? {}).includes("error")
+        "Cache-Control": payload.partial || Object.values(payload.sources ?? {}).some((state) => state === "error" || state === "loading")
           ? "no-store"
           : "public, s-maxage=60, stale-while-revalidate=180",
         "Vary": "X-CORE-Guide-Format",
