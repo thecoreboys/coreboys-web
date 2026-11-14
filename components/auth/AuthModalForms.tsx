@@ -3,16 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle } from "@untitledui/icons";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Mail } from "lucide-react";
 import { Button } from "@/components/base/buttons/button";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { Input } from "@/components/base/input/input";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authErrorClass } from "./AuthShell";
+import { forgotPasswordSchema, PASSWORD_RESET_COOLDOWN_SECONDS, PASSWORD_RESET_REQUESTED } from "@/lib/auth/password-reset";
 
-export function LoginForm({ next, onSwitch, onComplete }: { next: string; onSwitch: () => void; onComplete: (destination: string) => void }) {
+export function LoginForm({ next, onSwitch, onComplete, onForgotPassword, initialEmail = "" }: { next: string; onSwitch: () => void; onComplete: (destination: string) => void; onForgotPassword: (email: string) => void; initialEmail?: string }) {
   const { refresh } = useAuth();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,10 +72,70 @@ export function LoginForm({ next, onSwitch, onComplete }: { next: string; onSwit
       {error ? <p className={authErrorClass} role="alert"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /><span>{error}</span></p> : null}
       <Input isRequired size="md" label="Email" type="email" name="email" autoComplete="email" value={email} onChange={setEmail} isInvalid={error ? true : undefined} placeholder="you@email.com" />
       <Input isRequired size="md" label="Password" type="password" name="password" autoComplete="current-password" value={password} onChange={setPassword} isInvalid={error ? true : undefined} placeholder="••••••••" />
+      <button type="button" onClick={() => onForgotPassword(email)} className="-mt-1 min-h-11 self-end text-sm font-medium text-rose-300 hover:text-rose-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-200">Forgot password?</button>
       <Button type="submit" size="lg" color="primary" isLoading={loading} className="mt-1 w-full">Sign in</Button>
       <p className="text-center text-xs text-white/48">New to CoreTV? <button type="button" onClick={onSwitch} className="font-semibold text-rose-300 hover:text-rose-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-200">Create a free account</button></p>
     </form>
   );
+}
+
+export function ForgotPasswordForm({ next, initialEmail = "", onBack }: { next: string; initialEmail?: string; onBack: (email: string) => void }) {
+  const [email, setEmail] = useState(initialEmail);
+  const [sentEmail, setSentEmail] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => setCooldown((value) => Math.max(0, value - 1)), 1_000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
+
+  async function submit(event?: React.FormEvent) {
+    event?.preventDefault();
+    if (loading || cooldown > 0) return;
+    const parsed = forgotPasswordSchema.safeParse({ email, next });
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Enter a valid email address."); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed.data),
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) {
+        if (response.status === 429) setCooldown(Math.max(1, Number(response.headers.get("Retry-After")) || PASSWORD_RESET_COOLDOWN_SECONDS));
+        setError(data.error ?? "We couldn’t request your reset link. Please try again.");
+        return;
+      }
+      setSentEmail(parsed.data.email);
+      setCooldown(PASSWORD_RESET_COOLDOWN_SECONDS);
+    } catch {
+      setError("Couldn’t reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return <div className="mt-7 flex flex-col gap-4">
+    {error ? <p className={authErrorClass} role="alert"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /><span>{error}</span></p> : null}
+    {sentEmail ? <>
+      <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.07] p-5" role="status" aria-live="polite">
+        <Mail className="mb-3 size-6 text-emerald-300" aria-hidden />
+        <p className="font-semibold text-white">Check your inbox.</p>
+        <p className="mt-2 text-sm leading-6 text-white/60">{PASSWORD_RESET_REQUESTED}</p>
+        <p className="mt-3 break-all text-sm font-medium text-white">{sentEmail}</p>
+        <p className="mt-3 text-xs leading-5 text-white/48">Check your spam folder too. The link expires in 30 minutes.</p>
+      </div>
+      <Button type="button" size="lg" color="primary" isLoading={loading} isDisabled={cooldown > 0} onClick={() => void submit()} className="w-full">{cooldown > 0 ? `Resend link in ${cooldown}s` : "Resend reset link"}</Button>
+      <button type="button" onClick={() => { setSentEmail(null); setError(null); setCooldown(0); }} className="min-h-11 text-sm font-medium text-rose-300 hover:text-rose-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-200">Use a different email</button>
+    </> : <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+      <Input isRequired autoFocus size="md" label="Email" type="email" name="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError(null); }} isDisabled={loading} isInvalid={error ? true : undefined} placeholder="you@email.com" />
+      <Button type="submit" size="lg" color="primary" isLoading={loading} isDisabled={cooldown > 0} className="mt-1 w-full">{cooldown > 0 ? `Try again in ${cooldown}s` : "Send reset link"}</Button>
+    </form>}
+    <button type="button" onClick={() => onBack(email)} className="inline-flex min-h-11 items-center justify-center gap-2 text-sm font-medium text-white/60 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-200"><ArrowLeft className="size-4" aria-hidden />Back to sign in</button>
+  </div>;
 }
 
 export function SignupForm({ next, onSwitch, onComplete }: { next: string; onSwitch: () => void; onComplete: (destination: string) => void }) {
