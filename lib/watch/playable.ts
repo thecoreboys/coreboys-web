@@ -202,13 +202,15 @@ export function playableFromUrl(raw: string): Playable | null {
         sourceUrl: parsed.toString(),
         embeddable: true,
         format: youtubeLive ? "live" : parsed.pathname.includes("/shorts/") ? "short" : "long",
+        ...(parsed.pathname.includes("/shorts/") ? { orientation: "portrait" as const } : {}),
       };
     }
     if (host === "twitch.tv" || host.endsWith(".twitch.tv")) {
       const parts = parsed.pathname.split("/").filter(Boolean);
-      if (host === "clips.twitch.tv" && parts[0]) {
+      const twitchClip = host === "clips.twitch.tv" ? parts[0] : parts[1] === "clip" ? parts[2] : null;
+      if (twitchClip && /^[A-Za-z0-9_-]+$/.test(twitchClip)) {
         return {
-          key: `clip-twitch-${parts[0]}`,
+          key: `clip-twitch-${twitchClip}`,
           kind: "clip",
           platform: "twitch",
           title: "Twitch clip",
@@ -219,7 +221,7 @@ export function playableFromUrl(raw: string): Playable | null {
           twitchLogin: null,
           vodId: null,
           clipSrc: "twitch",
-          clipId: parts[0],
+          clipId: twitchClip,
           url: parsed.toString(),
           sourceUrl: parsed.toString(),
           embeddable: true,

@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import {
   useEffect,
   useMemo,
@@ -254,8 +255,7 @@ export function PostcardEditorPanels(props: Props) {
                   }}
                   className="w-28 shrink-0 overflow-hidden rounded-lg border border-secondary bg-secondary text-left hover:border-brand-solid"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={moment.imageUrl} alt="" className="aspect-[4/3] w-full object-cover" />
+                  <SiteImage width={112} height={84} src={moment.imageUrl} alt="" className="aspect-[4/3] w-full object-cover" />
                   <span className="block truncate px-2 py-1.5 text-[11px] font-semibold text-primary">{moment.title}</span>
                 </button>
               ))}
@@ -710,7 +710,7 @@ function PhotoSlotTile({
         aria-keyshortcuts={slot.asset && total > 1 ? "Alt+ArrowLeft Alt+ArrowRight" : undefined}
         className="relative block aspect-[4/3] w-full overflow-hidden rounded-t-[11px] bg-secondary text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-solid"
       >
-        {preview ? <img src={preview} alt={slot.asset?.altText ?? ""} className="size-full object-cover" style={{ objectPosition: `${slot.focalPoint.x * 100}% ${slot.focalPoint.y * 100}%` }} /> : <span className="grid size-full place-items-center text-xs text-tertiary">Photo {slotNumber}</span>}
+        {preview ? <SiteImage width={400} height={300} src={preview} alt={slot.asset?.altText ?? ""} className="size-full object-cover" style={{ objectPosition: `${slot.focalPoint.x * 100}% ${slot.focalPoint.y * 100}%` }} /> : <span className="grid size-full place-items-center text-xs text-tertiary">Photo {slotNumber}</span>}
         <span className="absolute left-2 top-2 rounded-full bg-black/75 px-2 py-1 text-[10px] font-bold text-white">{slotNumber}/{total}</span>
       </button>
       <div className="flex min-w-0 flex-wrap gap-1 p-1.5">

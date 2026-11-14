@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Bell, X } from "lucide-react";
 import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
 import { useWatchReminders } from "@/lib/watch/reminders-client";
@@ -59,6 +61,9 @@ function rememberDelivered(ids: Set<string>) {
 }
 
 export function WatchAlertsBridge() {
+  const pathname = usePathname();
+  const player = usePlayer();
+  const noticesHidden = Boolean(player.current) || /^\/(?:account|upgrade|theater|multiview|shorts|fan-mail\/postcard)(?:\/|$)/.test(pathname);
   const { items, browserState, ready } = useWatchReminders();
   const [notices, setNotices] = useState<AlertNotice[]>([]);
   const { activate, previewDialog } = useNotificationActivation();
@@ -82,7 +87,7 @@ export function WatchAlertsBridge() {
           body: reminder.memberSlug ? `Tonight on ${reminder.memberSlug.toUpperCase()}` : "Tonight on CORE",
           href: reminder.href,
         };
-        setNotices((previous) => [notice, ...previous].slice(0, 4));
+        setNotices((previous) => [notice, ...previous].slice(0, 1));
         if (browserState === "granted") void browserNotify(notice.title, notice.body, notice.href);
       }
       delivered.current = known;
@@ -93,12 +98,18 @@ export function WatchAlertsBridge() {
     return () => window.clearInterval(interval);
   }, [browserState, items, ready]);
 
+  useEffect(() => {
+    if (!notices.length || noticesHidden) return;
+    const timer = window.setTimeout(() => setNotices([]), 8_000);
+    return () => window.clearTimeout(timer);
+  }, [notices, noticesHidden]);
+
   function activateNotice(notice: AlertNotice) {
     setNotices((previous) => previous.filter((entry) => entry.id !== notice.id));
     activate({ href: notice.href, title: notice.title, body: notice.body });
   }
 
-  if (!notices.length) return <><div data-watch-alerts-bridge data-browser-alert-state={browserState} hidden />{previewDialog}</>;
+  if (!notices.length || noticesHidden) return <><div data-watch-alerts-bridge data-browser-alert-state={browserState} hidden />{previewDialog}</>;
 
   return (
     <>
@@ -106,7 +117,7 @@ export function WatchAlertsBridge() {
       data-watch-alerts-bridge
       data-browser-alert-state={browserState}
       aria-label="Watch alerts"
-      className="fixed right-3 top-[calc(4.25rem+var(--live-ribbon-h,0px))] z-[95] flex w-[min(23rem,calc(100vw-1.5rem))] flex-col gap-2"
+      className="fixed right-3 top-[calc(var(--site-header-h,8rem)+.75rem)] z-[35] flex w-[min(23rem,calc(100vw-1.5rem))] flex-col gap-2"
     >
       {notices.map((notice) => (
         <div key={notice.id} data-watch-alert-toast role="status" className="flex items-start gap-3 rounded-2xl border border-white/15 bg-[#151519]/95 p-3 text-white shadow-2xl backdrop-blur-xl">
@@ -114,8 +125,8 @@ export function WatchAlertsBridge() {
             <Bell className="size-4" aria-hidden />
           </span>
           <button type="button" onClick={() => activateNotice(notice)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90">
-            <strong className="block text-xs font-semibold">{notice.title}</strong>
-            <span className="mt-1 line-clamp-2 block text-[11px] leading-relaxed text-white/50">{notice.body}</span>
+            <strong className="block text-sm font-semibold">{notice.title}</strong>
+            <span className="mt-1 line-clamp-2 block text-sm leading-relaxed text-white/50">{notice.body}</span>
           </button>
           <Tooltip title="Dismiss alert" description="Remove this Watch notification from the screen." placement="left">
             <button type="button" onClick={() => setNotices((previous) => previous.filter((entry) => entry.id !== notice.id))} className="grid size-8 shrink-0 place-items-center rounded-lg text-white/35 hover:bg-white/8 hover:text-white" aria-label="Dismiss alert">

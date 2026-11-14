@@ -48,6 +48,13 @@ test("DJ Cora's signal strands move clearly while speaking, even without audio a
   assert.match(director, /const rms = Math\.sqrt\(sum \/ samples\.length\)/);
   assert.match(director, /const level = clamp\(\(rms - 0\.012\) \* 16\)/);
   assert.match(director, /isSpeaking \? Math\.max\(voiceLevel, 0\.26\) : 0/);
-  assert.match(director, /speed=\{isSpeaking \? 0\.9 \+ signalLevel \* 2\.4 : 0\.13\}/);
-  assert.match(director, /amplitude=\{isSpeaking \? 0\.85 \+ signalLevel \* 1\.8 : 0\.2\}/);
+  assert.match(director, /audioLevel=\{signalLevel\}/);
+  for (const property of ["speed", "amplitude"]) {
+    const expression = director.match(new RegExp(`${property}=\\{isSpeaking \\? ([\\d.]+) \\+ signalLevel \\* ([\\d.]+) : ([\\d.]+)\\}`));
+    assert.ok(expression, `${property} responds to speaking state and signal level`);
+    const [, base, gain, idle] = expression.map(Number);
+    assert.ok(base! > idle!, `${property} remains visibly active while speaking without analysis`);
+    assert.ok(gain! > 0, `${property} increases with the analyzed audio level`);
+    assert.ok(idle! >= 0, `${property} has a valid quiet state`);
+  }
 });

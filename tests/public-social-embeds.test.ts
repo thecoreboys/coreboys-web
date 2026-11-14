@@ -98,10 +98,11 @@ test("keeps TikTok embeds and routes Instagram fallback posts to their originals
   assert.match(component, /data-embed-type="creator"/);
   assert.match(component, /data-embed-from="oembed"/);
   assert.match(component, /TIKTOK_EMBED_SCRIPT_SRC/);
-  assert.match(component, /instagramLinkCard/);
-  assert.match(component, /Open original on Instagram/);
+  assert.match(component, /<a\s+className=\{styles\.instagramLinkCard\}[^>]*href=\{embed\.permalink\}[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
+  assert.match(component, /<strong>\{embed\.label\}<\/strong>/);
+  assert.match(component, /href=\{profileUrl\}[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
   assert.doesNotMatch(component, /INSTAGRAM_EMBED_SCRIPT_SRC|data-instgrm-permalink|instgrm\?\.Embeds/);
-  assert.match(component, /Instagram sometimes removes or restricts public posts/);
+  assert.match(component, /<a href=\{creator\.profileUrl\}[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
   assert.match(component, /document\.createElement\("script"\)/);
   assert.match(component, /script\.src = TIKTOK_EMBED_SCRIPT_SRC/);
   assert.match(component, /coreTikTokCreatorEmbeds = signature/);

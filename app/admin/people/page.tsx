@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { MEMBERS, CREW } from "@/lib/members";
 import { fetchUsersByLogin } from "@/lib/twitch";
@@ -54,7 +54,7 @@ export default async function AdminPeoplePage() {
 
   return (
     <AuthGate>
-      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+      <div className="relative min-h-[var(--page-min-height)] bg-secondary">
         <AdminPageHeader
           eyebrow="Admin · People"
           title="Members & crew."
@@ -92,7 +92,7 @@ export default async function AdminPeoplePage() {
             </div>
           </div>
         </section>
-      </main>
+      </div>
     </AuthGate>
   );
 }

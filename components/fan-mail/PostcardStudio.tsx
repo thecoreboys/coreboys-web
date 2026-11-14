@@ -1008,7 +1008,7 @@ export function PostcardStudio({
       </div>
 
       {/* RIGHT — live preview */}
-      <div className="lg:sticky lg:top-24 lg:self-start">
+      <div className="lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)] lg:self-start">
         <p className="mb-3 font-mono text-xs uppercase tracking-[0.22em] text-tertiary">Live preview</p>
         <PostcardPreview
           recipient={recipient}

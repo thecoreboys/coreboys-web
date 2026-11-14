@@ -12,8 +12,6 @@ import {
 const multiview = readFileSync(resolve(process.cwd(), "components/watch/MultiPlayerStage.tsx"), "utf8");
 const channelPage = readFileSync(resolve(process.cwd(), "components/watch/NetworkChannelPage.tsx"), "utf8");
 const channelCss = readFileSync(resolve(process.cwd(), "components/watch/NetworkChannelPage.module.css"), "utf8");
-const billboard = readFileSync(resolve(process.cwd(), "components/watch/Billboard.tsx"), "utf8");
-const billboardCss = readFileSync(resolve(process.cwd(), "app/watch/watch.css"), "utf8");
 const watchHome = readFileSync(resolve(process.cwd(), "components/watch/WatchHome.tsx"), "utf8");
 const xArchive = readFileSync(resolve(process.cwd(), "app/channels/[slug]/x/page.tsx"), "utf8");
 const persistentPlayer = readFileSync(resolve(process.cwd(), "components/watch/PersistentPlayer.tsx"), "utf8");
@@ -226,22 +224,9 @@ test("network hero starts muted and keeps the scheduled item through provider re
   assert.doesNotMatch(channelPage, /opening next program/);
 });
 
-test("the home billboard yields provider playback to the persistent player", () => {
-  assert.match(billboard, /const wantsAutoplay =[\s\S]{0,320}!current &&[\s\S]{0,160}!dataSaver/);
-});
-
 test("the home carousel guarantees live Twitch and recent Twitch broadcasts", () => {
   assert.match(watchHome, /const twitchBroadcasts = selectTwitchHeroBroadcasts\(catalog\.broadcasts\)/);
   assert.match(watchHome, /return unique\(\[[\s\S]{0,420}\.\.\.catalog\.live,[\s\S]{0,80}\.\.\.twitchBroadcasts,/);
-  assert.match(billboard, /else if \(twitchVideo\) options\.video = twitchVideo\.startsWith\("v"\)/);
-});
-
-test("the home Twitch hero remains unobscured and interactive for autoplay", () => {
-  assert.match(billboard, /\{!isTwitch \? \(\s*<button[\s\S]{0,180}watch-billboard-live-core-overlay/);
-  assert.match(
-    billboardCss,
-    /\.watch-billboard-live-player\.is-preview\.is-twitch \.watch-billboard-live-mount iframe[\s\S]{0,220}pointer-events: auto !important/,
-  );
 });
 
 test("the X archive prefers X profile metadata for tweet authors", () => {

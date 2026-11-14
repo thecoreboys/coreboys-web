@@ -10,7 +10,8 @@ import {
   type KeyboardEvent,
   type UIEvent,
 } from "react";
-import useSWR from "swr";
+import { useWatchGuide } from "@/hooks/useWatchGuide";
+import type { GuideProgram, GuideStatus as ProgramStatus, GuideContentType as ContentType } from "@/lib/watch/guide-response";
 import { useDragScroll } from "@/hooks/useDragScroll";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { GROUP } from "@/lib/group";
@@ -25,7 +26,6 @@ import {
   mediaTypeLabel,
   type GuideNetworkGroup,
   type GuideNetworkRow,
-  type NetworkChannelMode,
 } from "@/lib/watch/channels";
 import { buildContinuousGuideSchedule } from "@/lib/watch/continuous-schedule";
 import { liveTimelineEndMs } from "@/lib/watch/live-schedule";
@@ -46,47 +46,8 @@ const ARCHIVE_PAGE_DAYS = 4;
 const TIMELINE_ZOOM_LEVELS = [0.6, 0.8, 1, 1.3, 1.65, 2.1] as const;
 const DEFAULT_TIMELINE_ZOOM_INDEX = 4;
 
-type ProgramStatus = "live" | "upcoming" | "replay" | "published";
 type StatusFilter = "all" | ProgramStatus;
 type TimelineScope = "today" | "week" | "upcoming";
-type ContentType = "live" | "broadcast" | "video" | "short" | "clip" | "photo" | "post";
-
-type GuideProgram = {
-  id: string;
-  slug: string;
-  login: string | null;
-  title: string;
-  game: string | null;
-  startsAt: string;
-  endsAt: string | null;
-  status: ProgramStatus;
-  platform: WatchPlatform;
-  thumbnailUrl: string | null;
-  vodId: string | null;
-  youtubeId: string | null;
-  sourceUrl: string;
-  contentType?: ContentType;
-  orientation?: WatchItem["orientation"];
-  durationSeconds?: number | null;
-  watchItem?: WatchItem;
-  guideRowId?: string;
-  channelMode?: NetworkChannelMode;
-  continuous?: boolean;
-  continuousPhase?: "past" | "now" | "future";
-};
-
-type GuidePayload = {
-  serverNow: string;
-  horizonEnd: string;
-  programs: GuideProgram[];
-  networks?: GuideNetworkGroup[];
-  sources?: {
-    twitchSchedule?: "ok" | "empty" | "unconfigured" | "error";
-    youtubeUpcoming?: "ok" | "empty" | "unconfigured" | "error";
-    socialTimeline?: "ok" | "empty" | "unconfigured" | "error";
-  };
-};
-
 type GuideChannel = {
   slug: string;
   label: string;
@@ -161,12 +122,6 @@ function GuideFilterLogo({ src, label, accent }: { src: string; label: string; a
     </span>
   );
 }
-
-const fetcher = async (url: string): Promise<GuidePayload> => {
-  const res = await fetch(url, { credentials: "same-origin" });
-  if (!res.ok) throw new Error("Guide unavailable");
-  return (await res.json()) as GuidePayload;
-};
 
 function safeTime(iso: string, fallback: number): number {
   const value = Date.parse(iso);
@@ -610,11 +565,7 @@ export function GuideGrid({
   const followingNowRef = useRef(true);
   const player = usePlayer();
   const { data: liveData } = useLiveStatus();
-  const { data, error, isLoading } = useSWR<GuidePayload>("/api/watch/guide", fetcher, {
-    refreshInterval: 60_000,
-    revalidateOnFocus: true,
-    dedupingInterval: 20_000,
-  });
+  const { data, error, isLoading } = useWatchGuide();
   const networkGroups = data?.networks?.length ? data.networks : networks;
 
   useEffect(() => {
@@ -867,7 +818,7 @@ export function GuideGrid({
   };
 
   const filteredLive = programs.filter((program) => program.status === "live" && matchesControls(program));
-  const nowNextRows = useMemo(() => networkGroups.flatMap((group) => group.rows.flatMap((row) => {
+  const nowNextRows = useMemo(() => guideView !== "now" ? [] : networkGroups.flatMap((group) => group.rows.flatMap((row) => {
     if (row.kind !== "live" && row.kind !== "continuous") return [];
     const lineup = (row.kind === "continuous"
       ? continuousPrograms(group, row, clockMs, clockMs + 6 * 3_600_000, clockMs)
@@ -877,8 +828,9 @@ export function GuideGrid({
     const current = lineup.find((program) => program.continuous ? program.continuousPhase === "now" : program.status === "live");
     const next = lineup.find((program) => program.continuous ? program.continuousPhase === "future" : program.status === "upcoming" && Date.parse(program.startsAt) > clockMs);
     return current || next ? [{ group, row, current, next }] : [];
-  })), [clockMs, member, needle, networkGroups, platform, programs, status]); // eslint-disable-line react-hooks/exhaustive-deps
+  })), [clockMs, guideView, member, needle, networkGroups, platform, programs, status]); // eslint-disable-line react-hooks/exhaustive-deps
   const lanes = useMemo<TimelineLane[]>(() => {
+    if (guideView !== "timeline") return [];
     const hideEmptyRows = platform !== "all" || status !== "all" || Boolean(needle);
     return networkGroups
       .filter((group) => member === "all" || group.rows.some((row) => row.timelineSlug === member))
@@ -923,7 +875,7 @@ export function GuideGrid({
       .filter((lane) => !hideEmptyRows || lane.events.length > 0);
     // matchesControls is intentionally represented by its primitive inputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clockMs, member, needle, networkGroups, platform, programs, range, status, trackWidth]);
+  }, [clockMs, guideView, member, needle, networkGroups, platform, programs, range, status, trackWidth]);
 
   function channelRowForProgram(program: GuideProgram): GuideNetworkRow | null {
     if (program.guideRowId) {

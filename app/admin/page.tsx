@@ -167,7 +167,7 @@ const TILES = [
 export default function AdminHome() {
   return (
     <AuthGate>
-      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+      <div className="relative min-h-[var(--page-min-height)] bg-secondary">
         <section className="relative overflow-hidden">
           <div className="relative mx-auto max-w-container px-6 py-12 md:px-8 md:py-16">
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -208,7 +208,7 @@ export default function AdminHome() {
             </ul>
           </div>
         </section>
-      </main>
+      </div>
     </AuthGate>
   );
 }

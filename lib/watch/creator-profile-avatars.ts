@@ -592,3 +592,32 @@ export async function getCreatorSocialAvatarMap(
   pendingAvatarLookups.set(key, lookup);
   return lookup;
 }
+
+/**
+ * Return already-known profile images without waiting on third-party providers.
+ * Public channel routes use this for their first render and refresh the full
+ * provider-backed map in the background.
+ */
+export async function getCachedCreatorSocialAvatarMap(
+  member: Member | null,
+  items: readonly WatchItem[],
+): Promise<CreatorSocialAvatarMap> {
+  const key = sourceCacheKey(member);
+  const now = Date.now();
+  const cached = avatarCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.value;
+
+  const sources = socialSources(member);
+  const persisted = await readPersistedProfileImages(sources);
+  const images = new Map<string, string>();
+  for (const source of sources) {
+    const image = persisted.get(sourceKey(source));
+    if (image && usableCachedImage(image, now) && now - image.checkedAt <= PERSISTED_STALE_MS) {
+      images.set(sourceKey(source), image.profileImageUrl);
+    }
+  }
+  for (const [source, image] of xAvatars(sources.filter((entry) => entry.platform === "x"), items)) {
+    images.set(source, image);
+  }
+  return mapBySocialUrl(sources, images);
+}

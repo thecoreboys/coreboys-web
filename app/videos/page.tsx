@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { GROUP } from "@/lib/group";
 import { MEMBERS } from "@/lib/members";
 import { fetchYouTubeFeedByRef, type FeedItem } from "@/lib/social-feed";
-import { fetchUsersByLogin } from "@/lib/twitch";
 import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { fetchDurations } from "@/lib/youtube-duration";
 import { VideosGrid, type VideoChannel } from "@/components/videos/VideosGrid";
@@ -70,20 +69,7 @@ export default async function VideosPage() {
     .flat()
     .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
 
-  // Real Twitch profile avatars for the member chips. Resolient: if Twitch
-  // fails for any reason we just render chips without avatars.
-  let twAvatars: Record<string, { profile_image_url?: string }> = {};
-  try {
-    twAvatars = await fetchUsersByLogin(MEMBERS.map((m) => m.twitchLogin));
-  } catch {
-    twAvatars = {};
-  }
-  const avatarBySlug = new Map<string, string | undefined>(
-    MEMBERS.map((m) => [
-      m.slug,
-      twAvatars[m.twitchLogin.toLowerCase()]?.profile_image_url,
-    ]),
-  );
+  const avatarBySlug = new Map(MEMBERS.map((member) => [member.slug, member.portrait]));
 
   // Which channels actually returned videos — drives the filter chips so
   // we never show a tab that resolves to an empty list. Each chip carries
@@ -132,10 +118,10 @@ export default async function VideosPage() {
             From the house
           </p>
           <h1 className="mt-4 font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.03em] text-[color:var(--ink)] md:text-[48px]">
-            Watch.
+            Videos
           </h1>
           <p className="mt-4 max-w-[60ch] text-base leading-relaxed text-[color:var(--ink-dim)] md:text-lg">
-            The latest from the house channel and all six members. Click to play.
+            YouTube uploads from CORE and the creators. Filter by creator, type, or date.
           </p>
         </div>
       </header>

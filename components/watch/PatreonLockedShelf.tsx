@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { ArrowUpRight, LockKeyhole } from "lucide-react";
 import type { PatreonLockedItem, PatreonShelfData } from "@/lib/watch/types";
 import { BrowserDateTime } from "@/components/ui/BrowserDateTime";
@@ -12,9 +12,9 @@ function LockedCard({ item, index }: { item: PatreonLockedItem; index: number })
       href={item.href}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`Exclusive video: ${item.title}. Locked on Patreon; opens in a new tab.`}
+      aria-label={`${item.kind === "benefit" ? "Membership benefit" : "Member post"}: ${item.title}. Opens on Patreon in a new tab.`}
       className="watch-home-promo-card watch-patreon-card group/card"
-      data-patreon-kind="video"
+      data-patreon-kind={item.kind}
     >
       {item.thumbnailUrl ? (
         <Image
@@ -37,7 +37,7 @@ function LockedCard({ item, index }: { item: PatreonLockedItem; index: number })
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-transparent" aria-hidden="true" />
       <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
         <span className="rounded-full bg-black/60 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/85 ring-1 ring-white/15 backdrop-blur-md sm:text-[10px]">
-          Exclusive video
+          {item.kind === "benefit" ? "Membership benefit" : "Member post"}
         </span>
         <span className="grid size-8 shrink-0 place-items-center rounded-full bg-black/70 text-white ring-1 ring-white/20 backdrop-blur-md">
           <LockKeyhole className="size-3.5" aria-hidden="true" />
@@ -101,14 +101,15 @@ export function PatreonLockedShelf({ data }: { data: PatreonShelfData }) {
             id="patreon-preview-title"
             className="watch-shelf-title text-lg font-semibold tracking-tight text-[color:var(--ink)] md:text-xl"
           >
-            Inside CORE
+            CORE on Patreon
           </h2>
+          <p className="mt-2 text-sm text-[color:var(--ink-dim)]">Public previews from the creators. A Patreon membership is separate from supporting this website.</p>
         </div>
       </div>
       <DragScrollRail
         className="watch-shelf watch-home-promo-rail"
         tabIndex={0}
-        aria-label="CORE exclusive Patreon videos"
+        aria-label="CORE member posts on Patreon"
       >
         {data.items.map((item, index) => (
           <LockedCard key={item.id} item={item} index={index} />
