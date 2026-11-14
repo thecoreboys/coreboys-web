@@ -147,6 +147,7 @@ function normalizedHandle(rawHandle: string): string | null {
 }
 
 function normalizedTimestamp(value: unknown): string | null {
+  if (typeof value === "string" && /^\d{10,13}$/.test(value.trim())) value = Number(value);
   if (typeof value === "number" && Number.isFinite(value)) {
     const milliseconds = value > 10_000_000_000 ? value : value * 1_000;
     const date = new Date(milliseconds);
@@ -163,7 +164,7 @@ function safeHttpsUrl(value: unknown): string | undefined {
   if (!text) return undefined;
   try {
     const url = new URL(text);
-    return url.protocol === "https:" ? url.toString() : undefined;
+    return url.protocol === "https:" && !url.username && !url.password ? url.toString() : undefined;
   } catch {
     return undefined;
   }
@@ -183,7 +184,7 @@ function dimensionsFrom(value: unknown, depth = 0): SocialFetchDimensions | unde
   const width = positiveNumber(object.width);
   const height = positiveNumber(object.height);
   if (width && height) return { width, height };
-  for (const key of ["dimensions", "media", "video"]) {
+  for (const key of ["dimensions", "media", "video", "details"]) {
     const found = dimensionsFrom(object[key], depth + 1);
     if (found) return found;
   }
@@ -334,11 +335,13 @@ function lookupStatusFrom(data: JsonRecord): string | null {
 
 function lookupFailureStatus(lookupStatus: string | null): SocialFetchMediaStatus | null {
   if (!lookupStatus) return null;
+  if (lookupStatus === "found") return null;
+  if (lookupStatus === "private") return "not_found";
   if (/not[_ -]?found|missing|unavailable/i.test(lookupStatus)) return "not_found";
   if (/credit|payment|quota/i.test(lookupStatus)) return "credits_exhausted";
   if (/rate|throttl/i.test(lookupStatus)) return "rate_limited";
   if (/error|fail/i.test(lookupStatus)) return "upstream_error";
-  return null;
+  return "not_found";
 }
 
 function cursorValue(value: unknown): string | null {

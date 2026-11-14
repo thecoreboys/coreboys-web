@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { AutoLoopVideo } from "./AutoLoopVideo";
 import { PanoramaViewer } from "./PanoramaViewer";
@@ -257,11 +257,6 @@ export default function SpecialMessagePage() {
                 stuck and unsure of what I was supposed to do next.
               </p>
               <p>
-                I live with chronic anxiety and am neurodivergent. I struggled to feel grounded,
-                my confidence dipped, and communication got harder. For a while, I did not know
-                what I needed or what was supposed to come next.
-              </p>
-              <p>
                 I kept making things whenever I had the energy. I helped with sound, lighting,
                 video, cameras, editing, computer systems, and software. Those projects gave me
                 somewhere to be creative, keep learning, and turn an idea into something people
@@ -295,12 +290,6 @@ export default function SpecialMessagePage() {
                 watch a clip, or find some ridiculous joke and let it give me a break. It did not
                 fix anything by itself, and I was never pretending it did. But those small breaks
                 helped me laugh, reset, and get through the day.
-              </p>
-              <p>
-                Sometimes I put a stream on just to have something in the room with me. Then a
-                joke would catch me off guard and I would laugh. It did not solve what I was
-                dealing with, but it helped in that moment. That is why those videos mattered to
-                me.
               </p>
               <p>
                 That is why I made this. I wanted to turn that feeling into something practical:

@@ -297,8 +297,13 @@ async function readPublicXFeedSnapshot(): Promise<PublicXFeedSnapshot> {
   let maxAgeHours = X_FEED_PUBLIC_MAX_AGE_HOURS;
   try {
     const result = await query<SnapshotRow>(
-      `SELECT payload, refreshed_at, attempted_at, last_error, stream_received_at, search_continuation
-         FROM x_feed_snapshots WHERE cache_key = $1 LIMIT 1`,
+      // Optional streaming columns may not exist yet during a rolling rollout.
+      // JSON projection returns null for missing fields while preserving the
+      // last successful roster snapshot; public reads never migrate schema.
+      `SELECT payload, refreshed_at, attempted_at, last_error,
+              to_jsonb(snapshot)->>'stream_received_at' AS stream_received_at,
+              to_jsonb(snapshot)->'search_continuation' AS search_continuation
+         FROM x_feed_snapshots AS snapshot WHERE cache_key = $1 LIMIT 1`,
       [SNAPSHOT_KEY],
     );
     row = result.rows[0];

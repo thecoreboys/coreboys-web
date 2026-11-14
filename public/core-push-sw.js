@@ -8,7 +8,7 @@ function safeHttpUrl(value) {
   if (typeof value !== "string" || value.length > 2000) return null;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? url : null;
+    return !url.username && !url.password && (url.protocol === "https:" || url.protocol === "http:") ? url : null;
   } catch { return null; }
 }
 
@@ -33,7 +33,12 @@ function theaterHref(kind, id, source, options) {
 }
 
 function notificationTarget(payload) {
-  const href = typeof payload.href === "string" ? payload.href.trim() : "";
+  let href = typeof payload.href === "string" ? payload.href.trim() : "";
+  if (/[\\\u0000-\u001f\u007f]/.test(href)) return "/account/notifications";
+  const absolute = safeHttpUrl(href);
+  if (absolute && (absolute.origin === self.location.origin || absolute.hostname === "thecoreboys.com" || absolute.hostname.endsWith(".thecoreboys.com"))) {
+    href = `${absolute.pathname}${absolute.search}${absolute.hash}`;
+  }
   if (href.startsWith("/theater?")) return href;
   const live = /^\/watch\/live\/([^/?#]+)/i.exec(href);
   if (live && /^[a-z0-9_]{2,40}$/i.test(live[1])) {
@@ -52,12 +57,14 @@ function notificationTarget(payload) {
       : /\/(?:shorts|embed|live)\/([A-Za-z0-9_-]{6,})/i.exec(url.pathname)?.[1] || url.searchParams.get("v");
     if (id && /^[A-Za-z0-9_-]{6,}$/.test(id)) {
       const short = /\/shorts\//i.test(url.pathname);
-      return theaterHref("youtube", id, source, { src: "youtube", ref: `yt-${id}`, title, format: short ? "short" : "long", orientation: short ? "portrait" : undefined });
+      const live = /\/live\//i.test(url.pathname);
+      return theaterHref(live ? "live" : "youtube", id, source, { src: "youtube", ref: `yt-${id}`, title, format: live ? "live" : short ? "short" : "long", orientation: short ? "portrait" : undefined });
     }
   }
   if (host === "twitch.tv" || host.endsWith(".twitch.tv")) {
     const parts = url.pathname.split("/").filter(Boolean);
     if (host === "clips.twitch.tv" && parts[0]) return theaterHref("clip", parts[0], source, { src: "twitch", ref: `clip-twitch-${parts[0]}`, title, format: "short" });
+    if (parts[1] === "clip" && /^[A-Za-z0-9_-]+$/.test(parts[2] || "")) return theaterHref("clip", parts[2], source, { src: "twitch", ref: `clip-twitch-${parts[2]}`, title, format: "short" });
     if (parts[0] === "videos" && /^\d+$/.test(parts[1] || "")) return theaterHref("vod", parts[1], source, { src: "twitch", ref: `vod-${parts[1]}`, title, format: "long" });
     if (/^[a-z0-9_]{2,40}$/i.test(parts[0] || "")) {
       const login = parts[0].toLowerCase();
@@ -83,11 +90,12 @@ function notificationTarget(payload) {
 self.addEventListener("push", (event) => {
   let payload = {};
   try { payload = event.data ? event.data.json() : {}; } catch { payload = {}; }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) payload = {};
   const title = payload.title || "CORE update";
   const href = notificationTarget(payload);
   event.waitUntil(self.registration.showNotification(title, {
     body: payload.body || "New creator content is ready.",
-    icon: "/favicon.ico", badge: "/favicon.ico", image: payload.artworkUrl || undefined,
+    icon: "/icon.png", badge: "/icon.png", image: safeHttpUrl(payload.artworkUrl)?.protocol === "https:" ? payload.artworkUrl : undefined,
     data: { href }, tag: payload.tag || undefined, renotify: false,
   }));
 });
@@ -95,12 +103,16 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const href = event.notification.data && event.notification.data.href ? event.notification.data.href : "/watch";
-  const destination = new URL(href, self.location.origin).toString();
-  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+  let target;
+  try { target = new URL(href, self.location.origin); } catch { target = new URL("/account/notifications", self.location.origin); }
+  const destination = target.origin === self.location.origin ? target.toString() : new URL("/account/notifications", self.location.origin).toString();
+  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
     for (const client of windows) {
       if ("focus" in client) {
-        client.navigate(destination);
-        return client.focus();
+        try {
+          const navigated = await client.navigate(destination);
+          if (navigated) return await navigated.focus();
+        } catch { /* A closing tab must not swallow the notification click. */ }
       }
     }
     return clients.openWindow(destination);

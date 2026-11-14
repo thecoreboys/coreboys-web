@@ -33,11 +33,13 @@ export function AccountSettingsLayout({
   title,
   description,
   activeSection,
+  onSectionChange,
   children,
 }: {
   title: string;
   description: string;
   activeSection: string;
+  onSectionChange?: (section: string) => void;
   children: ReactNode;
 }) {
   const activeId = activeSection.replace(/^#/, "");
@@ -62,9 +64,10 @@ export function AccountSettingsLayout({
                   {item.group !== previous?.group ? <p className="hidden px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-quaternary lg:block">{item.group}</p> : null}
                   <Link
                     href={item.href as never}
+                    onClick={onSectionChange && item.id !== "billing" ? (event) => { event.preventDefault(); onSectionChange(item.id); } : undefined}
                     aria-current={active ? "page" : undefined}
                     className={cx(
-                      "flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
+                      "flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
                       active ? "bg-secondary text-primary shadow-xs" : "text-tertiary hover:bg-primary_hover hover:text-primary",
                     )}
                   >
@@ -77,7 +80,7 @@ export function AccountSettingsLayout({
           </nav>
         </aside>
 
-        <main className="min-w-0 space-y-5">{children}</main>
+        <div className="min-w-0 space-y-5">{children}</div>
       </div>
     </section>
   );

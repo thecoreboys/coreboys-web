@@ -19,6 +19,7 @@ function deliveryWorker(removedAfterClaim: boolean) {
       if (name === "server-only") return {};
       if (name === "web-push") return {};
       if (name === "@/lib/social-alert") return { socialAlertLabel: () => "New post" };
+      if (name === "@/lib/notification-target") return { notificationTargetFor: (input: { href: string }) => ({ href: input.href }) };
       if (name === "@/lib/social-event-normalization") return { socialNotificationMaxAgeMs: () => 3600000 };
       if (name === "@/lib/notifications/resend") return {
         getResendReadiness: () => ({ configured: true, enabled: true, readyToSend: true, missing: [], invalid: [] }),

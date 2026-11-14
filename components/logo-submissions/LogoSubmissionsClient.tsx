@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { useEffect, useRef, useState } from "react";
 import { ArrowBigDown, ArrowBigUp, FileText, UploadCloud } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -140,7 +141,7 @@ function SubmissionCase({ item, index, onVote }: { item: Submission; index: numb
 function LogoFile({ file, designName, large = false }: { file: PublicFile; designName: string; large?: boolean }) {
   const isImage = file.content_type.startsWith("image/") && file.content_type !== "image/svg+xml";
   return <a href={file.url} target="_blank" rel="noreferrer" className={`group block bg-secondary p-3 transition hover:bg-primary ${large ? "mt-5" : ""}`}>
-    {isImage ? <img src={file.url} alt={`${designName} ${file.file_role}`} className={`${large ? "aspect-[2.4/1]" : "aspect-[1.5/1]"} w-full object-contain`} /> : <span className={`${large ? "aspect-[2.4/1]" : "aspect-[1.5/1]"} grid place-items-center bg-primary`}><FileText className="size-7 text-brand-secondary" /></span>}
+    {isImage ? <SiteImage width={600} height={large ? 250 : 400} src={file.url} alt={`${designName} ${file.file_role}`} className={`${large ? "aspect-[2.4/1]" : "aspect-[1.5/1]"} w-full object-contain`} /> : <span className={`${large ? "aspect-[2.4/1]" : "aspect-[1.5/1]"} grid place-items-center bg-primary`}><FileText className="size-7 text-brand-secondary" /></span>}
     <span className="mt-2 block truncate font-mono text-[10px] uppercase tracking-[.12em] text-tertiary">{file.file_role} · {file.file_name}</span>
   </a>;
 }

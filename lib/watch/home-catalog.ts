@@ -1,6 +1,6 @@
 import type { WatchCatalog, WatchItem } from "./types";
 
-export const HOME_CATALOG_ITEM_LIMIT = 720;
+export const HOME_CATALOG_ITEM_LIMIT = 240;
 const key = (item: WatchItem) => `${item.platform}:${item.id}`;
 
 function balanced(items: readonly WatchItem[], limit: number) {
@@ -34,14 +34,14 @@ export function projectHomeCatalog(catalog: WatchCatalog): WatchCatalog {
   add(catalog.heroFeatured ?? []);
   if (catalog.billboard) add([catalog.billboard]);
   add(catalog.all.filter((item) => item.programming?.curatedItemId));
-  // Reserve enough candidates for every visible 24–30 item rail, including
+  // Reserve a small preview for every rail, including
   // smaller accounts that a global newest-first slice would remove entirely.
   const rails = [catalog.house, catalog.videos, catalog.shorts, catalog.broadcasts,
     catalog.clips, catalog.photos, catalog.byPlatform.x,
     ...catalog.byMember.map((member) => member.items),
     ...(catalog.programmingSections ?? []).map((section) => section.items)];
-  const candidates = rails.map((rail) => balanced(rail, 36));
-  for (let depth = 0; depth < 36 && selected.size < HOME_CATALOG_ITEM_LIMIT; depth++) {
+  const candidates = rails.map((rail) => balanced(rail, 12));
+  for (let depth = 0; depth < 12 && selected.size < HOME_CATALOG_ITEM_LIMIT; depth++) {
     for (const rail of candidates) {
       const item = rail[depth];
       if (item) selected.add(key(item));

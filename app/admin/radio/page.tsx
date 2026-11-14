@@ -11,10 +11,10 @@ export default function RadioAdminPage() {
 
   return (
     <AuthGate>
-      <main className="min-h-screen bg-secondary pb-24 pt-20 md:pt-24">
+      <div className="min-h-[var(--page-min-height)] bg-secondary pb-24">
         <AdminPageHeader eyebrow="DJ Cora control room" title="Cue library & joke book" supporting="Manage comedy context, review AI-written drafts, and approve recorded station cues. Playback selects a saved asset only—there is no per-listener speech generation." />
         <div className="mx-auto max-w-container px-6 md:px-8"><RadioControlRoom elevenLabsVoiceId={elevenLabsVoiceId} /></div>
-      </main>
+      </div>
     </AuthGate>
   );
 }

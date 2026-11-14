@@ -101,7 +101,7 @@ function InstagramPublicFallback({ rail }: { rail: CuratedChannelRail }) {
   return (
     <div className={styles.embedFallback} data-ingest-state={rail.ingestState ?? "unknown"}>
       <p className={styles.embedNotice}>
-        Instagram sometimes removes or restricts public posts. Open a post directly to check whether it is still available.
+        Instagram previews are not available here right now. Open the original post to view it on Instagram.
       </p>
       <div className={styles.instagramLinkGrid}>
         {embeds.map((embed) => (

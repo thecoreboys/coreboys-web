@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { type ImgHTMLAttributes, type PropsWithChildren, type RefAttributes, createContext, useContext, useState } from "react";
 import { User01 } from "@untitledui/icons";
 import {
@@ -26,7 +27,12 @@ export const TagAvatar = ({ src, alt, contrastBorder = true, className }: ImgHTM
             )}
         >
             {src && !isFailed ? (
-                <img data-avatar-img className="size-full object-cover" src={src} alt={alt} onError={() => setIsFailed(true)} />
+                typeof src === "string" ? (
+                    <SiteImage width={16} height={16} data-avatar-img className="size-full object-cover" src={src} alt={alt ?? ""} onError={() => setIsFailed(true)} />
+                ) : (
+                    // eslint-disable-next-line @next/next/no-img-element -- React 19 supports native Blob previews; Next Image only accepts URLs or static imports.
+                    <img width={16} height={16} data-avatar-img className="size-full object-cover" src={src} alt={alt ?? ""} onError={() => setIsFailed(true)} />
+                )
             ) : (
                 <User01 className="size-3 stroke-[2.25px] text-fg-quaternary" />
             )}

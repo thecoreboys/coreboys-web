@@ -48,7 +48,7 @@ export default async function FanzonePage() {
     <>
       <PageHeader
         eyebrow="Fanzone"
-        title="Write. Share. Belong."
+        title="CORE communities"
         supporting="Join a community, follow what is happening, share an idea, or send something to the house."
       />
 
@@ -63,7 +63,7 @@ export default async function FanzonePage() {
               Communities.
             </h2>
             <p className="mt-2 max-w-[64ch] text-base leading-relaxed text-[color:var(--ink-dim)]">
-              CORE, Flock, Stable, Thugs, M3, NMS, and SLG — one calm place for live moments, official updates, fan work, questions, and ideas.
+              Choose CORE, Flock, Stable, Thugs, M3, NMS, or SLG to see creator posts and fan contributions.
             </p>
           </header>
           <CommunitiesHub />
@@ -79,7 +79,7 @@ export default async function FanzonePage() {
               Addresses.
             </h2>
             <p className="mt-2 max-w-[60ch] text-base leading-relaxed text-[color:var(--ink-dim)]">
-              Letters, postcards, fan art, packages. First-class postage. Mail is opened every Wednesday.
+              Find a creator’s public mailing address and check the details before sending letters, fan art, or packages.
             </p>
             <details className="mt-4 max-w-[680px] rounded-xl border border-secondary bg-primary px-4 py-3">
               <summary className="cursor-pointer list-none text-sm font-semibold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
@@ -103,18 +103,18 @@ export default async function FanzonePage() {
               </span>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-secondary">
-                  No stamp? No problem.
+                  Postcard studio paused
                 </p>
                 <p className="mt-1 text-lg font-semibold tracking-tight text-primary">
-                  Design a postcard online — we print &amp; mail it.
+                  Online postcard orders are temporarily unavailable.
                 </p>
                 <p className="mt-1 text-sm text-tertiary">
-                  Pick a member, write your message, add fan art. From $3.00, postage included.
+                  You can still send fan mail yourself using the addresses below.
                 </p>
               </div>
             </div>
             <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white sm:self-center">
-              Start <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              Details <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </span>
           </Link>
 
@@ -147,7 +147,7 @@ export default async function FanzonePage() {
               Polls.
             </h2>
             <p className="mt-2 max-w-[60ch] text-base leading-relaxed text-[color:var(--ink-dim)]">
-              Vote on what the house does next. Results move live.
+              Take part in available community polls and view the results.
             </p>
           </header>
           <CommunityPolls />
