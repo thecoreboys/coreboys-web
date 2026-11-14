@@ -8,11 +8,21 @@ export function SiteHeader({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const update = () => document.documentElement.style.setProperty("--site-header-h", `${element.getBoundingClientRect().height}px`);
+    let frame = 0;
+    let height = "";
+    const update = () => {
+      frame = 0;
+      const next = `${element.getBoundingClientRect().height}px`;
+      if (next === height) return;
+      height = next;
+      document.documentElement.style.setProperty("--site-header-h", next);
+    };
     update();
-    const observer = new ResizeObserver(update);
+    const observer = new ResizeObserver(() => {
+      if (!frame) frame = requestAnimationFrame(update);
+    });
     observer.observe(element);
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
   }, []);
   return <div ref={ref} className="site-header fixed inset-x-0 top-0 z-50">{children}</div>;
 }

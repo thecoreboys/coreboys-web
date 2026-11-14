@@ -1,37 +1,11 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Runtime media posters can come from user-added third-party URLs outside the Next Image allowlist. */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import {
-  Check,
-  ChevronDown,
-  ExternalLink,
-  GripVertical,
-  Info,
-  LayoutGrid,
-  ListVideo,
-  LockKeyhole,
-  Maximize2,
-  MessageSquare,
-  Minimize2,
-  MoreHorizontal,
-  Pause,
-  PanelRight,
-  PictureInPicture2,
-  Pin,
-  PinOff,
-  Play,
-  Plus,
-  Radio,
-  Save,
-  Search,
-  Share2,
-  SlidersHorizontal,
-  Trash2,
-  Volume2,
-  VolumeX,
-  X,
-} from "lucide-react";
+import { RoomSidebarResize } from "./RoomSidebarResize";
+import { RoomStudio, type RoomTileWithRect } from "./RoomStudio";
+import { createContext, useContext, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, ExternalLink, GripVertical, Info, LayoutGrid, ListVideo, LockKeyhole, Maximize2, MessageSquare, Minimize2, MoreHorizontal, Pause, PanelRight, PictureInPicture2, Pin, PinOff, Play, Plus, Radio, Save, Search, Share2, SlidersHorizontal, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
@@ -48,28 +22,14 @@ import { useMultiviewSourceSearch } from "@/hooks/useMultiviewSourceSearch";
 import { useMultiviewRemoteHost } from "@/hooks/useMultiviewRemote";
 import { MULTIVIEW_LAUNCH_PATH, remoteSourceKey, type RemoteSource } from "@/lib/watch/multiview-remote";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
-import {
-  catalogPlayables,
-  contentShape,
-  embedFor,
-  playableFromUrl,
-  type Playable,
-} from "@/lib/watch/playable";
+import { catalogPlayables, contentShape, embedFor, playableFromUrl, type Playable } from "@/lib/watch/playable";
 import { listenToYouTube, youtubeCaptionCommands, youtubePlaybackSample } from "@/lib/watch/youtube-player";
 import type { WatchCatalog } from "@/lib/watch/types";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
 import { readableTitle } from "@/lib/watch/presentation";
 import { WatchThumb } from "@/components/watch/WatchThumb";
 import { groupCrossPlatformLiveSources, uniqueCrossPlatformLiveSources } from "@/lib/watch/live-source-groups";
-import {
-  AUTOPLAY_MODES,
-  decodeWorkspace,
-  multiviewPassportCreditTileId,
-  WORKSPACE_PRESETS,
-  type WorkspaceTile,
-  type WorkspaceSnapshot,
-  type WorkspacePreset,
-} from "@/lib/watch/workspace";
+import { AUTOPLAY_MODES, decodeWorkspace, multiviewPassportCreditTileId, WORKSPACE_PRESETS, type WorkspaceTile, type WorkspaceSnapshot } from "@/lib/watch/workspace";
 import type { MultiviewLiveRoom } from "@/lib/watch/multiview-access";
 import { PlayerNetworkWatermark } from "@/components/watch/PlayerNetworkWatermark";
 import { OnScreenIdentityOverlay } from "@/components/watch/OnScreenIdentityOverlay";
@@ -80,20 +40,7 @@ import { PlayerAmbientBloom } from "@/components/watch/PlayerAmbientBloom";
 import { WatchSelect } from "@/components/watch/WatchSelect";
 import { TwitchTileMedia } from "@/components/watch/TwitchTileMedia";
 import { floatingChatViewportStyle } from "@/lib/watch/floating-chat";
-import {
-  gridTileToNormalizedRect,
-  LEGACY_FLOATING_REFERENCE_VIEWPORT,
-  enforceRoomRectAspect,
-  moveAndResolveRoomLayout,
-  normalizeRoomRect,
-  normalizedRectToGridPosition,
-  presetNormalizedRects,
-  resolvePresetRoomLayout,
-  roomLayoutMatchesPreset,
-  shouldStackTwitchRoom,
-  type NormalizedRect,
-  type RoomLayoutTile,
-} from "@/lib/watch/room-layout";
+import { gridTileToNormalizedRect, normalizedRectToGridPosition, resolvePresetRoomLayout, roomLayoutMatchesPreset, shouldStackTwitchRoom, type NormalizedRect } from "@/lib/watch/room-layout";
 
 type Notice = {
   text: string;
@@ -101,6 +48,13 @@ type Notice = {
   actionHref?: string;
   actionLabel?: string;
 } | null;
+const TwitchRoomTools = createContext<{ creator: HTMLElement | null; status: HTMLElement | null }>({ creator: null, status: null });
+
+function PlayerActions({ outsideVideo, children }: { outsideVideo: boolean; children: ReactNode }) {
+  const { status } = useContext(TwitchRoomTools);
+  return outsideVideo ? status ? createPortal(children, status) : null : children;
+}
+
 type SidebarTab = "queue" | "chat" | "details";
 type SourceIntent = "tile" | "queue";
 type MemberRecord = (typeof MEMBERS)[number];
@@ -282,8 +236,11 @@ export function MultiPlayerStage({
   const [dragTileId, setDragTileId] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
   const [adaptivePlayerBudget, setAdaptivePlayerBudget] = useState(4);
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("details");
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("chat");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [creatorTools, setCreatorTools] = useState<HTMLDivElement | null>(null);
+  const [recoveryTools, setRecoveryTools] = useState<HTMLDivElement | null>(null);
+  const twitchTools = useMemo(() => ({ creator: creatorTools, status: recoveryTools }), [creatorTools, recoveryTools]);
   const [setupOpen, setSetupOpen] = useState(false);
   const [audioPickerOpen, setAudioPickerOpen] = useState(false);
   const [chatGuestLogin, setChatGuestLogin] = useState("");
@@ -465,10 +422,8 @@ export function MultiPlayerStage({
     player.setChatChannels(currentLive.flatMap((item) => item.platform === "twitch" && item.twitchLogin ? [item.twitchLogin] : []));
     player.setChatMode("combined");
     if (player.chatDock === "closed") player.setChatDock("right");
-    // The Theater panel opens on Details. Chat stays connected and one click
-    // away, but a newly assembled room should first explain what is playing.
-    setSidebarTab("details");
-    if (roomLive.length) setAudioPickerOpen(true);
+    // A new live room opens directly on its persistent combined chat.
+    setSidebarTab("chat");
     if (!roomLive.length) setNotice({ text: "No one is live right now. This room will stay ready for the next stream." });
   }, [authoritativeLiveRoom, autoFillLive, currentLive, liveStatus, player, roomLive, subscription.loading, tileLimit]);
 
@@ -488,7 +443,7 @@ export function MultiPlayerStage({
   const remoteSources = useMemo(() => [...remoteItems.values()].map(({ source }) => source), [remoteItems]);
   const mainSource = mainTile && !mainTile.standby ? remoteSourceFor(mainTile.item) : null;
   const remoteMain = mainSource ? remoteSourceKey(mainSource) : null;
-  useMultiviewRemoteHost({
+  const { connection: remoteConnection } = useMultiviewRemoteHost({
     accountId: remoteHost && player.ready && !subscription.loading ? user?.id ?? null : null,
     sources: remoteSources,
     main: remoteMain && remoteItems.get(remoteMain)?.item.key === mainTile?.item.key ? remoteMain : null,
@@ -499,12 +454,12 @@ export function MultiPlayerStage({
         ? [focused, ...player.tiles].find((tile) => tile && !tile.pinned)?.id
         : undefined;
       const tileId = switchLiveSource(target.item, {
-        takeAudio: true,
+        takeAudio: player.tiles.some((tile) => !tile.muted && tile.volume > 0),
         preferredTileId: replacement,
         resume: true,
       });
       if (!tileId) return false;
-      player.makeMain(tileId, { takeAudio: true });
+      player.makeMain(tileId, { takeAudio: player.tiles.some((tile) => !tile.muted && tile.volume > 0) });
       if (player.maximizedTileId) player.setMaximizedTileId(tileId);
       return true;
     },
@@ -773,7 +728,6 @@ export function MultiPlayerStage({
     if (remaining > 0) player.fillWithLive(available.slice(0, remaining), { limit: tileLimit });
     if (currentLive.length) {
       player.setChatChannels(currentLive.flatMap((item) => item.platform === "twitch" && item.twitchLogin ? [item.twitchLogin] : []));
-      setAudioPickerOpen(true);
     }
     if (available.length > remaining && !expandedMultiview) {
       showFeatureNotice(
@@ -850,13 +804,7 @@ export function MultiPlayerStage({
       onTabChange={setSidebarTab}
       mobileOpen={mobileSidebarOpen}
       onMobileClose={closeMobileSidebar}
-      forceCompactDesktop={Boolean(
-        !mobile
-        && !player.maximizedTileId
-        && (player.layoutPreset === "theater-first" || player.layoutPreset === "split")
-        && visibleTiles.length === 2
-        && visibleTiles.some((tile) => tile.item.platform === "twitch"),
-      )}
+
       focused={focused}
       member={focusedMember}
       tiles={visibleTiles}
@@ -866,22 +814,12 @@ export function MultiPlayerStage({
     />
   );
   const sideWidth = `${player.chatDockSize.side}px`;
-  const theaterTwitchPair = Boolean(
-    !mobile
-    && !player.maximizedTileId
-    && (player.layoutPreset === "theater-first" || player.layoutPreset === "split")
-    && visibleTiles.length === 2
-    && visibleTiles.some((tile) => tile.item.platform === "twitch"),
-  );
   const roomColumns = player.chatDock === "left"
-    ? theaterTwitchPair
-      ? "2xl:grid-cols-[minmax(19rem,min(var(--room-chat-width),25vw))_minmax(0,1fr)]"
-      : "xl:grid-cols-[minmax(19rem,min(var(--room-chat-width),25vw))_minmax(0,1fr)]"
-    : theaterTwitchPair
-      ? "2xl:grid-cols-[minmax(0,1fr)_minmax(19rem,min(var(--room-chat-width),25vw))]"
-      : "xl:grid-cols-[minmax(0,1fr)_minmax(19rem,min(var(--room-chat-width),25vw))]";
+    ? "xl:grid-cols-[minmax(17.5rem,min(var(--room-chat-width),36vw))_minmax(0,1fr)]"
+    : "xl:grid-cols-[minmax(0,1fr)_minmax(17.5rem,min(var(--room-chat-width),36vw))]";
 
   return (
+    <TwitchRoomTools.Provider value={twitchTools}>
     <ChatSessionProvider
       channels={connectedChatChannels}
       // The virtualized feed makes a full room history cheap. Data Saver
@@ -889,7 +827,7 @@ export function MultiPlayerStage({
       perChannelLimit={1000}
       mergedLimit={1000}
     >
-    <section aria-label="Multiview room" className="min-h-[calc(100dvh-4rem)] bg-[#050506] text-white">
+    <section data-has-twitch={player.tiles.some((tile) => tile.item.platform === "twitch")} aria-label="Multiview room" className="min-h-[calc(100dvh-4rem)] bg-[#050506] text-white">
       <div className="mx-auto max-w-[1880px] px-3 py-4 sm:px-5 lg:px-7">
         <header className="mb-3 flex min-h-12 flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -899,6 +837,7 @@ export function MultiPlayerStage({
             </p>
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2">
+            <button type="button" onClick={() => setAudioPickerOpen(true)} aria-label="Choose room audio" disabled={!player.tiles.length} className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/5 text-white/75 ring-1 ring-inset ring-white/12 hover:bg-white/10 disabled:opacity-35 md:size-10"><Volume2 className="size-4" aria-hidden /></button>
             <button
               type="button"
               onClick={fillLive}
@@ -931,7 +870,7 @@ export function MultiPlayerStage({
                 onClick={() => setMobileSidebarOpen(true)}
                 aria-expanded={mobileSidebarOpen}
                 aria-controls="multiview-sidebar"
-                className={`grid size-11 place-items-center rounded-xl bg-white/5 text-white/70 ring-1 ring-white/12 hover:bg-white/10 hover:text-white ${theaterTwitchPair ? "2xl:hidden" : "xl:hidden"}`}
+                className={`grid size-11 place-items-center rounded-xl bg-white/5 text-white/70 ring-1 ring-white/12 hover:bg-white/10 hover:text-white xl:hidden`}
                 aria-label="Open Up Next, chat, or details"
               >
                 <PanelRight className="size-4" aria-hidden />
@@ -939,6 +878,13 @@ export function MultiPlayerStage({
             </IconControlTooltip>
           </div>
         </header>
+        <div ref={setCreatorTools} data-room-creator-tools className="mb-2 empty:hidden" />
+
+        {remoteHost ? <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-white/65" aria-label="Phone remote connection">
+          <span role="status">{remoteConnection === "connected" ? "Phone remote ready" : remoteConnection === "connecting" ? "Connecting phone remote…" : remoteConnection === "reconnecting" ? "Reconnecting phone remote…" : remoteConnection === "secure-context-required" ? "Open this site with HTTPS to connect your phone" : "Sign in on both devices to connect your phone"}</span>
+          <Link prefetch={false} href="/multiview/remote" className="inline-flex min-h-11 items-center rounded-lg border border-white/15 px-3 font-semibold text-white hover:bg-white/10">Phone remote</Link>
+          <span>Use the same CORE account on your phone and computer.</span>
+        </div> : null}
 
         {remoteLaunch && !authLoading && !user ? (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-400/25 bg-indigo-400/10 px-4 py-3 text-sm text-white/85">
@@ -1023,6 +969,7 @@ export function MultiPlayerStage({
 
           {player.chatDock !== "left" ? workspaceSidebar : null}
         </div>
+        <div ref={setRecoveryTools} data-room-recovery-tools className="mt-2 space-y-2 empty:hidden" />
         {player.chatDock === "bottom" && hasRoomChat ? (
           <section style={{ height: `min(${player.chatDockSize.bottom}px, 48dvh)` }} className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-[#0e0e11] p-2 shadow-[0_24px_80px_rgba(0,0,0,.28)]" aria-label="Chat below the player grid">
             {chat}
@@ -1100,6 +1047,7 @@ export function MultiPlayerStage({
       ) : null}
     </section>
     </ChatSessionProvider>
+    </TwitchRoomTools.Provider>
   );
 }
 
@@ -1163,7 +1111,6 @@ function WorkspaceSidebar({
   onTabChange,
   mobileOpen,
   onMobileClose,
-  forceCompactDesktop = false,
   focused,
   member,
   tiles,
@@ -1176,7 +1123,6 @@ function WorkspaceSidebar({
   mobileOpen: boolean;
   onMobileClose: () => void;
   /** Keep a two-Twitch Theater stage wide until the companion is usable. */
-  forceCompactDesktop?: boolean;
   focused: WorkspaceTile | null;
   member: MemberRecord | null;
   tiles: WorkspaceTile[];
@@ -1184,10 +1130,8 @@ function WorkspaceSidebar({
   onAddQueue: (opener?: HTMLElement | null) => void;
   onReplace: (tileId: string, opener?: HTMLElement | null) => void;
 }) {
-  const desktopClasses = forceCompactDesktop
-    ? "2xl:sticky 2xl:top-[calc(var(--site-header-h,8rem)+.75rem)] 2xl:z-20 2xl:flex 2xl:h-[calc(100dvh-var(--site-header-h,8rem)-2rem)] 2xl:w-auto 2xl:min-h-[18rem] 2xl:shadow-[0_24px_90px_rgba(0,0,0,.3)]"
-    : "xl:sticky xl:top-[calc(var(--site-header-h,8rem)+.75rem)] xl:z-20 xl:flex xl:h-[calc(100dvh-var(--site-header-h,8rem)-2rem)] xl:w-auto xl:min-h-[18rem] xl:shadow-[0_24px_90px_rgba(0,0,0,.3)]";
-  const compactHideClass = forceCompactDesktop ? "2xl:hidden" : "xl:hidden";
+  const desktopClasses = "xl:sticky xl:top-[calc(var(--site-header-h,8rem)+.75rem)] xl:z-20 xl:flex xl:h-[calc(100dvh-var(--site-header-h,8rem)-2rem)] xl:w-auto xl:min-h-[18rem]";
+  const compactHideClass = "xl:hidden";
   useEffect(() => {
     if (!mobileOpen) return;
     const previousFocus = document.activeElement as HTMLElement | null;
@@ -1258,6 +1202,7 @@ function WorkspaceSidebar({
       id="multiview-sidebar"
       role={mobileOpen ? "dialog" : undefined}
       aria-modal={mobileOpen ? "true" : undefined}
+      data-room-sidebar
       aria-label="Details, Up next, and chat panel"
       className={`${mobileOpen ? "fixed inset-x-3 bottom-3 z-[80] flex h-[min(72dvh,38rem)]" : "hidden"} min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(160deg,rgba(28,28,34,.98),rgba(12,12,16,.98)_46%,rgba(9,9,12,.98))] shadow-[0_28px_100px_rgba(0,0,0,.72)] ${desktopClasses}`}
     >
@@ -1306,6 +1251,7 @@ function WorkspaceSidebar({
         </IconControlTooltip>
       </div>
 
+      <RoomSidebarResize />
       <div className="min-h-0 flex-1 overflow-hidden">
         <div
           id="multiview-panel-queue"
@@ -1532,12 +1478,6 @@ function EmptyStage({ liveCount, onAdd, onFill }: { liveCount: number; onAdd: ()
   );
 }
 
-type RoomTileWithRect = WorkspaceTile & { rect?: NormalizedRect };
-type StudioWorkspaceSnapshot = WorkspaceSnapshot & {
-  snapDensity?: number;
-  tiles: RoomTileWithRect[];
-};
-
 function roomTileRect(tile: WorkspaceTile, columns = 12, density = 12): NormalizedRect {
   const known = (tile as RoomTileWithRect).rect;
   return known ?? gridTileToNormalizedRect(tile, columns, density);
@@ -1677,7 +1617,7 @@ function TheaterRoomSurface({
     <section
       ref={roomRef}
       aria-label="Theater multiview room"
-      className="relative isolate aspect-video min-h-[20rem] overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#070709] shadow-[0_34px_120px_rgba(0,0,0,.56)] sm:min-h-[26rem]"
+      className="relative isolate aspect-video min-h-[20rem] overflow-clip rounded-[1.35rem] border border-white/10 bg-[#070709] shadow-[0_34px_120px_rgba(0,0,0,.56)] sm:min-h-[26rem]"
       style={stacked ? { aspectRatio: "auto" } : undefined}
     >
       {main && player.ambientLighting && !player.dataSaver && player.accessibilityPreset !== "calm" ? (
@@ -1960,6 +1900,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
   style,
   player,
 }: PlayerTileProps & { player: PlayerTileRuntime }) {
+  const { creator: creatorContainer, status: statusContainer } = useContext(TwitchRoomTools);
   const { trackTick, checkpoint, markComplete } = useWatchProgress();
   const [moreOpen, setMoreOpen] = useState(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -2223,7 +2164,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [checkpointTile, finishPlayback, player.captionsEnabled, tile.item.youtubeId]);
+  }, [checkpointTile, finishPlayback, player.captionsEnabled, tile.item.key, tile.item.youtubeId]);
 
   const src = embedFor(tile.item, {
     parent,
@@ -2420,6 +2361,8 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       onClick={() => player.focusTile(tile.id)}
       onDoubleClick={() => player.focusTile(tile.id, { takeAudio: false })}
       className={`group relative overflow-hidden bg-black shadow-xl ring-1 transition duration-150 ${tile.item.platform === "twitch" ? "is-twitch" : ""} ${theater ? "rounded-2xl" : "rounded-xl"} ${mobile || theater ? "min-h-0" : "min-h-[10rem]"} ${focused ? "ring-white/40 shadow-[0_24px_72px_rgba(0,0,0,.5)]" : "ring-white/10 hover:ring-white/30 focus-within:ring-white/30"}`}
+      data-room-player
+      data-focused={focused}
       aria-label={`${tile.item.title} player`}
     >
       {tooSmallForTwitch ? (
@@ -2544,6 +2487,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       ) : tile.item.platform === "twitch" && (tile.item.twitchLogin || tile.item.vodId) ? (
         <div style={mediaFrameStyle} className="absolute inset-0" data-cursor-native>
           <TwitchTileMedia
+            statusContainer={statusContainer}
             channel={tile.item.kind === "live" ? tile.item.twitchLogin : null}
             video={tile.item.vodId}
             muted={tile.muted}
@@ -2567,9 +2511,15 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
             }}
             onEnded={finishPlayback}
           />
+      {focused && !standby && !photo && !tooSmallForTwitch && tile.item.platform === "twitch" ? (
+        <CreatorTags placement="rail" panelContainer={creatorContainer} key={`creators:${tile.item.key}:${tile.item.publishedAt ?? ""}`} assetKey={`${tile.item.platform}:${tile.item.key}`} title={tile.item.title}
+          liveStartedAt={tile.item.kind === "live" ? tile.item.publishedAt : undefined}
+          sourceRatio={contentShape(tile.item) === "portrait" ? 9 / 16 : contentShape(tile.item) === "square" ? 1 : 16 / 9}
+          getTime={() => creatorTimelineSeconds({ platform: tile.item.platform, kind: tile.item.kind, seconds: positionRef.current })} mediaRef={videoRef} fit={tile.fit} compact />
+      ) : null}
         </div>
       ) : src ? (
-        <div style={mediaFrameStyle} className="absolute left-1/2 top-1/2 overflow-hidden bg-black -translate-x-1/2 -translate-y-1/2">
+        <div style={mediaFrameStyle} className={tile.item.platform === "twitch" ? "absolute inset-0 bg-black" : "absolute left-1/2 top-1/2 overflow-hidden bg-black -translate-x-1/2 -translate-y-1/2"}>
           <iframe
           ref={iframeRef}
           title={tile.item.title}
@@ -2584,8 +2534,13 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
               listenToYouTube(source, `core-room-${tile.id}`);
             }
           }}
-          className={`pointer-events-auto absolute inset-0 z-10 h-full w-full ${tile.fit === "cover" ? "scale-[1.02]" : ""}`}
+          className={`pointer-events-auto absolute inset-0 z-10 h-full w-full ${tile.fit === "cover" && tile.item.platform !== "twitch" ? "scale-[1.02]" : ""}`}
         />
+          {focused && tile.item.platform === "twitch" ? (
+            <CreatorTags placement="rail" panelContainer={creatorContainer} key={`creators:${tile.item.key}:${tile.item.publishedAt ?? ""}`} assetKey={`${tile.item.platform}:${tile.item.key}`} title={tile.item.title}
+              sourceRatio={contentShape(tile.item) === "portrait" ? 9 / 16 : 16 / 9}
+              getTime={() => creatorTimelineSeconds({ platform: tile.item.platform, kind: tile.item.kind, seconds: positionRef.current })} mediaRef={videoRef} fit={tile.fit} compact />
+          ) : null}
         </div>
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-[#101014] p-6 text-center">
@@ -2607,7 +2562,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         />
       ) : null}
 
-      {focused && !standby && !photo && !tooSmallForTwitch && (tile.item.platform === "youtube" || tile.item.platform === "twitch" || tile.item.platform === "house") ? (
+      {focused && !standby && !photo && !tooSmallForTwitch && (tile.item.platform === "youtube" || tile.item.platform === "house") ? (
         <CreatorTags key={`creators:${tile.item.key}:${tile.item.publishedAt ?? ""}`} assetKey={`${tile.item.platform}:${tile.item.key}`} title={tile.item.title}
           liveStartedAt={tile.item.kind === "live" ? tile.item.publishedAt : undefined}
           sourceRatio={contentShape(tile.item) === "portrait" ? 9 / 16 : contentShape(tile.item) === "square" ? 1 : 16 / 9}
@@ -2623,7 +2578,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
         />
       ) : null}
 
-      {focused ? <PlayerNetworkWatermark channel={player.channel} compact /> : null}
+      {focused && tile.item.platform !== "twitch" ? <PlayerNetworkWatermark channel={player.channel} compact /> : null}
 
       {!standby ? (
         <span
@@ -2701,12 +2656,13 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
       </div>
 
       {moreOpen ? (
+        <PlayerActions outsideVideo={tile.item.platform === "twitch"}>
         <div
           ref={moreMenuRef}
           id={`tile-more-${tile.id}`}
           role="group"
           aria-label={`${tile.item.title} controls`}
-          className="absolute right-2 top-14 z-40 max-h-[calc(100%-4rem)] w-56 overflow-y-auto overscroll-contain rounded-xl border border-white/15 bg-[#16161a]/97 p-1.5 text-xs shadow-2xl backdrop-blur-xl [scrollbar-width:thin] md:top-12 md:max-h-[calc(100%-3.5rem)]"
+          className={tile.item.platform === "twitch" ? "relative w-full max-w-sm rounded-xl border border-white/15 bg-[#16161a] p-2 text-xs" : "absolute right-2 top-14 z-40 max-h-[calc(100%-4rem)] w-56 overflow-y-auto overscroll-contain rounded-xl border border-white/15 bg-[#16161a]/97 p-1.5 text-xs shadow-2xl backdrop-blur-xl [scrollbar-width:thin] md:top-12 md:max-h-[calc(100%-3.5rem)]"}
           onClick={(event) => event.stopPropagation()}
         >
           <MenuButton icon={Radio} label="Make main + take audio" onClick={() => player.makeMain(tile.id, { takeAudio: true })} />
@@ -2742,6 +2698,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
           <MenuButton icon={X} label="Less like this" active={feedback === "dislike"} onClick={() => updateFeedback("dislike")} />
           <MenuButton icon={Trash2} label="Not interested" active={feedback === "not_interested"} onClick={() => updateFeedback("not_interested")} />
         </div>
+        </PlayerActions>
       ) : null}
 
       {!standby && tile.item.platform !== "twitch" ? (
@@ -2855,7 +2812,7 @@ function TileButton({
   controls?: string;
 }) {
   return (
-    <IconControlTooltip title={label} description={description} placement="bottom">
+    <IconControlTooltip title={label} description={description} placement="top">
       <button
         ref={buttonRef}
         type="button"
@@ -3119,975 +3076,6 @@ function SetupModal({
   onShare: () => void;
 }) {
   return <RoomStudio onClose={onClose} layoutName={layoutName} onLayoutName={onLayoutName} onSave={onSave} canSaveLayouts={canSaveLayouts} savedLayoutsHref={savedLayoutsHref} savedLayoutsPlan={savedLayoutsPlan} liveCount={liveCount} onAdd={onAdd} onFill={onFill} onShare={onShare} />;
-}
-
-type StudioTab = "layout" | "chat" | "playback" | "audio" | "saved";
-type StudioAction = {
-  kind: "move" | "resize" | "chat";
-  tileId?: string;
-  startX: number;
-  startY: number;
-  startTile?: WorkspaceTile;
-  rect: DOMRect;
-} | null;
-
-function tilesOverlap(a: WorkspaceTile, b: WorkspaceTile) {
-  return a.col < b.col + b.colSpan && a.col + a.colSpan > b.col && a.row < b.row + b.rowSpan && a.row + a.rowSpan > b.row;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained for workspace migration compatibility while RoomStudio is active.
-function LegacyRoomStudio({
-  onClose, layoutName, onLayoutName, onSave, canSaveLayouts, savedLayoutsHref, savedLayoutsPlan, liveCount, onAdd, onFill, onShare,
-}: {
-  onClose: () => void;
-  layoutName: string;
-  onLayoutName: (value: string) => void;
-  onSave: () => void;
-  canSaveLayouts: boolean;
-  savedLayoutsHref: string;
-  savedLayoutsPlan: string;
-  liveCount: number;
-  onAdd: () => void;
-  onFill: () => void;
-  onShare: () => void;
-}) {
-  const player = usePlayer();
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const actionRef = useRef<StudioAction>(null);
-  const draftRef = useRef(player.tiles);
-  const [draftTiles, setDraftTiles] = useState(player.tiles);
-  const [selected, setSelected] = useState<string | "chat">(player.focusedTileId ?? "chat");
-  const [tab, setTab] = useState<StudioTab>("layout");
-  const [history, setHistory] = useState<WorkspaceSnapshot[]>([]);
-  const [future, setFuture] = useState<WorkspaceSnapshot[]>([]);
-
-  useEffect(() => {
-    if (actionRef.current) return;
-    draftRef.current = player.tiles;
-    setDraftTiles(player.tiles);
-  }, [player.tiles]);
-
-  const pushHistory = useCallback(() => {
-    setHistory((items) => [...items, player.workspaceSnapshot("Room edit")].slice(-20));
-    setFuture([]);
-  }, [player]);
-
-  const commitDraft = useCallback((next: WorkspaceTile[]) => {
-    const before = new Map(player.tiles.map((tile) => [tile.id, tile]));
-    for (const tile of next) {
-      const prior = before.get(tile.id);
-      if (!prior) continue;
-      if (prior.col !== tile.col || prior.row !== tile.row || prior.colSpan !== tile.colSpan || prior.rowSpan !== tile.rowSpan) {
-        player.updateTile(tile.id, { col: tile.col, row: tile.row, colSpan: tile.colSpan, rowSpan: tile.rowSpan });
-      }
-    }
-  }, [player]);
-
-  const resolveDraft = useCallback((candidate: WorkspaceTile, seed: WorkspaceTile[]) => {
-    const clamped = {
-      ...candidate,
-      col: Math.max(1, Math.min(player.gridColumns, candidate.col)),
-      colSpan: Math.max(1, Math.min(player.gridColumns - Math.max(1, candidate.col) + 1, candidate.colSpan)),
-      row: Math.max(1, candidate.row),
-      rowSpan: Math.max(1, Math.min(6, candidate.rowSpan)),
-    };
-    return seed.map((tile) => {
-      if (tile.id === clamped.id) return clamped;
-      return tilesOverlap(clamped, tile) ? { ...tile, row: clamped.row + clamped.rowSpan } : tile;
-    });
-  }, [player.gridColumns]);
-
-  const beginTileAction = (event: React.PointerEvent, tile: WorkspaceTile, kind: "move" | "resize") => {
-    event.preventDefault();
-    event.stopPropagation();
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    pushHistory();
-    actionRef.current = { kind, tileId: tile.id, startX: event.clientX, startY: event.clientY, startTile: tile, rect };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const beginChatAction = (event: React.PointerEvent) => {
-    event.preventDefault();
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    pushHistory();
-    actionRef.current = { kind: "chat", startX: event.clientX, startY: event.clientY, rect };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const onCanvasMove = (event: React.PointerEvent) => {
-    const action = actionRef.current;
-    if (!action || action.kind === "chat" || !action.startTile) return;
-    const columns = player.gridColumns;
-    const columnWidth = action.rect.width / columns;
-    const rowHeight = Math.max(40, action.rect.height / 12);
-    const dx = Math.round((event.clientX - action.startX) / columnWidth);
-    const dy = Math.round((event.clientY - action.startY) / rowHeight);
-    const source = action.startTile;
-    const patch = action.kind === "move"
-      ? { col: source.col + dx, row: source.row + dy }
-      : { colSpan: source.colSpan + dx, rowSpan: source.rowSpan + dy };
-    const next = resolveDraft({ ...source, ...patch }, draftRef.current);
-    draftRef.current = next;
-    setDraftTiles(next);
-  };
-
-  const finishCanvasAction = (event: React.PointerEvent) => {
-    const action = actionRef.current;
-    if (!action) return;
-    if (action.kind === "chat") {
-      const x = (event.clientX - action.rect.left) / action.rect.width;
-      const y = (event.clientY - action.rect.top) / action.rect.height;
-      player.setChatDock(y > 0.68 ? "bottom" : x < 0.28 ? "left" : x > 0.72 ? "right" : "floating");
-      setSelected("chat");
-      setTab("chat");
-    } else {
-      commitDraft(draftRef.current);
-    }
-    actionRef.current = null;
-  };
-
-  const undo = () => {
-    const snapshot = history.at(-1);
-    if (!snapshot) return;
-    setHistory((items) => items.slice(0, -1));
-    setFuture((items) => [player.workspaceSnapshot("Room edit"), ...items].slice(0, 20));
-    player.importWorkspace(snapshot);
-  };
-  const redo = () => {
-    const snapshot = future[0];
-    if (!snapshot) return;
-    setFuture((items) => items.slice(1));
-    setHistory((items) => [...items, player.workspaceSnapshot("Room edit")].slice(-20));
-    player.importWorkspace(snapshot);
-  };
-  const applyPreset = (preset: WorkspacePreset) => {
-    pushHistory();
-    player.applyPreset(preset);
-    setSelected(player.focusedTileId ?? "chat");
-  };
-  const activeTile = selected === "chat" ? null : draftTiles.find((tile) => tile.id === selected) ?? null;
-  const maxRow = Math.max(6, ...draftTiles.map((tile) => tile.row + tile.rowSpan - 1));
-  const chatStyle = player.chatDock === "left"
-    ? { gridColumn: "1 / span 3", gridRow: "2 / span 8" }
-    : player.chatDock === "right"
-      ? { gridColumn: `${Math.max(1, player.gridColumns - 2)} / span 3`, gridRow: "2 / span 8" }
-      : player.chatDock === "bottom"
-        ? { gridColumn: "3 / span 8", gridRow: `${maxRow + 2} / span 3` }
-        : { gridColumn: "4 / span 5", gridRow: "4 / span 4" };
-
-  return (
-    <div className="fixed inset-0 z-[90] bg-[#050506]/92 p-0 backdrop-blur-md" role="presentation">
-      <section id="multiview-setup-modal" role="dialog" aria-modal="true" aria-label="Room Studio" className="flex h-[100dvh] w-full flex-col bg-[#0c0c0f] text-white">
-        <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3 sm:px-5">
-          <div className="min-w-0"><p className="text-sm font-semibold">Room Studio</p><p className="hidden text-[10px] text-white/42 sm:block">Drag sources, resize tiles, and place the chat dock anywhere.</p></div>
-          <div className="flex items-center gap-1.5">
-            <button type="button" disabled={!history.length} onClick={undo} className="min-h-10 rounded-lg px-3 text-[11px] font-semibold text-white/65 ring-1 ring-white/10 transition hover:bg-white/8 disabled:opacity-30">Undo</button>
-            <button type="button" disabled={!future.length} onClick={redo} className="min-h-10 rounded-lg px-3 text-[11px] font-semibold text-white/65 ring-1 ring-white/10 transition hover:bg-white/8 disabled:opacity-30">Redo</button>
-            <button type="button" onClick={onShare} className="hidden min-h-10 rounded-lg px-3 text-[11px] font-semibold text-white/65 ring-1 ring-white/10 transition hover:bg-white/8 sm:block">Share</button>
-            <button type="button" onClick={onSave} className="min-h-10 rounded-lg bg-white px-3 text-[11px] font-semibold text-black transition hover:bg-white/90">Save layout</button>
-            <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-lg text-white/55 transition hover:bg-white/8 hover:text-white" aria-label="Close Room Studio"><X className="size-4" /></button>
-          </div>
-        </header>
-
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[13rem_minmax(0,1fr)_21rem]">
-          <aside className="order-2 flex min-h-0 gap-2 overflow-x-auto border-t border-white/8 p-3 lg:order-none lg:block lg:overflow-y-auto lg:border-r lg:border-t-0">
-            <div className="hidden lg:block"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-white/38">Room styles</p><p className="mt-1 text-[10px] leading-4 text-white/35">Start with a familiar arrangement, then fine tune it on the canvas.</p></div>
-            <div className="mt-0 flex gap-2 lg:mt-3 lg:flex-col">
-              {WORKSPACE_PRESETS.filter((preset) => preset.id !== "freeform").map((preset) => <button key={preset.id} type="button" onClick={() => applyPreset(preset.id)} aria-pressed={player.layoutPreset === preset.id} className={`min-h-11 shrink-0 rounded-xl px-3 text-left text-[10px] font-semibold ring-1 ring-inset transition ${player.layoutPreset === preset.id ? "bg-white text-black ring-white" : "bg-white/[.035] text-white/65 ring-white/10 hover:bg-white/10 hover:text-white"}`}><span className="block">{preset.label}</span><span className="mt-0.5 hidden text-[9px] font-normal opacity-60 lg:block">{preset.description}</span></button>)}
-            </div>
-            <div className="hidden space-y-2 border-t border-white/8 pt-3 lg:block"><button type="button" onClick={onAdd} className="min-h-10 w-full rounded-xl bg-white/6 px-3 text-left text-[10px] font-semibold text-white/70 ring-1 ring-white/10 hover:bg-white/10">Add player</button><button type="button" disabled={!liveCount} onClick={onFill} className="min-h-10 w-full rounded-xl bg-white/6 px-3 text-left text-[10px] font-semibold text-white/70 ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-35">Watch live channels</button></div>
-          </aside>
-
-          <div className="min-h-0 overflow-auto p-3 sm:p-5">
-            <div className="mx-auto flex min-h-full max-w-[1100px] flex-col">
-              <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white/85">Live layout canvas</p><p className="mt-1 text-[10px] text-white/40">Changes preview here first; streams keep playing in the room behind it.</p></div><span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] font-semibold text-emerald-300 ring-1 ring-emerald-300/20">Optimized edit mode</span></div>
-              <div ref={canvasRef} onPointerMove={onCanvasMove} onPointerUp={finishCanvasAction} onPointerCancel={finishCanvasAction} className="grid min-h-[31rem] flex-1 gap-2 rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.08),transparent_42%),#09090c] p-3 shadow-[0_28px_100px_rgba(0,0,0,.45)]" style={{ gridTemplateColumns: `repeat(${player.gridColumns}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${maxRow + 5}, minmax(2.5rem, 1fr))` }}>
-                {draftTiles.map((tile) => {
-                  const selectedTile = selected === tile.id;
-                  return <article key={tile.id} role="button" tabIndex={0} onClick={() => { setSelected(tile.id); setTab("layout"); }} onKeyDown={(event) => { const amount = event.shiftKey ? 1 : 0; if (!amount) return; if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); pushHistory(); const patch = event.altKey ? (event.key === "ArrowLeft" || event.key === "ArrowRight" ? { colSpan: tile.colSpan + (event.key === "ArrowRight" ? 1 : -1) } : { rowSpan: tile.rowSpan + (event.key === "ArrowDown" ? 1 : -1) }) : (event.key === "ArrowLeft" || event.key === "ArrowRight" ? { col: tile.col + (event.key === "ArrowRight" ? 1 : -1) } : { row: tile.row + (event.key === "ArrowDown" ? 1 : -1) }); const next = resolveDraft({ ...tile, ...patch }, draftRef.current); draftRef.current = next; setDraftTiles(next); commitDraft(next); } }} style={{ gridColumn: `${tile.col} / span ${tile.colSpan}`, gridRow: `${tile.row} / span ${tile.rowSpan}` }} className={`group relative min-h-0 overflow-hidden rounded-xl border bg-[#15151a] text-left outline-none transition ${selectedTile ? "border-white ring-2 ring-white/50" : "border-white/12 hover:border-white/35"}`} aria-label={`${tile.item.title}. Shift arrows move, Shift Alt arrows resize.`}>
-                    {tile.item.poster ? <img src={tile.item.poster} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" /> : null}<span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/20" />
-                    <span onPointerDown={(event) => beginTileAction(event, tile, "move")} className="absolute inset-x-0 top-0 z-10 h-9 cursor-grab touch-none active:cursor-grabbing" aria-hidden />
-                    <span className="relative z-10 block p-2"><span className="block truncate text-[10px] font-semibold">{tile.item.memberLabel}</span><span className="mt-0.5 block line-clamp-2 text-[9px] text-white/58">{readableTitle(tile.item.title)}</span></span>
-                    <span onPointerDown={(event) => beginTileAction(event, tile, "resize")} className="absolute bottom-1 right-1 z-20 grid size-6 cursor-nwse-resize place-items-center rounded-md bg-black/70 text-[10px] text-white/70 ring-1 ring-white/15" aria-label="Resize tile">↘</span>
-                  </article>;
-                })}
-                <button type="button" onPointerDown={beginChatAction} onClick={() => { setSelected("chat"); setTab("chat"); }} style={chatStyle as CSSProperties} className={`group relative min-h-0 cursor-grab overflow-hidden rounded-xl border border-dashed bg-violet-500/10 p-3 text-left transition active:cursor-grabbing ${selected === "chat" ? "border-violet-200 ring-2 ring-violet-300/45" : "border-violet-300/45 hover:border-violet-200"}`}><MessageSquare className="size-4 text-violet-200" /><span className="mt-2 block text-[10px] font-semibold">Chat dock · {player.chatDock}</span><span className="mt-1 block text-[9px] text-violet-100/60">Drag to an edge or center to re-place.</span></button>
-              </div>
-            </div>
-          </div>
-
-          <aside className="min-h-0 overflow-y-auto border-t border-white/8 bg-[#111116] p-3 lg:border-l lg:border-t-0">
-            <div className="grid grid-cols-5 rounded-xl bg-white/[.035] p-1 ring-1 ring-white/8">{(["layout", "chat", "playback", "audio", "saved"] as StudioTab[]).map((entry) => <button key={entry} type="button" onClick={() => setTab(entry)} aria-pressed={tab === entry} className={`min-h-9 rounded-lg px-1 text-[9px] font-semibold capitalize transition ${tab === entry ? "bg-white text-black" : "text-white/42 hover:text-white"}`}>{entry === "playback" ? "Play" : entry}</button>)}</div>
-            {tab === "layout" ? <div className="mt-4 space-y-3"><p className="text-xs font-semibold">{activeTile ? activeTile.item.memberLabel : "Layout"}</p><SettingRange label={`Grid density · ${player.gridColumns} columns`} min={4} max={12} value={player.gridColumns} onChange={(value) => { pushHistory(); player.setGridColumns(value); }} />{activeTile ? <><SettingRange label={`Width · ${activeTile.colSpan} columns`} min={1} max={player.gridColumns} value={activeTile.colSpan} onChange={(value) => { pushHistory(); player.updateTile(activeTile.id, { colSpan: value }); }} /><SettingRange label={`Height · ${activeTile.rowSpan} rows`} min={1} max={6} value={activeTile.rowSpan} onChange={(value) => { pushHistory(); player.updateTile(activeTile.id, { rowSpan: value }); }} /><button type="button" onClick={() => player.removeTile(activeTile.id)} className="min-h-10 w-full rounded-xl bg-red-500/10 px-3 text-left text-[10px] font-semibold text-red-200 ring-1 ring-red-400/20 hover:bg-red-500/15">Remove player</button></> : <p className="text-[10px] leading-4 text-white/42">Select a stream on the canvas to adjust its dimensions or use Shift + arrow keys.</p>}</div> : null}
-            {tab === "chat" ? <div className="mt-4 space-y-3"><p className="text-xs font-semibold">Chat dock</p><div className="grid grid-cols-2 gap-2">{(["left", "right", "bottom", "floating"] as const).map((dock) => <button key={dock} type="button" onClick={() => { pushHistory(); player.setChatDock(dock); }} aria-pressed={player.chatDock === dock} className={`min-h-10 rounded-lg text-[10px] font-semibold capitalize ring-1 transition ${player.chatDock === dock ? "bg-white text-black ring-white" : "bg-white/[.035] text-white/60 ring-white/10 hover:bg-white/10"}`}>{dock}</button>)}</div><div className="grid grid-cols-3 gap-1 rounded-xl bg-white/[.035] p-1 ring-1 ring-white/8">{(["combined", "columns", "focused"] as const).map((mode) => <button key={mode} type="button" onClick={() => player.setChatMode(mode)} aria-pressed={player.chatMode === mode} className={`min-h-9 rounded-lg text-[9px] font-semibold capitalize ${player.chatMode === mode ? "bg-white text-black" : "text-white/50 hover:text-white"}`}>{mode === "combined" ? "One room" : mode === "columns" ? "Separate" : "Focus"}</button>)}</div><SettingToggle label="Show timestamps" description="Show each message’s local send time." value={player.showChatTimestamps} onChange={player.setShowChatTimestamps} /><SettingRange label={`Text size · ${Math.round(player.chatTextScale * 100)}%`} min={0.7} max={1.8} value={player.chatTextScale} onChange={player.setChatTextScale} /><SettingRange label={`Dock size · ${player.chatDock === "bottom" ? player.chatDockSize.bottom : player.chatDockSize.side}px`} min={player.chatDock === "bottom" ? 220 : 280} max={player.chatDock === "bottom" ? 560 : 520} value={player.chatDock === "bottom" ? player.chatDockSize.bottom : player.chatDockSize.side} onChange={(value) => player.setChatDockSize(player.chatDock === "bottom" ? { bottom: value } : { side: value })} /></div> : null}
-            {tab === "playback" ? <div className="mt-4 space-y-3"><p className="text-xs font-semibold">Playback</p><SettingSelect label="Autoplay" value={player.autoplayMode} onChange={(value) => player.setAutoplayMode(value as typeof player.autoplayMode)} options={AUTOPLAY_MODES.map((entry) => ({ value: entry.id, label: entry.label }))} /><SettingSelect label="Playback quality" value={player.qualityPreference} onChange={(value) => player.setQualityPreference(value as typeof player.qualityPreference)} options={[{ value: "auto", label: "Adaptive" }, { value: "best", label: "Best available" }, { value: "balanced", label: "Balanced" }, { value: "data-saver", label: "Data saver" }]} /><SettingRange label={`Active streams · ${player.maxActivePlayers}`} min={1} max={8} value={player.maxActivePlayers} onChange={player.setMaxActivePlayers} /><SettingToggle label="Adaptive performance" description="Keep focused streams responsive; hold hidden background tiles when needed." value={player.dataSaver} onChange={player.setDataSaver} /><SettingToggle label="Captions" description="Show captions on supported sources." value={player.captionsEnabled} onChange={player.setCaptionsEnabled} /></div> : null}
-            {tab === "audio" ? <div className="mt-4 space-y-3"><p className="text-xs font-semibold">Audio + sync</p><SettingToggle label="Mix audio" description="Allow multiple streams to be audible." value={player.mixAudio} onChange={player.setMixAudio} /><button type="button" onClick={player.muteAll} className="min-h-10 w-full rounded-xl bg-white/6 px-3 text-left text-[10px] font-semibold text-white/70 ring-1 ring-white/10 hover:bg-white/10">Mute every tile</button>{player.tiles.map((tile) => <div key={tile.id} className="rounded-xl bg-white/[.035] p-2 ring-1 ring-white/8"><div className="flex items-center gap-2"><button type="button" onClick={() => player.focusTile(tile.id, { takeAudio: true })} className="grid size-7 place-items-center rounded-lg bg-white/8 text-white/70 hover:bg-white hover:text-black"><Volume2 className="size-3.5" /></button><span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white/72">{tile.item.memberLabel}</span></div><input type="range" min="0" max="1" step="0.05" value={tile.muted ? 0 : tile.volume} onChange={(event) => player.updateTile(tile.id, { volume: Number(event.target.value), muted: Number(event.target.value) === 0 })} className="mt-2 h-7 w-full cursor-pointer accent-white" aria-label={`${tile.item.memberLabel} volume`} /></div>)}</div> : null}
-            {tab === "saved" ? <div className="mt-4 space-y-3"><p className="text-xs font-semibold">Saved layouts</p><label className="grid gap-1 text-[10px] text-white/45">Layout name<input value={layoutName} onChange={(event) => onLayoutName(event.target.value)} placeholder="My room" className="min-h-10 rounded-xl bg-white/5 px-3 text-xs text-white ring-1 ring-white/10 outline-none focus:ring-white/25" /></label><button type="button" onClick={onSave} className="min-h-10 w-full rounded-xl bg-white px-3 text-[10px] font-semibold text-black">Save this layout</button>{canSaveLayouts ? <div className="space-y-1">{player.savedLayouts.map((layout) => <div key={layout.name} className="flex items-center gap-2 rounded-xl bg-white/[.035] p-2 ring-1 ring-white/8"><button type="button" onClick={() => player.loadLayout(layout.name)} className="min-h-8 min-w-0 flex-1 truncate text-left text-[10px] font-semibold text-white/72">{layout.name}</button><button type="button" onClick={() => void player.deleteLayout(layout.name)} className="text-[9px] text-white/40 hover:text-red-200">Delete</button></div>)}</div> : <a href={savedLayoutsHref} className="block rounded-xl bg-white/[.035] p-3 text-[10px] leading-4 text-white/50 ring-1 ring-white/8">{savedLayoutsPlan} unlocks synced saved rooms.</a>}</div> : null}
-          </aside>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-type TheaterStudioAction = {
-  kind: "move" | "resize" | "chat" | "chat-resize";
-  pointerId: number;
-  tileId?: string;
-  startX: number;
-  startY: number;
-  board: DOMRect;
-  before: StudioWorkspaceSnapshot;
-  startRect: NormalizedRect;
-} | null;
-
-function cloneStudioSnapshot(snapshot: WorkspaceSnapshot): StudioWorkspaceSnapshot {
-  const source = snapshot as StudioWorkspaceSnapshot;
-  return {
-    ...source,
-    tiles: source.tiles.map((tile) => ({
-      ...tile,
-      item: { ...tile.item },
-      ...(tile.rect ? { rect: { ...tile.rect } } : {}),
-    })),
-    chatChannels: [...source.chatChannels],
-    chatDockSize: { ...source.chatDockSize },
-    ...(source.chatFloatingRect ? { chatFloatingRect: { ...source.chatFloatingRect } } : {}),
-  };
-}
-
-function studioDensity(snapshot: StudioWorkspaceSnapshot) {
-  return Math.max(4, Math.min(24, Math.round(snapshot.snapDensity ?? 12)));
-}
-
-function studioTiles(snapshot: StudioWorkspaceSnapshot): RoomLayoutTile[] {
-  const density = studioDensity(snapshot);
-  const raw = snapshot.tiles.map((tile) => ({ id: tile.id, rect: roomTileRect(tile, density, density) }));
-  // Mirror the Theater surface exactly while a preset is still untouched:
-  // the pinned main source owns the cinematic slot, while simple selection
-  // only changes details and audio. Once any geometry is edited, the saved
-  // rectangles take over and stay literal.
-  return roomLayoutMatchesPreset(snapshot.preset, raw, density)
-    ? resolvePresetRoomLayout(snapshot.preset, raw, {
-        focusedId: snapshot.tiles.find((tile) => tile.pinned)?.id ?? snapshot.tiles[0]?.id ?? null,
-        snapDensity: density,
-      })
-    : raw;
-}
-
-function studioTileRect(tile: WorkspaceTile, snapshot: StudioWorkspaceSnapshot): NormalizedRect {
-  const density = studioDensity(snapshot);
-  return studioTiles(snapshot).find((entry) => entry.id === tile.id)?.rect
-    ?? roomTileRect(tile, density, density);
-}
-
-function applyStudioRects(
-  snapshot: StudioWorkspaceSnapshot,
-  tiles: readonly RoomLayoutTile[],
-): StudioWorkspaceSnapshot {
-  const density = studioDensity(snapshot);
-  const byId = new Map(tiles.map((tile) => [tile.id, tile.rect]));
-  return {
-    ...snapshot,
-    // A rejected collision result must never make a source disappear from the
-    // Studio or the live room. Callers only commit valid solutions, but this
-    // fallback also makes the boundary safe for future inspector actions.
-    tiles: snapshot.tiles.map((tile) => {
-      const rect = byId.get(tile.id) ?? roomTileRect(tile, density, density);
-      return {
-        ...tile,
-        ...normalizedRectToGridPosition(rect, density, density),
-        rect,
-      };
-    }),
-  };
-}
-
-function studioDefaultDockRect(dock: StudioWorkspaceSnapshot["chatDock"]): NormalizedRect {
-  if (dock === "left") return { x: 0.025, y: 0.075, width: 0.24, height: 0.85 };
-  if (dock === "bottom") return { x: 0.16, y: 0.72, width: 0.68, height: 0.25 };
-  if (dock === "floating") return { x: 0.62, y: 0.18, width: 0.31, height: 0.52 };
-  return { x: 0.735, y: 0.075, width: 0.24, height: 0.85 };
-}
-
-function studioDockRect(snapshot: StudioWorkspaceSnapshot): NormalizedRect {
-  return snapshot.chatDock === "floating"
-    ? snapshot.chatFloatingRect ?? studioDefaultDockRect(snapshot.chatDock)
-    : studioDefaultDockRect(snapshot.chatDock);
-}
-
-/**
- * Studio uses this same readable reference space as workspace migration. Side
- * and bottom docks reserve real canvas area rather than pretending chat is
- * another media tile. Floating remains a true normalized overlay.
- */
-function studioDockPreviewRect(snapshot: StudioWorkspaceSnapshot): NormalizedRect {
-  if (snapshot.chatDock === "floating") return studioDockRect(snapshot);
-  const side = Math.max(0.18, Math.min(0.34, snapshot.chatDockSize.side / LEGACY_FLOATING_REFERENCE_VIEWPORT.width));
-  const bottom = Math.max(0.22, Math.min(0.48, snapshot.chatDockSize.bottom / LEGACY_FLOATING_REFERENCE_VIEWPORT.height));
-  if (snapshot.chatDock === "left") return { x: 0, y: 0, width: side, height: 1 };
-  if (snapshot.chatDock === "bottom") return { x: 0, y: 1 - bottom, width: 1, height: bottom };
-  if (snapshot.chatDock === "right") return { x: 1 - side, y: 0, width: side, height: 1 };
-  return { x: 0, y: 0, width: 0, height: 0 };
-}
-
-function studioMediaPreviewRect(rect: NormalizedRect, snapshot: StudioWorkspaceSnapshot): NormalizedRect {
-  if (snapshot.chatDock === "closed" || snapshot.chatDock === "floating") return rect;
-  const dock = studioDockPreviewRect(snapshot);
-  if (snapshot.chatDock === "left") {
-    return { ...rect, x: dock.width + rect.x * (1 - dock.width), width: rect.width * (1 - dock.width) };
-  }
-  if (snapshot.chatDock === "right") {
-    return { ...rect, x: rect.x * (1 - dock.width), width: rect.width * (1 - dock.width) };
-  }
-  return { ...rect, y: rect.y * (1 - dock.height), height: rect.height * (1 - dock.height) };
-}
-
-function studioPreviewTileStyle(tile: WorkspaceTile, snapshot: StudioWorkspaceSnapshot): React.CSSProperties {
-  const density = studioDensity(snapshot);
-  const position = normalizedRectToGridPosition(studioMediaPreviewRect(studioTileRect(tile, snapshot), snapshot), density, density);
-  return {
-    gridColumn: `${position.col} / span ${position.colSpan}`,
-    gridRow: `${position.row} / span ${position.rowSpan}`,
-    minHeight: 0,
-  };
-}
-
-function studioSnapshotEqual(left: StudioWorkspaceSnapshot, right: StudioWorkspaceSnapshot) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-/**
- * A bounded, poster-only editing surface.  It intentionally shares its
- * normalized geometry with the room while the real provider players stay
- * mounted beneath the overlay.  Pointer updates only touch this local draft;
- * one atomic provider update happens when the pointer is released.
- */
-function RoomStudio({
-  onClose, layoutName, onLayoutName, onSave, canSaveLayouts, savedLayoutsHref, savedLayoutsPlan, liveCount, onAdd, onFill, onShare,
-}: {
-  onClose: () => void;
-  layoutName: string;
-  onLayoutName: (value: string) => void;
-  onSave: () => void;
-  canSaveLayouts: boolean;
-  savedLayoutsHref: string;
-  savedLayoutsPlan: string;
-  liveCount: number;
-  onAdd: () => void;
-  onFill: () => void;
-  onShare: () => void;
-}) {
-  const player = usePlayer();
-  const initialRef = useRef<StudioWorkspaceSnapshot | null>(null);
-  const boardRef = useRef<HTMLDivElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const actionRef = useRef<TheaterStudioAction>(null);
-  const pendingPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const frameRef = useRef<number | null>(null);
-  const [draft, setDraft] = useState<StudioWorkspaceSnapshot>(() => cloneStudioSnapshot(player.workspaceSnapshot("Room Studio")));
-  const draftRef = useRef(draft);
-  const [selected, setSelected] = useState<string | "chat">(draft.focusedTileId ?? "chat");
-  const [tab, setTab] = useState<StudioTab>("layout");
-  const [presetTrayOpen, setPresetTrayOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
-  const [history, setHistory] = useState<StudioWorkspaceSnapshot[]>([]);
-  const [future, setFuture] = useState<StudioWorkspaceSnapshot[]>([]);
-  const [closeConfirm, setCloseConfirm] = useState(false);
-  const [blocked, setBlocked] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const dockEditStartRef = useRef<StudioWorkspaceSnapshot | null>(null);
-  const inspectorEditStartRef = useRef<StudioWorkspaceSnapshot | null>(null);
-
-  const replaceDraft = useCallback((next: StudioWorkspaceSnapshot, markDirty = true) => {
-    const cloned = cloneStudioSnapshot(next);
-    draftRef.current = cloned;
-    setDraft(cloned);
-    if (markDirty) setDirty(true);
-  }, []);
-
-  useEffect(() => {
-    const snapshot = cloneStudioSnapshot(player.workspaceSnapshot("Room Studio"));
-    if (!initialRef.current) {
-      initialRef.current = snapshot;
-      replaceDraft(snapshot, false);
-      return;
-    }
-    if (!dirty && !actionRef.current) replaceDraft(snapshot, false);
-  }, [dirty, player.chatChannels, player.chatDock, player.chatDockSize, player.chatFloatingRect, player.chatFocusedLogin, player.chatMode, player.chatTextScale, player.focusedTileId, player.gridColumns, player.layoutPreset, player.showChatTimestamps, player.snapDensity, player.tiles, replaceDraft, player]);
-
-  useEffect(() => () => {
-    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
-  }, []);
-
-  // Room Studio is a real full-screen dialog, not a visual overlay. Keep
-  // keyboard focus inside it and return users to the Customize trigger after
-  // it closes, matching the rest of the player dialogs.
-  useEffect(() => {
-    const previousFocus = document.activeElement as HTMLElement | null;
-    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
-      const dialog = document.getElementById("multiview-setup-modal");
-      const focusable = Array.from(dialog?.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
-      ) ?? []).filter((element) => element.tabIndex >= 0 && !element.hidden && element.getClientRects().length > 0);
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener("keydown", onKeyDown);
-      window.requestAnimationFrame(() => {
-        if (previousFocus?.isConnected) previousFocus.focus();
-      });
-    };
-  }, []);
-
-  // Pointer capture deliberately keeps movement local to the lightweight
-  // Studio preview. Escape must work even while the captured move/resize
-  // handle owns focus instead of the board itself.
-  const cancelActiveAction = useCallback(() => {
-    const action = actionRef.current;
-    if (!action) return false;
-    if (frameRef.current !== null) {
-      window.cancelAnimationFrame(frameRef.current);
-      frameRef.current = null;
-    }
-    pendingPointerRef.current = null;
-    actionRef.current = null;
-    replaceDraft(action.before, false);
-    setBlocked(false);
-    return true;
-  }, [replaceDraft]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !cancelActiveAction()) return;
-      event.preventDefault();
-      event.stopPropagation();
-    };
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [cancelActiveAction]);
-
-  const commitDraft = useCallback((next: StudioWorkspaceSnapshot, before?: StudioWorkspaceSnapshot) => {
-    const normalized = cloneStudioSnapshot(next);
-    const applied = player.applyWorkspaceLayout(normalized);
-    if (!applied) player.importWorkspace(normalized);
-    if (before && !studioSnapshotEqual(before, normalized)) {
-      setHistory((items) => [...items, cloneStudioSnapshot(before)].slice(-30));
-      setFuture([]);
-    }
-    replaceDraft(normalized, true);
-    setBlocked(false);
-  }, [player, replaceDraft]);
-
-  const updateDraft = useCallback((updater: (current: StudioWorkspaceSnapshot) => StudioWorkspaceSnapshot) => {
-    const next = updater(draftRef.current);
-    replaceDraft(next);
-    return next;
-  }, [replaceDraft]);
-
-  const applyPreset = useCallback((preset: WorkspacePreset) => {
-    const before = cloneStudioSnapshot(draftRef.current);
-    const density = studioDensity(before);
-    const rects = presetNormalizedRects(preset as Parameters<typeof presetNormalizedRects>[0], before.tiles.length, density);
-    const next = applyStudioRects({ ...before, preset, columns: density }, before.tiles.map((tile, index) => ({ id: tile.id, rect: rects[index] ?? rects.at(-1)! })));
-    commitDraft(next, before);
-    setSelected(next.focusedTileId ?? next.tiles[0]?.id ?? "chat");
-  }, [commitDraft]);
-
-  const beginTileAction = (event: React.PointerEvent<HTMLElement>, tile: RoomTileWithRect, kind: "move" | "resize") => {
-    const board = boardRef.current?.getBoundingClientRect();
-    if (!board) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const before = cloneStudioSnapshot(draftRef.current);
-    actionRef.current = {
-      kind,
-      pointerId: event.pointerId,
-      tileId: tile.id,
-      startX: event.clientX,
-      startY: event.clientY,
-      board,
-      before,
-      startRect: studioTileRect(tile, before),
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setSelected(tile.id);
-    setTab("layout");
-    setBlocked(false);
-  };
-
-  const beginChatAction = (event: React.PointerEvent<HTMLElement>) => {
-    const board = boardRef.current?.getBoundingClientRect();
-    if (!board) return;
-    event.preventDefault();
-    const before = cloneStudioSnapshot(draftRef.current);
-    actionRef.current = {
-      kind: "chat",
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      board,
-      before,
-      startRect: studioDockPreviewRect(before),
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setSelected("chat");
-    setTab("chat");
-  };
-
-  const beginChatResizeAction = (event: React.PointerEvent<HTMLElement>) => {
-    const board = boardRef.current?.getBoundingClientRect();
-    if (!board) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const before = cloneStudioSnapshot(draftRef.current);
-    actionRef.current = {
-      kind: "chat-resize",
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      board,
-      before,
-      startRect: studioDockRect(before),
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setSelected("chat");
-    setTab("chat");
-  };
-
-  const updatePointerDraft = useCallback((clientX: number, clientY: number) => {
-    const action = actionRef.current;
-    if (!action) return;
-    const dx = (clientX - action.startX) / Math.max(1, action.board.width);
-    const dy = (clientY - action.startY) / Math.max(1, action.board.height);
-    const density = studioDensity(action.before);
-    if (action.kind === "chat" || action.kind === "chat-resize") {
-      const rect = normalizeRoomRect({
-        ...action.startRect,
-        ...(action.kind === "chat-resize"
-          ? { width: action.startRect.width + dx, height: action.startRect.height + dy }
-          : { x: action.startRect.x + dx, y: action.startRect.y + dy }),
-      }, action.startRect, { minWidth: 0.15, minHeight: 0.18 });
-      if (action.kind === "chat-resize") {
-        replaceDraft({ ...action.before, chatDock: "floating", chatFloatingRect: rect }, true);
-        return;
-      }
-      const dock = rect.y > 0.68 ? "bottom" : rect.x < 0.12 ? "left" : rect.x + rect.width > 0.88 ? "right" : "floating";
-      replaceDraft({ ...action.before, chatDock: dock, ...(dock === "floating" ? { chatFloatingRect: rect } : {}) }, true);
-      return;
-    }
-    if (!action.tileId) return;
-    // Tile geometry is stored in the media board, not the reserved chat
-    // band. Convert the visible-canvas delta back to that logical board so a
-    // drag stays under the pointer with left/right/bottom chat docks.
-    const reservedDock = studioDockPreviewRect(action.before);
-    const mediaDx = action.before.chatDock === "left" || action.before.chatDock === "right"
-      ? dx / Math.max(0.01, 1 - reservedDock.width)
-      : dx;
-    const mediaDy = action.before.chatDock === "bottom"
-      ? dy / Math.max(0.01, 1 - reservedDock.height)
-      : dy;
-    let requested = action.kind === "move"
-      ? { ...action.startRect, x: action.startRect.x + mediaDx, y: action.startRect.y + mediaDy }
-      : { ...action.startRect, width: action.startRect.width + mediaDx, height: action.startRect.height + mediaDy };
-    if (action.kind === "resize") {
-      const tile = action.before.tiles.find((entry) => entry.id === action.tileId);
-      if (tile) {
-        const shape = contentShape(tile.item);
-        const mediaAspect = shape === "portrait" ? 9 / 16 : shape === "square" ? 1 : 16 / 9;
-        requested = enforceRoomRectAspect(
-          requested,
-          mediaAspect,
-          density,
-          Math.abs(mediaDx * action.board.width) >= Math.abs(mediaDy * action.board.height) ? "width" : "height",
-        );
-      }
-    }
-    const solution = moveAndResolveRoomLayout(studioTiles(action.before), action.tileId, requested, {
-      snapDensity: density,
-      minWidth: 1 / density,
-      minHeight: 1 / density,
-    });
-    // If every source cannot be packed, leave the last legal preview in
-    // place. In particular, never render the solver's partial output (which
-    // omits rejected ids) as though it were a valid room.
-    if (!solution.valid) {
-      setBlocked(true);
-      return;
-    }
-    setBlocked(false);
-    replaceDraft(applyStudioRects({ ...action.before, preset: "freeform", columns: density, snapDensity: density }, solution.tiles), true);
-  }, [replaceDraft]);
-
-  const onBoardPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!actionRef.current || event.pointerId !== actionRef.current.pointerId) return;
-    pendingPointerRef.current = { x: event.clientX, y: event.clientY };
-    if (frameRef.current !== null) return;
-    frameRef.current = window.requestAnimationFrame(() => {
-      frameRef.current = null;
-      const pending = pendingPointerRef.current;
-      if (pending) updatePointerDraft(pending.x, pending.y);
-    });
-  };
-
-  const finishAction = (event: React.PointerEvent<HTMLDivElement>, cancelled = false) => {
-    const action = actionRef.current;
-    if (!action || event.pointerId !== action.pointerId) return;
-    if (frameRef.current !== null) {
-      window.cancelAnimationFrame(frameRef.current);
-      frameRef.current = null;
-    }
-    if (cancelled) {
-      cancelActiveAction();
-    } else if (!studioSnapshotEqual(action.before, draftRef.current)) {
-      commitDraft(draftRef.current, action.before);
-    }
-    pendingPointerRef.current = null;
-    actionRef.current = null;
-  };
-
-  const undo = () => {
-    const previous = history.at(-1);
-    if (!previous) return;
-    const current = cloneStudioSnapshot(draftRef.current);
-    setHistory((items) => items.slice(0, -1));
-    setFuture((items) => [current, ...items].slice(0, 30));
-    commitDraft(previous);
-  };
-
-  const redo = () => {
-    const next = future[0];
-    if (!next) return;
-    const current = cloneStudioSnapshot(draftRef.current);
-    setFuture((items) => items.slice(1));
-    setHistory((items) => [...items, current].slice(-30));
-    commitDraft(next);
-  };
-
-  const requestClose = () => {
-    if (dirty) setCloseConfirm(true);
-    else onClose();
-  };
-
-  const discardChanges = () => {
-    const initial = initialRef.current;
-    if (initial) {
-      const restored = cloneStudioSnapshot(initial);
-      const applied = player.applyWorkspaceLayout(restored);
-      if (!applied) player.importWorkspace(restored);
-      replaceDraft(restored, false);
-    }
-    setHistory([]);
-    setFuture([]);
-    setDirty(false);
-    setCloseConfirm(false);
-    onClose();
-  };
-
-  const activeTile = selected === "chat" ? null : draft.tiles.find((tile) => tile.id === selected) ?? null;
-  const density = studioDensity(draft);
-  const dockRect = studioDockPreviewRect(draft);
-  const dockStyle: React.CSSProperties = {
-    left: `${dockRect.x * 100}%`,
-    top: `${dockRect.y * 100}%`,
-    width: `${dockRect.width * 100}%`,
-    height: `${dockRect.height * 100}%`,
-  };
-  const setDraftAndCommit = (next: StudioWorkspaceSnapshot) => {
-    const before = cloneStudioSnapshot(draftRef.current);
-    commitDraft(next, before);
-  };
-
-  // Ranges keep their work in the light Studio draft while the thumb moves,
-  // then issue exactly one full workspace transaction when the user releases
-  // it. That keeps the live ChatSession and provider tiles mounted.
-  const beginDockEdit = () => {
-    if (!dockEditStartRef.current) dockEditStartRef.current = cloneStudioSnapshot(draftRef.current);
-  };
-
-  const commitDockEdit = () => {
-    const before = dockEditStartRef.current;
-    dockEditStartRef.current = null;
-    if (before && !studioSnapshotEqual(before, draftRef.current)) commitDraft(draftRef.current, before);
-  };
-
-  const beginInspectorEdit = () => {
-    if (!inspectorEditStartRef.current) inspectorEditStartRef.current = cloneStudioSnapshot(draftRef.current);
-  };
-
-  const commitInspectorEdit = () => {
-    const before = inspectorEditStartRef.current;
-    inspectorEditStartRef.current = null;
-    if (before && !studioSnapshotEqual(before, draftRef.current)) commitDraft(draftRef.current, before);
-  };
-
-  const updateDraftDockSize = (patch: Partial<StudioWorkspaceSnapshot["chatDockSize"]>) => {
-    updateDraft((current) => ({
-      ...current,
-      chatDockSize: { ...current.chatDockSize, ...patch },
-    }));
-  };
-
-  const updateFloatingDockRect = (patch: Partial<NormalizedRect>) => {
-    updateDraft((current) => ({
-      ...current,
-      chatDock: "floating",
-      chatFloatingRect: normalizeRoomRect(
-        { ...(current.chatFloatingRect ?? studioDefaultDockRect("floating")), ...patch },
-        studioDefaultDockRect("floating"),
-        { minWidth: 0.15, minHeight: 0.18 },
-      ),
-    }));
-  };
-
-  const setTileRect = (tileId: string, patch: Partial<NormalizedRect>) => {
-    const before = cloneStudioSnapshot(draftRef.current);
-    const tile = before.tiles.find((entry) => entry.id === tileId);
-    const currentRect = tile ? studioTileRect(tile, before) : null;
-    let requested: Partial<NormalizedRect> | NormalizedRect = currentRect ? { ...currentRect, ...patch } : patch;
-    if (tile && currentRect && (patch.width !== undefined || patch.height !== undefined)) {
-      const shape = contentShape(tile.item);
-      const mediaAspect = shape === "portrait" ? 9 / 16 : shape === "square" ? 1 : 16 / 9;
-      requested = enforceRoomRectAspect(
-        requested as NormalizedRect,
-        mediaAspect,
-        studioDensity(before),
-        patch.height !== undefined && patch.width === undefined ? "height" : "width",
-      );
-    }
-    const solution = moveAndResolveRoomLayout(studioTiles(before), tileId, requested, {
-      snapDensity: studioDensity(before), minWidth: 1 / studioDensity(before), minHeight: 1 / studioDensity(before),
-    });
-    if (!solution.valid) {
-      setBlocked(true);
-      return;
-    }
-    const density = studioDensity(before);
-    setBlocked(false);
-    setDraftAndCommit(applyStudioRects({ ...before, preset: "freeform", columns: density, snapDensity: density }, solution.tiles));
-  };
-
-  const handleStudioKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape" && actionRef.current) {
-      event.preventDefault();
-      cancelActiveAction();
-      return;
-    }
-    if (!activeTile || event.target !== event.currentTarget) return;
-    if (event.key === "Enter") {
-      event.preventDefault();
-      setDraftAndCommit({ ...draftRef.current, focusedTileId: activeTile.id });
-      return;
-    }
-    if (event.key === "Delete" || event.key === "Backspace") {
-      event.preventDefault();
-      const before = cloneStudioSnapshot(draftRef.current);
-      const next = { ...before, tiles: before.tiles.filter((tile) => tile.id !== activeTile.id), focusedTileId: before.tiles.find((tile) => tile.id !== activeTile.id)?.id ?? null };
-      setSelected(next.focusedTileId ?? "chat");
-      setDraftAndCommit(next);
-      return;
-    }
-    const direction: [number, number] | null = event.key === "ArrowLeft" ? [-1, 0] : event.key === "ArrowRight" ? [1, 0] : event.key === "ArrowUp" ? [0, -1] : event.key === "ArrowDown" ? [0, 1] : null;
-    if (!direction) return;
-    event.preventDefault();
-    const amount = 1 / density;
-    const rect = studioTileRect(activeTile, draftRef.current);
-    setTileRect(activeTile.id, event.shiftKey
-      ? { width: rect.width + direction[0] * amount, height: rect.height + direction[1] * amount }
-      : { x: rect.x + direction[0] * amount, y: rect.y + direction[1] * amount });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[90] bg-[#040405]/96 text-white backdrop-blur-sm" role="presentation">
-      <section id="multiview-setup-modal" role="dialog" aria-modal="true" aria-label="Room Studio" className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#0a0a0d]">
-        <header className="flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 sm:min-h-16 sm:px-5">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <button type="button" onClick={requestClose} className="hidden min-h-10 rounded-xl px-3 text-[10px] font-semibold text-white/65 ring-1 ring-white/10 transition hover:bg-white/8 hover:text-white sm:inline-flex">Back to room</button>
-            <div className="min-w-0"><p className="text-sm font-semibold tracking-tight">Room Studio</p><p className="hidden truncate text-[10px] text-white/40 sm:block">Arrange a Theater room without interrupting its streams.</p></div>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button type="button" disabled={!history.length} onClick={undo} className="min-h-10 rounded-lg px-2.5 text-[10px] font-semibold text-white/65 ring-1 ring-white/10 transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-30">Undo</button>
-            <button type="button" disabled={!future.length} onClick={redo} className="hidden min-h-10 rounded-lg px-2.5 text-[10px] font-semibold text-white/65 ring-1 ring-white/10 transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-30 sm:inline-flex">Redo</button>
-            <button type="button" onClick={onShare} className="hidden min-h-10 rounded-lg px-3 text-[10px] font-semibold text-white/65 ring-1 ring-white/10 transition hover:bg-white/8 sm:inline-flex">Share</button>
-            <button type="button" onClick={() => { commitDraft(draftRef.current); onSave(); setDirty(false); }} className="min-h-10 rounded-lg bg-white px-3 text-[10px] font-semibold text-black shadow-xs-skeuomorphic transition hover:bg-white/90">Save layout</button>
-            <button ref={closeButtonRef} type="button" onClick={requestClose} className="grid size-10 place-items-center rounded-lg text-white/55 transition hover:bg-white/8 hover:text-white" aria-label="Close Room Studio"><X className="size-4" /></button>
-          </div>
-        </header>
-
-        <div className={`flex min-h-0 flex-1 flex-col lg:grid lg:grid-rows-[minmax(0,1fr)] ${presetTrayOpen ? (inspectorOpen ? "lg:grid-cols-[13rem_minmax(0,1fr)_20rem]" : "lg:grid-cols-[13rem_minmax(0,1fr)_3.25rem]") : (inspectorOpen ? "lg:grid-cols-[3.25rem_minmax(0,1fr)_20rem]" : "lg:grid-cols-[3.25rem_minmax(0,1fr)_3.25rem]")}`}>
-          <aside className={`order-2 flex shrink-0 gap-2 overflow-x-auto border-t border-white/8 bg-[#0c0c0f] p-2.5 [scrollbar-width:none] transition-[padding] lg:order-none lg:block lg:overflow-y-auto lg:border-r lg:border-t-0 ${presetTrayOpen ? "lg:p-3" : "lg:p-1.5"}`}>
-            <div className="hidden lg:block">
-              <div className={`flex min-h-10 items-center gap-2 ${presetTrayOpen ? "justify-between" : "justify-center"}`}>
-                <p className={presetTrayOpen ? "text-[10px] font-bold uppercase tracking-[.14em] text-white/38" : "sr-only"}>Room styles</p>
-                <button type="button" aria-expanded={presetTrayOpen} aria-label={presetTrayOpen ? "Collapse room styles" : "Open room styles"} onClick={() => setPresetTrayOpen((value) => !value)} className="grid size-9 place-items-center rounded-lg text-white/45 transition hover:bg-white/8 hover:text-white">
-                  {presetTrayOpen ? "Hide" : <LayoutGrid className="size-3.5" aria-hidden />}
-                </button>
-              </div>
-              {presetTrayOpen ? <>
-                <p className="mt-1 text-[10px] leading-4 text-white/35">Start in Theater view, then make it yours.</p>
-                <div className="mt-3 flex max-h-[27rem] flex-col gap-2 overflow-y-auto">
-                  {WORKSPACE_PRESETS.filter((preset) => preset.id !== "freeform").map((preset) => <button key={preset.id} type="button" onClick={() => applyPreset(preset.id)} aria-pressed={draft.preset === preset.id} className={`min-h-11 shrink-0 rounded-xl px-3 text-left text-[10px] font-semibold ring-1 ring-inset transition ${draft.preset === preset.id ? "bg-white text-black ring-white" : "bg-white/[.035] text-white/65 ring-white/10 hover:bg-white/10 hover:text-white"}`}><span className="block">{preset.label}</span><span className="mt-0.5 block text-[9px] font-normal opacity-60">{preset.description}</span></button>)}
-                </div>
-                <div className="mt-3 space-y-2 border-t border-white/8 pt-3"><button type="button" onClick={onAdd} className="min-h-10 w-full rounded-xl bg-white/6 px-3 text-left text-[10px] font-semibold text-white/70 ring-1 ring-white/10 hover:bg-white/10">Add player</button><button type="button" disabled={!liveCount} onClick={onFill} className="min-h-10 w-full rounded-xl bg-white/6 px-3 text-left text-[10px] font-semibold text-white/70 ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-35">Watch live channels</button></div>
-              </> : null}
-            </div>
-            <div className="flex gap-2 lg:hidden">
-              {WORKSPACE_PRESETS.filter((preset) => preset.id !== "freeform").map((preset) => <button key={preset.id} type="button" onClick={() => applyPreset(preset.id)} aria-pressed={draft.preset === preset.id} className={`min-h-11 shrink-0 rounded-xl px-3 text-left text-[10px] font-semibold ring-1 ring-inset transition ${draft.preset === preset.id ? "bg-white text-black ring-white" : "bg-white/[.035] text-white/65 ring-white/10 hover:bg-white/10 hover:text-white"}`}><span className="block">{preset.label}</span></button>)}
-            </div>
-          </aside>
-
-          <div className="relative order-1 min-h-0 min-w-0 flex-1 overflow-auto bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.06),transparent_42%)] p-3 sm:p-5 lg:order-none">
-            <div className="mx-auto flex min-h-full max-w-[1180px] flex-col justify-center">
-              <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white/85">Live layout canvas</p><p className="mt-1 text-[10px] text-white/42">Streams keep playing behind this lightweight preview. Release to apply.</p></div><span className={`rounded-full px-2 py-1 text-[9px] font-semibold ring-1 ${blocked ? "bg-amber-300/10 text-amber-200 ring-amber-200/20" : "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20"}`}>{blocked ? "Placement blocked" : "Live on release"}</span></div>
-              <div
-                ref={boardRef}
-                role="application"
-                tabIndex={0}
-                aria-label="Room layout canvas. Arrow keys move the selected tile, Shift plus arrows resize it, Enter makes it main, and Delete removes it."
-                onKeyDown={handleStudioKeyDown}
-                onPointerMove={onBoardPointerMove}
-                onPointerUp={(event) => finishAction(event)}
-                onPointerCancel={(event) => finishAction(event, true)}
-                className="relative grid aspect-video min-h-0 max-h-[calc(100dvh-11rem)] w-full grid-cols-12 grid-rows-12 gap-1.5 overflow-hidden rounded-[1.4rem] border border-white/12 bg-[#09090c] p-2.5 shadow-[0_32px_120px_rgba(0,0,0,.55)] outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:gap-2 sm:p-3"
-              >
-                {draft.tiles.map((tile) => {
-                  const selectedTile = selected === tile.id;
-                  return <article key={tile.id} role="button" tabIndex={-1} onClick={() => { setSelected(tile.id); setTab("layout"); boardRef.current?.focus(); }} style={studioPreviewTileStyle(tile, draft)} className={`group relative min-h-0 overflow-hidden rounded-xl border bg-[#15151a] text-left transition ${selectedTile ? "border-white ring-2 ring-white/50" : "border-white/12 hover:border-white/35"}`} aria-label={`${tile.item.title}. Drag the top edge to move and the corner to resize.`}>
-                    {tile.item.poster ? <img src={tile.item.poster} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" /> : null}<span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/20" />
-                    <button type="button" onPointerDown={(event) => beginTileAction(event, tile, "move")} className="absolute inset-x-0 top-0 z-10 h-9 cursor-grab touch-none active:cursor-grabbing" aria-label={`Move ${tile.item.title}`} />
-                    <span className="relative z-[2] block p-2"><span className="flex items-center gap-1.5"><span className="truncate text-[10px] font-semibold">{tile.item.memberLabel}</span>{tile.item.kind === "live" ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/85 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span> : null}</span><span className="mt-0.5 block line-clamp-2 text-[9px] text-white/58">{readableTitle(tile.item.title)}</span><span className="mt-1 flex flex-wrap gap-1 text-[8px] text-white/64"><span className="rounded bg-black/42 px-1 py-0.5">{contentShape(tile.item) === "portrait" ? "9:16" : contentShape(tile.item) === "square" ? "1:1" : "16:9"}</span><span className="rounded bg-black/42 px-1 py-0.5">{tile.muted ? "Muted" : "Audio on"}</span>{tile.id === draft.focusedTileId ? <span className="rounded bg-white/16 px-1 py-0.5 font-semibold text-white/90">Main</span> : null}</span></span>
-                    <button type="button" onPointerDown={(event) => beginTileAction(event, tile, "resize")} className="absolute bottom-1 right-1 z-20 grid size-7 cursor-nwse-resize place-items-center rounded-md bg-black/75 text-[10px] text-white/80 ring-1 ring-white/15" aria-label={`Resize ${tile.item.title}`}>↘</button>
-                  </article>;
-                })}
-                {draft.chatDock !== "closed" ? <div style={dockStyle} className={`absolute z-30 min-h-0 overflow-hidden rounded-xl border border-dashed bg-[#121216]/95 p-2 text-left shadow-xl transition ${selected === "chat" ? "border-white/75 ring-2 ring-white/35" : "border-white/28 hover:border-white/60"}`}><button type="button" onPointerDown={beginChatAction} onClick={() => { setSelected("chat"); setTab("chat"); }} className="absolute inset-0 z-10 cursor-grab touch-none active:cursor-grabbing" aria-label={`Move chat dock to another edge. Current position: ${draft.chatDock}`} /><span className="relative z-[2] flex items-center gap-1.5 text-white/80"><MessageSquare className="size-3.5" /><span className="text-[9px] font-semibold">Chat dock · {draft.chatDock}</span></span><span className="relative z-[2] mt-2 block h-px bg-white/10" /><span className="relative z-[2] mt-2 block space-y-1.5"><span className="block h-1.5 w-3/4 rounded-full bg-white/22" /><span className="block h-1.5 w-[58%] rounded-full bg-white/12" /><span className="block h-1.5 w-[82%] rounded-full bg-white/16" /></span><span className="relative z-[2] mt-2 hidden text-[8px] text-white/42 sm:block">Drag to dock; resize from Inspector.</span>{draft.chatDock === "floating" ? <button type="button" onPointerDown={beginChatResizeAction} className="absolute bottom-1 right-1 z-20 grid size-7 cursor-nwse-resize place-items-center rounded-md bg-black/75 text-[10px] text-white/80 ring-1 ring-white/15" aria-label="Resize floating chat dock">↘</button> : null}</div> : null}
-              </div>
-            </div>
-          </div>
-
-          <aside className={`order-3 min-h-0 shrink-0 overflow-y-auto border-t border-white/8 bg-[#101014] transition-[max-height] lg:border-l lg:border-t-0 ${inspectorOpen ? "max-h-[42dvh] lg:max-h-none" : "max-h-12 lg:max-h-none"}`}>
-            <div className={`flex min-h-12 items-center gap-2 border-b border-white/8 px-3 ${inspectorOpen ? "justify-between" : "justify-center"}`}><p className={inspectorOpen ? "text-[10px] font-semibold text-white/72" : "sr-only"}>Inspector</p><button type="button" aria-expanded={inspectorOpen} onClick={() => setInspectorOpen((value) => !value)} className="rounded-lg px-2 py-1 text-[9px] font-semibold text-white/45 hover:bg-white/8 hover:text-white">{inspectorOpen ? "Collapse" : "Open"}</button></div>
-            {inspectorOpen ? <div className="p-3"><div className="grid grid-cols-5 rounded-xl bg-white/[.035] p-1 ring-1 ring-white/8">{(["layout", "chat", "playback", "audio", "saved"] as StudioTab[]).map((entry) => <button key={entry} type="button" onClick={() => setTab(entry)} aria-pressed={tab === entry} className={`min-h-9 rounded-lg px-1 text-[9px] font-semibold capitalize transition ${tab === entry ? "bg-white text-black" : "text-white/42 hover:text-white"}`}>{entry === "playback" ? "Play" : entry}</button>)}</div>
-              {tab === "layout" ? <div className="mt-4 space-y-3"><div><p className="text-xs font-semibold">{activeTile ? activeTile.item.memberLabel : "Theater layout"}</p><p className="mt-1 text-[10px] leading-4 text-white/42">Select a view to move, resize, make main, or remove it.</p></div><SettingRange label={`Snap density · ${density}`} min={4} max={24} value={density} onBegin={beginInspectorEdit} onChange={(value) => updateDraft((current) => ({ ...current, snapDensity: value, columns: value }))} onCommit={commitInspectorEdit} />{activeTile ? <><button type="button" onClick={() => setDraftAndCommit({ ...draftRef.current, focusedTileId: activeTile.id, tiles: draftRef.current.tiles.map((tile) => ({ ...tile, pinned: tile.id === activeTile.id })) })} className="min-h-10 w-full rounded-xl bg-white px-3 text-left text-[10px] font-semibold text-black">Make main</button><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setTileRect(activeTile.id, { width: studioTileRect(activeTile, draftRef.current).width - 1 / density })} className="min-h-10 rounded-xl text-[10px] font-semibold text-white/65 ring-1 ring-white/10 hover:bg-white/8">Narrower</button><button type="button" onClick={() => setTileRect(activeTile.id, { width: studioTileRect(activeTile, draftRef.current).width + 1 / density })} className="min-h-10 rounded-xl text-[10px] font-semibold text-white/65 ring-1 ring-white/10 hover:bg-white/8">Wider</button></div><button type="button" onClick={() => { const before = cloneStudioSnapshot(draftRef.current); const next = { ...before, tiles: before.tiles.filter((tile) => tile.id !== activeTile.id), focusedTileId: before.tiles.find((tile) => tile.id !== activeTile.id)?.id ?? null }; setSelected(next.focusedTileId ?? "chat"); setDraftAndCommit(next); }} className="min-h-10 w-full rounded-xl bg-red-500/10 px-3 text-left text-[10px] font-semibold text-red-100 ring-1 ring-red-400/20 hover:bg-red-500/15">Remove player</button></> : null}</div> : null}
-              {tab === "chat" ? (
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <p className="text-xs font-semibold">Chat dock</p>
-                    <p className="mt-1 text-[10px] leading-4 text-white/42">Place one persistent dock beside, below, or over the room.</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(["left", "right", "bottom", "floating"] as const).map((dock) => (
-                      <button
-                        key={dock}
-                        type="button"
-                        onClick={() => {
-                          const current = draftRef.current;
-                          setDraftAndCommit({
-                            ...current,
-                            chatDock: dock,
-                            ...(dock === "floating" ? {
-                              chatFloatingRect: current.chatFloatingRect ?? studioDefaultDockRect("floating"),
-                            } : {}),
-                          });
-                        }}
-                        aria-pressed={draft.chatDock === dock}
-                        className={`min-h-10 rounded-lg text-[10px] font-semibold capitalize ring-1 transition ${draft.chatDock === dock ? "bg-white text-black ring-white" : "bg-white/[.035] text-white/60 ring-white/10 hover:bg-white/10"}`}
-                      >
-                        {dock}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/[.035] p-1 ring-1 ring-white/8">
-                    {(["combined", "columns", "focused"] as const).map((mode) => (
-                      <button key={mode} type="button" onClick={() => setDraftAndCommit({ ...draftRef.current, chatMode: mode })} aria-pressed={draft.chatMode === mode} className={`min-h-9 rounded-lg text-[9px] font-semibold ${draft.chatMode === mode ? "bg-white text-black" : "text-white/50 hover:text-white"}`}>
-                        {mode === "combined" ? "One room" : mode === "columns" ? "Separate" : "Focus"}
-                      </button>
-                    ))}
-                  </div>
-                  <div onPointerDown={beginDockEdit} onFocusCapture={beginDockEdit} className="space-y-2">
-                    {draft.chatDock === "floating" ? (
-                      <>
-                        <SettingRange
-                          label={`Floating width · ${Math.round(dockRect.width * 100)}%`}
-                          min={0.15}
-                          max={0.5}
-                          step={0.01}
-                          value={dockRect.width}
-                          onChange={(value) => updateFloatingDockRect({ width: value })}
-                          onCommit={commitDockEdit}
-                        />
-                        <SettingRange
-                          label={`Floating height · ${Math.round(dockRect.height * 100)}%`}
-                          min={0.18}
-                          max={0.82}
-                          step={0.01}
-                          value={dockRect.height}
-                          onChange={(value) => updateFloatingDockRect({ height: value })}
-                          onCommit={commitDockEdit}
-                        />
-                        <p className="rounded-xl bg-violet-400/8 px-3 py-2 text-[9px] leading-4 text-violet-100/65 ring-1 ring-violet-300/12">Drag the chat card on the canvas to set its floating position. Size and position are saved with this room.</p>
-                      </>
-                    ) : draft.chatDock === "bottom" ? (
-                      <SettingRange
-                        label={`Dock height · ${draft.chatDockSize.bottom}px`}
-                        min={220}
-                        max={560}
-                        value={draft.chatDockSize.bottom}
-                        onChange={(value) => updateDraftDockSize({ bottom: value })}
-                        onCommit={commitDockEdit}
-                      />
-                    ) : (
-                      <SettingRange
-                        label={`Dock width · ${draft.chatDockSize.side}px`}
-                        min={280}
-                        max={520}
-                        value={draft.chatDockSize.side}
-                        onChange={(value) => updateDraftDockSize({ side: value })}
-                        onCommit={commitDockEdit}
-                      />
-                    )}
-                  </div>
-                  <SettingToggle label="Show timestamps" description="Off by default. Show local message times when you need them." value={draft.showChatTimestamps} onChange={(value) => setDraftAndCommit({ ...draftRef.current, showChatTimestamps: value })} />
-                  <SettingRange label={`Text size · ${Math.round(draft.chatTextScale * 100)}%`} min={0.7} max={1.8} step={0.1} value={draft.chatTextScale} onBegin={beginInspectorEdit} onChange={(value) => updateDraft((current) => ({ ...current, chatTextScale: value }))} onCommit={commitInspectorEdit} />
-                </div>
-              ) : null}
-              {tab === "playback" ? <div className="mt-4 space-y-3">
-                <p className="text-xs font-semibold">Playback</p>
-                <SettingSelect label="Autoplay" value={draft.autoplayMode ?? player.autoplayMode} onChange={(value) => setDraftAndCommit({ ...draftRef.current, autoplayMode: value as typeof player.autoplayMode })} options={AUTOPLAY_MODES.map((entry) => ({ value: entry.id, label: entry.label }))} />
-                <SettingRange label={`Live player budget · ${draft.maxActivePlayers ?? player.maxActivePlayers}`} min={1} max={8} value={draft.maxActivePlayers ?? player.maxActivePlayers} onBegin={beginInspectorEdit} onChange={(value) => updateDraft((current) => ({ ...current, maxActivePlayers: value }))} onCommit={commitInspectorEdit} />
-                <SettingRange label={`Playback speed · ${(draft.playbackRate ?? player.playbackRate).toFixed(1)}×`} min={0.5} max={2} step={0.1} value={draft.playbackRate ?? player.playbackRate} onBegin={beginInspectorEdit} onChange={(value) => updateDraft((current) => ({ ...current, playbackRate: value }))} onCommit={commitInspectorEdit} />
-                <SettingSelect label="Quality" value={draft.qualityPreference ?? player.qualityPreference} onChange={(value) => setDraftAndCommit({ ...draftRef.current, qualityPreference: value as "auto" | "best" | "balanced" | "data-saver" })} options={[{ value: "auto", label: "Auto" }, { value: "best", label: "Best available" }, { value: "balanced", label: "Balanced" }, { value: "data-saver", label: "Data saver" }]} />
-                <SettingToggle label="Adaptive performance" description="Prioritize the Theater view when your device or connection is constrained." value={draft.dataSaver ?? player.dataSaver} onChange={(value) => setDraftAndCommit({ ...draftRef.current, dataSaver: value })} />
-                <SettingToggle label="Captions" description="Use captions on supported sources." value={draft.captionsEnabled ?? player.captionsEnabled} onChange={(value) => setDraftAndCommit({ ...draftRef.current, captionsEnabled: value })} />
-              </div> : null}
-              {tab === "audio" ? <div className="mt-4 space-y-3">
-                <p className="text-xs font-semibold">Audio + sync</p>
-                <SettingToggle label="Mix audio" description="Keep one lead by default; mix only when you choose." value={draft.mixAudio ?? player.mixAudio} onChange={(value) => setDraftAndCommit({ ...draftRef.current, mixAudio: value })} />
-                <button type="button" onClick={() => setDraftAndCommit({ ...draftRef.current, tiles: draftRef.current.tiles.map((tile) => ({ ...tile, muted: true })) })} className="min-h-10 w-full rounded-xl bg-white/6 px-3 text-left text-[10px] font-semibold text-white/70 ring-1 ring-white/10 hover:bg-white/10">Mute every tile</button>
-                {draft.tiles.map((tile) => <div key={tile.id} className="rounded-xl bg-white/[.035] p-2 ring-1 ring-white/8"><div className="flex items-center gap-2"><button type="button" onClick={() => { const current = draftRef.current; setDraftAndCommit({ ...current, focusedTileId: tile.id, tiles: current.tiles.map((entry) => ({ ...entry, muted: current.mixAudio ? entry.id === tile.id ? false : entry.muted : entry.id !== tile.id })) }); }} className="grid size-7 place-items-center rounded-lg bg-white/8 text-white/70 hover:bg-white hover:text-black" aria-label={`Make ${tile.item.memberLabel} the audio lead`}><Volume2 className="size-3.5" /></button><span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white/72">{tile.item.memberLabel}</span></div><input type="range" min="0" max="1" step="0.05" value={tile.muted ? 0 : tile.volume} onPointerDown={beginInspectorEdit} onFocus={beginInspectorEdit} onChange={(event) => { const value = Number(event.target.value); updateDraft((current) => ({ ...current, tiles: current.tiles.map((entry) => entry.id === tile.id ? { ...entry, volume: value, muted: value === 0 } : entry) })); }} onPointerUp={commitInspectorEdit} onBlur={commitInspectorEdit} className="mt-2 h-7 w-full cursor-pointer accent-white" aria-label={`${tile.item.memberLabel} volume`} /><SettingRange label={`Sync delay · ${tile.delaySeconds}s`} min={0} max={30} value={tile.delaySeconds} onBegin={beginInspectorEdit} onChange={(value) => updateDraft((current) => ({ ...current, tiles: current.tiles.map((entry) => entry.id === tile.id ? { ...entry, delaySeconds: value } : entry) }))} onCommit={commitInspectorEdit} /></div>)}
-              </div> : null}
-              {tab === "saved" ? <div className="mt-4 space-y-3"><p className="text-xs font-semibold">Saved layouts</p><label className="grid gap-1 text-[10px] text-white/45">Layout name<input value={layoutName} onChange={(event) => onLayoutName(event.target.value)} placeholder="My Theater room" className="min-h-10 rounded-xl bg-white/5 px-3 text-xs text-white ring-1 ring-white/10 outline-none focus:ring-white/25" /></label><button type="button" onClick={() => { commitDraft(draftRef.current); onSave(); setDirty(false); }} className="min-h-10 w-full rounded-xl bg-white px-3 text-[10px] font-semibold text-black">Save this layout</button>{canSaveLayouts ? <div className="space-y-1">{player.savedLayouts.map((layout) => <div key={layout.name} className="flex items-center gap-2 rounded-xl bg-white/[.035] p-2 ring-1 ring-white/8"><button type="button" onClick={() => { player.loadLayout(layout.name); setDirty(false); }} className="min-h-8 min-w-0 flex-1 truncate text-left text-[10px] font-semibold text-white/72">{layout.name}</button><button type="button" onClick={() => void player.deleteLayout(layout.name)} className="text-[9px] text-white/40 hover:text-red-200">Delete</button></div>)}</div> : <a href={savedLayoutsHref} className="block rounded-xl bg-white/[.035] p-3 text-[10px] leading-4 text-white/50 ring-1 ring-white/8">{savedLayoutsPlan} unlocks synced saved rooms.</a>}</div> : null}
-            </div> : null}
-          </aside>
-        </div>
-      </section>
-      {closeConfirm ? <div className="fixed inset-0 z-[100] grid place-items-center bg-black/65 p-4" onMouseDown={(event) => { if (event.currentTarget === event.target) setCloseConfirm(false); }}><section role="dialog" aria-modal="true" aria-label="Keep Room Studio changes" className="w-full max-w-sm rounded-2xl border border-white/14 bg-[#141419] p-4 shadow-2xl"><p className="text-sm font-semibold">Keep your room changes?</p><p className="mt-1 text-[11px] leading-5 text-white/48">Changes are live while you edit. Save this room to reuse it, discard to restore the room you opened, or keep editing.</p><div className="mt-4 grid grid-cols-3 gap-2"><button type="button" onClick={() => { commitDraft(draftRef.current); onSave(); setDirty(false); onClose(); }} className="min-h-10 rounded-xl bg-white px-2 text-[10px] font-semibold text-black">Save & close</button><button type="button" onClick={discardChanges} className="min-h-10 rounded-xl px-2 text-[10px] font-semibold text-white/65 ring-1 ring-white/12 hover:bg-white/8">Discard changes</button><button type="button" onClick={() => setCloseConfirm(false)} className="min-h-10 rounded-xl px-2 text-[10px] font-semibold text-white/65 ring-1 ring-white/12 hover:bg-white/8">Keep editing</button></div></section></div> : null}
-    </div>
-  );
 }
 
 function AudioLeadPicker({

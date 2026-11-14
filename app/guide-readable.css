@@ -1,0 +1,44 @@
+/* One shared page layout for the website Guide and the player Guide. */
+.player-guide-page-overlay { position: fixed; inset: 0; z-index: 139; background: var(--bg); }
+.player-guide-page { position: fixed; z-index: 140; inset: 0; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); color: var(--ink); outline: none; }
+.player-guide-page-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; min-height: 72px; padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); border-bottom: 1px solid var(--rule); background: var(--bg-elev); }
+.player-guide-page-header button { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 10px 14px; border: 1px solid var(--rule-strong); border-radius: 999px; color: var(--ink); font-size: 14px; cursor: pointer; }
+.player-guide-page-header h2 { color: var(--ink-dim); font-size: 14px; font-weight: 500; }
+.player-guide-page-scroll { flex: 1; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; scroll-padding-block: 16px; }
+.player-guide-loading { padding: 32px 20px; color: var(--ink-dim); font-size: 16px; }
+.player-guide-loading button { min-height: 44px; margin-top: 16px; text-decoration: underline; }
+.player-guide-page :is(button,a):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.guide-v2 .guide-now-next-card h3 { display: block; overflow: visible; -webkit-line-clamp: unset; min-height: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.guide-v2 .guide-timeline-card { height: 128px; }
+.guide-v2 .guide-timeline-card:hover, .guide-v2 .guide-timeline-card:focus-visible { transform: none; }
+.guide-v2 .guide-timeline-card .guide-timeline-card-copy > strong { font-size: 14px; line-height: 1.45; -webkit-line-clamp: 4; }
+.guide-v2 .guide-timeline-card .guide-timeline-card-meta { font-size: 12px; line-height: 1.5; }
+.guide-agenda-lane { margin-top: 24px; min-width: 0; }
+.guide-agenda-lane > h3 { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; color: var(--ink); font-size: 17px; font-weight: 600; }
+.guide-agenda-lane > h3 > span { min-width: 0; }
+.guide-agenda-lane > h3 small { display: block; margin-top: 3px; color: var(--ink-dim); font-size: 12px; font-weight: 400; }
+.guide-agenda-cards { display: grid; gap: 12px; }
+.guide-agenda-card { display: grid; grid-template-columns: 72px minmax(0,1fr); gap: 14px; width: 100%; min-width: 0; padding: 14px; align-items: start; border: 1px solid var(--rule-strong); border-radius: 14px; background: var(--bg-elev); color: var(--ink); text-align: left; cursor: pointer; }
+.guide-agenda-art { display: block; width: 72px; height: 88px; overflow: hidden; border-radius: 8px; background: var(--surface); }
+.guide-agenda-art img { width: 100%; height: 100%; object-fit: cover; }
+.guide-agenda-art-fallback { display: grid; place-items: center; width: 100%; height: 100%; padding: 8px; color: var(--ink-dim); font-size: 12px; text-align: center; background: var(--surface); }
+.guide-agenda-card > span { min-width: 0; }
+.guide-agenda-card small { display: block; color: var(--ink-dim); font-size: 12px; line-height: 1.6; }
+.guide-agenda-card strong { display: block; margin-top: 7px; font-size: 15px; font-weight: 550; line-height: 1.55; overflow-wrap: anywhere; white-space: normal; }
+.guide-agenda-card em { display: block; margin-top: 12px; color: var(--ink-dim); font-size: 12px; font-style: normal; }
+.guide-agenda-more { display: flex; justify-content: center; align-items: center; gap: 6px; width: 100%; min-height: 44px; margin-top: 10px; padding: 10px; color: var(--ink); font-size: 13px; border: 1px solid var(--rule); border-radius: 10px; }
+.guide-mobile-schedule { min-width: 0; }
+@media (max-width: 767px) {
+  .player-guide-page-header { gap: 8px; padding-inline: 12px; }
+  .player-guide-page-header h2 { display: none; }
+  .player-guide-page .guide-v2 { padding-top: 24px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .guide-v2 .guide-timeline-toolbar > div { display: none; }
+  .guide-v2 .guide-page-header { gap: 12px; padding-bottom: 16px; }
+  .guide-v2 .guide-view-switch button { min-width: 0; white-space: nowrap; padding: 10px 6px; font-size: 14px; }
+  .guide-v2 .guide-secondary { margin-top: 12px; border-top: 0; }
+  .guide-v2[data-guide-view="timeline"] .guide-page-header > div:first-child > p { display: none; }
+  .guide-v2 .guide-timeline-section { margin-top: 20px; }
+  .guide-v2 .guide-schedule-heading > div:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .guide-v2 .guide-timeline-toolbar { margin-block: 8px; padding-block: 0; }
+}
+@media (max-width: 359px) { .guide-agenda-card { grid-template-columns: minmax(0,1fr); } .guide-agenda-card .guide-agenda-art { width: 100%; height: 110px; } }

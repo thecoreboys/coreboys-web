@@ -1,4 +1,12 @@
 .overlay { position:absolute; inset:0; z-index:44; pointer-events:none; color:#fff; font-size:14px; }
+/* Twitch observes painted occlusion, including shadows. Keep every passive
+   creator control in document flow outside its iframe; selecting is explicit. */
+.railRoot { display:contents; color:#fff; font-size:14px; }
+.railPanel { position:relative; width:100%; padding:4px; overflow:hidden; border-radius:8px; color:#fff; background:#101014; font-size:14px; }
+.railPanel .panelTrigger { min-height:36px; box-shadow:none; backdrop-filter:none; }
+.railPanel .panelBody { width:100%; max-width:none; margin-top:4px; box-shadow:none; backdrop-filter:none; }
+.railPanel button:focus-visible,.railPanel a:focus-visible { outline:2px solid #fff; outline-offset:-2px; }
+.railSelection { z-index:44; }
 .panel { position:absolute; top:12px; left:12px; max-width:calc(100% - 24px); pointer-events:auto; }
 .overlay[data-compact=true] .panel { top:72px; left:8px; max-width:calc(100% - 16px); }
 .panelTrigger { display:flex; align-items:center; gap:7px; min-height:36px; padding:8px 11px; border:1px solid #ffffff26; border-radius:9px; background:#101014de; color:#fff; font-size:12px; font-weight:600; backdrop-filter:blur(12px); cursor:pointer; }

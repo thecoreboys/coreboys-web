@@ -685,10 +685,10 @@ const ChatMessageRow = memo(forwardRef<HTMLLIElement, ChatMessageRowProps>(funct
       <span className="text-quaternary"> · </span>
       {message.tokens.map((token, index) =>
         token.kind === "text" ? (
-          // eslint-disable-next-line react/no-array-index-key
+
           <span key={index}>{token.text}</span>
         ) : (
-          // eslint-disable-next-line react/no-array-index-key
+
           <Tooltip
             key={index}
             title={token.code}

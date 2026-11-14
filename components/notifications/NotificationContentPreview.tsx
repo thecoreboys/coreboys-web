@@ -135,7 +135,7 @@ export function NotificationPreviewSurface({
           {image ? (
             // External artwork is optional decoration. The actual source remains
             // a clearly labelled, explicit action below.
-            // eslint-disable-next-line @next/next/no-img-element
+
             <PreviewImage src={image} alt="" className="max-h-[28rem] w-full object-contain"  />
           ) : null}
           <div className="flex items-center gap-3 border-t border-secondary px-4 py-3">

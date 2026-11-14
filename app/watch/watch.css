@@ -9022,3 +9022,14 @@ body:has(.watch-player-media[data-twitch-native-player]) .watch-together__trigge
   .watch-short-swipe-edge--left { left: 0; }
   .watch-short-swipe-edge--right { right: 0; }
 }
+
+/* Native Twitch surfaces stay fully visible, including during hover/focus. */
+[data-has-twitch="true"] [data-room-player] { box-shadow:none !important; outline:1px solid #ffffff20; outline-offset:-1px; }
+[data-has-twitch="true"] [data-room-player][data-focused="true"] { outline-color:#ffffff70; }
+[data-has-twitch="true"] [data-room-sidebar] { box-shadow:inset 0 0 0 1px rgb(255 255 255 / .025); }
+.watch-billboard-live-player.is-twitch .watch-billboard-provider-error { inset:auto 0 auto; top:100%; position:absolute; background:#101014; }
+.chat-stream-player[data-native-twitch-surface] .chat-stream-controls { opacity:1; transform:none; box-shadow:none; }
+.chat-stream-player[data-native-twitch-surface]:fullscreen { display:flex; flex-direction:column; }
+.chat-stream-player[data-native-twitch-surface]:fullscreen [data-native-twitch-media] { flex:1; min-height:0; aspect-ratio:auto; }
+.chat-stream-player[data-native-twitch-surface] [id$="settings"],
+[data-native-twitch-settings] { box-shadow:inset 0 0 0 1px rgb(255 255 255 / .08); }

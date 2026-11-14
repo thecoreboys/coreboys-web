@@ -25,6 +25,8 @@ import { SiteHeader } from "@/components/chrome/SiteHeader";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { ExternalNavigation } from "@/components/chrome/ExternalNavigation";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { ContributorWidget } from "@/components/contributors/ContributorWidget";
+import "./contributors.css";
 import "./globals.css";
 import "./watch/watch.css";
 import "./ui-refinements.css";
@@ -36,6 +38,9 @@ import "./cta-polish.css";
 import "./site-polish.css";
 import "./text-polish.css";
 import "./watch-search.css";
+import "./guide-polish.css";
+import "./guide/guide.css";
+import "./guide-readable.css";
 import "./mobile-bottom-nav.css";
 
 // One typeface across the entire product. Inter's variable font covers every
@@ -173,6 +178,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Suspense fallback={null}><MobileBottomNav /></Suspense>
               </div>
                <GlobalWatchEnhancements />
+              <ContributorWidget />
               <Suspense fallback={null}>
                 <AuthModal />
               </Suspense>

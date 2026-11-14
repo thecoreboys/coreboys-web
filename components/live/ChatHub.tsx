@@ -20,7 +20,6 @@ import { accountChatLayoutSync } from "@/components/live/chat-layout-sync";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
 import {
   BUILT_IN_CHAT_LAYOUTS,
-  chatColumnGridClass,
   parseChatLayout,
   serializeChatLayout,
   shouldRenderChatStreams,
@@ -883,7 +882,7 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
       ) : null}
 
       {showStreamWall ? (
-        <section aria-label="Watch and chat layout" className={chatPlacement === "below" ? "flex flex-col gap-5" : "grid gap-5 lg:grid-cols-[minmax(19rem,.58fr)_minmax(0,1fr)]"}>
+        <section aria-label="Watch and chat layout" className={chatPlacement === "below" ? "flex flex-col gap-5" : "grid gap-5 lg:grid-cols-[minmax(25rem,.8fr)_minmax(0,1fr)]"}>
           {chatPlacement === "left" ? chatDock : null}
           <StreamGrid channels={visible} parent={playerParent!} />
           {chatPlacement !== "left" ? chatDock : null}
@@ -895,12 +894,8 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
 
 /**
  * Multistream player grid — drops one controlled Twitch player per visible
- * channel above the chats. Each player requests muted autoplay and exposes
- * only CORE controls; the provider iframe remains inert below the surface.
- *
- * Tiles keep a 16:9 aspect ratio so the row heights stay even regardless
- * of how many streams are visible, and the column count scales with the
- * total — same step pattern as the chat grid below.
+ * channel above the chats. Keep native provider controls interactive and
+ * reserve at least Twitch's supported 400px width whenever the viewport allows.
  */
 function StreamGrid({
   channels,
@@ -912,7 +907,7 @@ function StreamGrid({
   return (
     <section
       aria-label="Live multistream"
-      className={`mb-5 grid gap-3 ${chatColumnGridClass(channels.length)}`}
+      className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,25rem),1fr))] gap-3"
     >
       {channels.map((c) => (
         <article
