@@ -7,8 +7,11 @@ const billboard = readFileSync(resolve(process.cwd(), "components/watch/Billboar
 const watchCss = readFileSync(resolve(process.cwd(), "app/watch/watch.css"), "utf8");
 const globalCss = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8");
 
-test("hero carousel previews autoplay behind CORE-owned interaction controls", () => {
-  assert.match(billboard, /\{playable && !heroPlayable \? \(\s*<button[\s\S]{0,180}watch-billboard-surface-action/);
+test("home hero opens the shared player on intent while optional previews retain owned controls", () => {
+  const homeHero = billboard.slice(billboard.indexOf("export function Billboard({"));
+  assert.match(homeHero, /\{playable \? \(\s*<button[\s\S]{0,180}watch-billboard-surface-action/);
+  assert.match(homeHero, /onClick=\{playInPlayer\}/);
+  assert.doesNotMatch(homeHero, /<BillboardHeroPlayer\b/);
   assert.match(billboard, /item\.platform === "youtube" && !playable\.youtubeId/);
   assert.match(billboard, /autoplay: true,[\s\S]{0,80}muted: true/);
   assert.match(billboard, /api\.Player\.READY[\s\S]{0,180}providerReady = true[\s\S]{0,180}requestPlayback\(\)/);

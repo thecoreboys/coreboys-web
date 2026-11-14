@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { PatreonShelfData, WatchCatalog, WatchItem } from "@/lib/watch/types";
+import type { ReactNode } from "react";
+import type { WatchCatalog, WatchItem } from "@/lib/watch/types";
 import { MEMBERS } from "@/lib/members";
 import { useMyList } from "@/hooks/useMyList";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
@@ -10,6 +11,7 @@ import { homeItemReferences } from "@/lib/watch/home-catalog";
 import type { WatchProgressMap } from "@/hooks/useWatchProgress";
 import { canonicalWatchKey, personalizeItems } from "@/lib/watch/discovery";
 import { isLiveWatchItem } from "@/lib/watch/is-live-item";
+import { groupCrossposts } from "@/lib/watch/presentation";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import {
   buildCreatorAffinity,
@@ -26,8 +28,8 @@ import { selectShortFormRailItems } from "@/lib/watch/short-form";
 import { BillboardCarousel } from "./Billboard";
 import { NetworkChannelRail } from "./NetworkChannelPage";
 import { Shelf } from "./PosterCard";
-import { PatreonLockedShelf } from "./PatreonLockedShelf";
-import { XTweetsRail } from "./XTweetsRail";
+import { LiveHomeXFeeds } from "./LiveHomeXFeeds";
+import type { LiveXFeedResponse } from "@/lib/watch/live-x-feed";
 import { SupporterCta } from "@/components/marketing/SupporterCta";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import type { CoreOriginal } from "@/lib/core-originals";
@@ -81,7 +83,6 @@ function references(item: WatchItem) {
 
 const FALLBACK_EVENT_POSTERS = [
   { title: "CORE X VEGAS", src: "/brand/events-series-challenges/core-x-vegas.webp" },
-  { title: "CORE Rug", src: "/brand/events-series-challenges/core-rug.webp" },
   { title: "Basketball Segments", src: "/brand/events-series-challenges/basketball-segments.webp" },
   { title: "Hot Ones", src: "/brand/events-series-challenges/hot-ones.webp" },
   { title: "Caretakers", src: "/brand/events-series-challenges/caretakers.webp" },
@@ -91,7 +92,7 @@ const FALLBACK_EVENT_POSTERS = [
   { title: "CORE PO Box Openings", src: "/brand/events-series-challenges/core-po-box-openings.webp" },
 ] as const;
 
-function EventsSeriesChallengesRail({ originals }: { originals: CoreOriginal[] }) {
+export function EventsSeriesChallengesRail({ originals }: { originals: CoreOriginal[] }) {
   const posters = originals.length ? originals : FALLBACK_EVENT_POSTERS.map((poster, index) => ({
     id: poster.src,
     slug: poster.src.split("/").at(-1)?.replace(/\.(?:png|webp)$/, "") ?? String(index),
@@ -142,7 +143,7 @@ function EventsSeriesChallengesRail({ originals }: { originals: CoreOriginal[] }
   );
 }
 
-export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatalog; patreon: PatreonShelfData; originals: CoreOriginal[] }) {
+export function WatchHome({ catalog, patreon, originals, initialXFeed }: { catalog: WatchCatalog; patreon: ReactNode; originals: ReactNode; initialXFeed?: LiveXFeedResponse | null }) {
   const { ids: listIds, user, loading } = useMyList();
   const { map, ready } = useWatchProgress();
   const discovery = useWatchDiscovery();
@@ -152,7 +153,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
   const [continueInHero, setContinueInHero] = useState(true);
   const [showFullLibrary, setShowFullLibrary] = useState(false);
 
-  const all = useMemo(() => unique(catalog.all), [catalog.all]);
+  const all = useMemo(() => groupCrossposts(unique(catalog.all)), [catalog.all]);
   const playable = useMemo(
     () => all.filter((item) => item.format !== "photo" && item.kind !== "post"),
     [all],
@@ -307,7 +308,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
       ...twitchBroadcasts,
       ...(catalog.heroFeatured ?? []),
       ...buildWatchHeroItems(catalog.live, continueInHero ? continueItems : [], latestCore),
-    ]).slice(0, 12);
+    ]).slice(0, 5);
   }, [catalog.billboard, catalog.broadcasts, catalog.heroFeatured, catalog.house, catalog.live, continueInHero, continueItems]);
 
   const personalized = useMemo(() => {
@@ -338,6 +339,8 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
   const displayedQuickHits = visibleShortForm(quickHits);
   const displayedContinue = visible(continueItems, 16, false);
   const displayedLatest = visible(latest);
+  const latestIds = new Set(displayedLatest.map((item) => item.id));
+  const displayedPersonalized = visible(personalized.filter((item) => !latestIds.has(item.id)), 12);
   const xPosts = selectWatchHomeXPosts(
     {
       byMember: catalog.byMember,
@@ -349,9 +352,10 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
     { limit: 18, perMember: 3 },
   );
   const xSpaces = selectWatchHomeXSpaces({ byMember: catalog.byMember, byPlatform: catalog.byPlatform });
+  const crewXPosts = selectWatchHomeXPosts(catalog, { audience: "crew", limit: 24, perMember: 3 });
   const defaultRowOrder = [
     ...(displayedContinue.length ? ["continue"] : []),
-    ...(personalized.length ? ["for-you"] : []),
+    ...(displayedPersonalized.length ? ["for-you"] : []),
     "latest",
   ];
 
@@ -368,15 +372,7 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
       <BillboardCarousel items={heroItems} />
 
       <div className="watch-content-rails relative z-10 flex flex-col gap-11 pb-24 pt-8 md:gap-14 md:pt-10">
-        <div id="members" className="scroll-mt-28">
-          <NetworkChannelRail
-            variant="home"
-            personalized={affinity.personalized}
-            preferredMemberSlugs={preferredMemberSlugs}
-          />
-        </div>
-
-        {catalog.live.length > 1 ? (
+        {catalog.live.length > 0 ? (
           <Shelf title="Live now" items={visible(catalog.live)} {...sharedShelfProps} />
         ) : null}
 
@@ -389,7 +385,6 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
             ) : null}
             {rowId === "latest" ? (
               <>
-                <EventsSeriesChallengesRail originals={originals} />
                 <div id="latest" className="scroll-mt-28">
                   <Shelf
                     title="Latest"
@@ -399,11 +394,21 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
                 </div>
               </>
             ) : null}
-            {rowId === "for-you" && personalized.length ? (
-              <Shelf title="For you" items={visible(personalized)} {...sharedShelfProps} />
+            {rowId === "for-you" && displayedPersonalized.length ? (
+              <Shelf title="For you" items={displayedPersonalized} {...sharedShelfProps} />
             ) : null}
           </Fragment>
         ))}
+
+        <div id="members" className="scroll-mt-28">
+          <NetworkChannelRail
+            variant="home"
+            personalized={affinity.personalized}
+            preferredMemberSlugs={preferredMemberSlugs}
+          />
+        </div>
+
+        {originals}
 
         <section
           className="watch-creator-networks px-5 md:px-10"
@@ -428,12 +433,14 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
                 aria-label={`Open ${member.stageName}'s network`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={member.portrait} alt="" />
+                <img src={member.portrait} alt="" loading="lazy" decoding="async" />
                 <span>{member.stageName}</span>
               </Link>
             ))}
           </div>
         </section>
+
+        <LiveHomeXFeeds initialMembers={initialXFeed?.members ?? xPosts} initialCrew={initialXFeed?.crew ?? crewXPosts} spaces={xSpaces} />
 
         <div className="w-full px-5 md:px-10">
           <SupporterCta placement="watch" />
@@ -481,15 +488,13 @@ export function WatchHome({ catalog, patreon, originals }: { catalog: WatchCatal
             />;
           })}
 
-          <XTweetsRail items={xPosts} spaces={xSpaces} />
-
           <Shelf title="From the CORE House" items={visible(catalog.house, 30)} {...sharedShelfProps} />
 
           <div id="videos" className="scroll-mt-28">
             <Shelf title="Videos & episodes" items={visible(longForm, 30)} {...sharedShelfProps} />
           </div>
 
-          <PatreonLockedShelf data={patreon} />
+          {patreon}
 
           <Shelf title="Past broadcasts" items={visible(catalog.broadcasts, 30)} {...sharedShelfProps} />
           <Shelf title="Shorts, reels & TikToks" items={displayedQuickHits} variant="vertical" preloadUpcoming {...sharedShelfProps} />

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
@@ -88,7 +88,7 @@ export default async function CrewMemberPage({ params }: Params) {
   const otherCrew = CREW.filter((x) => x.slug !== c.slug);
 
   return (
-    <main className="relative pt-20 md:pt-24">
+    <div className="relative">
       {/* HERO — mirrors /about/[slug]: layered blooms + lens flares + isolation. */}
       <section className="relative overflow-hidden border-b border-[color:var(--rule)] bg-dot-grid">
         <div
@@ -121,7 +121,7 @@ export default async function CrewMemberPage({ params }: Params) {
           style={{ isolation: "isolate" }}
         >
           <Link
-            href="/#crew"
+            href="/channels/core#crew"
             className="inline-flex items-center gap-2 text-sm font-semibold text-tertiary transition-colors hover:text-primary"
           >
             <ArrowLeft size={14} /> Crew
@@ -396,7 +396,7 @@ export default async function CrewMemberPage({ params }: Params) {
               </h2>
             </div>
             <Link
-              href="/#crew"
+              href="/channels/core#crew"
               className="inline-flex items-center gap-1 text-sm font-medium text-tertiary hover:text-primary"
             >
               Full crew <ArrowUpRight size={14} />
@@ -464,6 +464,6 @@ export default async function CrewMemberPage({ params }: Params) {
       </section>
 
       <SiteFooter />
-    </main>
+    </div>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { compactTitle } from "@/lib/watch/presentation";
+
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { WatchItem } from "@/lib/watch/types";
@@ -12,6 +14,7 @@ import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
+import { loadTwitchPlayer, type TwitchPlayerApi, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import {
   bestWatchProgressMark,
   CONTINUE_WATCHING_MIN_SECONDS,
@@ -19,27 +22,8 @@ import {
 import type { Playable } from "@/lib/watch/playable";
 import { WatchThumb } from "./WatchThumb";
 
-type BillboardTwitchInstance = {
-  addEventListener: (name: string, callback: () => void) => void;
-  destroy?: () => void;
-  play?: () => void;
-  setMuted?: (muted: boolean) => void;
-  /** Some Twitch builds never emit PLAYING while an ad/interstitial settles. */
-  isPaused?: () => boolean;
-  getCurrentTime?: () => number;
-};
-
-type BillboardTwitchApi = {
-  Player: {
-    new (id: string, options: Record<string, unknown>): BillboardTwitchInstance;
-    READY: string;
-    PLAYING: string;
-    OFFLINE: string;
-    PLAYBACK_BLOCKED: string;
-  };
-};
-
-let billboardTwitchScript: Promise<BillboardTwitchApi> | null = null;
+type BillboardTwitchInstance = TwitchPlayerInstance;
+type BillboardTwitchApi = TwitchPlayerApi;
 
 function formatPlaybackTime(seconds: number) {
   const safe = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
@@ -52,60 +36,7 @@ function formatPlaybackTime(seconds: number) {
 }
 
 function loadBillboardTwitch(): Promise<BillboardTwitchApi> {
-  if (billboardTwitchScript) return billboardTwitchScript;
-
-  const pending = new Promise<BillboardTwitchApi>((resolve, reject) => {
-    const fromWindow = () => (window as typeof window & { Twitch?: BillboardTwitchApi }).Twitch;
-    const known = fromWindow();
-    if (known?.Player) {
-      resolve(known);
-      return;
-    }
-
-    const existing = document.querySelector<HTMLScriptElement>('script[src="https://player.twitch.tv/js/embed/v1.js"]');
-    const script = existing ?? document.createElement("script");
-    let settled = false;
-    let pollTimer: number | null = null;
-    let timeoutTimer: number | null = null;
-    const cleanup = () => {
-      script.removeEventListener("load", done);
-      script.removeEventListener("error", fail);
-      if (pollTimer !== null) window.clearInterval(pollTimer);
-      if (timeoutTimer !== null) window.clearTimeout(timeoutTimer);
-    };
-    const done = () => {
-      if (settled) return;
-      const api = fromWindow();
-      if (!api?.Player) return;
-      settled = true;
-      cleanup();
-      resolve(api);
-    };
-    const fail = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error("twitch_player_unavailable"));
-    };
-
-    script.addEventListener("load", done);
-    script.addEventListener("error", fail);
-    // Another watch surface may have inserted the SDK script first. Polling
-    // avoids leaving this promise unresolved if its load event already fired.
-    pollTimer = window.setInterval(done, 50);
-    timeoutTimer = window.setTimeout(fail, 10_000);
-    if (!existing) {
-      script.src = "https://player.twitch.tv/js/embed/v1.js";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  });
-
-  billboardTwitchScript = pending;
-  void pending.catch(() => {
-    if (billboardTwitchScript === pending) billboardTwitchScript = null;
-  });
-  return pending;
+  return loadTwitchPlayer();
 }
 
 function uniqueBillboards(items: WatchItem[]) {
@@ -218,6 +149,8 @@ export function BillboardCarousel({ items }: { items: WatchItem[] }) {
   );
 }
 
+// Retain the optional preview renderer during the artwork-first homepage rollout.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; playable: Playable; onOpen: () => void }) {
   const slotRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -776,8 +709,10 @@ export function Billboard({ item }: { item: WatchItem }) {
       .map((ref) => map[ref as string]),
   );
   const progress = Math.min(1, Math.max(0, mark?.progress ?? 0));
-  const live = item.kind === "live" || item.format === "live";
+  const live = item.kind === "live";
   const shape = contentShape(item);
+  // Keep provider eligibility alongside the retained optional preview renderer.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const heroPlayable = useMemo(() => {
     const hasDirectVideo = Boolean(directVideoPreviewUrl(playable?.mediaUrl));
     if (
@@ -833,7 +768,7 @@ export function Billboard({ item }: { item: WatchItem }) {
 
   return (
     <header
-      className={`watch-billboard is-${shape} is-platform-${item.platform} ${heroPlayable ? "has-live-player" : ""}`}
+      className={`watch-billboard is-${shape} is-platform-${item.platform}`}
       aria-labelledby="watch-billboard-title"
     >
       <div className="watch-billboard-media" aria-hidden>
@@ -854,9 +789,9 @@ export function Billboard({ item }: { item: WatchItem }) {
       </div>
       <div className="watch-billboard-veil" aria-hidden />
 
-      {heroPlayable ? <BillboardHeroPlayer item={item} playable={heroPlayable} onOpen={playInPlayer} /> : null}
+      {/* Provider players start after an intentional Play action in the main player. */}
 
-      {playable && !heroPlayable ? (
+      {playable ? (
         <button
           type="button"
           className="watch-billboard-surface-action"
@@ -872,9 +807,10 @@ export function Billboard({ item }: { item: WatchItem }) {
         </p>
         <h1
           id="watch-billboard-title"
+          title={item.title}
           className={`watch-title ${titleSizeClass} mt-3 max-w-[52rem] break-words text-[color:var(--ink)]`}
         >
-          {item.title}
+          {compactTitle(item.title, 84)}
         </h1>
 
         {progress > 0 && !live ? (
@@ -915,10 +851,10 @@ export function Billboard({ item }: { item: WatchItem }) {
             type="button"
             aria-pressed={Boolean(user && dvrSaved)}
             aria-label={dvrLoading
-              ? "Loading DVR"
+              ? "Loading saved library"
               : user
-                ? dvrLocked ? `Unlock DVR to save ${item.title}` : dvrSaved ? `Remove ${item.title} from DVR` : `Add ${item.title} to DVR`
-                : `Add ${item.title} to DVR`}
+                ? dvrLocked ? `Save with membership to save ${item.title}` : dvrSaved ? `Remove ${item.title} from your library` : `Add ${item.title} to your library`
+                : `Add ${item.title} to your library`}
             aria-busy={dvrLoading}
             disabled={dvrLoading}
             onClick={() => {
@@ -935,7 +871,7 @@ export function Billboard({ item }: { item: WatchItem }) {
             className="watch-billboard-list"
           >
             <span aria-hidden>{dvrSaved ? "✓" : "+"}</span>
-            {dvrLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : user && dvrSaved ? "In DVR" : "Add to DVR"}
+            {dvrLoading ? "Loading…" : dvrLocked ? "Save with membership" : user && dvrSaved ? "Saved" : "Save"}
           </button>
 
         </div>

@@ -143,7 +143,7 @@ export function GuideHistory({
   serverNow: string;
   twitchTracker: TwitchTrackerChannelSnapshot[];
   fallbackSessions: AirtimeHistorySession[];
-  /** Durable 365-day server archive. Recent browser data refines it in place. */
+  /** Durable August–July server archive. Recent browser data refines it in place. */
   archivedDaily?: readonly AirtimeDailyRecord[];
   /** A network page can show its own airtime row without duplicating the full house table. */
   memberSlug?: string | null;
@@ -299,7 +299,7 @@ export function GuideHistory({
           <h2 id="airtime-history-heading">Airtime history</h2>
         </div>
         <div className="guide-history-header-meta">
-          <span>Hover or focus a day for details</span>
+          <span>Recorded coverage only · focus a day for details</span>
           <span className="guide-history-legend" aria-label="Less to more airtime">
             <i aria-hidden />
             <i aria-hidden />
@@ -340,15 +340,15 @@ export function GuideHistory({
                       <Tooltip title={`${member.comm.name} · yearly airtime`} description={summaryDescription} placement="top">
                         <TooltipTrigger className="guide-history-summary" aria-label={`${member.comm.name} yearly airtime summary`}>
                           <span>
-                            <strong>{formatAirtime(summary.minutes)}</strong>
+                            <strong>{summary.activeDays ? formatAirtime(summary.minutes) : "Unknown"}</strong>
                             <small>Airtime</small>
                           </span>
                           <span>
-                            <b>{summary.broadcasts.toLocaleString("en-US")}</b>
+                            <b>{summary.activeDays ? summary.broadcasts.toLocaleString("en-US") : "—"}</b>
                             <small>Shows</small>
                           </span>
                           <span>
-                            <b>{summary.activeDays.toLocaleString("en-US")}</b>
+                            <b>{summary.activeDays ? summary.activeDays.toLocaleString("en-US") : "—"}</b>
                             <small>Days</small>
                           </span>
                         </TooltipTrigger>
@@ -371,7 +371,7 @@ export function GuideHistory({
                         ? `${formatAirtime(minutes)} of airtime · ${detail.broadcasts > 0 ? plural(detail.broadcasts, "broadcast") : "broadcast count pending"} · ${sourceLabel(detail.source)}${detail.peakViewers > 0 ? ` · peak ${detail.peakViewers.toLocaleString("en-US")}` : ""}`
                         : observedLoading
                           ? "Checking the latest airtime archive."
-                          : "No tracked Twitch airtime for this day.";
+                          : "No coverage is available for this day. This does not mean the creator was offline.";
                       return (
                         <Tooltip
                           key={day}

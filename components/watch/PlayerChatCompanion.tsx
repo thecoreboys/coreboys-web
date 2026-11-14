@@ -1,15 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { MessageSquare, X } from "lucide-react";
-import { ChatDock } from "@/components/live/chat";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { MEMBERS } from "@/lib/members";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 
+const ChatDock = dynamic(() => import("@/components/live/ChatDock").then((module) => module.ChatDock), {
+  ssr: false,
+  loading: () => <p role="status" className="p-4 text-sm text-white/60">Connecting chat…</p>,
+});
+
 export function PlayerChatCompanion() {
   const player = usePlayer();
+  const current = player.current;
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const routeHidden =
@@ -21,17 +27,17 @@ export function PlayerChatCompanion() {
     pathname.startsWith("/chat") ||
     player.mode === "theater";
   const liveTwitchPlayback = Boolean(
-    player.current?.kind === "live" &&
-      player.current.platform === "twitch" &&
-      player.current.twitchLogin,
+    current?.kind === "live" &&
+      current.platform === "twitch" &&
+      current.twitchLogin,
   );
   const currentMember = useMemo(() => {
-    if (!liveTwitchPlayback || !player.current) return null;
+    if (!liveTwitchPlayback || !current) return null;
     return MEMBERS.find((member) =>
-      member.slug === player.current?.memberSlug
-      || member.twitchLogin.toLowerCase() === player.current?.twitchLogin?.toLowerCase(),
+      member.slug === current.memberSlug
+      || member.twitchLogin.toLowerCase() === current.twitchLogin?.toLowerCase(),
     ) ?? null;
-  }, [liveTwitchPlayback, player.current]);
+  }, [liveTwitchPlayback, current]);
 
   if (routeHidden || !player.current || !currentMember || !liveTwitchPlayback) return null;
 

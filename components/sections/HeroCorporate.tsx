@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { PlayCircle } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Badge, BadgeWithDot } from "@/components/base/badges/badges";

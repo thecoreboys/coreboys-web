@@ -1,0 +1,19 @@
+.feeds { display:grid; min-width:0; gap:2.4rem; }
+.toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.85rem; margin:0 clamp(1.25rem,3vw,2.5rem) -1rem; }
+.status,.actions,.actions a,.actions button { display:flex; align-items:center; gap:.5rem; }
+.status { flex-wrap:wrap; color:var(--ink-dim); font-size:.72rem; }
+.indicator { width:.42rem; height:.42rem; border-radius:50%; background:var(--ink-dim); }
+.indicator[data-active="true"] { background:#31ad72; box-shadow:0 0 0 3px #31ad7218; }
+.timestamp { color:var(--ink-dim); font-size:.65rem; }
+.actions { flex-wrap:wrap; gap:.7rem; }
+.actions a,.actions button { min-height:2.5rem; border:1px solid color-mix(in srgb,var(--ink) 12%,transparent); border-radius:.6rem; background:transparent; color:var(--ink-dim); padding:.4rem .7rem; font-size:.69rem; font-weight:650; cursor:pointer; text-decoration:none; transition:color 140ms ease,border-color 140ms ease,background 140ms ease; }
+.actions a:hover,.actions button:hover { color:var(--ink); border-color:color-mix(in srgb,var(--ink) 24%,transparent); background:color-mix(in srgb,var(--ink) 4%,transparent); }
+.section { min-width:0; scroll-margin-top:7rem; }
+.heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.8rem; padding:0 clamp(1.25rem,3vw,2.5rem); margin-bottom:1rem; }
+.heading h2 { color:var(--ink); font-size:clamp(1.05rem,1.7vw,1.25rem); font-weight:760; letter-spacing:-.025em; }
+.heading p { margin-top:.35rem; color:var(--ink-dim); font-size:.75rem; line-height:1.5; }
+.heading > a { display:flex; align-items:center; gap:.4rem; color:var(--ink); font-size:.7rem; font-weight:650; text-decoration:none; min-height:2.5rem; }
+.notice { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:0 clamp(1.25rem,3vw,2.5rem) .85rem; padding:.65rem .8rem; border:1px solid color-mix(in srgb,var(--core) 32%,transparent); border-radius:.7rem; background:color-mix(in srgb,var(--core) 7%,var(--bg)); color:var(--ink); font-size:.75rem; }
+.notice > span { display:flex; align-items:center; gap:.45rem; }
+.notice button { display:grid; place-items:center; min-width:2rem; min-height:2rem; color:var(--ink); border:0; background:transparent; cursor:pointer; }
+.actions :is(a,button):focus-visible,.heading > a:focus-visible,.notice button:focus-visible { outline:2px solid var(--core); outline-offset:3px; }

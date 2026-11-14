@@ -97,9 +97,10 @@ test("public channel surfaces cannot expose Social Fetch billing or cutoff diagn
   assert.doesNotMatch(fallback, /\{\s*diagnostic\s*\}/);
   assert.doesNotMatch(fallback, /diagnostic\s*:\s*string/);
   assert.doesNotMatch(rails, /<OfficialSocialEmbedFallback[^>]*diagnostic=/);
-  assert.match(fallback, /Showing TikTok&apos;s official public Creator Profile Embed/);
-  assert.match(fallback, /Instagram sometimes removes or restricts public posts/);
-  assert.match(fallback, /Open original on Instagram/);
+  assert.match(fallback, /cite=\{creator\.profileUrl\}/);
+  assert.match(fallback, /data-embed-type="creator"/);
+  assert.match(fallback, /<a\s+className=\{styles\.instagramLinkCard\}[^>]*href=\{embed\.permalink\}[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
+  assert.match(fallback, /<strong>\{embed\.label\}<\/strong>/);
   assert.doesNotMatch(fallback, /INSTAGRAM_EMBED_SCRIPT_SRC|instagram-media/);
 });
 

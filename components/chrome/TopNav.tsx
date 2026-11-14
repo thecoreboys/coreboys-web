@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import dynamic from "next/dynamic";
 import type { Route } from "next";
 import { createPortal } from "react-dom";
@@ -85,6 +85,7 @@ export function TopNav() {
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const accountDropdownRef = useRef<HTMLDivElement | null>(null);
   const accountTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { data } = useLiveStatus();
   const liveEntries = (data?.live ?? []).filter((l) => l.isLive);
   const { data: unifiedLive } = useSWR<UnifiedLiveSnapshot>(
@@ -102,7 +103,7 @@ export function TopNav() {
     (sum, e) => sum + (e.viewerCount ?? 0),
     0,
   ) + youtubeLiveEntries.reduce((sum, e) => sum + (e.viewerCount ?? 0), 0);
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { resolvedTheme: theme, toggle: toggleTheme } = useTheme();
   const { user, loading: authLoading, logout } = useAuth();
   const supporterControls = useSupporterBillingControls();
   const supporterPrice = supporterControls?.renewalsDisabledAt
@@ -134,6 +135,34 @@ export function TopNav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => { setOpen(false); }, [pathname, searchParams]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.dataset.navigationOpen = "true";
+    const close = () => { setOpen(false); mobileTriggerRef.current?.focus(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const onDesktop = () => { if (desktop.matches) setOpen(false); };
+    const onOutside = (event: Event) => {
+      if (event.target instanceof Node && !mobileTriggerRef.current?.closest("header")?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onOutside);
+    document.addEventListener("pointerdown", onOutside);
+    desktop.addEventListener("change", onDesktop);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      delete document.body.dataset.navigationOpen;
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onOutside);
+      document.removeEventListener("pointerdown", onOutside);
+      desktop.removeEventListener("change", onDesktop);
+    };
+  }, [open]);
 
   // Lock body scroll + close-on-Escape while the live modal is open so
   // it doesn't drift visually with Lenis-driven background scroll.
@@ -489,7 +518,7 @@ export function TopNav() {
                       <AccountMenuLink
                         href="/dvr"
                         icon={Bookmark}
-                        label="DVR"
+                        label="Saved library"
                         active={pathname.startsWith("/dvr") || pathname.startsWith("/my-list")}
                         onSelect={() => setAccountOpen(false)}
                       />
@@ -552,9 +581,12 @@ export function TopNav() {
           ) : null}
           {user ? <NotificationBell variant="mobile" /> : null}
           <ButtonUtility
+            ref={mobileTriggerRef}
             size="sm"
             color="secondary"
             aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="mobile-navigation"
             onClick={() => setOpen((v) => !v)}
             icon={open ? X : Menu}
             className="min-h-11 min-w-11 shrink-0"
@@ -563,8 +595,8 @@ export function TopNav() {
       </div>
 
       {open ? (
-        <div className="max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-t border-[color:var(--rule)] bg-[color:var(--bg)] lg:hidden">
-          <nav className="mx-auto max-w-container px-4 py-4 sm:px-6">
+        <div id="mobile-navigation" data-lenis-prevent className="absolute inset-x-0 top-full max-h-[calc(100dvh-var(--site-header-h,8rem))] overflow-y-auto overscroll-contain border-y border-[color:var(--rule)] bg-[color:var(--bg)] pb-[env(safe-area-inset-bottom)] shadow-xl lg:hidden">
+          <nav aria-label="Mobile navigation" className="mx-auto max-w-container px-4 py-4 sm:px-6">
             <p className="eyebrow">Networks</p>
             <ul className="mt-3 grid grid-cols-2 gap-2 min-[400px]:grid-cols-3">
               {NETWORK_CHANNELS.map((network) => {
@@ -579,7 +611,7 @@ export function TopNav() {
                       onClick={() => setOpen(false)}
                       className="group relative flex min-h-[6.5rem] items-end overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black p-2.5 cursor-pointer transition-colors hover:border-[color:var(--rule-strong)]"
                     >
-                      <Image src={network.backdrop} alt="" fill sizes="50vw" className="object-cover opacity-75 transition duration-300 group-hover:scale-105 group-hover:opacity-100" />
+                      <Image src={network.backdrop} alt="" fill sizes="(min-width: 400px) 33vw, 50vw" className="object-cover opacity-75 transition duration-300 group-hover:scale-105 group-hover:opacity-100" />
                       <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
                       <Image src={network.artwork} alt="" width={112} height={48} className={cn("absolute left-1/2 top-3 h-10 w-[78%] -translate-x-1/2 object-contain drop-shadow-[0_3px_8px_rgba(0,0,0,0.8)]", network.slug === "marlon" && "scale-[1.3]")} />
                       <span className="relative min-w-0">

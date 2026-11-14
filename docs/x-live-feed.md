@@ -115,9 +115,11 @@ do not enable both delivery products for the same accounts unnecessarily.
 
 A successful API sweep reports full-roster freshness. A single streamed event
 updates its delivery timestamp without pretending every other account was
-refreshed. Empty, delayed, and temporarily unavailable states must remain
-visible in the home page feed instead of displaying a permanently green
-"live" badge.
+refreshed. The home page omits empty audiences, including their headings and
+connection toolbar, while background recovery continues. Available saved
+posts remain visible with a quiet "Saved posts" status during an outage or
+refresh delay. Only a fresh successful response shows automatic updates;
+operator diagnostics retain the underlying availability and failure state.
 
 Run `pnpm exec tsx --test tests/x-crew-roster.test.ts tests/x-webhook.test.ts tests/x-webhook-route.test.ts tests/x-live-snapshot.test.ts tests/x-feed-pagination.test.ts`
 for roster attribution, duplicate-media event identity, signature tampering,

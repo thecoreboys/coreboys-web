@@ -5,6 +5,7 @@ import { query } from "@/lib/db";
 import { sendEmailWithResend, getResendReadiness } from "@/lib/notifications/resend";
 import { socialAlertLabel } from "@/lib/social-alert";
 import { socialNotificationMaxAgeMs } from "@/lib/social-event-normalization";
+import { notificationTargetFor } from "@/lib/notification-target";
 
 type DeliveryChannel = "push" | "email";
 type Delivery = {
@@ -253,7 +254,8 @@ async function sendPush(row: Delivery): Promise<boolean> {
 async function sendEmail(row: Delivery): Promise<void> {
   if (!row.email) throw new Error("verified email missing");
   const label = socialAlertLabel({ contentType: row.content_type, provider: row.provider });
-  const url = new URL(row.href, process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com").toString();
+  const target = notificationTargetFor({ href: row.href, title: row.title, body: row.body, imageUrl: row.artwork_url });
+  const url = new URL(target.href, process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com").toString();
   await sendEmailWithResend({
     to: row.email,
     subject: `${label}: ${row.title}`,

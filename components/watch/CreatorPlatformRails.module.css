@@ -39,7 +39,11 @@
   gap: clamp(2.25rem, 5vw, 3.8rem);
 }
 
-.railSection { min-width: 0; }
+.railSection {
+  min-width: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 21rem;
+}
 
 /* Each source uses the same shared gutter as its heading, just like a home
    shelf. Avoid a nested rail inset that makes the first card look detached. */

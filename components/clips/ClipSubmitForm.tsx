@@ -50,9 +50,11 @@ type MemberOption = {
 export function ClipSubmitForm({
   members,
   onClose,
+  showHeaderClose = true,
 }: {
   members: MemberOption[];
   onClose?: () => void;
+  showHeaderClose?: boolean;
 }) {
   const [url, setUrl] = useState("");
   const [why, setWhy] = useState("");
@@ -193,7 +195,7 @@ export function ClipSubmitForm({
         <h3 className="text-md font-semibold tracking-tight text-primary">
           Submit a clip
         </h3>
-        {onClose ? (
+        {onClose && showHeaderClose ? (
           <ButtonUtility size="sm" color="tertiary" icon={XClose} aria-label="Close" onClick={onClose} />
         ) : null}
       </div>

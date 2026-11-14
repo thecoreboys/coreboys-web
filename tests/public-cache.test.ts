@@ -16,6 +16,7 @@ function harness() {
     now: () => clock,
   };
   return { cache: createPublicCache(dependencies), dependencies, storage, background,
+    flush: async () => { while (background.length) await background.shift()!(); },
     advance: (milliseconds: number) => { clock += milliseconds; }, reads: () => reads };
 }
 
@@ -33,6 +34,7 @@ test("simultaneous cold renders share one Redis read and one catalog load", asyn
 test("another server instance reuses the shared snapshot", async () => {
   const h = harness();
   await h.cache("catalog", async () => "shared", options);
+  await h.flush();
   const replica = createPublicCache(h.dependencies);
   assert.equal(await replica("catalog", async () => { throw new Error("must not load"); }, options), "shared");
 });
@@ -40,6 +42,7 @@ test("another server instance reuses the shared snapshot", async () => {
 test("stale data returns immediately and queues only one background refresh", async () => {
   const h = harness();
   await h.cache("catalog", async () => "old", options);
+  await h.flush();
   h.advance(21_000);
   let loads = 0;
   const load = async () => { loads++; return "new"; };
@@ -54,6 +57,7 @@ test("stale data returns immediately and queues only one background refresh", as
 test("a failed refresh never extends the lifetime of stale live status", async () => {
   const h = harness();
   await h.cache("live", async () => "live", options);
+  await h.flush();
   h.advance(21_000);
   const fail = async (): Promise<string> => { throw new Error("provider down"); };
   assert.equal(await h.cache("live", fail, options), "live");
@@ -75,7 +79,7 @@ test("Redis outage falls back to memory, and failed loads can retry", async () =
   const cache = createPublicCache({
     read: async () => { throw new Error("offline"); },
     write: async () => { throw new Error("offline"); },
-    background: () => {},
+    background: (work) => { void work(); },
   });
   await assert.rejects(cache("key", async () => { throw new Error("failed"); }, options));
   const load = async () => { loads++; return "recovered"; };
@@ -88,6 +92,7 @@ test("empty degraded responses cannot poison a good snapshot", async () => {
   const h = harness();
   const nonempty = { ...options, shouldCache: (value: string) => value.length > 0 };
   await h.cache("catalog", async () => "good", nonempty);
+  await h.flush();
   h.advance(21_000);
   assert.equal(await h.cache("catalog", async () => "", nonempty), "good");
   await h.background[0]!();
@@ -104,6 +109,7 @@ test("a channel becoming live refreshes its archive sooner without losing warm f
   const h = harness();
   const archive = { ...options, freshSeconds: 1800, staleSeconds: 21_600, shouldCache: (value: string) => value.length > 0 };
   await h.cache("twitch-channel", async () => "saved broadcasts", archive);
+  await h.flush();
   h.advance(61_000);
   const active = { ...archive, freshSeconds: 60 };
   // A fresh process must also honor the live freshness policy from Redis.
@@ -116,4 +122,120 @@ test("a channel becoming live refreshes its archive sooner without losing warm f
   // into an unbounded archive. Keep the original offline snapshot's expiry.
   h.advance((1800 + 21_600 - 61) * 1000);
   assert.equal(await replica("twitch-channel", async () => "", active), "");
+});
+
+test("a cold response and warm hits never wait for Redis persistence", async () => {
+  const h = harness();
+  let finishWrite!: () => void;
+  let writeStarted = false;
+  const cache = createPublicCache({
+    ...h.dependencies,
+    write: async () => {
+      writeStarted = true;
+      await new Promise<void>((resolve) => { finishWrite = resolve; });
+    },
+  });
+  assert.equal(await cache("catalog", async () => "ready", options), "ready");
+  assert.equal(writeStarted, false, "serialization and transport start after the response");
+  const persistence = h.background.shift()!();
+  await Promise.resolve();
+  assert.equal(writeStarted, true);
+  assert.equal(await cache("catalog", async () => { throw new Error("must not load"); }, options), "ready");
+  finishWrite();
+  await persistence;
+});
+
+test("warm archive hits reuse validation only for the same snapshot and validator", async () => {
+  const h = harness();
+  let validations = 0;
+  const policy = { ...options, validate: (value: unknown): value is string => {
+    validations++;
+    return typeof value === "string";
+  } };
+  await h.cache("catalog", async () => "ready", policy);
+  for (let i = 0; i < 100; i++) await h.cache("catalog", async () => "unused", policy);
+  assert.equal(validations, 1, "large catalogs are checked once, not scanned on every navigation");
+  assert.equal(await h.cache("catalog", async () => "replacement", {
+    ...policy, validate: (value): value is string => value === "replacement",
+  }), "replacement", "a different validator must check the cached content again");
+});
+
+test("read deduplication cannot collide with a real key ending in :read", async () => {
+  const h = harness();
+  const result = await Promise.all([
+    h.cache("catalog", async () => "main", options),
+    h.cache("catalog:read", async () => "separate", options),
+  ]);
+  assert.deepEqual(result, ["main", "separate"]);
+});
+
+test("delayed persistence skips superseded snapshots and uses remaining lifetime", async () => {
+  const h = harness();
+  const writes: Array<{ value: unknown; ttl: number }> = [];
+  const cache = createPublicCache({ ...h.dependencies,
+    write: async (_key, value, ttl) => { writes.push({ value, ttl }); },
+  });
+  await cache("catalog", async () => "old", options);
+  h.advance(61_000);
+  await cache("catalog", async () => "new", options);
+  h.advance(10_000);
+  await h.flush();
+  assert.equal(writes.length, 1);
+  assert.equal((writes[0]!.value as { value: string }).value, "new");
+  assert.equal(writes[0]!.ttl, 50);
+});
+
+test("an expired deferred snapshot is never persisted or resurrected", async () => {
+  const h = harness();
+  await h.cache("catalog", async () => "old", options);
+  h.advance(60_000);
+  await h.flush();
+  assert.equal(h.storage.has("catalog"), false);
+  assert.equal(await h.cache("catalog", async () => "new", options), "new");
+});
+
+test("overlapping writes finish in snapshot order without blocking readers", async () => {
+  const h = harness();
+  let finishFirst!: () => void;
+  const written: unknown[] = [];
+  const cache = createPublicCache({ ...h.dependencies,
+    write: async (_key, entry) => {
+      if (written.length === 0) await new Promise<void>((resolve) => { finishFirst = resolve; });
+      written.push(entry);
+    },
+  });
+  await cache("catalog", async () => "old", options);
+  const first = h.background.shift()!();
+  await Promise.resolve();
+  h.advance(61_000);
+  assert.equal(await cache("catalog", async () => "new", options), "new");
+  const second = h.background.shift()!();
+  finishFirst();
+  await Promise.all([first, second]);
+  assert.deepEqual(written.map((entry) => (entry as { value: string }).value), ["old", "new"]);
+});
+
+test("recently read snapshots survive capacity eviction", async () => {
+  const h = harness();
+  for (let i = 0; i < 64; i++) await h.cache(`channel-${i}`, async () => `value-${i}`, options);
+  await h.flush();
+  await h.cache("channel-0", async () => "unused", options);
+  await h.cache("channel-64", async () => "value-64", options);
+  const reads = h.reads();
+  assert.equal(await h.cache("channel-0", async () => "unused", options), "value-0");
+  assert.equal(h.reads(), reads, "hot snapshot remains in memory instead of requiring another Redis read");
+  await h.cache("channel-1", async () => "unused", options);
+  assert.equal(h.reads(), reads + 1, "least recently used snapshot is evicted");
+});
+
+test("a failed background scheduler cannot break a public response or pin refresh state", async () => {
+  const h = harness();
+  const cache = createPublicCache({ ...h.dependencies,
+    background: () => { throw new Error("no request context"); },
+  });
+  assert.equal(await cache("catalog", async () => "old", options), "old");
+  h.advance(21_000);
+  assert.equal(await cache("catalog", async () => "new", options), "old");
+  await Promise.resolve();
+  assert.equal(await cache("catalog", async () => "unused", options), "new");
 });

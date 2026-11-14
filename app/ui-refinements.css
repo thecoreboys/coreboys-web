@@ -1,0 +1,63 @@
+/* Shared reading and interaction rules for the public site. */
+:root { --font-inter-tight: var(--font-inter); }
+html { scroll-padding-top: calc(var(--site-header-h, 8rem) + 1rem); }
+body { font-size: 1rem; }
+:where(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--core, #ef526f); outline-offset: 3px; }
+.creator-section-nav { display: flex; gap: .5rem; overflow-x: auto; padding: 1rem clamp(1.25rem, 3vw, 2.5rem); border-bottom: 1px solid var(--rule); }
+.creator-section-nav button { flex: 0 0 auto; min-height: 44px; padding: .6rem 1rem; border-radius: .5rem; color: var(--ink-dim); font-size: .9375rem; font-weight: 600; }
+.creator-section-nav button[aria-pressed="true"] { color: var(--ink); background: var(--surface); box-shadow: inset 0 -2px var(--core); }
+.watch-os .watch-poster { height: auto; min-height: 0; aspect-ratio: auto; width: clamp(16rem, 23vw, 21rem); background: var(--bg-elev, #141418); border: 1px solid var(--rule); box-shadow: none; transform: none; }
+.watch-os .watch-poster.is-portrait { width: clamp(11rem, 16vw, 14rem); height: auto; aspect-ratio: auto; }
+.watch-os .watch-poster.is-square { width: clamp(13rem, 19vw, 17rem); height: auto; aspect-ratio: auto; }
+.watch-os .watch-poster > .watch-poster-link { position: relative; inset: auto; width: 100%; height: auto; aspect-ratio: 16 / 9; overflow: hidden; border-radius: .5rem .5rem 0 0; }
+.watch-os .watch-poster.is-portrait > .watch-poster-link { aspect-ratio: 9 / 16; }
+.watch-os .watch-poster.is-square > .watch-poster-link { aspect-ratio: 1; }
+.watch-os .watch-poster > .watch-poster-link img { position: absolute; inset: 0; width: 100%; height: 100%; transform: none; filter: none; }
+.watch-os .watch-poster::after { display: none; }
+.watch-os .watch-poster .watch-poster-copy { position: relative; inset: auto; min-height: 7.5rem; padding: .8rem; pointer-events: auto; background: var(--bg-elev, #141418); }
+.watch-os .watch-poster .watch-poster-title { color: var(--ink); font-size: .9375rem; font-weight: 600; line-height: 1.4; letter-spacing: 0; }
+.watch-os .watch-poster .watch-poster-member,
+.watch-poster-details, .watch-poster-sources { margin-top: .35rem; color: var(--ink-dim); font-size: .8125rem; line-height: 1.45; }
+.watch-poster-sources { display: flex; flex-wrap: wrap; gap: .4rem; }
+.watch-poster-sources a { text-decoration: underline; text-underline-offset: 3px; }
+.watch-os .watch-poster .watch-poster-save { top: .5rem; bottom: auto; right: .5rem; min-width: 40px; min-height: 40px; padding: .5rem; opacity: 0; background: #151519eb; color: #fff; }
+.watch-os .watch-poster .watch-poster-save-label { display: none; }
+.watch-os .watch-poster .watch-poster-more { top: .5rem; bottom: auto; right: 3.5rem; min-width: 40px; min-height: 40px; opacity: 0; background: #151519eb; color: #fff; }
+.watch-os .watch-poster:hover .watch-poster-save,
+.watch-os .watch-poster:focus-within .watch-poster-save,
+.watch-os .watch-poster:hover .watch-poster-more,
+.watch-os .watch-poster:focus-within .watch-poster-more { opacity: 1; }
+.watch-os .watch-poster:hover, .watch-os .watch-poster:focus-within, .watch-os .watch-poster.is-preview-open { transform: none; }
+.watch-poster-live, .watch-preview-live { font-size: .8125rem; }
+.watch-os .watch-billboard { min-height: clamp(25rem, 48vw, 38rem); }
+.watch-os .watch-billboard .watch-title { max-width: 24ch; font-size: clamp(1.75rem, 3.2vw, 3.25rem); line-height: 1.12; text-transform: none; letter-spacing: -.025em; }
+.watch-os .watch-billboard-copy { padding-top: 6rem; padding-bottom: 4rem; }
+.watch-os .watch-preview-state, .watch-preview-source, .watch-preview-meta { font-size: .8125rem; letter-spacing: 0; }
+.watch-preview.watch-preview-portal { transform: none !important; animation: none !important; overscroll-behavior: contain; border-radius: .5rem; }
+.watch-os .watch-shelf { align-items: flex-start; }
+.watch-os #continue .watch-shelf { min-height: 0; padding-block: .5rem; }
+.watch-os .watch-library-disclosure { border-radius: .5rem; box-shadow: none; }
+.watch-os .watch-billboard-backfill { filter: none; opacity: .15; }
+body:has([role="dialog"][aria-modal="true"]) [data-watch-alerts-bridge],
+body:has(dialog[open]) [data-watch-alerts-bridge] { visibility: hidden; pointer-events: none; }
+@media (hover: none) {
+  .watch-os .watch-poster .watch-poster-save,
+  .watch-os .watch-poster .watch-poster-more { opacity: 1; min-height: 44px; min-width: 44px; }
+}
+@media (max-width: 640px) {
+  .watch-os .watch-poster { width: min(76vw, 19rem); }
+  .watch-os .watch-poster.is-portrait { width: min(48vw, 13rem); }
+  .watch-os .watch-billboard-copy { padding-top: 4rem; padding-bottom: 5.5rem; }
+  .watch-os .watch-billboard .watch-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+}
+
+/* Keep important metadata readable across community, account, and library pages. */
+#main :where([class~="text-[9px]"], [class~="text-[10px]"], [class~="text-[11px]"]) { font-size: .8125rem; line-height: 1.4; }
+
+.watch-os .watch-search-grid .watch-poster { width: 100%; max-width: 100%; }
+.nav-membership-cta { background: var(--bg-elev) !important; border: 1px solid var(--rule); box-shadow: none !important; animation: none !important; }
+.nav-membership-cta::before, .nav-membership-cta::after { display: none; }
+.live-pill-blink { animation: none !important; }

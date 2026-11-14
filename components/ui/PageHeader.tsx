@@ -21,9 +21,9 @@ export function PageHeader({
 }) {
   return (
     <header className="border-b border-[color:var(--rule)]">
-      <div className="mx-auto max-w-container px-6 py-12 md:px-16 md:py-16">
+      <div className="mx-auto max-w-container px-4 py-8 sm:px-6 md:px-8 md:py-12">
         <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
-          <div className="max-w-3xl">
+          <div className="min-w-0 max-w-3xl">
             <Eyebrow>{eyebrow}</Eyebrow>
             <h1 className="mt-4 font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.03em] text-[color:var(--ink)] md:text-[48px]">
               {title}
@@ -39,7 +39,7 @@ export function PageHeader({
               </div>
             ) : null}
           </div>
-          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-3">{actions}</div> : null}
+          {actions ? <div className="flex min-w-0 flex-wrap items-center gap-3 md:max-w-[45%]">{actions}</div> : null}
         </div>
       </div>
     </header>
