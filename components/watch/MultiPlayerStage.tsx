@@ -1335,10 +1335,10 @@ function WorkspaceSidebar({
         return;
       }
       const stickyTop = Number.parseFloat(getComputedStyle(sidebar).top) || 0;
-      const visible = window.innerHeight - stickyTop - 16;
+      const visible = Math.max(0, window.innerHeight - stickyTop - 16);
       const stage = document.getElementById("multiview-stage")?.getBoundingClientRect().height ?? 0;
       const target = stage > 0 ? Math.min(visible, Math.max(stage, 420)) : visible;
-      const next = `${Math.round(Math.max(288, target))}px`;
+      const next = `${Math.floor(target)}px`;
       if (sidebar.style.height !== next) sidebar.style.height = next;
     };
     fitToViewport();
@@ -1367,7 +1367,7 @@ function WorkspaceSidebar({
         aria-label="Main stage Twitch chat"
         style={mobileOpen && mobileSheetHeight ? { "--room-chat-sheet-h": `${mobileSheetHeight}px` } as CSSProperties : undefined}
         onKeyDown={(event) => { if (mobileOpen && event.key === "Escape") { event.stopPropagation(); onMobileClose(); } }}
-        className={`${mobileOpen ? "fixed inset-x-0 bottom-0 z-[80] flex h-[var(--room-chat-sheet-h,min(58dvh,40rem))] rounded-t-3xl border-b-0 pb-[env(safe-area-inset-bottom)] shadow-[0_-18px_60px_rgba(0,0,0,.45)] md:inset-x-3 md:bottom-3 md:rounded-2xl md:border-b md:pb-0" : "hidden rounded-2xl"} min-h-0 flex-col overflow-hidden border border-room-ink/10 bg-room-panel lg:sticky lg:inset-auto lg:top-[calc(var(--site-header-h,8rem)+.75rem)] lg:z-20 lg:flex lg:h-[calc(100dvh-var(--site-header-h,8rem)-6rem)] lg:min-h-[18rem] lg:w-auto lg:rounded-2xl lg:border-b lg:pb-0 lg:shadow-[0_24px_90px_rgba(0,0,0,.3)]`}
+        className={`${mobileOpen ? "fixed inset-x-0 bottom-0 z-[80] flex h-[var(--room-chat-sheet-h,min(58dvh,40rem))] rounded-t-3xl border-b-0 pb-[env(safe-area-inset-bottom)] shadow-[0_-18px_60px_rgba(0,0,0,.45)] md:inset-x-3 md:bottom-3 md:rounded-2xl md:border-b md:pb-0" : "hidden rounded-2xl"} min-h-0 flex-col overflow-hidden border border-room-ink/10 bg-room-panel lg:sticky lg:inset-auto lg:top-[calc(var(--site-header-h,8rem)+.75rem)] lg:z-20 lg:flex lg:h-[max(0px,calc(100dvh-var(--site-header-h,8rem)-1.75rem))] lg:max-h-[max(0px,calc(100dvh-var(--site-header-h,8rem)-1.75rem))] lg:min-h-0 lg:w-auto lg:rounded-2xl lg:border-b lg:pb-0 lg:shadow-[0_24px_90px_rgba(0,0,0,.3)]`}
       >
         <div className="relative flex shrink-0 items-center justify-between border-b border-room-ink/10 px-3 pb-1 pt-2 lg:hidden">
           <span aria-hidden className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-room-ink/20 md:hidden" />
@@ -1712,30 +1712,36 @@ function TheaterRoomSurface({
       ...tiles.map((tile) => ({ id: tile.id })),
       ...lockedSlots.map((slot) => ({ id: slot.id })),
     ];
-    return new Map(resolvePresetRoomLayout("theater-first", ids, {
+    return new Map(resolvePresetRoomLayout(player.layoutPreset, ids, {
       focusedId: main?.id ?? null,
       snapDensity: studioDensity,
       twitchSafeTheaterPair: pairContainsTwitch,
     }).map((entry) => [entry.id, entry.rect]));
-  }, [lockedSlots, main?.id, pairContainsTwitch, studioDensity, tiles]);
+  }, [lockedSlots, main?.id, pairContainsTwitch, player.layoutPreset, studioDensity, tiles]);
+
+  // Provider minimums, ordering and swaps must use the same geometry that is
+  // painted, including membership placeholders in the selected arrangement.
+  const displayedRectFor = (tile: WorkspaceTile) => lockedSlots.length
+    ? lockedGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity)
+    : hasCustomGeometry
+      ? roomTileRect(tile, studioDensity, studioDensity)
+      : presetGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity);
 
   const stacked = !maximizedTileId && tiles.length > 1 && shouldStackTwitchRoom(roomWidth,
-    tiles.filter((tile) => tile.item.platform === "twitch").map((tile) => hasCustomGeometry
-      ? roomTileRect(tile, studioDensity, studioDensity)
-      : presetGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity)));
+    tiles.filter((tile) => tile.item.platform === "twitch").map(displayedRectFor));
 
   // Stacked rows follow the room's reading order (top, then left) via CSS
   // `order`, so a swap stays visible here without moving provider iframes.
   const stackedOrder = new Map(stacked
     ? tiles
-      .map((tile) => ({ id: tile.id, rect: hasCustomGeometry ? roomTileRect(tile, studioDensity, studioDensity) : presetGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity) }))
+      .map((tile) => ({ id: tile.id, rect: displayedRectFor(tile) }))
       .sort((a, b) => Math.abs(a.rect.y - b.rect.y) > 0.02 ? a.rect.y - b.rect.y : a.rect.x - b.rect.x)
       .map((entry, index) => [entry.id, index] as const)
     : []);
 
   const tileStyle = (tile: WorkspaceTile): React.CSSProperties => {
     if (stacked) return { gridColumn: "1 / -1", gridRow: "auto", order: stackedOrder.get(tile.id) ?? 0 };
-    if (lockedSlots.length) return roomRectStyle(lockedGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity), studioDensity);
+    if (lockedSlots.length) return roomRectStyle(displayedRectFor(tile), studioDensity);
     if (hasCustomGeometry) return roomTileStyle(tile, studioDensity);
     return roomRectStyle(presetGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity), studioDensity);
   };
@@ -1754,9 +1760,7 @@ function TheaterRoomSurface({
   const swapDisplayed = (sourceId: string, targetId: string) => {
     const displayed = hasCustomGeometry || stacked
       ? undefined
-      : new Map(tiles.map((tile) => [tile.id, lockedSlots.length
-        ? lockedGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity)
-        : presetGeometryById.get(tile.id) ?? roomTileRect(tile, studioDensity, studioDensity)]));
+      : new Map(tiles.map((tile) => [tile.id, displayedRectFor(tile)]));
     player.swapTiles(sourceId, targetId, displayed);
     if (main && (sourceId === main.id || targetId === main.id) && !maximizedTileId) {
       player.makeMain(sourceId === main.id ? targetId : sourceId, { takeAudio: false });
