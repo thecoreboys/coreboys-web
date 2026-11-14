@@ -542,9 +542,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [channelItems, setChannelItems] = useState<Playable[]>([]);
   const [autoplayMode, setAutoplayModeState] = useState<AutoplayMode>("live-first");
   const [previewAutoplay, setPreviewAutoplay] = useState(true);
-  // Muted autoplay works without a click. Sound is enabled deliberately from
-  // the preview control, so a browser never pauses a new hover for audio policy.
-  const [previewSoundEnabled, setPreviewSoundEnabledState] = useState(false);
+  // Expanded previews request sound by default; an explicit saved mute choice
+  // is still restored, and blocked autoplay falls back to a sound button.
+  const [previewSoundEnabled, setPreviewSoundEnabledState] = useState(true);
   const [previewVolume, setPreviewVolumeState] = useState(DEFAULT_PREVIEW_VOLUME);
   const [activePreviewAudioId, setActivePreviewAudioId] = useState<string | null>(null);
   const [dataSaver, setDataSaverState] = useState(false);

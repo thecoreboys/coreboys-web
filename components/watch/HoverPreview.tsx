@@ -18,6 +18,7 @@ import { resolveHoverPreviewMedia } from "@/lib/watch/card-preview";
 import { tiktokPostThumbnailSource } from "@/lib/watch/thumbs";
 import { clampPreviewPosition, isPreviewPlayerReady, previewPlaybackSample } from "@/lib/watch/preview-progress";
 import { listenToYouTube } from "@/lib/watch/youtube-player";
+import type { TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import type { WatchFeedbackValue } from "@/lib/watch/discovery-state";
@@ -177,6 +178,7 @@ function MediaHoverPreview({
   const keyboardFocusTransferredRef = useRef(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const twitchRef = useRef<TwitchPlayerInstance | null>(null);
   const player = usePlayer();
   const reducedMotion = useReducedMotion();
   const mediaActive = active && !preloadOnly && !handedOff && pageVisible;
@@ -618,7 +620,6 @@ function MediaHoverPreview({
                 setFailedMotionSource(videoSrc);
               }}
               onCanPlay={(event) => {
-                event.currentTarget.muted = true;
                 if (mediaActive) void event.currentTarget.play().catch(() => {});
               }}
             />
@@ -634,6 +635,7 @@ function MediaHoverPreview({
               onProgress={onTwitchProgress}
               onSelect={playNow}
               onLoadError={() => setFailedMotionSource(twitchSource)}
+              playerRef={twitchRef}
             />
           ) : iframeSrc && !motionFailed ? (
             <iframe
@@ -666,7 +668,7 @@ function MediaHoverPreview({
             <a href={fallbackHref} target="_blank" rel="noopener noreferrer">Open on {item.platform === "youtube" ? "YouTube" : item.platform === "tiktok" ? "TikTok" : item.platform === "instagram" ? "Instagram" : item.platform === "twitch" ? "Twitch" : item.platform === "x" ? "X" : "source"} ↗</a>
           </div>
         ) : null}
-        {!isPhoto && !twitchSource && motionSource && motionReady ? (
+        {!isPhoto && motionSource ? (
           <PreviewAudioControl
             active={mediaActive}
             ready={motionReady}
@@ -674,7 +676,8 @@ function MediaHoverPreview({
             nativeRef={videoRef}
             frameRef={frameRef}
             youtube={Boolean(iframeSrc && previewPlayable?.youtubeId)}
-            unavailableReason={`${item.platform} previews always begin muted.`}
+            twitchRef={twitchSource ? twitchRef : undefined}
+            unavailableReason="This source does not expose a preview sound control. Open the full player for sound."
             onKeepOpen={onPreviewEnter}
             onClose={keyboardActive ? onKeyboardDismiss : onPreviewLeave}
           />

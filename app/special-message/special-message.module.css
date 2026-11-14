@@ -155,6 +155,21 @@
 .prose p, .projectCard p, .platformScreen p { margin: 0; color: var(--letter-body); }
 .prose p + p { margin-top: 1em; }
 .prose a { text-decoration: underline; }
+.prose a.mention {
+  display: inline-block;
+  padding: .02em .4em;
+  border: 1px solid #dec1c5;
+  border-radius: .4em;
+  color: var(--letter-accent);
+  background: #f2e0e3;
+  font-size: .94em;
+  font-weight: 650;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 150ms, background-color 150ms, border-color 150ms;
+}
+.prose a.mention:hover { border-color: var(--letter-accent); color: white; background: var(--letter-accent); }
 .prose .signature { margin-top: 1.4rem; color: var(--letter-ink); font-weight: 650; }
 
 .creatorProfiles, .projectGrid, .platformScreens {
@@ -180,11 +195,13 @@
 .creatorProfile img { width: 3rem; height: 3rem; border-radius: 50%; object-fit: cover; }
 .creatorProfile svg { flex: none; margin-left: auto; }
 
+.ideasIntro { max-width: 64ch; margin-top: 2.25rem; }
+.ideasIntro p { margin: 0; color: var(--letter-body); font-size: 1.0625rem; line-height: 1.7; }
 .ideaThumbnails {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  margin: 2rem 0 0;
+  margin: 1.25rem 0 0;
   padding: 0;
   list-style: none;
 }
@@ -206,7 +223,7 @@
   gap: 1rem;
   margin-top: 1.25rem;
 }
-.computerPhotos img, .projectCard > img, .platformScreen img, .dubbingVideo {
+.computerPhotos img, .projectCard > img, .dubbingVideo {
   display: block;
   width: 100%;
   height: auto;
@@ -236,8 +253,11 @@
   place-items: center;
   aspect-ratio: 16 / 9;
   color: var(--letter-accent);
-  background: #f1e8df;
+  overflow: hidden;
+  border-bottom: 1px solid var(--letter-rule);
+  background: radial-gradient(ellipse at 50% 55%, #f5e9db 0, #fbf5ed 74%);
 }
+.featureArt > svg { display: block; width: 100%; height: auto; }
 
 @media (min-width: 641px) {
   .platformScreen:last-child:nth-child(odd) {
@@ -246,6 +266,7 @@
     align-items: center;
     grid-column: 1 / -1;
   }
+  .platformScreen:last-child:nth-child(odd) .featureArt { border-right: 1px solid var(--letter-rule); border-bottom: 0; }
 }
 .degree { display: flex; align-items: flex-start; gap: .75rem; }
 .degree img { flex: none; width: 2.5rem; height: 2.5rem; object-fit: contain; }
@@ -354,5 +375,5 @@
   .computerPhotos img:last-child { max-width: 75%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .panoramaPlace { transition: none; }
+  .panoramaPlace, .prose a.mention { transition: none; }
 }

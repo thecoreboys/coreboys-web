@@ -12,6 +12,7 @@ import { Volume2, VolumeX } from "lucide-react";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import type { TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import {
   PREVIEW_AUDIO_CLAIM_EVENT,
   previewAudioSample,
@@ -50,6 +51,7 @@ export function PreviewAudioControl({
   nativeRef,
   frameRef,
   youtube,
+  twitchRef,
   unavailableReason,
   onKeepOpen,
   onClose,
@@ -60,6 +62,7 @@ export function PreviewAudioControl({
   nativeRef: RefObject<HTMLVideoElement | null>;
   frameRef: RefObject<HTMLIFrameElement | null>;
   youtube: boolean;
+  twitchRef?: RefObject<TwitchPlayerInstance | null>;
   unavailableReason?: string;
   onKeepOpen?: () => void;
   onClose?: () => void;
@@ -73,10 +76,10 @@ export function PreviewAudioControl({
     releasePreviewAudio,
   } = usePlayer();
   const reducedMotion = useReducedMotion();
-  const [soundRequested, setSoundRequested] = useState(false);
+  const [soundRequested, setSoundRequested] = useState(true);
   const reactId = useId();
   const ownerId = `hover-preview-${reactId}`;
-  const sourceSupported = native || youtube;
+  const sourceSupported = native || youtube || Boolean(twitchRef);
   const mainPlayerSuppressionReason = sourceSupported
     ? previewAudioSuppressionReason(current)
     : null;
@@ -84,6 +87,8 @@ export function PreviewAudioControl({
   const [status, setStatus] = useState<PreviewAudioStatus>(supported ? "off" : "unavailable");
   const statusRef = useRef<PreviewAudioStatus>(status);
   const claimedRef = useRef(false);
+  const attemptedSoundRef = useRef(false);
+  const activeRef = useRef(active);
   const requestTokenRef = useRef(0);
   const currentVolumeRef = useRef(0);
   const timersRef = useRef<Set<number>>(new Set());
@@ -91,6 +96,7 @@ export function PreviewAudioControl({
   const closeRef = useRef(onClose);
 
   closeRef.current = onClose;
+  activeRef.current = active;
 
   const commitStatus = useCallback((next: PreviewAudioStatus) => {
     statusRef.current = next;
@@ -123,7 +129,8 @@ export function PreviewAudioControl({
     const native = nativeRef.current;
     if (native) native.volume = bounded;
     if (youtube) youtubeCommand(frameRef, "setVolume", [Math.round(bounded * 100)]);
-  }, [frameRef, nativeRef, youtube]);
+    twitchRef?.current?.setVolume?.(bounded);
+  }, [frameRef, nativeRef, twitchRef, youtube]);
 
   const rampVolume = useCallback((from: number, to: number, onDone?: () => void) => {
     const values = previewVolumeRamp(from, to, reducedMotion ? 1 : 6);
@@ -138,6 +145,7 @@ export function PreviewAudioControl({
   }, [applyVolume, reducedMotion]);
 
   const finalizeStop = useCallback((nextStatus: PreviewAudioStatus) => {
+    clearRampTimers();
     const native = nativeRef.current;
     if (native) {
       native.muted = true;
@@ -147,13 +155,21 @@ export function PreviewAudioControl({
       youtubeCommand(frameRef, "setVolume", [0]);
       youtubeCommand(frameRef, "mute");
     }
+    twitchRef?.current?.setMuted?.(true);
+    twitchRef?.current?.setVolume?.(0);
     currentVolumeRef.current = 0;
     if (claimedRef.current) {
       claimedRef.current = false;
       releasePreviewAudio(ownerId);
     }
     commitStatus(nextStatus);
-  }, [commitStatus, frameRef, nativeRef, ownerId, releasePreviewAudio, youtube]);
+    if (nextStatus === "blocked" && activeRef.current) {
+      // A rejected sound request must never leave the visible preview paused.
+      if (native) void native.play().catch(() => {});
+      if (youtube) youtubeCommand(frameRef, "playVideo");
+      twitchRef?.current?.play?.();
+    }
+  }, [clearRampTimers, commitStatus, frameRef, nativeRef, ownerId, releasePreviewAudio, twitchRef, youtube]);
 
   const stopSound = useCallback((
     immediate = false,
@@ -189,24 +205,49 @@ export function PreviewAudioControl({
     claimPreviewAudio(ownerId);
     clearTimers();
     commitStatus("starting");
-    if (!continuingClaim) applyVolume(0);
+    if (!continuingClaim) applyVolume(Math.min(.01, previewVolume));
 
     const native = nativeRef.current;
     if (native) {
       try {
+        // Test audible autoplay before play() resolves. Starting at zero can
+        // succeed silently, then be paused by the browser during the fade-in.
+        const startingVolume = Math.max(currentVolumeRef.current, Math.min(.01, previewVolume));
+        applyVolume(startingVolume);
         native.muted = false;
         await native.play();
         if (!claimedRef.current || requestToken !== requestTokenRef.current) return;
         if (native.muted || native.paused) throw new Error("preview_audio_blocked");
         commitStatus("on");
-        rampVolume(continuingClaim ? currentVolumeRef.current : 0, previewVolume);
+        rampVolume(startingVolume, previewVolume);
       } catch (error) {
         if (!claimedRef.current || requestToken !== requestTokenRef.current) return;
         const browserBlocked = error instanceof DOMException
           ? error.name === "NotAllowedError"
-          : error instanceof Error && error.message === "preview_audio_blocked";
+          : error instanceof Error && (error.name === "NotAllowedError" || error.message === "preview_audio_blocked");
         finalizeStop(browserBlocked ? "blocked" : "unavailable");
       }
+      return;
+    }
+
+    const twitch = twitchRef?.current;
+    if (twitch) {
+      const requestTwitchAudio = () => {
+        if (!claimedRef.current || statusRef.current !== "starting") return;
+        try {
+          twitch.setMuted?.(false);
+          twitch.play?.();
+        } catch {
+          finalizeStop("unavailable");
+        }
+      };
+      requestTwitchAudio();
+      rampVolume(continuingClaim ? currentVolumeRef.current : 0, previewVolume);
+      schedule(requestTwitchAudio, 260);
+      schedule(requestTwitchAudio, 780);
+      schedule(() => {
+        if (claimedRef.current && statusRef.current === "starting") finalizeStop("blocked");
+      }, AUDIO_CONFIRM_MS);
       return;
     }
 
@@ -240,24 +281,55 @@ export function PreviewAudioControl({
     ready,
     schedule,
     supported,
+    twitchRef,
     youtube,
   ]);
+
+  useEffect(() => {
+    const media = nativeRef.current;
+    if (!native || !media || !active) return;
+    const onPause = () => {
+      if (!claimedRef.current || media.ended || media.seeking || media.error) return;
+      if (statusRef.current === "starting" || statusRef.current === "on") finalizeStop("blocked");
+    };
+    media.addEventListener("pause", onPause);
+    return () => media.removeEventListener("pause", onPause);
+  }, [active, finalizeStop, native, nativeRef]);
+
+  useEffect(() => {
+    if (!twitchRef || !active) return;
+    const confirmAudio = () => {
+      const instance = twitchRef.current;
+      if (!instance || !claimedRef.current) return;
+      try {
+        const muted = instance.getMuted?.();
+        if (statusRef.current === "starting" && muted === false && instance.isPaused?.() === false) commitStatus("on");
+        else if (statusRef.current === "on" && muted === true) finalizeStop("blocked");
+      } catch { /* The SDK may be between frames or already destroyed. */ }
+    };
+    const timer = window.setInterval(confirmAudio, 200);
+    return () => window.clearInterval(timer);
+  }, [active, commitStatus, finalizeStop, twitchRef]);
 
   useEffect(() => {
     if (!youtube) return;
     const onMessage = (event: MessageEvent) => {
       if (
         event.source !== frameRef.current?.contentWindow ||
-        !claimedRef.current ||
-        statusRef.current !== "starting"
+        !claimedRef.current
       ) return;
       const sample = previewAudioSample(event.data);
+      if (statusRef.current === "on" && sample?.muted === true) {
+        finalizeStop("blocked");
+        return;
+      }
+      if (statusRef.current !== "starting") return;
       if (sample?.muted !== false || sample.playing === false) return;
       commitStatus("on");
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [commitStatus, frameRef, youtube]);
+  }, [commitStatus, finalizeStop, frameRef, youtube]);
 
   useEffect(() => {
     const onClaim = (event: Event) => {
@@ -276,16 +348,15 @@ export function PreviewAudioControl({
       stopSound(true, "unavailable");
       return;
     }
-    if (!ready) {
-      stopSound(true, "off");
-      return;
-    }
-    // Unmuting from a saved preference can make browsers pause muted autoplay.
-    // Every new popup needs its own direct sound gesture before requesting it.
     if (!active || !previewSoundEnabled || !soundRequested) {
+      attemptedSoundRef.current = false;
       stopSound(false, "off");
       return;
     }
+    // Try the viewer's sound preference once per visible popup. A browser
+    // rejection keeps muted video playing and leaves a direct retry button.
+    if (!ready || attemptedSoundRef.current) return;
+    attemptedSoundRef.current = true;
     void requestSound();
   }, [active, previewSoundEnabled, ready, requestSound, soundRequested, stopSound, supported]);
 
@@ -339,9 +410,11 @@ export function PreviewAudioControl({
       youtubeCommand(frameRef, "setVolume", [0]);
       youtubeCommand(frameRef, "mute");
     }
+    twitchRef?.current?.setMuted?.(true);
+    twitchRef?.current?.setVolume?.(0);
     if (claimedRef.current) releasePreviewAudio(ownerId);
     claimedRef.current = false;
-  }, [clearTimers, frameRef, nativeRef, ownerId, releasePreviewAudio, youtube]);
+  }, [clearTimers, frameRef, nativeRef, ownerId, releasePreviewAudio, twitchRef, youtube]);
 
   if (!supported) {
     const mutedReason = mainPlayerSuppressionReason
@@ -374,6 +447,8 @@ export function PreviewAudioControl({
     ? mainPlayerSuppressionReason
       ?? unavailableReason
       ?? "This provider does not make preview audio available."
+    : status === "blocked"
+      ? "Your browser requires a click for sound. Select to unmute this preview."
     : muted
       ? "Unmute this preview. This also becomes your saved preview-sound preference."
       : "Mute this preview. This also becomes your saved preview-sound preference.";
