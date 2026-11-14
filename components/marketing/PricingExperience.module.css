@@ -444,10 +444,51 @@
 .cleanFaqList p { border: 1px solid var(--upgrade-line); border-radius: .8rem; background: rgba(255,255,255,.02); padding: .9rem 1rem; color: var(--upgrade-muted); font-size: .76rem; line-height: 1.55; }
 .cleanFaqList strong { color: #f3f3f5; }
 
+.upgradeHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1.03fr) minmax(20rem, .97fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 4.5rem);
+  padding-top: clamp(3.25rem, 6vw, 5rem);
+  padding-bottom: clamp(2.5rem, 5vw, 4.25rem);
+}
+.upgradeHeroCopy { min-width: 0; animation: upgrade-arrive 700ms cubic-bezier(.2,.7,.25,1) both; }
+.upgradeHeroCopy h1 { max-width: 13ch; margin-top: 1rem; font-size: clamp(2.8rem, 5.4vw, 5rem); font-weight: 745; line-height: .96; letter-spacing: -.072em; text-wrap: balance; }
+.upgradeHeroCopy h1 br { display: block; }
+.upgradeHeroCopy .heroCopy { max-width: 38rem; margin-top: 1.2rem !important; }
+.heroPromise { display: flex; margin-top: 1.25rem; align-items: center; gap: .65rem; color: var(--upgrade-subtle); font-size: .62rem; font-weight: 750; letter-spacing: .1em; }
+.heroPromise i { width: .24rem; height: .24rem; border-radius: 50%; background: #f06bad; box-shadow: 0 0 .7rem rgba(240,107,173,.8); }
+.upgradeHeroVisual { position: relative; min-width: 0; aspect-ratio: 1.28; overflow: hidden; margin: 0; border: 1px solid rgba(255,255,255,.16); border-radius: 1.1rem; background: #111116 url("/brand/supporter/upgrade-signal-material-v1.webp") center / cover; box-shadow: 0 2rem 4rem rgba(0,0,0,.4); animation: upgrade-arrive 850ms 100ms cubic-bezier(.2,.7,.25,1) both; }
+.upgradeHeroVisual::after { position: absolute; inset: 0; content: ""; background: linear-gradient(180deg,rgba(8,8,10,.04) 24%,rgba(8,8,10,.82) 100%),linear-gradient(115deg,rgba(227,7,109,.14),transparent 55%); pointer-events: none; }
+.upgradeHeroImage { object-fit: cover; object-position: center; opacity: .88; transition: transform 700ms cubic-bezier(.2,.7,.25,1), opacity 300ms ease; }
+.upgradeHeroVisual:hover .upgradeHeroImage { opacity: 1; transform: scale(1.025); }
+.upgradeVisualTag { position: absolute; z-index: 1; top: 1rem; left: 1rem; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; background: rgba(9,9,11,.76); padding: .45rem .65rem; color: #f6c0da; font-size: .59rem; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; backdrop-filter: blur(12px); }
+.upgradeVisualCaption { position: absolute; z-index: 1; right: 1.25rem; bottom: 1.15rem; left: 1.25rem; display: grid; gap: .38rem; }
+.upgradeVisualCaption span { color: #ff9ccc; font-size: .58rem; font-weight: 780; letter-spacing: .12em; }
+.upgradeVisualCaption strong { max-width: 25rem; color: #fff; font-size: clamp(1.2rem,2.5vw,1.85rem); font-weight: 720; line-height: 1.08; letter-spacing: -.045em; text-wrap: balance; }
+.cleanSectionHeading { display: flex; margin: 0 0 1rem; align-items: end; justify-content: space-between; gap: 1.5rem; }
+.cleanSectionHeading h2 { margin-top: .4rem; font-size: clamp(1.4rem,2.6vw,2rem); font-weight: 720; letter-spacing: -.055em; }
+.cleanSectionHeading > span { padding-bottom: .18rem; color: var(--upgrade-muted); font-size: .73rem; }
+.shell:not(.accountMode) .cleanGrid { align-items: stretch; gap: 1rem; }
+.shell:not(.accountMode) .membershipCard.cleanCard { border-color: rgba(240,107,173,.38); background: radial-gradient(ellipse at 100% 0%,rgba(227,7,109,.16),transparent 52%),linear-gradient(145deg,rgba(255,255,255,.045),transparent 42%),var(--upgrade-surface); }
+.shell:not(.accountMode) .membershipCard.cleanCard::before { position: absolute; inset: 0 0 auto; height: 2px; content: ""; background: linear-gradient(90deg,#f06bad,rgba(240,107,173,.12) 72%,transparent); }
+.shell:not(.accountMode) .cleanCard .amountSelector { margin-top: auto; padding-top: 1.35rem; }
+.cleanNotice { margin-top: 1rem; }
+.cleanFaq { margin-top: clamp(2.75rem,5vw,4rem); }
+
+@keyframes upgrade-arrive {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 760px) {
   .cleanHeader, .cleanMain { width: min(100% - 2rem, 68rem); }
   .cleanGrid, .cleanFaq { grid-template-columns: 1fr; }
   .cleanFaq { gap: 1.25rem; }
+  .upgradeHeader { grid-template-columns: 1fr; gap: 1.75rem; }
+  .upgradeHeroVisual { width: 100%; aspect-ratio: 1.45; }
+  .cleanSectionHeading { align-items: flex-start; flex-direction: column; gap: .35rem; }
+  .shell:not(.accountMode) .cleanCard .amountSelector { margin-top: 1.4rem; }
 }
 
 /* The account plan is a billing surface first: restrained, readable, and operational. */

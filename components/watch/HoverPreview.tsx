@@ -20,11 +20,13 @@ import type { WatchFeedbackValue } from "@/lib/watch/discovery-state";
 import { WatchThumb } from "./WatchThumb";
 import { PreviewAudioControl } from "./PreviewAudioControl";
 import { XPostHoverPreview } from "./XPostHoverPreview";
+import { TwitchHoverMedia } from "./TwitchHoverMedia";
 
 type PreviewPosition = {
   left: number;
   top: number;
   width: number;
+  height: number;
 };
 
 const PREVIEW_FOCUSABLE_SELECTOR = [
@@ -51,6 +53,7 @@ function previewWidth(
   viewportWidth: number,
   viewportHeight: number,
   instagramPhoto = false,
+  twitch = false,
 ) {
   const gutteredWidth = Math.max(140, viewportWidth - 24);
   if (instagramPhoto) {
@@ -62,14 +65,7 @@ function previewWidth(
     return Math.min(224, gutteredWidth, heightSafeWidth);
   }
   if (shape === "square") return Math.min(288, gutteredWidth);
-  return Math.min(368, gutteredWidth);
-}
-
-function estimatedHeight(shape: ReturnType<typeof contentShape>, width: number, instagramPhoto = false) {
-  const media = instagramPhoto
-    ? width * (5 / 4)
-    : shape === "portrait" ? width * (16 / 9) : shape === "square" ? width : width * (9 / 16);
-  return media + 150;
+  return Math.min(twitch ? 400 : 368, gutteredWidth);
 }
 
 function playbackClock(totalSeconds: number) {
@@ -148,6 +144,7 @@ function MediaHoverPreview({
   const shape = contentShape(item);
   const isPhoto = item.format === "photo";
   const isInstagramPhoto = isPhoto && item.platform === "instagram";
+  const isTwitchPreview = !isPhoto && item.platform === "twitch";
   const { user, loading: authLoading } = useAuth();
   const subscription = useSubscription();
   const dvrLoading = authLoading || subscription.loading;
@@ -161,6 +158,7 @@ function MediaHoverPreview({
   const [readyMotionSource, setReadyMotionSource] = useState<string | null>(null);
   const [loadedStaticFrameSource, setLoadedStaticFrameSource] = useState<string | null>(null);
   const [photoLinkCopied, setPhotoLinkCopied] = useState(false);
+  const [handedOff, setHandedOff] = useState(false);
   const [knownDuration, setKnownDuration] = useState(() => Math.max(0, durationSeconds, item.durationSeconds ?? 0));
   const initialSeekSeconds = moment?.seconds ?? (done ? 0 : positionSeconds);
   const [scrubSeconds, setScrubSeconds] = useState(() => Math.max(0, initialSeekSeconds));
@@ -173,10 +171,8 @@ function MediaHoverPreview({
   const videoRef = useRef<HTMLVideoElement>(null);
   const player = usePlayer();
   const reducedMotion = useReducedMotion();
-  // A Twitch iframe has no useful still-frame playback API once it is shown.
-  // Promote it to its muted provider-autoplay path on hover, while retaining
-  // the viewer's Data Saver and reduced-motion choices as hard opt-outs.
-  const wantsMotion = (player.previewAutoplay || hoverAutoplay || item.platform === "twitch")
+  // Twitch hover cards start muted unless bandwidth or motion preferences opt out.
+  const wantsMotion = (item.platform === "twitch" || (player.previewAutoplay && hoverAutoplay))
     && !player.dataSaver
     && !reducedMotion;
   const sourcePlayable = useMemo(() => itemToPlayable(item), [item]);
@@ -193,6 +189,8 @@ function MediaHoverPreview({
     setScrubSeconds(clampPreviewPosition(nextPosition, nextDuration));
   }, [done, durationSeconds, item.durationSeconds, item.id, moment?.seconds, positionSeconds]);
 
+  useEffect(() => { setHandedOff(false); }, [item.id]);
+
   useEffect(() => {
     setHost({ parent: window.location.hostname, origin: window.location.origin });
   }, []);
@@ -205,8 +203,8 @@ function MediaHoverPreview({
       if (!anchor) return;
       const target = anchor.getBoundingClientRect();
       const gutter = 12;
-      const width = previewWidth(shape, window.innerWidth, window.innerHeight, isInstagramPhoto);
-      const height = panelRef.current?.offsetHeight || estimatedHeight(shape, width, isInstagramPhoto);
+      const width = Math.min(target.width, previewWidth(shape, window.innerWidth, window.innerHeight, isInstagramPhoto, isTwitchPreview));
+      const height = Math.min(target.height, window.innerHeight - gutter * 2);
       const maxLeft = Math.max(gutter, window.innerWidth - width - gutter);
       const maxTop = Math.max(gutter, window.innerHeight - height - gutter);
       const centeredLeft = target.left + target.width / 2 - width / 2;
@@ -218,14 +216,14 @@ function MediaHoverPreview({
           previous &&
           Math.abs(previous.left - left) < 0.5 &&
           Math.abs(previous.top - top) < 0.5 &&
-          Math.abs(previous.width - width) < 0.5
+          Math.abs(previous.width - width) < 0.5 && Math.abs(previous.height - height) < 0.5
         ) {
           return previous;
         }
-        return { left, top, width };
+        return { left, top, width, height };
       });
     });
-  }, [anchorRef, isInstagramPhoto, shape]);
+  }, [anchorRef, isInstagramPhoto, isTwitchPreview, shape]);
 
   useLayoutEffect(() => {
     updatePosition();
@@ -267,8 +265,14 @@ function MediaHoverPreview({
     wantsMotion && item.previewStrategy === "video" && item.mediaUrl?.startsWith("https://")
       ? item.mediaUrl
       : null;
+  const twitchChannel = playable?.platform === "twitch" && playable.kind === "live" ? playable.twitchLogin : null;
+  const twitchVideo = playable?.platform === "twitch" ? playable.vodId : null;
+  const twitchSource = !videoSrc && host && wantsMotion && item.embeddable !== false
+    && item.previewStrategy !== "external" && item.previewStrategy !== "image" && (twitchChannel || twitchVideo)
+      ? `twitch:${twitchChannel ? `channel:${twitchChannel}` : `video:${twitchVideo}`}`
+      : null;
   const iframeSrc = useMemo(() => {
-    if (videoSrc || !host || !sourcePlayable) return null;
+    if (videoSrc || twitchSource || !host || !sourcePlayable) return null;
     // Instagram photo permalinks are frequently deleted, age-restricted, or
     // unavailable to an anonymous embed. Showing that cross-origin error page
     // in a hover card is noisy and makes a healthy cached thumbnail look
@@ -283,13 +287,13 @@ function MediaHoverPreview({
       origin: host.origin,
       muted: true,
       controls: false,
-      // YouTube and TikTok are promoted through postMessage once intent is
-      // confirmed. Twitch has no equivalent API on this lightweight surface.
+      // YouTube and TikTok activate through postMessage. Twitch clips have
+      // no SDK; live channels and VODs use TwitchHoverMedia instead.
       autoplay: item.platform === "twitch",
       startSeconds: initialSeekSeconds,
     });
-  }, [host, initialSeekSeconds, isInstagramPhoto, item.embeddable, item.platform, item.previewStrategy, playable, sourcePlayable, videoSrc, wantsMotion]);
-  const motionSource = videoSrc ?? iframeSrc;
+  }, [host, initialSeekSeconds, isInstagramPhoto, item.embeddable, item.platform, item.previewStrategy, playable, sourcePlayable, twitchSource, videoSrc, wantsMotion]);
+  const motionSource = videoSrc ?? twitchSource ?? iframeSrc;
   const motionReady = Boolean(
     motionSource && (
       readyMotionSource === motionSource ||
@@ -330,7 +334,7 @@ function MediaHoverPreview({
         providerRevealTimerRef.current = null;
       }
     };
-  }, [iframeSrc, videoSrc]);
+  }, [motionSource]);
 
   useEffect(() => {
     if (!active || !iframeSrc || (!playable?.youtubeId && playable?.platform !== "tiktok")) return;
@@ -343,7 +347,7 @@ function MediaHoverPreview({
     return () => {
       for (const timer of attempts) window.clearTimeout(timer);
     };
-  }, [iframeSrc, playable?.platform, playable?.youtubeId, requestProviderPlayback]);
+  }, [active, iframeSrc, playable?.platform, playable?.youtubeId, requestProviderPlayback]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -367,6 +371,16 @@ function MediaHoverPreview({
     }
     setScrubSeconds((current) => Math.abs(current - bounded) < 0.05 ? current : bounded);
   }, [knownDuration]);
+
+  const onTwitchPlayingChange = useCallback((playing: boolean) => {
+    playbackStartedRef.current = playing;
+    setReadyMotionSource(playing ? twitchSource : null);
+  }, [twitchSource]);
+
+  const onTwitchProgress = useCallback((seconds: number, duration: number) => {
+    if (Number.isFinite(duration) && duration > 0) setKnownDuration((current) => Math.max(current, duration));
+    syncPlaybackSeconds(seconds, duration);
+  }, [syncPlaybackSeconds]);
 
   useEffect(() => {
     if (!iframeSrc) return;
@@ -429,15 +443,16 @@ function MediaHoverPreview({
 
   const playNow = useCallback(() => {
     if (!playable) return;
+    setHandedOff(true);
     onPreviewLeave?.();
-    const startAtSeconds = seekable ? boundedScrubSeconds : moment?.seconds;
+    const startAtSeconds = seekable || (twitchSource && motionReady && !live) ? boundedScrubSeconds : moment?.seconds;
     if (player.current?.key === playable.key) {
       if (typeof startAtSeconds === "number") player.requestSeek(startAtSeconds);
       player.expand();
       return;
     }
     player.play(item, context, typeof startAtSeconds === "number" ? { startAtSeconds } : undefined);
-  }, [boundedScrubSeconds, context, item, moment?.seconds, onPreviewLeave, playable, player, seekable]);
+  }, [boundedScrubSeconds, context, item, live, moment?.seconds, motionReady, onPreviewLeave, playable, player, seekable, twitchSource]);
 
   const copyPhotoLink = useCallback(async () => {
     if (!isInstagramPhoto || !navigator.clipboard?.writeText) return;
@@ -451,7 +466,9 @@ function MediaHoverPreview({
 
   if (!position || typeof document === "undefined") return null;
 
-  const portalHost = document.getElementById("watch-preview-root") ?? document.body;
+  // The shared portal root has zero dimensions. Twitch's visibility checks
+  // require the player to live under an ancestor with real viewport bounds.
+  const portalHost = isTwitchPreview ? document.body : document.getElementById("watch-preview-root") ?? document.body;
   const keyboardInstructionsId = panelId ? `${panelId}-keyboard-instructions` : undefined;
 
   return createPortal(
@@ -462,11 +479,14 @@ function MediaHoverPreview({
       aria-hidden={preloadOnly ? true : undefined}
       aria-label={keyboardActive ? `Preview ${item.title}` : undefined}
       aria-describedby={keyboardActive ? keyboardInstructionsId : undefined}
-      className={`watch-preview watch-preview-portal is-${shape} is-${item.platform} ${item.format === "photo" ? "is-photo" : ""} ${live ? "is-live" : ""} ${active ? "is-active" : "is-closing"} ${iframeSrc || videoSrc ? "has-motion" : "is-still"}`}
+      className={`watch-preview watch-preview-portal is-${shape} is-${item.platform} ${item.format === "photo" ? "is-photo" : ""} ${live ? "is-live" : ""} ${active ? "is-active" : "is-closing"} ${motionSource ? "has-motion" : "is-still"} ${twitchSource ? "has-twitch-player" : ""}`}
+      data-cursor-native={isTwitchPreview ? "true" : undefined}
       style={{
         left: position.left,
         top: position.top,
         width: position.width,
+        maxHeight: position.height,
+        overflowY: "auto",
         ...(preloadOnly
           ? { opacity: 0, visibility: "hidden" as const, pointerEvents: "none" as const }
           : null),
@@ -581,6 +601,18 @@ function MediaHoverPreview({
                 if (active) void event.currentTarget.play().catch(() => {});
               }}
             />
+          ) : twitchSource ? (
+            <TwitchHoverMedia
+              key={twitchSource}
+              channel={twitchChannel}
+              video={twitchVideo}
+              active={active && !preloadOnly && !handedOff}
+              title={item.title}
+              startSeconds={initialSeekSeconds}
+              onPlayingChange={onTwitchPlayingChange}
+              onProgress={onTwitchProgress}
+              onSelect={playNow}
+            />
           ) : iframeSrc ? (
             <iframe
               ref={frameRef}
@@ -614,13 +646,13 @@ function MediaHoverPreview({
               }}
             />
           ) : null}
-          {!iframeSrc && !videoSrc ? <span className="watch-preview-veil" aria-hidden /> : null}
-          {!isPhoto && !iframeSrc && !videoSrc ? <span className="watch-preview-play" aria-hidden /> : null}
-          {live ? (
+          {!motionSource ? <span className="watch-preview-veil" aria-hidden /> : null}
+          {!isPhoto && !motionSource ? <span className="watch-preview-play" aria-hidden /> : null}
+          {live && !twitchSource ? (
             <span className="watch-preview-live">Live</span>
           ) : null}
         </Link>
-        {!isPhoto && motionSource && motionReady ? (
+        {!isPhoto && !twitchSource && motionSource && motionReady ? (
           <PreviewAudioControl
             active={active}
             ready={motionReady}
@@ -692,7 +724,7 @@ function MediaHoverPreview({
               }}
             />
           </div>
-        ) : playable && !live && item.format !== "photo" ? (
+        ) : playable && !twitchSource && !live && item.format !== "photo" ? (
           <div
             className="watch-preview-bar"
             role="progressbar"
@@ -726,6 +758,7 @@ function MediaHoverPreview({
           </p>
           <p className="mt-1 truncate text-xs text-[color:var(--ink-dim)]">
             {watchAttributionLabel(item)}
+            {twitchSource ? `${live ? " · Live" : ""} · Muted preview` : ""}
           </p>
           {moment ? (
             <p className="watch-preview-moment">Matched moment · {moment.title} · {Math.floor(moment.seconds / 60)}:{String(Math.floor(moment.seconds % 60)).padStart(2, "0")}</p>
@@ -733,16 +766,16 @@ function MediaHoverPreview({
         </div>
       </Link>
       <Tooltip
-        title={dvrLoading ? "Loading DVR" : dvrLocked ? "DVR with CORE Membership" : user && dvrSaved ? "Remove from DVR" : "Add to DVR"}
+        title={dvrLoading ? "Loading saved library" : dvrLocked ? "Saved library with CORE Membership" : user && dvrSaved ? "Remove from library" : "Save"}
         description={dvrLoading
           ? "Checking your saved titles."
           : user
             ? dvrLocked
-              ? "DVR is included with CORE Membership."
+              ? "Your saved library is included with CORE Membership."
               : dvrSaved
-              ? "Remove this title from your DVR."
-              : "Add this title to your DVR so you can quickly find it later."
-            : "Sign in to add this title to your DVR across your devices."}
+              ? "Remove this title from your saved library."
+              : "Add this title to your saved library so you can quickly find it later."
+            : "Sign in to add this title to your saved library across your devices."}
         placement="top"
         isDisabled={dvrLoading}
       >
@@ -752,14 +785,14 @@ function MediaHoverPreview({
           className="watch-preview-save"
           aria-pressed={Boolean(user && dvrSaved)}
           aria-label={dvrLoading
-            ? "Loading DVR"
+            ? "Loading saved library"
             : user
               ? dvrLocked
-                ? `Unlock DVR to save ${item.title}`
+                ? `Save with membership to save ${item.title}`
                 : dvrSaved
-                ? `Remove ${item.title} from DVR`
-                : isPhoto ? `Add photo ${item.title} to DVR` : `Add ${item.title} to DVR`
-              : `Add ${item.title} to DVR`}
+                ? `Remove ${item.title} from your library`
+                : isPhoto ? `Add photo ${item.title} to your library` : `Add ${item.title} to your library`
+              : `Add ${item.title} to your library`}
           disabled={dvrLoading}
           onClick={(event) => {
             event.preventDefault();
@@ -777,7 +810,7 @@ function MediaHoverPreview({
         >
           <span className="watch-preview-save-icon"><PreviewListGlyph saved={dvrSaved} /></span>
           <span className="watch-preview-save-label" aria-hidden>
-            {dvrLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : user && dvrSaved ? "In DVR" : "Add to DVR"}
+            {dvrLoading ? "Loading…" : dvrLocked ? "Save with membership" : user && dvrSaved ? "Saved" : "Save"}
           </span>
         </button>
       </Tooltip>

@@ -1,9 +1,23 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { parseXActivityAccountBindings, parseXStreamWebhook, readXWebhookBody, verifyXWebhookSignature, xWebhookCrcResponse, X_WEBHOOK_MAX_BODY_BYTES } from "../lib/x-webhook";
+import { parseXActivityAccountBindings, parseXDeleteWebhook, parseXStreamWebhook, readXWebhookBody, verifyXWebhookSignature, xWebhookCrcResponse, X_WEBHOOK_MAX_BODY_BYTES } from "../lib/x-webhook";
 
 const accounts = [{ handle: "drewwall_", authorSlug: "crew:drew-wall", authorLabel: "Drew Wall" }];
+
+test("delete parsing requires a real object ID and an explicitly bound, matching account", () => {
+  const bindings = parseXActivityAccountBindings('{"12345":"crew:drew-wall"}', accounts);
+  const data = { event_type: "post.delete", payload: { id: "123456789", author_id: "12345" }, filter: { user_id: "12345" } };
+  const parsed = parseXDeleteWebhook({ data }, bindings)!;
+  assert.equal(parsed.statusId, "123456789");
+  assert.equal(parsed.account.authorSlug, "crew:drew-wall");
+  assert.equal(parsed.sourceUrl, "https://x.com/drewwall_/status/123456789");
+  assert.equal(parseXDeleteWebhook({ data: { ...data, event_type: "post.create" } }, bindings), null);
+  assert.throws(() => parseXDeleteWebhook({ data }, new Map()), /unbound_x_delete_author/);
+  assert.throws(() => parseXDeleteWebhook({ data: { ...data, filter: { user_id: "98765" } } }, bindings));
+  assert.throws(() => parseXDeleteWebhook({ data: { ...data, payload: { ...data.payload, id: "../../other" } } }, bindings));
+  assert.throws(() => parseXDeleteWebhook({ data: { ...data, payload: null } }, bindings));
+});
 const payload = {
   data: { id: "123456789", author_id: "u1", text: "Crew update 🎥", created_at: "2026-11-08T12:00:00Z" },
   includes: { users: [{ id: "u1", username: "drewwall_", name: "Drew Wall" }] },

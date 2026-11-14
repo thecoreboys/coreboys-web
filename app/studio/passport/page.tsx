@@ -34,7 +34,7 @@ export default async function StudioPassportPage({
   if (!channel) redirect("/studio" as never);
 
   return (
-    <main className="min-h-screen bg-secondary pt-20 md:pt-24">
+    <div className="min-h-[var(--page-min-height)] bg-secondary">
       <section className="border-b border-secondary">
         <div className="mx-auto max-w-container px-6 py-10 md:px-8 md:py-14">
           <div className="flex flex-wrap items-end justify-between gap-5">
@@ -71,6 +71,6 @@ export default async function StudioPassportPage({
           }]}
         />
       </section>
-    </main>
+    </div>
   );
 }

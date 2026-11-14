@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { listenToYouTube, youtubePlaybackSample } from "../lib/watch/youtube-player";
+import { listenToYouTube, youtubeLiveContentStatus, youtubePlaybackSample } from "../lib/watch/youtube-player";
 import { shouldStackTwitchRoom } from "../lib/watch/room-layout";
 
 test("YouTube initial delivery restores the current playback state and duration", () => {
@@ -13,6 +13,13 @@ test("YouTube initial delivery restores the current playback state and duration"
   }
   assert.equal(youtubePlaybackSample({ event: "onReady" }), null);
   assert.equal(youtubePlaybackSample({ event: "infoDelivery", info: null }), null);
+});
+
+test("YouTube player info distinguishes archived broadcasts from live broadcasts", () => {
+  assert.equal(youtubeLiveContentStatus({ videoData: { isLiveContent: true } }), true);
+  assert.equal(youtubeLiveContentStatus({ videoData: { isLiveContent: false } }), false);
+  assert.equal(youtubeLiveContentStatus({ videoData: {} }), null);
+  assert.equal(youtubeLiveContentStatus({}), null);
 });
 
 test("YouTube bridge listening can reattach after a late iframe load", () => {

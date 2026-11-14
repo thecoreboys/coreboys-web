@@ -136,6 +136,7 @@ test("the Shorts player promotes warmed provider frames without changing their s
   assert.match(player, /document\.addEventListener\("visibilitychange", onVisibilityChange\)/);
   assert.match(stage, /connection\?\.saveData/);
   assert.match(player, /autoplay: false,[\s\S]{0,180}loop: false/);
+  assert.match(player, /const instagramNativeSource = item\.platform === "instagram"[\s\S]{0,500}item\.platform === "instagram" && !instagramCanPlayNatively/);
   assert.doesNotMatch(player, /autoplay: item\.key === current\.key/);
   assert.match(player, /func: "playVideo"/);
   assert.match(player, /type: "play"/);

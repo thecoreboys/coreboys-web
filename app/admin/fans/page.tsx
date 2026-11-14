@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function AdminFansPage() {
   return (
     <AuthGate>
-      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+      <div className="relative min-h-[var(--page-min-height)] bg-secondary">
         <AdminPageHeader
           eyebrow="Admin · Connected fans"
           title="Loyalty graph, not a leaderboard."
@@ -22,7 +22,7 @@ export default function AdminFansPage() {
             <ConnectedFansDashboard />
           </div>
         </section>
-      </main>
+      </div>
     </AuthGate>
   );
 }

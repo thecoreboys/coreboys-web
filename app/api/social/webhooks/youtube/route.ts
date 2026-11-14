@@ -15,6 +15,8 @@ import { matchesSha1Hmac } from "@/lib/social-webhooks";
 import { drainSocialNotificationDeliveries } from "@/lib/social-delivery";
 import { fetchYouTubeMetadata } from "@/lib/youtube-duration";
 import { isLikelyYouTubeShort } from "@/lib/youtube-classification";
+import { youtubeAtomDeletions } from "@/lib/provider-availability";
+import { recordContentRemoval } from "@/lib/content-availability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -122,6 +124,22 @@ export async function POST(request: Request) {
   }
   if (!matchesSha1Hmac(secret, raw, request.headers.get("x-hub-signature"))) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 403 });
+  }
+
+  // Persist removal before acknowledging, so a failed write is retried by the hub.
+  const deletionMarkers = youtubeAtomDeletions(raw);
+  const deletions = deletionMarkers.filter((event) => configuredOwner(event.channelId));
+  if (deletions.length) {
+    try {
+      for (const event of deletions) await recordContentRemoval({ provider: "youtube",
+        providerId: event.videoId, reason: "deleted", evidence: "provider_webhook" });
+    } catch {
+      return NextResponse.json({ error: "deletion_persistence_unavailable" }, { status: 503 });
+    }
+  }
+
+  if (deletionMarkers.length && !/<entry(?:\s|>)/i.test(raw)) {
+    return NextResponse.json({ ok: true, removed: deletions.length });
   }
 
   const event = atomEvent(raw);

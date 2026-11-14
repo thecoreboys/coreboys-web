@@ -27,20 +27,11 @@ import {
 import { cx } from "@/utils/cx";
 import { createDebouncedWorkspaceSave } from "@/lib/account/workspace-save-queue";
 
-type LandingPage = "/watch" | "/guide" | "/chat" | "/account";
-
 type AccountSettings = {
   theme: Theme;
   accent: Accent;
-  density: "comfortable" | "compact";
   reduceMotion: boolean;
   highContrast: boolean;
-  landingPage: LandingPage;
-  personalizeRecommendations: boolean;
-  showMatureContent: boolean;
-  privateSession: boolean;
-  publicProfile: boolean;
-  showActivity: boolean;
 };
 
 type PlayerSettings = {
@@ -59,13 +50,6 @@ type PlayerSettings = {
   mixAudio: boolean;
   maxActivePlayers: number;
 };
-
-const LANDING_OPTIONS: ReadonlyArray<{ value: LandingPage; label: string }> = [
-  { value: "/watch", label: "Watch" },
-  { value: "/guide", label: "Guide" },
-  { value: "/chat", label: "Chat" },
-  { value: "/account", label: "My account" },
-];
 
 const AUTOPLAY_OPTIONS: ReadonlyArray<{ value: AutoplayMode; label: string }> = [
   { value: "off", label: "Off" },
@@ -97,15 +81,8 @@ function defaultSettings(theme: Theme, accent: Accent): AccountSettings {
   return {
     theme,
     accent,
-    density: "comfortable",
     reduceMotion: false,
     highContrast: false,
-    landingPage: "/watch",
-    personalizeRecommendations: true,
-    showMatureContent: false,
-    privateSession: false,
-    publicProfile: false,
-    showActivity: false,
   };
 }
 
@@ -124,21 +101,12 @@ function restoreSettings(value: unknown, defaults: AccountSettings): AccountSett
   return {
     theme: isTheme(raw.theme) ? raw.theme : defaults.theme,
     accent: isAccent(raw.accent) ? raw.accent : defaults.accent,
-    density: raw.density === "compact" ? "compact" : "comfortable",
     reduceMotion: bool("reduceMotion"),
     highContrast: bool("highContrast"),
-    landingPage: LANDING_OPTIONS.some(({ value: option }) => option === raw.landingPage)
-      ? raw.landingPage as LandingPage : defaults.landingPage,
-    personalizeRecommendations: bool("personalizeRecommendations"),
-    showMatureContent: bool("showMatureContent"),
-    privateSession: bool("privateSession"),
-    publicProfile: bool("publicProfile"),
-    showActivity: bool("showActivity"),
   };
 }
 
 function applyExperience(settings: AccountSettings) {
-  document.documentElement.dataset.density = settings.density;
   document.documentElement.dataset.reducedMotion = String(settings.reduceMotion);
   document.documentElement.dataset.contrast = settings.highContrast ? "more" : "standard";
 }
@@ -159,33 +127,38 @@ function isCompanionView(value: unknown): value is PlayerCompanionView {
   return value === "details" || value === "up-next" || value === "chat";
 }
 
-export function AccountSettingsHub() {
+export function AccountSettingsHub({ section }: { section?: string } = {}) {
   const player = usePlayer();
+  const playerRef = useRef(player);
+  playerRef.current = player;
   const { theme, accent, setTheme, setAccent } = useTheme();
   const initialAppearance = useRef({ theme, accent });
   const [settings, setSettings] = useState<AccountSettings>(() => defaultSettings(theme, accent));
   const [ready, setReady] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveStates, setSaveStates] = useState({
+    experience: "idle" as "idle" | "saving" | "saved" | "error",
+    player: "idle" as "idle" | "saving" | "saved" | "error",
+    radio: "idle" as "idle" | "saving" | "saved" | "error",
+  });
   const [radioSettings, setRadioSettings] = useState<RadioAudioSettings>(() => readRadioAudioSettings());
   const settingsRef = useRef(settings);
   const radioSettingsRef = useRef(radioSettings);
   const playerSettingsRef = useRef<PlayerSettings | null>(null);
 
-  const persist = useCallback(async (next: AccountSettings) => {
-    setSaveState("saving");
+  const experienceSaveQueue = useMemo(() => createDebouncedWorkspaceSave(async (payload: AccountSettings) => {
     try {
       const response = await fetch("/api/account/workspaces", {
         method: "PUT",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "account-settings", name: "experience", payload: next }),
+        body: JSON.stringify({ kind: "account-settings", name: "experience", payload }),
       });
       if (!response.ok) throw new Error(String(response.status));
-      setSaveState("saved");
+      setSaveStates((current) => ({ ...current, experience: "saved" }));
     } catch {
-      setSaveState("error");
+      setSaveStates((current) => ({ ...current, experience: "error" }));
     }
-  }, []);
+  }, 300), []);
 
   const playerSettings = useCallback((): PlayerSettings => ({
     autoplayMode: player.autoplayMode,
@@ -219,9 +192,9 @@ export function AccountSettingsHub() {
         body: JSON.stringify({ kind: "account-settings", name: "player", payload: currentPayload }),
       });
       if (!response.ok) throw new Error(`player_settings_${response.status}`);
-      setSaveState("saved");
+      setSaveStates((current) => ({ ...current, player: "saved" }));
     } catch {
-      setSaveState("error");
+      setSaveStates((current) => ({ ...current, player: "error" }));
     }
   }, 350), []);
 
@@ -234,9 +207,9 @@ export function AccountSettingsHub() {
         body: JSON.stringify({ kind: "account-settings", name: "radio", payload }),
       });
       if (!response.ok) throw new Error(`radio_settings_${response.status}`);
-      setSaveState("saved");
+      setSaveStates((current) => ({ ...current, radio: "saved" }));
     } catch {
-      setSaveState("error");
+      setSaveStates((current) => ({ ...current, radio: "error" }));
     }
   }, 350), []);
 
@@ -257,7 +230,7 @@ export function AccountSettingsHub() {
     if (patch.maxActivePlayers !== undefined) player.setMaxActivePlayers(patch.maxActivePlayers);
     const next = { ...(playerSettingsRef.current ?? playerSettings()), ...patch };
     playerSettingsRef.current = next;
-    setSaveState("saving");
+    setSaveStates((current) => ({ ...current, player: "saving" }));
     playerSaveQueue.schedule(next);
   }, [player, playerSaveQueue, playerSettings]);
 
@@ -265,7 +238,7 @@ export function AccountSettingsHub() {
     const next = writeRadioAudioSettings({ ...radioSettingsRef.current, ...patch });
     radioSettingsRef.current = next;
     setRadioSettings(next);
-    setSaveState("saving");
+    setSaveStates((current) => ({ ...current, radio: "saving" }));
     radioSaveQueue.schedule(next);
   }, [radioSaveQueue]);
 
@@ -286,6 +259,9 @@ export function AccountSettingsHub() {
           applyExperience(next);
           const playerStored = data.items?.find((item) => item.name === "player")?.payload;
           if (playerStored && typeof playerStored === "object") {
+            // Hydration is a single request; playback changes must not restart
+            // it or reapply older saved preferences while the viewer edits.
+            const player = playerRef.current;
             const saved = playerStored as Partial<PlayerSettings>;
             if (isAutoplayMode(saved.autoplayMode)) player.setAutoplayMode(saved.autoplayMode);
             if (typeof saved.previewAutoplay === "boolean") player.setPreviewAutoplay(saved.previewAutoplay);
@@ -328,24 +304,25 @@ export function AccountSettingsHub() {
     if (patch.theme) setTheme(patch.theme);
     if (patch.accent) setAccent(patch.accent);
     applyExperience(next);
-    void persist(next);
-  }, [persist, setAccent, setTheme]);
+    setSaveStates((current) => ({ ...current, experience: "saving" }));
+    experienceSaveQueue.schedule(next);
+  }, [experienceSaveQueue, setAccent, setTheme]);
 
   // Reconcile the refs with provider/state updates after hydration and render.
   playerSettingsRef.current = playerSettings();
   radioSettingsRef.current = radioSettings;
 
-  const saveLabel = useMemo(() => {
+  const saveLabel = (state: typeof saveStates.experience) => {
     if (!ready) return "Loading preferences…";
-    if (saveState === "saving") return "Saving…";
-    if (saveState === "error") return "Couldn’t save";
-    return saveState === "saved" ? "Saved" : "Saved to your account";
-  }, [ready, saveState]);
+    if (state === "saving") return "Saving…";
+    if (state === "error") return "Couldn’t save";
+    return state === "saved" ? "Saved" : "Saved to your account";
+  };
 
   return (
     <div className="space-y-6">
-      <section id="experience" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
-        <SectionHeader icon={Palette} eyebrow="Appearance" title="Theme and layout" detail="Changes apply immediately and sync to your signed-in account." status={saveLabel} error={saveState === "error"} />
+      {(!section || section === "experience") ? <section id="experience" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
+        <SectionHeader icon={Palette} eyebrow="Appearance" title="Theme and layout" detail="Changes apply immediately and sync to your signed-in account." status={saveLabel(saveStates.experience)} error={saveStates.experience === "error"} />
         <div className="grid gap-6 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ChoiceGroup label="Theme" value={settings.theme} onChange={(value) => update({ theme: value as Theme })} options={[
             { value: "dark", label: "Dark" }, { value: "light", label: "Light" }, { value: "system", label: "System" },
@@ -354,17 +331,13 @@ export function AccountSettingsHub() {
             { value: "core", label: "CORE" }, { value: "stable", label: "Stable" }, { value: "thugs", label: "Thugs" },
             { value: "flock", label: "Flock" }, { value: "nms", label: "NMS" }, { value: "m3", label: "M3" },
           ]} />
-          <SelectRow label="Default landing page" value={settings.landingPage} onChange={(value) => update({ landingPage: value as LandingPage })} options={LANDING_OPTIONS} />
-          <ChoiceGroup label="Content density" value={settings.density} onChange={(value) => update({ density: value as AccountSettings["density"] })} options={[
-            { value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" },
-          ]} />
           <ToggleRow label="Reduce motion" detail="Cuts nonessential animation throughout CORE." value={settings.reduceMotion} onChange={(reduceMotion) => update({ reduceMotion })} />
           <ToggleRow label="Higher contrast" detail="Strengthens text and divider contrast." value={settings.highContrast} onChange={(highContrast) => update({ highContrast })} />
         </div>
-      </section>
+      </section> : null}
 
-      <section id="playback" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
-        <SectionHeader icon={Play} eyebrow="Playback" title="Your player defaults" detail="These controls use the same preferences as the theater player, previews, live streams, and multiview." />
+      {(!section || section === "playback") ? <section id="playback" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
+        <SectionHeader icon={Play} eyebrow="Playback" title="Your player defaults" detail="These controls use the same preferences as the theater player, previews, live streams, and multiview." status={saveLabel(saveStates.player)} error={saveStates.player === "error"} />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <SelectRow label="Autoplay" value={player.autoplayMode} onChange={(value) => updatePlayer({ autoplayMode: value as AutoplayMode })} options={AUTOPLAY_OPTIONS} />
           <SelectRow label="Quality" value={player.qualityPreference} onChange={(value) => updatePlayer({ qualityPreference: value as QualityPreference })} options={QUALITY_OPTIONS} />
@@ -382,54 +355,53 @@ export function AccountSettingsHub() {
           <RangeRow label="Preview volume" value={player.previewVolume} min={0} max={1} step={0.05} format={(value) => `${Math.round(value * 100)}%`} onChange={(previewVolume) => updatePlayer({ previewVolume })} />
           <RangeRow label="Multiview screens" value={player.maxActivePlayers} min={1} max={8} step={1} format={(value) => String(value)} onChange={(maxActivePlayers) => updatePlayer({ maxActivePlayers })} />
         </div>
-      </section>
+      </section> : null}
 
-      <section id="station-audio" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
-        <SectionHeader icon={Radio} eyebrow="Station audio" title="DJ Cora settings" detail="Adjust station announcements, captions, and volume." />
+      {(!section || section === "station-audio") ? <section id="station-audio" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
+        <SectionHeader icon={Radio} eyebrow="Station audio" title="DJ Cora settings" detail="Adjust station announcements, captions, and volume." status={saveLabel(saveStates.radio)} error={saveStates.radio === "error"} />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
           <ToggleRow label="Station audio" detail="Play short DJ Cora IDs and 24/7 handoff cues when your browser allows it." value={radioSettings.enabled} onChange={(enabled) => updateRadio({ enabled })} />
           <ChoiceGroup label="DJ Cora captions" value={radioSettings.captions} onChange={(captions) => updateRadio({ captions: captions as RadioCaptionPreference })} options={RADIO_CAPTION_OPTIONS} />
           <RangeRow label="DJ Cora volume" value={radioSettings.volume} min={0} max={1} step={0.05} format={(value) => `${Math.round(value * 100)}%`} onChange={(volume) => updateRadio({ volume })} />
           <ToggleRow label="Station data saver" detail="Load station audio only when it is needed." value={radioSettings.dataSaver} onChange={(dataSaver) => updateRadio({ dataSaver })} />
         </div>
-      </section>
+      </section> : null}
 
-      <section id="personalization" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
+      {(!section || section === "personalization") ? <section id="personalization" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={Eye} eyebrow="Personalization" title="Control what shapes your feed" detail="Favorites, follows, saves, likes, and Not interested feedback remain available from every content card." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
-          <ToggleRow label="Personalized recommendations" detail="Use your activity to improve For you and the Guide." value={settings.personalizeRecommendations} onChange={(personalizeRecommendations) => update({ personalizeRecommendations })} />
-          <ToggleRow label="Show mature content" detail="Include content marked for mature audiences." value={settings.showMatureContent} onChange={(showMatureContent) => update({ showMatureContent })} />
-          <LinkRow label="Manage my DVR" detail="Review saved videos, folders, and your watch history." href="/dvr" />
-          <LinkRow label="Manage follows" detail="Choose creators and communities you want to hear from." href="/account/settings#connected-accounts" />
+          <LinkRow label="Manage saved library" detail="Review saved videos, folders, and your watch history." href="/dvr" />
+          <LinkRow label="Manage follows" detail="Review synced platform follows and connected creator accounts." href="/account/settings#connected-accounts" />
+          <div className="rounded-lg bg-secondary px-4 py-3 text-xs leading-5 text-tertiary">Your saved videos, follows, likes, and feedback are available in their respective sections. CORE does not currently offer a separate recommendation or mature-content filter.</div>
         </div>
-      </section>
+      </section> : null}
 
-      <section id="privacy" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
+      {(!section || section === "privacy") ? <section id="privacy" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
         <SectionHeader icon={ShieldCheck} eyebrow="Privacy & safety" title="Decide what stays private" detail="CORE does not expose your watch activity or connected platforms without an explicit choice." />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
-          <ToggleRow label="Private viewing session" detail="Keep this session out of recommendations and history." value={settings.privateSession} onChange={(privateSession) => update({ privateSession })} />
-          <ToggleRow label="Public profile" detail="Let other signed-in fans see your public fan card." value={settings.publicProfile} onChange={(publicProfile) => update({ publicProfile })} />
-          <ToggleRow label="Show activity" detail="Allow your public fan card to show recent CORE activity." value={settings.showActivity} onChange={(showActivity) => update({ showActivity })} />
-          <LinkRow label="Connected accounts" detail="Review permissions, disconnect accounts, or sync on demand." href="/account/settings#connected-accounts" />
+          <LinkRow label="Public fan profile" detail="Your fan card is private unless you explicitly publish it. Manage its visibility and handle." href="/account/settings#connected-accounts" />
+          <LinkRow label="Connected accounts" detail="Review platform permissions, disconnect accounts, or sync on demand." href="/account/settings#connected-accounts" />
+          <LinkRow label="Account deletion" detail="Review or cancel a scheduled account deletion." href="/account/settings#account-deletion" />
+          <div className="rounded-lg bg-secondary px-4 py-3 text-xs leading-5 text-tertiary">Watch activity is used for your account history and fan score. It is not shown on your public fan card.</div>
         </div>
-      </section>
+      </section> : null}
 
-      <section id="accessibility" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
-        <SectionHeader icon={Accessibility} eyebrow="Accessibility" title="Playback that works for you" detail="Your preset applies to captions, described audio, speed, and preview behavior immediately." />
+      {(!section || section === "accessibility") ? <section id="accessibility" className="scroll-mt-32 overflow-hidden rounded-xl border border-secondary bg-primary">
+        <SectionHeader icon={Accessibility} eyebrow="Accessibility" title="Playback that works for you" detail="Your preset applies to captions, described audio, speed, and preview behavior immediately." status={saveLabel(saveStates.player)} error={saveStates.player === "error"} />
         <div className="grid gap-5 border-t border-secondary p-5 sm:p-6 lg:grid-cols-2">
-          <ChoiceGroup label="Player preset" value={player.accessibilityPreset} onChange={(value) => player.applyAccessibilityPreset(value as AccessibilityPreset)} options={[
+          <ChoiceGroup label="Player preset" value={player.accessibilityPreset} onChange={(value) => updatePlayer({ accessibilityPreset: value as AccessibilityPreset })} options={[
             { value: "standard", label: "Standard" }, { value: "captions", label: "Captions" }, { value: "audio-description", label: "Described" }, { value: "calm", label: "Calm" },
           ]} />
           <LinkRow label="Keyboard shortcuts" detail="Space pauses playback; arrows seek when the player is focused." href="/watch" />
         </div>
-      </section>
+      </section> : null}
 
     </div>
   );
 }
 
 function SectionHeader({ icon: Icon, eyebrow, title, detail, status, error }: { icon: typeof Palette; eyebrow: string; title: string; detail: string; status?: string; error?: boolean }) {
-  return <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6"><div className="flex min-w-0 items-start gap-3"><span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-brand-secondary ring-1 ring-inset ring-secondary"><Icon className="size-5" aria-hidden /></span><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">{eyebrow}</p><h2 className="mt-1 text-lg font-semibold text-primary">{title}</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-tertiary">{detail}</p></div></div>{status ? <span className={cx("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", error ? "bg-error-primary text-error-primary ring-error_subtle" : "bg-primary text-tertiary ring-secondary")}>{status}</span> : null}</div>;
+  return <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6"><div className="flex min-w-0 items-start gap-3"><span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-brand-secondary ring-1 ring-inset ring-secondary"><Icon className="size-5" aria-hidden /></span><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">{eyebrow}</p><h2 className="mt-1 text-lg font-semibold text-primary">{title}</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-tertiary">{detail}</p></div></div>{status ? <span aria-live="polite" className={cx("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", error ? "bg-error-primary text-error-primary ring-error_subtle" : "bg-primary text-tertiary ring-secondary")}>{status}</span> : null}</div>;
 }
 
 function ToggleRow({ label, detail, value, onChange }: { label: string; detail: string; value: boolean; onChange: (value: boolean) => void }) {

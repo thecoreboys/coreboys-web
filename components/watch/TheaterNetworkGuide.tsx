@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "@/components/ui/SiteImage";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ChevronLeft, Play, Radio } from "lucide-react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
@@ -14,31 +15,10 @@ import {
   theaterGuideProgramExpandedWidth,
   theaterGuideProgramWidth,
 } from "@/lib/watch/theater-guide-layout";
-import type { WatchItem, WatchPlatform } from "@/lib/watch/types";
+import type { WatchItem } from "@/lib/watch/types";
+import { useWatchGuide } from "@/hooks/useWatchGuide";
+import type { GuideProgram, GuideStatus, GuideContentType } from "@/lib/watch/guide-response";
 import { DragScrollRail } from "./DragScrollRail";
-
-type GuideStatus = "live" | "upcoming" | "replay" | "published";
-type GuideContentType = "live" | "broadcast" | "video" | "short" | "clip" | "photo" | "post";
-
-type GuideProgram = {
-  id: string;
-  slug: string;
-  title: string;
-  startsAt: string;
-  endsAt: string | null;
-  status: GuideStatus;
-  platform: WatchPlatform;
-  thumbnailUrl: string | null;
-  contentType?: GuideContentType;
-  orientation?: WatchItem["orientation"];
-  durationSeconds?: number | null;
-  watchItem?: WatchItem;
-};
-
-type GuidePayload = {
-  programs: GuideProgram[];
-  networks: GuideNetworkGroup[];
-};
 
 type TimelineEntry = {
   id: string;
@@ -106,18 +86,9 @@ export function TheaterNetworkGuide({ onReturn }: { onReturn: () => void }) {
   const player = usePlayer();
   const guideRef = useRef<HTMLElement | null>(null);
   const centeredRangeRef = useRef<string | null>(null);
-  const [payload, setPayload] = useState<GuidePayload | null>(null);
+  const { data: payload } = useWatchGuide();
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    let alive = true;
-    void fetch("/api/watch/guide", { credentials: "same-origin" })
-      .then((response) => response.ok ? response.json() as Promise<GuidePayload> : null)
-      .then((data) => { if (alive && data) setPayload(data); })
-      .catch(() => { /* The current player remains usable while the guide refreshes. */ });
-    return () => { alive = false; };
-  }, []);
 
   useEffect(() => {
     // Keep the visible Now marker continuous. The expensive schedule build is
@@ -284,7 +255,7 @@ export function TheaterNetworkGuide({ onReturn }: { onReturn: () => void }) {
                       onClick={() => tune(row, entry)}
                       aria-label={`${entryIsNow || entry.status === "live" ? "Live now" : `Starts ${clock(start)}`}: ${entry.title}. Tune to this program.`}
                     >
-                      {entry.thumbnailUrl ? <img src={entry.thumbnailUrl} alt="" /> : null}
+                      {entry.thumbnailUrl ? <Image src={entry.thumbnailUrl} alt="" width={70} height={54} style={{ height: "100%" }} /> : null}
                       <span><i>{entryIsNow || entry.status === "live" ? "LIVE" : clock(start)}</i><strong>{entry.title}</strong></span>
                     </button>;
                   })}

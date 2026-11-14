@@ -203,6 +203,22 @@ test("Watch-home X selector keeps only valid dates and honors per-member bounds"
   assert.deepEqual(selectWatchHomeXPosts(catalog([]), { limit: 0 }), []);
 });
 
+test("channel X history can show 24 already-cached posts across more than a few days", () => {
+  const items = Array.from({ length: 24 }, (_, index) => {
+    return xItem({
+      id: `x-${30000 + index}`,
+      memberSlug: "lacy",
+      title: `Cached post ${index + 1}`,
+      publishedAt: new Date(Date.UTC(2026, 8, 20 - index, 12)).toISOString(),
+    });
+  });
+
+  const posts = selectWatchHomeXPosts(catalog(items), { limit: 24, perMember: 24 });
+
+  assert.equal(posts.length, 24);
+  assert.ok(Date.parse(posts[0]!.publishedAt) - Date.parse(posts.at(-1)!.publishedAt) > 7 * 86_400_000);
+});
+
 test("Watch-home X DTO preserves complete cached text and normalizes official entities", () => {
   const urlToken = "https://t.co/core";
   const raw = `Opening line 🎬\n\n${"full text ".repeat(70)}\u202E@SilkySzn #CORE ${urlToken}`;

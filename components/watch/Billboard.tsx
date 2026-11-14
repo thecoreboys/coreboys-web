@@ -1,7 +1,9 @@
 "use client";
 
+import { compactTitle } from "@/lib/watch/presentation";
+
 import Link from "next/link";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { WatchItem } from "@/lib/watch/types";
 import { MY_LIST_EVENT, readMyList, redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -10,36 +12,13 @@ import { useWatchProgress, youtubeIdFromHref } from "@/hooks/useWatchProgress";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
-import { contentShape, embedFor, itemToPlayable } from "@/lib/watch/playable";
+import { contentShape, itemToPlayable } from "@/lib/watch/playable";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import {
   bestWatchProgressMark,
   CONTINUE_WATCHING_MIN_SECONDS,
 } from "@/lib/watch/continue-watching";
-import type { Playable } from "@/lib/watch/playable";
 import { WatchThumb } from "./WatchThumb";
-
-type BillboardTwitchInstance = {
-  addEventListener: (name: string, callback: () => void) => void;
-  destroy?: () => void;
-  play?: () => void;
-  setMuted?: (muted: boolean) => void;
-  /** Some Twitch builds never emit PLAYING while an ad/interstitial settles. */
-  isPaused?: () => boolean;
-  getCurrentTime?: () => number;
-};
-
-type BillboardTwitchApi = {
-  Player: {
-    new (id: string, options: Record<string, unknown>): BillboardTwitchInstance;
-    READY: string;
-    PLAYING: string;
-    OFFLINE: string;
-    PLAYBACK_BLOCKED: string;
-  };
-};
-
-let billboardTwitchScript: Promise<BillboardTwitchApi> | null = null;
 
 function formatPlaybackTime(seconds: number) {
   const safe = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
@@ -51,63 +30,6 @@ function formatPlaybackTime(seconds: number) {
     : `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
-function loadBillboardTwitch(): Promise<BillboardTwitchApi> {
-  if (billboardTwitchScript) return billboardTwitchScript;
-
-  const pending = new Promise<BillboardTwitchApi>((resolve, reject) => {
-    const fromWindow = () => (window as typeof window & { Twitch?: BillboardTwitchApi }).Twitch;
-    const known = fromWindow();
-    if (known?.Player) {
-      resolve(known);
-      return;
-    }
-
-    const existing = document.querySelector<HTMLScriptElement>('script[src="https://player.twitch.tv/js/embed/v1.js"]');
-    const script = existing ?? document.createElement("script");
-    let settled = false;
-    let pollTimer: number | null = null;
-    let timeoutTimer: number | null = null;
-    const cleanup = () => {
-      script.removeEventListener("load", done);
-      script.removeEventListener("error", fail);
-      if (pollTimer !== null) window.clearInterval(pollTimer);
-      if (timeoutTimer !== null) window.clearTimeout(timeoutTimer);
-    };
-    const done = () => {
-      if (settled) return;
-      const api = fromWindow();
-      if (!api?.Player) return;
-      settled = true;
-      cleanup();
-      resolve(api);
-    };
-    const fail = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error("twitch_player_unavailable"));
-    };
-
-    script.addEventListener("load", done);
-    script.addEventListener("error", fail);
-    // Another watch surface may have inserted the SDK script first. Polling
-    // avoids leaving this promise unresolved if its load event already fired.
-    pollTimer = window.setInterval(done, 50);
-    timeoutTimer = window.setTimeout(fail, 10_000);
-    if (!existing) {
-      script.src = "https://player.twitch.tv/js/embed/v1.js";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  });
-
-  billboardTwitchScript = pending;
-  void pending.catch(() => {
-    if (billboardTwitchScript === pending) billboardTwitchScript = null;
-  });
-  return pending;
-}
-
 function uniqueBillboards(items: WatchItem[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -117,12 +39,7 @@ function uniqueBillboards(items: WatchItem[]) {
   });
 }
 
-function directVideoPreviewUrl(value?: string | null): string | null {
-  if (!value || !/\.(?:mp4|webm)(?:$|[?#])/i.test(value)) return null;
-  return value;
-}
-
-export function BillboardCarousel({ items }: { items: WatchItem[] }) {
+export function BillboardCarousel({ items, headingLevel = "h1" }: { items: WatchItem[]; headingLevel?: "h1" | "h2" }) {
   const slides = useMemo(() => uniqueBillboards(items), [items]);
   const [index, setIndex] = useState(0);
   const [focusPaused, setFocusPaused] = useState(false);
@@ -160,7 +77,7 @@ export function BillboardCarousel({ items }: { items: WatchItem[] }) {
       }}
     >
       <div key={item.id} className="watch-billboard-slide">
-        <Billboard item={item} />
+        <Billboard item={item} headingLevel={headingLevel} />
       </div>
 
       {slides.length > 1 ? (
@@ -218,547 +135,7 @@ export function BillboardCarousel({ items }: { items: WatchItem[] }) {
   );
 }
 
-function BillboardHeroPlayer({ item, playable, onOpen }: { item: WatchItem; playable: Playable; onOpen: () => void }) {
-  const slotRef = useRef<HTMLDivElement>(null);
-  const frameRef = useRef<HTMLIFrameElement>(null);
-  const nativeVideoRef = useRef<HTMLVideoElement>(null);
-  const twitchMountRef = useRef<HTMLDivElement>(null);
-  const twitchPlayerRef = useRef<BillboardTwitchInstance | null>(null);
-  const reactId = useId();
-  const twitchMountId = `watch-hero-twitch-${reactId.replace(/[^a-z0-9_-]/gi, "")}`;
-  const [host, setHost] = useState<{ parent: string; origin: string } | null>(null);
-  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
-  const [twitchMounted, setTwitchMounted] = useState(false);
-  const [twitchPlaying, setTwitchPlaying] = useState(false);
-  const [twitchRecovering, setTwitchRecovering] = useState(false);
-  const [twitchLoadError, setTwitchLoadError] = useState(false);
-  const [retryToken, setRetryToken] = useState(0);
-  const [nativePlaying, setNativePlaying] = useState(false);
-  // Preview players always begin muted, which is the only autoplay mode that
-  // works consistently across Twitch, YouTube, desktop, and mobile browsers.
-  // The sound control below is a real viewer gesture, so it can safely opt
-  // into audio after pixels are already playing.
-  const mutedRef = useRef(true);
-  const [muted, setMuted] = useState(true);
-  const [slotFitsProvider, setSlotFitsProvider] = useState(false);
-  const [providerExposed, setProviderExposed] = useState(false);
-  const [pageVisible, setPageVisible] = useState(false);
-  const {
-    current,
-    dataSaver,
-    ready: playerReady,
-  } = usePlayer();
-
-  useEffect(() => {
-    setHost({ parent: window.location.hostname, origin: window.location.origin });
-  }, []);
-
-  useEffect(() => {
-    const slot = slotRef.current;
-    if (!slot) return;
-
-    const updateFit = () => {
-      const { width, height } = slot.getBoundingClientRect();
-      const fits = item.platform === "twitch"
-        ? width >= 400 && height >= 300
-        : width >= 200 && height >= 200;
-      setSlotFitsProvider(fits);
-    };
-
-    updateFit();
-    if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(updateFit);
-      observer.observe(slot);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener("resize", updateFit);
-    return () => window.removeEventListener("resize", updateFit);
-  }, [item.platform]);
-
-  useEffect(() => {
-    const slot = slotRef.current;
-    if (!slot) return;
-
-    let frame = 0;
-    const updateExposure = () => {
-      frame = 0;
-      const rect = slot.getBoundingClientRect();
-      const viewportWidth = document.documentElement.clientWidth;
-      const viewportHeight = window.innerHeight;
-      const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
-      const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
-      setProviderExposed(
-        rect.width > 0 &&
-        rect.height > 0 &&
-        // The hero sits above the browse filters, so using the filter rail as
-        // a visibility boundary accidentally prevented every carousel live
-        // preview from mounting. A mostly visible hero is sufficient for
-        // muted provider autoplay and keeps each selected stream active.
-        visibleWidth / rect.width >= 0.85 &&
-        visibleHeight / rect.height >= 0.85,
-      );
-    };
-    const scheduleExposureUpdate = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(updateExposure);
-    };
-
-    updateExposure();
-    window.addEventListener("resize", scheduleExposureUpdate);
-    window.addEventListener("scroll", scheduleExposureUpdate, { passive: true });
-    const observer = typeof ResizeObserver === "undefined"
-      ? null
-      : new ResizeObserver(scheduleExposureUpdate);
-    observer?.observe(slot);
-
-    return () => {
-      window.removeEventListener("resize", scheduleExposureUpdate);
-      window.removeEventListener("scroll", scheduleExposureUpdate);
-      observer?.disconnect();
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  useEffect(() => {
-    const syncVisibility = () => setPageVisible(document.visibilityState === "visible");
-    syncVisibility();
-    document.addEventListener("visibilitychange", syncVisibility);
-    return () => document.removeEventListener("visibilitychange", syncVisibility);
-  }, []);
-
-  const wantsAutoplay =
-    playerReady &&
-    // A persistent Theater/mini-player session owns playback across routes.
-    // Do not open a second provider iframe in the billboard behind it.
-    !current &&
-    !dataSaver &&
-    slotFitsProvider &&
-    providerExposed &&
-    pageVisible;
-  const isTwitch = item.platform === "twitch";
-  const twitchChannel = playable.kind === "live" ? playable.twitchLogin : null;
-  const twitchVideo = playable.vodId;
-  const nativeVideoUrl = directVideoPreviewUrl(playable.mediaUrl);
-
-  const setHeroMuted = useCallback((next: boolean) => {
-    mutedRef.current = next;
-    setMuted(next);
-  }, []);
-
-  const requestFramePlayback = useCallback((nextMuted: boolean, requestPlay = false) => {
-    const target = frameRef.current?.contentWindow;
-    if (!target || !playable.youtubeId) return;
-    target.postMessage(JSON.stringify({ event: "listening", id: `core-billboard-${item.id}` }), "*");
-    target.postMessage(JSON.stringify({
-      event: "command",
-      func: nextMuted ? "mute" : "unMute",
-      args: [],
-    }), "*");
-    if (requestPlay) {
-      target.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
-    }
-  }, [item.id, playable.youtubeId]);
-
-  const toggleHeroMute = useCallback(() => {
-    const nextMuted = !mutedRef.current;
-    setHeroMuted(nextMuted);
-    try {
-      if (isTwitch) {
-        twitchPlayerRef.current?.setMuted?.(nextMuted);
-        // A click on the CORE control is a valid user gesture. Ask Twitch to
-        // continue in case its provider player is paused behind an ad or
-        // audience gate while the viewer turns sound on.
-        twitchPlayerRef.current?.play?.();
-      } else if (nativeVideoRef.current) {
-        nativeVideoRef.current.muted = nextMuted;
-        void nativeVideoRef.current.play().then(() => setNativePlaying(true)).catch(() => setNativePlaying(false));
-      } else {
-        requestFramePlayback(nextMuted, true);
-      }
-    } catch {
-      // Provider state may be changing. Its regular muted retry path remains
-      // active and the next viewer click can retry the same control.
-    }
-  }, [isTwitch, requestFramePlayback, setHeroMuted]);
-
-  // Start fetching the Twitch SDK as soon as the hero is hydrated instead of
-  // waiting for the viewport measurement and player preferences to settle.
-  // The actual media player still mounts only when the preview is eligible.
-  useEffect(() => {
-    if (!isTwitch || dataSaver) return;
-    void loadBillboardTwitch().catch(() => undefined);
-  }, [dataSaver, isTwitch]);
-
-  const frameSrc = useMemo(() => {
-    if (!wantsAutoplay || !host || isTwitch || nativeVideoUrl) return null;
-    return embedFor(playable, {
-      parent: host.parent,
-      origin: host.origin,
-      muted: true,
-      controls: false,
-      autoplay: true,
-      loop: false,
-    });
-  }, [
-    host,
-    isTwitch,
-    nativeVideoUrl,
-    playable,
-    wantsAutoplay,
-  ]);
-
-  useEffect(() => {
-    if (isTwitch || !frameSrc || loadedSrc !== frameSrc) return;
-    const requestPlayback = () => requestFramePlayback(mutedRef.current, true);
-    requestPlayback();
-    const retries = [500, 1_500].map((delay) => window.setTimeout(requestPlayback, delay));
-    return () => retries.forEach((timer) => window.clearTimeout(timer));
-  }, [frameSrc, isTwitch, loadedSrc, requestFramePlayback]);
-
-  // First-party/direct programming uses a real media element instead of an
-  // opaque iframe. Give it the same browser-safe muted retry path as YouTube
-  // so a homepage hero is already moving when the viewer sees it.
-  useEffect(() => {
-    if (!nativeVideoUrl || !wantsAutoplay) {
-      setNativePlaying(false);
-      return;
-    }
-    const video = nativeVideoRef.current;
-    if (!video) return;
-    let disposed = false;
-    const requestPlayback = () => {
-      if (disposed) return;
-      video.muted = mutedRef.current;
-      void video.play().then(() => {
-        if (!disposed) setNativePlaying(true);
-      }).catch(() => {
-        if (!disposed) setNativePlaying(false);
-      });
-    };
-    requestPlayback();
-    const retries = [180, 650, 1_400].map((delay) => window.setTimeout(requestPlayback, delay));
-    return () => {
-      disposed = true;
-      retries.forEach((timer) => window.clearTimeout(timer));
-    };
-  }, [nativeVideoUrl, wantsAutoplay]);
-
-  useEffect(() => {
-    const mount = twitchMountRef.current;
-    if (!isTwitch || !wantsAutoplay || !host || !mount || (!twitchChannel && !twitchVideo)) {
-      setTwitchMounted(false);
-      setTwitchPlaying(false);
-      twitchPlayerRef.current = null;
-      return;
-    }
-
-    let disposed = false;
-    let instance: BillboardTwitchInstance | null = null;
-    let providerReady = false;
-    let playbackStarted = false;
-    let playbackAttempts = 0;
-    const maxPlaybackAttempts = 14;
-    const retryTimers = new Set<number>();
-    let playbackWatchdog = 0;
-    let readinessWatchdog = 0;
-    let watchdogPasses = 0;
-    let lastObservedPosition = -1;
-    let gestureRecoveryArmed = false;
-    const clearPlaybackRetries = () => {
-      retryTimers.forEach((timer) => window.clearTimeout(timer));
-      retryTimers.clear();
-    };
-    const removeGestureRecovery = () => {
-      if (!gestureRecoveryArmed) return;
-      gestureRecoveryArmed = false;
-      document.removeEventListener("click", recoverFromPointer, true);
-      document.removeEventListener("keydown", recoverFromKeyboard, true);
-    };
-    const recoverPlayback = () => {
-      if (disposed || !instance || !providerReady) return;
-      removeGestureRecovery();
-      instance.setMuted?.(mutedRef.current);
-      instance.play?.();
-    };
-    function recoverFromPointer() {
-      recoverPlayback();
-    }
-    function recoverFromKeyboard(event: KeyboardEvent) {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      recoverPlayback();
-    }
-    const armGestureRecovery = () => {
-      if (gestureRecoveryArmed || disposed) return;
-      gestureRecoveryArmed = true;
-      document.addEventListener("click", recoverFromPointer, true);
-      document.addEventListener("keydown", recoverFromKeyboard, true);
-    };
-    const prepareIframe = () => {
-      const frame = mount.querySelector("iframe");
-      if (!frame || disposed) return false;
-      frame.setAttribute("allow", "autoplay; encrypted-media; fullscreen; picture-in-picture");
-      setTwitchMounted(true);
-      return true;
-    };
-    const mountObserver = new MutationObserver(prepareIframe);
-    mountObserver.observe(mount, { childList: true, subtree: true });
-    const requestPlayback = () => {
-      if (disposed || !instance || !providerReady || playbackStarted || playbackAttempts >= maxPlaybackAttempts) return;
-      playbackAttempts += 1;
-      prepareIframe();
-      instance.setMuted?.(mutedRef.current);
-      instance.play?.();
-    };
-    const schedulePlaybackRetries = (delays: number[]) => {
-      const available = Math.max(0, maxPlaybackAttempts - playbackAttempts - retryTimers.size);
-      delays.slice(0, available).forEach((delay) => {
-        const timer = window.setTimeout(() => {
-          retryTimers.delete(timer);
-          requestPlayback();
-        }, delay);
-        retryTimers.add(timer);
-      });
-    };
-    setTwitchMounted(false);
-    setTwitchPlaying(false);
-    setTwitchRecovering(false);
-    setTwitchLoadError(false);
-    mount.replaceChildren();
-
-    void loadBillboardTwitch()
-      .then((api) => {
-        if (disposed) return;
-        const options: Record<string, unknown> = {
-          width: "100%",
-          height: "100%",
-          parent: [host.parent],
-          autoplay: true,
-          muted: true,
-        };
-        if (twitchChannel) options.channel = twitchChannel;
-        else if (twitchVideo) options.video = twitchVideo.startsWith("v") ? twitchVideo : `v${twitchVideo}`;
-        instance = new api.Player(twitchMountId, options);
-        twitchPlayerRef.current = instance;
-        // Twitch requires an unobscured, interactive iframe before autoplay is
-        // eligible. The mutation observer marks it mounted only after the SDK
-        // has actually inserted that iframe.
-        prepareIframe();
-        armGestureRecovery();
-        instance.addEventListener(api.Player.READY, () => {
-          if (disposed) return;
-          providerReady = true;
-          playbackAttempts = 0;
-          clearPlaybackRetries();
-          requestPlayback();
-          schedulePlaybackRetries([250, 600, 1_200, 2_200, 3_600, 5_200]);
-
-          // PLAYING is occasionally withheld while Twitch transitions through
-          // an ad or audience gate even though the SDK reports an active
-          // player. Verify that state and continue muted requests instead of
-          // leaving the CORE hero permanently in “warming”.
-          playbackWatchdog = window.setInterval(() => {
-            if (disposed || playbackStarted) return;
-            watchdogPasses += 1;
-            try {
-              const position = instance?.getCurrentTime?.() ?? 0;
-              const advanced = lastObservedPosition >= 0 && position > lastObservedPosition + 0.25;
-              lastObservedPosition = position;
-              if (advanced && instance?.isPaused?.() === false) {
-                playbackStarted = true;
-                clearPlaybackRetries();
-                removeGestureRecovery();
-                setTwitchMounted(true);
-                setTwitchPlaying(true);
-                setTwitchRecovering(false);
-                return;
-              }
-            } catch {
-              // The player can reject state reads during an interstitial.
-            }
-            setTwitchRecovering(true);
-            // Preserve a finite retry budget per pass, but allow a current
-            // stream a few fresh attempts while the provider is transitioning.
-            if (playbackAttempts >= maxPlaybackAttempts) playbackAttempts = Math.max(0, maxPlaybackAttempts - 4);
-            requestPlayback();
-            schedulePlaybackRetries([300, 850, 1_800]);
-            if (watchdogPasses >= 4) window.clearInterval(playbackWatchdog);
-          }, 4_000);
-        });
-        instance.addEventListener(api.Player.PLAYING, () => {
-          if (disposed) return;
-          playbackStarted = true;
-          clearPlaybackRetries();
-          removeGestureRecovery();
-          instance?.setMuted?.(mutedRef.current);
-          setTwitchMounted(true);
-          setTwitchPlaying(true);
-          setTwitchRecovering(false);
-        });
-        instance.addEventListener(api.Player.OFFLINE, () => {
-          if (disposed) return;
-          playbackStarted = false;
-          providerReady = false;
-          clearPlaybackRetries();
-          removeGestureRecovery();
-          window.clearInterval(playbackWatchdog);
-          window.clearTimeout(readinessWatchdog);
-          setTwitchMounted(false);
-          setTwitchPlaying(false);
-          setTwitchRecovering(false);
-          instance?.destroy?.();
-          mount.replaceChildren();
-        });
-        instance.addEventListener(api.Player.PLAYBACK_BLOCKED, () => {
-          if (disposed) return;
-          playbackStarted = false;
-          // Keep Twitch's approved player visible so its native Play control
-          // can recover when the browser requires a user gesture.
-          clearPlaybackRetries();
-          prepareIframe();
-          setTwitchPlaying(false);
-          setTwitchRecovering(true);
-          armGestureRecovery();
-          // This signal can arrive while Twitch is still resolving a stream,
-          // an ad, or a mature-content interstitial. Keep trying muted
-          // playback rather than abandoning the preview after one response.
-          // A provider block can be transient. Re-open a little retry budget
-          // so an earlier failed attempt does not permanently strand the
-          // currently selected live hero.
-          playbackAttempts = Math.max(0, playbackAttempts - 3);
-          schedulePlaybackRetries([350, 900, 1_800, 3_000]);
-        });
-        readinessWatchdog = window.setTimeout(() => {
-          if (disposed || providerReady || playbackStarted) return;
-          // The SDK iframe is visible, so keep its native recovery route
-          // available and mark the state accurately rather than presenting an
-          // endless generic spinner. A real interaction can still recover it.
-          prepareIframe();
-          setTwitchRecovering(true);
-          armGestureRecovery();
-        }, 6_000);
-      })
-      .catch(() => {
-        if (disposed) return;
-        setTwitchMounted(false);
-        setTwitchPlaying(false);
-        setTwitchRecovering(false);
-        setTwitchLoadError(true);
-        mount.replaceChildren();
-      });
-
-    return () => {
-      disposed = true;
-      clearPlaybackRetries();
-      removeGestureRecovery();
-      mountObserver.disconnect();
-      window.clearInterval(playbackWatchdog);
-      window.clearTimeout(readinessWatchdog);
-      instance?.destroy?.();
-      if (twitchPlayerRef.current === instance) twitchPlayerRef.current = null;
-      mount.replaceChildren();
-    };
-  }, [host, isTwitch, retryToken, twitchChannel, twitchMountId, twitchVideo, wantsAutoplay]);
-
-  const frameReady = isTwitch
-    ? twitchPlaying
-    : nativeVideoUrl
-      ? nativePlaying
-      : Boolean(frameSrc && loadedSrc === frameSrc);
-  const soundControlReady = !isTwitch && (nativeVideoUrl
-      ? wantsAutoplay
-      : Boolean(frameSrc && loadedSrc === frameSrc));
-  const previewState = frameReady
-    ? "playing"
-    : twitchMounted
-      ? twitchRecovering ? "recovering" : "warming"
-      : "poster";
-
-  return (
-    <div
-      ref={slotRef}
-      className={`watch-billboard-live-player is-preview ${isTwitch ? "is-twitch" : nativeVideoUrl ? "is-native" : "is-youtube"} ${twitchMounted ? "is-mounted" : ""} ${frameReady ? "is-ready" : ""} ${twitchPlaying ? "is-playing" : ""}`}
-      data-preview-state={previewState}
-    >
-      <WatchThumb
-        youtubeId={playable.youtubeId}
-        src={item.backdrop || item.poster}
-        className="watch-billboard-live-fallback"
-        loading="eager"
-        focalPoint={item.focalPoint}
-      />
-      {isTwitch ? (
-        <div
-          ref={twitchMountRef}
-          id={twitchMountId}
-          className="watch-billboard-live-mount"
-        />
-      ) : nativeVideoUrl ? (
-        <video
-          ref={nativeVideoRef}
-          src={nativeVideoUrl}
-          className="watch-billboard-live-frame"
-          autoPlay
-          muted={muted}
-          playsInline
-          preload="auto"
-          onCanPlay={(event) => {
-            event.currentTarget.muted = mutedRef.current;
-            void event.currentTarget.play().then(() => setNativePlaying(true)).catch(() => setNativePlaying(false));
-          }}
-          onPlaying={() => setNativePlaying(true)}
-          onPause={() => setNativePlaying(false)}
-          onError={() => setNativePlaying(false)}
-        />
-      ) : frameSrc ? (
-        <iframe
-          title={`${item.title} muted preview`}
-          src={frameSrc}
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          allowFullScreen
-          ref={frameRef}
-          className="watch-billboard-live-frame"
-          loading="eager"
-          referrerPolicy="strict-origin-when-cross-origin"
-          onLoad={() => setLoadedSrc(frameSrc)}
-          onError={() => setLoadedSrc(null)}
-        />
-      ) : null}
-      {soundControlReady ? (
-        <button
-          type="button"
-          className="watch-billboard-live-sound"
-          aria-pressed={!muted}
-          aria-label={muted ? `Turn sound on for ${item.title}` : `Mute ${item.title}`}
-          onClick={toggleHeroMute}
-        >
-          {muted ? "Sound off" : "Sound on"}
-        </button>
-      ) : null}
-      {!isTwitch ? (
-        <button
-          type="button"
-          className="watch-billboard-live-core-overlay"
-          onClick={onOpen}
-          aria-label={`Open ${item.title} in the media player`}
-        >
-          <span className="watch-billboard-live-core-badge"><i aria-hidden /> Preview</span>
-          <span className="watch-billboard-live-core-open"><span aria-hidden>▶</span> Open player</span>
-          <span className="watch-billboard-live-core-muted">{muted ? "Muted preview" : "Sound on"}</span>
-        </button>
-      ) : null}
-      {isTwitch ? <><span className="watch-billboard-provider-label">Preview</span><div className="watch-billboard-provider-status">
-        {(twitchRecovering || twitchLoadError) && !twitchPlaying ? <div role="status">
-          <span>Twitch is taking longer to load.</span>
-          <button type="button" onClick={() => setRetryToken((value) => value + 1)}>Try again</button>
-          <a href={twitchChannel ? `https://www.twitch.tv/${encodeURIComponent(twitchChannel)}` : `https://www.twitch.tv/videos/${encodeURIComponent(twitchVideo ?? "")}`} target="_blank" rel="noopener noreferrer">Open on Twitch</a>
-        </div> : null}
-      </div></> : null}
-    </div>
-  );
-}
-
-export function Billboard({ item }: { item: WatchItem }) {
+export function Billboard({ item, headingLevel: Heading = "h1" }: { item: WatchItem; headingLevel?: "h1" | "h2" }) {
   const [saved, setSaved] = useState(false);
   const { map } = useWatchProgress();
   const player = usePlayer();
@@ -776,27 +153,8 @@ export function Billboard({ item }: { item: WatchItem }) {
       .map((ref) => map[ref as string]),
   );
   const progress = Math.min(1, Math.max(0, mark?.progress ?? 0));
-  const live = item.kind === "live" || item.format === "live";
+  const live = item.kind === "live";
   const shape = contentShape(item);
-  const heroPlayable = useMemo(() => {
-    const hasDirectVideo = Boolean(directVideoPreviewUrl(playable?.mediaUrl));
-    if (
-      item.live?.type === "audio" ||
-      item.embeddable === false ||
-      item.previewStrategy === "external" ||
-      item.previewStrategy === "image" ||
-      (item.platform !== "twitch" && !playable?.youtubeId && !hasDirectVideo)
-    ) {
-      return null;
-    }
-    if (!playable) return null;
-    // Twitch live channels and past broadcasts share the same SDK path. It
-    // lets both start muted and retry from a provider-ready player instead of
-    // showing an iframe that appears permanently stalled in the hero.
-    if (item.platform === "twitch" && !((live && playable.twitchLogin) || playable.vodId)) return null;
-    if (item.platform === "youtube" && !playable.youtubeId) return null;
-    return playable;
-  }, [item, live, playable]);
   const fallbackOnly = !playable;
   const fallbackHref = item.sourceUrl || item.href;
   const resumable = !mark?.completed &&
@@ -833,7 +191,7 @@ export function Billboard({ item }: { item: WatchItem }) {
 
   return (
     <header
-      className={`watch-billboard is-${shape} is-platform-${item.platform} ${heroPlayable ? "has-live-player" : ""}`}
+      className={`watch-billboard is-${shape} is-platform-${item.platform}`}
       aria-labelledby="watch-billboard-title"
     >
       <div className="watch-billboard-media" aria-hidden>
@@ -854,9 +212,9 @@ export function Billboard({ item }: { item: WatchItem }) {
       </div>
       <div className="watch-billboard-veil" aria-hidden />
 
-      {heroPlayable ? <BillboardHeroPlayer item={item} playable={heroPlayable} onOpen={playInPlayer} /> : null}
+      {/* Provider players start after an intentional Play action in the main player. */}
 
-      {playable && !heroPlayable ? (
+      {playable ? (
         <button
           type="button"
           className="watch-billboard-surface-action"
@@ -870,12 +228,13 @@ export function Billboard({ item }: { item: WatchItem }) {
           {live ? <span className="watch-billboard-live">Live</span> : null}
           <span>{watchAttributionLabel(item)}</span>
         </p>
-        <h1
+        <Heading
           id="watch-billboard-title"
+          title={item.title}
           className={`watch-title ${titleSizeClass} mt-3 max-w-[52rem] break-words text-[color:var(--ink)]`}
         >
-          {item.title}
-        </h1>
+          {compactTitle(item.title, 84)}
+        </Heading>
 
         {progress > 0 && !live ? (
           <div className="watch-billboard-progress-row">
@@ -915,10 +274,10 @@ export function Billboard({ item }: { item: WatchItem }) {
             type="button"
             aria-pressed={Boolean(user && dvrSaved)}
             aria-label={dvrLoading
-              ? "Loading DVR"
+              ? "Loading saved library"
               : user
-                ? dvrLocked ? `Unlock DVR to save ${item.title}` : dvrSaved ? `Remove ${item.title} from DVR` : `Add ${item.title} to DVR`
-                : `Add ${item.title} to DVR`}
+                ? dvrLocked ? `Save with membership to save ${item.title}` : dvrSaved ? `Remove ${item.title} from your library` : `Add ${item.title} to your library`
+                : `Add ${item.title} to your library`}
             aria-busy={dvrLoading}
             disabled={dvrLoading}
             onClick={() => {
@@ -935,7 +294,7 @@ export function Billboard({ item }: { item: WatchItem }) {
             className="watch-billboard-list"
           >
             <span aria-hidden>{dvrSaved ? "✓" : "+"}</span>
-            {dvrLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : user && dvrSaved ? "In DVR" : "Add to DVR"}
+            {dvrLoading ? "Loading…" : dvrLocked ? "Save with membership" : user && dvrSaved ? "Saved" : "Save"}
           </button>
 
         </div>

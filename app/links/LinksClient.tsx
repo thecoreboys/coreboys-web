@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { ChevronDown } from "lucide-react";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { SocialIcon, PLATFORM_LABEL } from "@/components/ui/SocialIcon";

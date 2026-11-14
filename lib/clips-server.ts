@@ -6,6 +6,7 @@
  */
 import { query } from "@/lib/db";
 import { defaultAspectFor, type Clip } from "@/lib/clips";
+import { filterAvailableContent } from "@/lib/content-availability";
 
 /**
  * Public clips list, read from the `clips` table (admin-managed via
@@ -45,7 +46,11 @@ export async function getPublicClips(): Promise<Clip[]> {
       ORDER BY c.published_at DESC NULLS LAST`,
   );
 
-  return r.rows.map((row) => ({
+  const rows = await filterAvailableContent(r.rows.map((row) => ({ row, provider: row.source,
+    providerId: row.source === "twitch" && /clips\.twitch\.tv|\/clip\//.test(row.url) ? `clip:${row.external_id}` : row.external_id,
+    sourceUrl: row.url,
+  })));
+  return rows.map(({ row }) => ({
     id: row.id,
     source: row.source,
     externalId: row.external_id,

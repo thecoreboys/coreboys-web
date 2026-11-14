@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { type FC, type ReactNode, useState } from "react";
 import { User01 } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
@@ -100,7 +101,7 @@ export const Avatar = ({
 
     const renderMainContent = () => {
         if (canShowImage) {
-            return <img data-avatar-img className="size-full object-cover" src={src} alt={alt} onError={() => setIsFailed(true)} />;
+            return <SiteImage width={64} height={64} data-avatar-img className="size-full object-cover" src={src} alt={alt ?? ""} onError={() => setIsFailed(true)} />;
         }
 
         if (initials) {

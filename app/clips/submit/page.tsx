@@ -29,7 +29,7 @@ export default async function ClipSubmitPage() {
   }));
 
   return (
-    <main className="relative pt-20 md:pt-24">
+    <div className="relative">
       <section className="relative overflow-hidden">
         <div
           aria-hidden
@@ -55,6 +55,6 @@ export default async function ClipSubmitPage() {
         </div>
       </section>
       <SiteFooter />
-    </main>
+    </div>
   );
 }

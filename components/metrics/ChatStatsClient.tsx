@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Line, LineChart, ResponsiveContainer } from "recharts";

@@ -1,14 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import type { FeedItem } from "@/components/feed/types";
+import type { FeedItem, XFeedQuoteReference } from "@/components/feed/types";
 import {
   configuredXFeedAccounts,
   fetchConfiguredXFeedOnce,
   hydrateConfiguredXQuotesOnce,
 } from "@/lib/x-feed-upstream";
 import {
-  collectPendingXQuoteReferences,
+  collectXQuoteLookupReferences,
 } from "@/lib/x-feed-request";
+import { completeXContentVerification, reserveXContentVerification } from "@/lib/x-content-verification";
 import { advanceXSearchPage, type XSearchContinuation } from "@/lib/x-feed-pagination";
 import {
   getXFeedSnapshot,
@@ -167,19 +168,25 @@ export async function POST(request: Request) {
             success: true,
           });
 
-          // Fresh recent-search rows already include quote expansions. Only
-          // spend a second read when an older durable row still has an
-          // unresolved quote; it is hard-capped in lib/x-feed-request.
+          // Share one bounded lookup between legacy hydration and the daily
+          // verification of known primary/quoted posts, including outsiders.
           const snapshotItems = [...items, ...existing.items];
           eventCandidates = snapshotItems;
-          const pendingQuotes = collectPendingXQuoteReferences(snapshotItems);
-          if (!pendingQuotes.length) return snapshotItems;
+          let verification: XFeedQuoteReference[] = [];
+          try {
+            verification = await reserveXContentVerification(snapshotItems);
+          } catch {
+            // A missing/unavailable verification store never authorizes extra
+            // reads. Ordinary hydration can still use its existing budget.
+          }
+          const lookupReferences = collectXQuoteLookupReferences(snapshotItems, verification);
+          if (!lookupReferences.length) return snapshotItems;
 
           try {
             const quoteGate = await reserveXApiBudget({
               category: "read",
               operation: "feed.snapshot.quote_hydration",
-              worstCaseMicrousd: pendingQuotes.length * (
+              worstCaseMicrousd: lookupReferences.length * (
                 pricing.readPostMicrousd + pricing.readUserMicrousd
               ),
               credentialsReady: Boolean(process.env.X_BEARER_TOKEN?.trim()),
@@ -190,7 +197,7 @@ export async function POST(request: Request) {
             }
 
             try {
-              const hydrated = await hydrateConfiguredXQuotesOnce(snapshotItems);
+              const hydrated = await hydrateConfiguredXQuotesOnce(snapshotItems, verification);
               const quoteActualCost =
                 hydrated.resolvedCount * pricing.readPostMicrousd +
                 hydrated.resolvedUserCount * pricing.readUserMicrousd;
@@ -202,6 +209,12 @@ export async function POST(request: Request) {
                 actualCostMicrousd: quoteActualCost,
                 success: true,
               });
+              try {
+                await completeXContentVerification(verification, hydrated.lookup);
+              } catch {
+                // The durable daily reservation still prevents duplicate paid
+                // reads. Unfinished outcomes remain eligible for later checks.
+              }
               quoteHydration = hydrated.unavailableCount > 0 && hydrated.resolvedCount === 0
                 ? "unavailable"
                 : "hydrated";

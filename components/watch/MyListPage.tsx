@@ -14,6 +14,8 @@ import { homeItemReferences, mergeHomeItems } from "@/lib/watch/home-catalog";
 import { MyListShelf, PosterCard } from "./PosterCard";
 import { DragScrollRail } from "./DragScrollRail";
 import { toggleMyList } from "@/lib/watch/mylist";
+import { useContentAvailability } from "@/hooks/useContentAvailability";
+import { isContentUnavailable, sanitizeAvailableContent } from "@/lib/content-identity";
 
 type MyListView = "all" | "unwatched" | "progress" | "watched";
 type MyListSort = "recent" | "title" | "progress";
@@ -35,7 +37,11 @@ export function MyListPage({ initialItems }: { initialItems: WatchItem[] }) {
   const [search, setSearch] = useState("");
   const queueTemplatesAllowed = subscription.hasFeature("queue.templates");
   const [resolved, setResolved] = useState<{ items: WatchItem[]; checked: string[]; error: boolean }>({ items: [], checked: [], error: false });
-  const items = useMemo(() => mergeHomeItems(initialItems, resolved.items), [initialItems, resolved.items]);
+  const combinedItems = useMemo(() => mergeHomeItems(initialItems, resolved.items), [initialItems, resolved.items]);
+  const unavailable = useContentAvailability([...combinedItems,
+    ...dvrItemReferences(ids, queueTemplatesAllowed ? discovery.state.queues : []).map((id) => ({ id }))]);
+  const items = useMemo(() => sanitizeAvailableContent(combinedItems, unavailable), [combinedItems, unavailable]);
+  const visibleIds = ids.filter((id) => !isContentUnavailable({ id }, unavailable));
   const known = new Set([...items.flatMap(homeItemReferences), ...resolved.checked]);
   const wanted = dvrItemReferences(ids, queueTemplatesAllowed ? discovery.state.queues : []).filter((ref) => !known.has(ref));
   const lookupKey = wanted.slice(0, 100).join("\n");
@@ -74,8 +80,8 @@ export function MyListPage({ initialItems }: { initialItems: WatchItem[] }) {
   const unavailableIds = useMemo(() => {
     const available = new Set(items.map((item) => item.id));
     const checked = new Set(resolved.checked);
-    return ids.filter((id) => !available.has(id) && checked.has(id));
-  }, [items, ids, resolved.checked]);
+    return ids.filter((id) => !isContentUnavailable({ id }, unavailable) && !available.has(id) && checked.has(id));
+  }, [items, ids, resolved.checked, unavailable]);
 
   const marks = useMemo(() => {
     const output = new Map<string, { completed: boolean; progress: number }>();
@@ -170,7 +176,7 @@ export function MyListPage({ initialItems }: { initialItems: WatchItem[] }) {
       </div> : null}
       <MyListShelf
         items={displayedItems}
-        totalCount={ids.length}
+        totalCount={visibleIds.length}
         signedIn={signedIn}
         loading={loading || metadataLoading}
         view={view}
@@ -272,7 +278,7 @@ export function MyListPage({ initialItems }: { initialItems: WatchItem[] }) {
                     <span>{activeQueue.itemIds.length} title{activeQueue.itemIds.length === 1 ? "" : "s"}</span>
                     <Tooltip
                       title="Delete custom list"
-                      description="Delete this list. Titles stay in your DVR."
+                      description="Delete this list. Titles stay in your saved library."
                       placement="top"
                     >
                       <button
@@ -322,7 +328,7 @@ export function MyListPage({ initialItems }: { initialItems: WatchItem[] }) {
               <Layers3 aria-hidden />
               <div>
                 <h3>Create your first custom list</h3>
-                <p>Choose a name, then add titles from your DVR.</p>
+                <p>Choose a name, then add titles from your saved library.</p>
               </div>
             </div>
           )}

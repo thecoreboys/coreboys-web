@@ -77,6 +77,7 @@ type XRecentSearchResponse = {
   };
   errors?: Array<{
     resource_id?: string;
+    resource_type?: string;
     title?: string;
     type?: string;
   }>;
@@ -88,6 +89,10 @@ export type XQuoteLookupResult = {
   quotes: ReadonlyMap<string, XFeedQuote>;
   /** IDs which X explicitly reported deleted, protected, or otherwise unavailable. */
   unavailableIds: ReadonlySet<string>;
+  /** Exact lookup outcomes; omissions and authorization errors are inconclusive. */
+  foundIds?: ReadonlySet<string>;
+  confirmedMissingIds?: ReadonlySet<string>;
+  returnedUserCount?: number;
 };
 
 const CENTER = { x: 0.5, y: 0.5 } as const;
@@ -708,9 +713,19 @@ function parseXQuoteLookupResponse(
   }
 
   const unavailableIds = new Set<string>();
+  const confirmedMissingIds = new Set<string>();
   for (const error of response.errors ?? []) {
     if (!isRecord(error) || typeof error.resource_id !== "string") continue;
     if (requested.has(error.resource_id)) unavailableIds.add(error.resource_id);
+    // Official partial-error contract: resource-not-found must name the
+    // requested tweet, not a missing user/media expansion or an auth failure.
+    // https://docs.x.com/x-api/fundamentals/response-codes-and-errors
+    if (requested.has(error.resource_id) && !returnedIds.has(error.resource_id)
+      && error.resource_type === "tweet"
+      && (error.type === "https://api.x.com/2/problems/resource-not-found"
+        || error.type === "https://api.twitter.com/2/problems/resource-not-found")) {
+      confirmedMissingIds.add(error.resource_id);
+    }
   }
   // A lookup may omit a deleted or protected Post without an item-level error.
   // Treat only truly absent IDs as unavailable; a returned post missing a user
@@ -721,7 +736,9 @@ function parseXQuoteLookupResponse(
       unavailableIds.add(statusId);
     }
   }
-  return { quotes, unavailableIds };
+  return { quotes, unavailableIds,
+    foundIds: new Set([...returnedIds].filter((id) => requested.has(id))),
+    confirmedMissingIds, returnedUserCount: new Set(users.map((user) => user.id)).size };
 }
 
 function statusReferenceFromUrl(value: unknown): XFeedQuoteReference | undefined {
@@ -775,6 +792,7 @@ export function collectPendingXQuoteReferences(
   limit = X_QUOTE_LOOKUP_MAX_IDS,
 ): XFeedQuoteReference[] {
   const cap = Math.max(0, Math.min(X_QUOTE_LOOKUP_MAX_IDS, Math.trunc(limit)));
+  if (cap === 0) return [];
   // A fresh media row for the same status may already carry the expansion
   // while a legacy duplicate in the old snapshot does not. Never spend a
   // lookup on that duplicate; the snapshot merge will prefer the fresh row.
@@ -792,6 +810,20 @@ export function collectPendingXQuoteReferences(
     if (references.length === cap) break;
   }
   return references;
+}
+
+/** Verification reservations go first so none are silently dropped at the cap. */
+export function collectXQuoteLookupReferences(
+  items: readonly FeedItem[],
+  verification: readonly XFeedQuoteReference[] = [],
+): XFeedQuoteReference[] {
+  const references = new Map<string, XFeedQuoteReference>();
+  for (const reference of [...verification, ...collectPendingXQuoteReferences(items)]) {
+    if (!/^\d{5,25}$/.test(reference.statusId)) continue;
+    if (!references.has(reference.statusId)) references.set(reference.statusId, reference);
+    if (references.size === X_QUOTE_LOOKUP_MAX_IDS) break;
+  }
+  return [...references.values()];
 }
 
 /** Apply centrally fetched quote data to every media row from the same post. */
@@ -832,9 +864,10 @@ export async function fetchXQuoteLookupOnce(
 ): Promise<XQuoteLookupResult> {
   const bearerToken = options.bearerToken.trim();
   if (!bearerToken) throw new XFeedUpstreamError("X_BEARER_TOKEN is not configured");
-  const statusIds = references.map((reference) => reference.statusId);
+  const statusIds = [...new Set(references.map((reference) => reference.statusId)
+    .filter((id) => /^\d{5,25}$/.test(id)))].slice(0, X_QUOTE_LOOKUP_MAX_IDS);
   const url = buildXQuoteLookupUrl(statusIds);
-  if (!url) return { quotes: new Map(), unavailableIds: new Set() };
+  if (!url) return { quotes: new Map(), unavailableIds: new Set(), foundIds: new Set(), confirmedMissingIds: new Set(), returnedUserCount: 0 };
   const payload = await requestXRead(url, bearerToken, options.fetchImpl ?? fetch, "quote lookup");
   return parseXQuoteLookupResponse(payload, statusIds);
 }

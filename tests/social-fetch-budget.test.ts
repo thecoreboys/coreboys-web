@@ -72,14 +72,12 @@ test("every Social Fetch request path is protected by the durable ledger", () =>
   assert.match(budget, /status = 'completed' THEN COALESCE\(actual_credits, estimated_credits\)/);
 
   const mediaReserve = media.indexOf("budgetAdapter.reserve(");
-  const mediaFetch = media.indexOf("fetch(`${BASE_URL}${endpoint}`", mediaReserve);
+  const mediaFetch = media.indexOf("fetch(requestUrl", mediaReserve);
   assert.ok(mediaReserve >= 0 && mediaFetch > mediaReserve);
   assert.match(media, /readSocialFetchCreditsCharged\(body\)/);
   assert.match(media, /budgetAdapter\.settle\(reservation\.reservationId, reportedCredits\)/);
 
-  const metricReserve = metrics.indexOf("socialFetchBudgetAdapter.reserve(");
-  const metricFetch = metrics.indexOf("fetch(endpoint", metricReserve);
-  assert.ok(metricReserve >= 0 && metricFetch > metricReserve);
-  assert.match(metrics, /readSocialFetchCreditsCharged\(json\)/);
-  assert.match(metrics, /socialFetchBudgetAdapter\.settle\(reservation\.reservationId, reportedCredits\)/);
+  assert.match(metrics, /requestSocialFetchJson\(endpoint\.slice\(BASE\.length\), REVALIDATE_SECONDS/);
+  assert.match(metrics, /feature: "profile_metric", estimatedCredits: 1/);
+  assert.doesNotMatch(metrics, /await fetch\(/);
 });

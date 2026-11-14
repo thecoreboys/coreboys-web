@@ -14,7 +14,7 @@ type Setup = { manualKey: string; accountName: string; issuer: string };
 
 function AdminAuthShell({ children }: { children: ReactNode }) {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-0 pb-0 pt-20 sm:px-5 sm:pb-5 sm:pt-24">
+    <div className="relative flex min-h-[var(--page-min-height)] items-center justify-center overflow-hidden bg-[#09090b] px-0 pb-0 sm:px-5 sm:pb-5 sm:pt-24">
       <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(225,29,72,.12),transparent_32%),radial-gradient(circle_at_82%_85%,rgba(147,51,234,.08),transparent_30%)]" />
       <section className="relative grid min-h-[calc(100dvh-5rem)] w-full overflow-hidden border border-white/12 bg-[#151518] shadow-[0_34px_140px_rgba(0,0,0,.76)] sm:min-h-0 sm:max-w-5xl sm:grid-cols-[minmax(0,1.05fr)_minmax(25rem,.95fr)] sm:rounded-3xl">
         <aside className="relative isolate hidden min-h-[38rem] overflow-hidden p-7 sm:flex sm:flex-col sm:justify-between">
@@ -47,7 +47,7 @@ function AdminAuthShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 

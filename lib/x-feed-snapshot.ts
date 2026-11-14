@@ -6,6 +6,7 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import type { PoolClient } from "pg";
 import type { FeedItem } from "@/components/feed/types";
 import { query, withTransaction } from "@/lib/db";
+import { filterAvailableContent } from "@/lib/content-availability";
 import {
   X_FEED_LOCAL_QA_MAX_AGE_HOURS,
   X_FEED_PUBLIC_MAX_AGE_HOURS,
@@ -277,7 +278,7 @@ const cachedXFeedSnapshot = unstable_cache(
 );
 
 export async function getXFeedSnapshot(): Promise<FeedItem[]> {
-  return cachedXFeedSnapshot();
+  return filterAvailableContent(await cachedXFeedSnapshot());
 }
 
 export type PublicXFeedSnapshot = {
@@ -296,8 +297,13 @@ async function readPublicXFeedSnapshot(): Promise<PublicXFeedSnapshot> {
   let maxAgeHours = X_FEED_PUBLIC_MAX_AGE_HOURS;
   try {
     const result = await query<SnapshotRow>(
-      `SELECT payload, refreshed_at, attempted_at, last_error, stream_received_at, search_continuation
-         FROM x_feed_snapshots WHERE cache_key = $1 LIMIT 1`,
+      // Optional streaming columns may not exist yet during a rolling rollout.
+      // JSON projection returns null for missing fields while preserving the
+      // last successful roster snapshot; public reads never migrate schema.
+      `SELECT payload, refreshed_at, attempted_at, last_error,
+              to_jsonb(snapshot)->>'stream_received_at' AS stream_received_at,
+              to_jsonb(snapshot)->'search_continuation' AS search_continuation
+         FROM x_feed_snapshots AS snapshot WHERE cache_key = $1 LIMIT 1`,
       [SNAPSHOT_KEY],
     );
     row = result.rows[0];
@@ -334,11 +340,32 @@ async function readPublicXFeedSnapshot(): Promise<PublicXFeedSnapshot> {
 
 // A short shared read supports visible-tab polling without one DB read per fan.
 // The protected writer invalidates this same tag on a successful refresh.
-export const getPublicXFeedSnapshot = unstable_cache(
+const cachedPublicXFeedSnapshot = unstable_cache(
   readPublicXFeedSnapshot,
   ["coreboys", "public-x-feed-snapshot", "v1"],
   { revalidate: 10, tags: [SNAPSHOT_CACHE_TAG] },
 );
+
+export async function getPublicXFeedSnapshot(): Promise<PublicXFeedSnapshot> {
+  const snapshot = await cachedPublicXFeedSnapshot();
+  return { ...snapshot, items: await filterAvailableContent(snapshot.items) };
+}
+
+/** A removal never advances the polling cursor or pretends the roster was refreshed. */
+export async function purgeRemovedXFeedSnapshotItems(): Promise<void> {
+  await withTransaction(async (client) => {
+    const lock = await client.query<{ locked: boolean }>(
+      `SELECT pg_try_advisory_xact_lock(hashtext($1)) AS locked`, [LOCK_KEY],
+    );
+    if (!lock.rows[0]?.locked) throw new Error("x_feed_snapshot_busy");
+    const current = await currentSnapshot(client);
+    if (!current) return;
+    const items = await filterAvailableContent(normalizeItems(current.payload), client);
+    await client.query(`UPDATE x_feed_snapshots SET payload=$2::jsonb WHERE cache_key=$1`,
+      [SNAPSHOT_KEY, JSON.stringify(items)]);
+  });
+  revalidateTag(SNAPSHOT_CACHE_TAG);
+}
 
 /** Stream delivery merges posts without postponing or claiming a roster refresh. */
 export async function appendXFeedSnapshotItems(input: readonly FeedItem[]): Promise<void> {
@@ -351,7 +378,7 @@ export async function appendXFeedSnapshotItems(input: readonly FeedItem[]): Prom
     );
     if (!lock.rows[0]?.locked) throw new Error("x_feed_snapshot_busy");
     const current = await currentSnapshot(client);
-    const items = mergeItems(incoming, normalizeItems(current?.payload));
+    const items = await filterAvailableContent(mergeItems(incoming, normalizeItems(current?.payload)), client);
     await client.query(
       `INSERT INTO x_feed_snapshots (cache_key,payload,attempted_at,stream_received_at)
        VALUES ($1,$2::jsonb,to_timestamp(0),NOW())
@@ -517,7 +544,7 @@ export async function refreshXFeedSnapshot(
     }
 
     try {
-      const items = mergeItems(
+      const items = await filterAvailableContent(mergeItems(
         normalizeItems(await fetchOnce({
           historyBackfilled: Boolean(existing?.history_backfilled_at),
           items: existingItems,
@@ -526,7 +553,7 @@ export async function refreshXFeedSnapshot(
           searchContinuation: searchContinuation(existing?.search_continuation),
         })),
         existingItems,
-      );
+      ), client);
       const refreshedAt = new Date().toISOString();
       const continuation = options?.searchContinuation?.();
       await client.query(

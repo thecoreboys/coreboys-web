@@ -77,8 +77,9 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
   useEffect(() => {
     if (!loaded) return;
     let controller: AbortController | null = null;
+    let disposed = false;
     const load = async () => {
-      if (document.visibilityState !== "visible") return;
+      if (disposed || document.visibilityState !== "visible") return;
       controller?.abort(); controller = new AbortController();
       const currentSequence = ++sequence.current;
       try {
@@ -86,7 +87,7 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
         if (liveStartedAt) params.set("liveStartedAt", liveStartedAt);
         const response = await fetch(`/api/watch/creator-tags?${params}`, { signal: controller.signal, cache: "no-store" });
         const value = await response.json();
-        if (currentSequence !== sequence.current) return;
+        if (disposed || currentSequence !== sequence.current) return;
         if (response.status === 401 || response.status === 403) { setData(empty); setAccessBlocked(true); setSelecting(false); return; }
         if (response.ok && Array.isArray(value.creators) && Array.isArray(value.tags)) { setData(value); setSnapshotReady(true); if (value.unavailable) setMessage("Video tags are temporarily unavailable. Name lookup still works."); }
         else setMessage("Creator tags could not load. Try again shortly.");
@@ -96,7 +97,7 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
     const interval = window.setInterval(() => void load(), 15_000);
     const onVisibility = () => { if (document.visibilityState !== "visible") { controller?.abort(); sequence.current++; setData(empty); } else void load(); };
     document.addEventListener("visibilitychange", onVisibility);
-    return () => { controller?.abort(); sequence.current++; clearInterval(interval); document.removeEventListener("visibilitychange", onVisibility); };
+    return () => { disposed = true; controller?.abort(); clearInterval(interval); document.removeEventListener("visibilitychange", onVisibility); };
   }, [assetKey, liveStartedAt, loaded]);
 
   useEffect(() => {
@@ -116,8 +117,9 @@ export function CreatorTags({ assetKey, title, getTime, mediaRef, fit = "contain
         { width: video?.videoWidth || sourceRatio, height: video?.videoHeight || 1 }, fit));
     };
     update(); const observer = new ResizeObserver(update); observer.observe(host);
-    mediaRef?.current?.addEventListener("loadedmetadata", update);
-    return () => { observer.disconnect(); mediaRef?.current?.removeEventListener("loadedmetadata", update); };
+    const media = mediaRef?.current;
+    media?.addEventListener("loadedmetadata", update);
+    return () => { observer.disconnect(); media?.removeEventListener("loadedmetadata", update); };
   }, [assetKey, mediaRef, fit, sourceRatio, compact]);
 
   const named = matchCreatorText(title, data.creators);

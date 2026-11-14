@@ -18,7 +18,7 @@ function loadModule(file: string, dependencies: Record<string, unknown>) {
 test("job metadata is immutable and obsolete revisions are not loaded", async () => {
   let rows: unknown[] = [{ item: { id: "1", platform: "youtube", title: "new title" } }];
   const api = loadModule("../lib/media-intelligence/jobs.ts", {
-    "server-only": {}, "./azure": {},
+    "server-only": {}, "./azure": {}, "./content-guard": {},
     "./schema": { mediaIntelligenceQuery: async (sql: string) => {
       assert.match(sql, /r\.is_current AND a\.active/);
       return { rows };
@@ -30,14 +30,19 @@ test("job metadata is immutable and obsolete revisions are not loaded", async ()
   assert.equal(await api.loadMediaJobItem(job), null);
 });
 
-for (const scenario of ["superseded", "legacy", "current"] as const) {
+for (const scenario of ["superseded", "legacy", "current", "removed", "removed-in-flight"] as const) {
   test(`worker handles ${scenario} revision without retry churn`, async () => {
     const events: string[] = [];
     const job = { id: "old", revisionId: "old", idempotencyKey: "old", stage: "metadata", analyzer: "local", analyzerVersion: "1", priority: 100 };
     let claimed = false;
+    let checks = 0;
     const analyzer = { name: "local", version: "1", stage: "metadata", analyze: async () => { events.push("analyze"); return {}; } };
     const api = loadModule("../lib/media-intelligence/worker.ts", {
       "server-only": {}, "./policy": { sourcePolicyFor: () => ({}) },
+      "@/lib/content-availability": { filterAvailableContent: async (items: unknown[]) => {
+        checks += 1;
+        return scenario === "removed" || (scenario === "removed-in-flight" && checks > 1) ? [] : items;
+      } },
       "./analyzer": {
         availableMediaAnalyzers: () => [analyzer],
         prepareWatchItem: () => ({ asset: { key: "youtube:1", item: {} }, revision: { id: scenario === "legacy" ? "new" : "old" }, claim: { idempotencyKey: scenario === "legacy" ? "new" : "old" } }),
@@ -59,6 +64,8 @@ for (const scenario of ["superseded", "legacy", "current"] as const) {
     }) as typeof import("../lib/media-intelligence/worker");
     const result = await api.runMediaWorkerBatch({ maxJobs: 2 });
     assert.equal(result.failed, 0);
-    assert.deepEqual(events, scenario === "current" ? ["analyze"] : scenario === "legacy" ? ["prepare", "enqueue", "cancel"] : ["cancel"]);
+    assert.deepEqual(events, scenario === "current" ? ["analyze"] : scenario === "legacy" ? ["prepare", "enqueue", "cancel"]
+      : scenario === "removed-in-flight" ? ["analyze", "cancel"] : ["cancel"]);
+    if (scenario.startsWith("removed")) assert.equal(result.analyzed, 0);
   });
 }

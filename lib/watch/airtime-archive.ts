@@ -35,6 +35,9 @@ export type AirtimeArchiveRefreshResult = {
 const DAY_MS = 86_400_000;
 const RECENT_REFRESH_INTERVAL_MS = 4 * 60_000;
 const DEFAULT_REFRESH_DAYS = 400;
+// The Guide displays a completed August–July year, which can be almost two
+// years behind the current date. Fetch enough history for every visible cell.
+const DEFAULT_READ_DAYS = 800;
 
 let lastRefreshAt = 0;
 let refreshInFlight: Promise<AirtimeArchiveRefreshResult | null> | null = null;
@@ -60,7 +63,7 @@ function startDateForDays(days: number, now = new Date()): string {
  * their existing recent session and VOD sources.
  */
 export async function loadAirtimeDailyArchive({
-  days = 370,
+  days = DEFAULT_READ_DAYS,
   memberSlug,
   now = new Date(),
 }: {
