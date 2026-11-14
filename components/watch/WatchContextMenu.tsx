@@ -34,6 +34,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
@@ -206,7 +207,7 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
     const personalActions: MenuAction[] = [
       {
         id: "dvr",
-        label: dvrLocked ? "Unlock DVR" : saved ? "Remove from DVR" : "Save to DVR",
+        label: dvrLocked ? "Save with membership" : saved ? "Remove from library" : "Save",
         icon: Bookmark,
         active: dvrAllowed && saved,
         onSelect: () => {
@@ -222,7 +223,7 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
             window.location.assign(subscription.featureHref("dvr.extended_retention"));
             return;
           }
-          announce(toggleMyList(item.id).includes(item.id) ? "Saved to DVR" : "Removed from DVR");
+          announce(toggleMyList(item.id).includes(item.id) ? "Saved to library" : "Removed from DVR");
         },
       },
     ];
@@ -420,8 +421,8 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
   return (
     <WatchContextMenuContext.Provider value={{ open, close }}>
       {children}
-      {menu ? (
-        <div ref={menuRef} className="watch-context-menu" style={placement ? { left: placement.left, top: placement.top, ["--watch-context-scale" as string]: placement.scale } : undefined} role="menu" aria-label={menu.target.type === "content" ? `Actions for ${menu.target.item.title}` : menu.target.type === "link" ? `Actions for ${menu.target.label}` : menu.target.type === "text" ? "Text actions" : "Page actions"}>
+      {menu || notice ? createPortal(<>
+        {menu ? <div ref={menuRef} className="watch-context-menu" style={placement ? { left: placement.left, top: placement.top, ["--watch-context-scale" as string]: placement.scale } : undefined} role="menu" aria-label={menu.target.type === "content" ? `Actions for ${menu.target.item.title}` : menu.target.type === "link" ? `Actions for ${menu.target.label}` : menu.target.type === "text" ? "Text actions" : "Page actions"}>
           <div className="watch-context-menu__head">
             <span>{menu.target.type === "content" ? menu.target.item.title : menu.target.type === "link" ? menu.target.label || "Link" : menu.target.type === "text" ? "Selected text" : menu.target.surface === "media" ? "Media" : "Page"}</span>
             <button type="button" className="watch-context-menu__close" onClick={close} aria-label="Close menu"><X size={15} /></button>
@@ -439,9 +440,9 @@ export function WatchContextMenuProvider({ children }: { children: ReactNode }) 
               })}
             </div>
           ))}
-        </div>
-      ) : null}
-      {notice ? <div className="watch-context-menu__notice" role="status">{notice}</div> : null}
+        </div> : null}
+        {notice ? <div className="watch-context-menu__notice" role="status">{notice}</div> : null}
+      </>, document.body) : null}
     </WatchContextMenuContext.Provider>
   );
 }

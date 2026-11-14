@@ -1,3 +1,4 @@
+import SiteImage from "@/components/ui/SiteImage";
 import type { ReactNode } from "react";
 
 export type CtaSurfaceVariant = "chrome-hero" | "signal-grid" | "editorial-poster" | "member-vault" | "drop-event";
@@ -23,7 +24,8 @@ export function CtaSurface({
 }: CtaSurfaceProps) {
   return (
     <section aria-label={ariaLabel} className={`cta-surface cta-surface--${variant} cta-surface--${density} ${className}`}>
-      {artwork ? <img src={artwork} alt="" aria-hidden className="cta-surface__art" /> : null}
+      {artwork ? <SiteImage fill sizes="100vw" src={artwork} alt="" aria-hidden className="cta-surface__art" /> : null}
+      {!artwork ? <span aria-hidden className="cta-surface__atmosphere" /> : null}
       <span aria-hidden className="cta-surface__sheen" />
       <span aria-hidden className="cta-surface__registration cta-surface__registration--tl" />
       <span aria-hidden className="cta-surface__registration cta-surface__registration--br" />

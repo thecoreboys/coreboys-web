@@ -11,9 +11,9 @@ import { Badge } from "@/components/base/badges/badges";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { cx } from "@/utils/cx";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { detectClipPlatform, saveLocalClipDraft } from "@/lib/clips/local-draft";
 import Link from "next/link";
-
-const STORAGE_KEY = "coreboys-clip-submissions:v1";
 
 export type FanSubmission = {
   id: string;
@@ -42,17 +42,17 @@ type MemberOption = {
 };
 
 /**
- * Public clip submission form. Mirrors the fanzone photo submit UX —
- * modal frame with a scrollable body, avatar-chip member tagging, UUI
- * inputs / textarea / checkbox, terms gate. Phase 4 swaps the
- * localStorage write for `POST /v1/clip-submissions`.
+ * Local clip draft form. There is no public submission endpoint yet, so saving
+ * must never imply that a clip was sent to the team or entered moderation.
  */
 export function ClipSubmitForm({
   members,
   onClose,
+  showHeaderClose = true,
 }: {
   members: MemberOption[];
   onClose?: () => void;
+  showHeaderClose?: boolean;
 }) {
   const [url, setUrl] = useState("");
   const [why, setWhy] = useState("");
@@ -64,6 +64,9 @@ export function ClipSubmitForm({
   const [done, setDone] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
   const [hasSocial, setHasSocial] = useState<boolean | null>(null);
+  const [connectionError, setConnectionError] = useState(false);
+  const [connectionAttempt, setConnectionAttempt] = useState(0);
+  const [saveError, setSaveError] = useState("");
   const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
@@ -72,8 +75,13 @@ export function ClipSubmitForm({
       return;
     }
     let cancelled = false;
+    setHasSocial(null);
+    setConnectionError(false);
     fetch("/api/account/connections", { credentials: "same-origin" })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Could not check connected accounts.");
+        return r.json();
+      })
       .then((d: { connections?: Array<{ provider: string; status: string }> }) => {
         if (cancelled) return;
         setHasSocial(
@@ -83,14 +91,14 @@ export function ClipSubmitForm({
         );
       })
       .catch(() => {
-        if (!cancelled) setHasSocial(false);
+        if (!cancelled) setConnectionError(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, connectionAttempt]);
 
-  const detection = useMemo(() => detectPlatform(url), [url]);
+  const detection = useMemo(() => detectClipPlatform(url), [url]);
 
   const togglePick = (slug: string) =>
     setPicked((prev) =>
@@ -98,6 +106,9 @@ export function ClipSubmitForm({
     );
 
   const ready =
+    !authLoading &&
+    !!user &&
+    hasSocial === true &&
     !!url.trim() &&
     !!detection.source &&
     !!firstName.trim() &&
@@ -109,7 +120,8 @@ export function ClipSubmitForm({
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ready) return;
-    const sub: FanSubmission = {
+    setSaveError("");
+    const sub: Omit<FanSubmission, "status"> & { status: "draft" } = {
       id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       source: detection.source,
       externalId: detection.externalId,
@@ -120,15 +132,14 @@ export function ClipSubmitForm({
       submitterLastName: lastName.trim(),
       submitterEmail: email.trim(),
       consent,
-      status: "pending",
+      status: "draft",
       submittedAt: new Date().toISOString(),
     };
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const prev = raw ? (JSON.parse(raw) as FanSubmission[]) : [];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([sub, ...prev]));
+      saveLocalClipDraft(localStorage, sub);
     } catch {
-      /* ignore */
+      setSaveError("Your draft could not be saved in this browser. Keep this page open and try again.");
+      return;
     }
     setDone(true);
   };
@@ -136,15 +147,26 @@ export function ClipSubmitForm({
   if (!authLoading && !user) {
     return (
       <div className="flex flex-col items-center p-8 text-center">
-        <h3 className="text-lg font-semibold text-primary">Sign in to submit</h3>
+        <h3 className="text-lg font-semibold text-primary">Sign in to save a clip draft</h3>
         <p className="mt-2 max-w-sm text-sm text-tertiary">
-          Clip submissions are attributed to a CORE account so we can credit you.
+          Save your clip details on this device. Public submissions are not available yet.
         </p>
         <Button href={"/login?next=/clips/submit" as never} size="md" color="primary" className="mt-5">
           Sign in
         </Button>
       </div>
     );
+  }
+
+  if (connectionError) {
+    return <div className="p-8 text-center">
+      <p role="alert" className="text-base text-secondary">We couldn&apos;t check your connected accounts.</p>
+      <Button size="md" color="secondary" onClick={() => setConnectionAttempt((value) => value + 1)} className="mt-4">Try again</Button>
+    </div>;
+  }
+
+  if (authLoading || (user && hasSocial === null)) {
+    return <p role="status" className="p-8 text-center text-base text-secondary">Checking your account…</p>;
   }
 
   if (user && hasSocial === false) {
@@ -169,14 +191,12 @@ export function ClipSubmitForm({
       <div className="flex flex-col items-center p-8 text-center">
         <FeaturedIcon icon={CheckCircle} size="lg" color="success" theme="modern" />
         <h3 className="mt-4 text-lg font-semibold text-primary">
-          Got it. We&apos;ll take a look.
+          Draft saved on this device.
         </h3>
         <p className="mt-1 text-sm text-tertiary">
-          Approved clips appear in the library with credit to{" "}
-          <strong className="font-semibold text-secondary">
-            {firstName} {lastName ? `${lastName[0]}.` : ""}
-          </strong>
+          Your clip has not been sent to CORE. Public submissions are not available yet.
         </p>
+        <Button size="md" color="secondary" onClick={() => setDone(false)} className="mt-5">Edit draft</Button>
         {onClose ? (
           <Button size="md" color="secondary" onClick={onClose} className="mt-5">
             Close
@@ -191,9 +211,9 @@ export function ClipSubmitForm({
       {/* Modal header */}
       <div className="flex items-center justify-between border-b border-secondary bg-secondary px-5 py-4">
         <h3 className="text-md font-semibold tracking-tight text-primary">
-          Submit a clip
+          Save a clip draft
         </h3>
-        {onClose ? (
+        {onClose && showHeaderClose ? (
           <ButtonUtility size="sm" color="tertiary" icon={XClose} aria-label="Close" onClick={onClose} />
         ) : null}
       </div>
@@ -202,6 +222,9 @@ export function ClipSubmitForm({
         onSubmit={onSubmit}
         className="flex max-h-[80vh] flex-col gap-5 overflow-y-auto p-5 md:p-6"
       >
+        <p className="rounded-xl bg-secondary p-4 text-sm leading-relaxed text-secondary">
+          This saves a draft in this browser only. It does not send your clip for review.
+        </p>
         <div>
           <Input
             isRequired
@@ -242,13 +265,13 @@ export function ClipSubmitForm({
         <Field
           label="Who's in the clip?"
           required
-          hint="Tag every member who appears. Hover an avatar for the name."
+          hint="Tag every member who appears."
         >
           <ul className="flex flex-wrap items-center gap-2">
             {members.map((m) => {
               const active = picked.includes(m.slug);
               return (
-                <li key={m.slug} className="group/chip relative">
+                <li key={m.slug} className="flex w-20 flex-col items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => togglePick(m.slug)}
@@ -297,10 +320,7 @@ export function ClipSubmitForm({
                       </span>
                     ) : null}
                   </button>
-                  <span
-                    role="tooltip"
-                    className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary opacity-0 shadow-lg ring-1 ring-inset ring-secondary transition-opacity group-hover/chip:opacity-100"
-                  >
+                  <span className="w-full text-center text-xs font-medium text-secondary">
                     {m.stageName}
                   </span>
                 </li>
@@ -321,7 +341,7 @@ export function ClipSubmitForm({
           <Input
             isRequired
             label="Last name"
-            hint="Only the initial is shown publicly."
+            hint="Your details stay in this browser draft."
             size="md"
             value={lastName}
             onChange={(v) => setLastName(v)}
@@ -332,7 +352,7 @@ export function ClipSubmitForm({
           isRequired
           type="email"
           label="Email"
-          hint="Admin-only. Never shown publicly."
+          hint="Stored on this device with the draft."
           size="md"
           value={email}
           onChange={(v) => setEmail(v)}
@@ -366,6 +386,7 @@ export function ClipSubmitForm({
           </span>
         </label>
 
+        {saveError ? <p role="alert" className="text-sm text-error-primary">{saveError}</p> : null}
         <div className="flex flex-wrap items-center gap-3 border-t border-secondary pt-4">
           <Button
             type="submit"
@@ -374,7 +395,7 @@ export function ClipSubmitForm({
             isDisabled={!ready}
             iconLeading={Send01}
           >
-            Submit clip
+            Save draft
           </Button>
           {onClose ? (
             <Button type="button" size="lg" color="link-gray" onClick={onClose}>
@@ -390,37 +411,16 @@ export function ClipSubmitForm({
 }
 
 function TermsModal({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="clip-terms"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-[640px] overflow-hidden rounded-2xl bg-primary shadow-xl ring-1 ring-inset ring-secondary"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-[640px] p-0" aria-describedby={undefined}>
         <div className="flex items-center justify-between border-b border-secondary bg-secondary px-5 py-4">
-          <h3
-            id="clip-terms"
-            className="text-md font-semibold tracking-tight text-primary"
-          >
+          <DialogTitle className="pr-12 text-md font-semibold tracking-tight text-primary md:text-md">
             Clip submission terms
-          </h3>
-          <ButtonUtility size="sm" color="tertiary" icon={XClose} aria-label="Close" onClick={onClose} />
+          </DialogTitle>
         </div>
         <div className="max-h-[70vh] overflow-y-auto p-6 text-sm leading-relaxed text-tertiary">
-          <p>By submitting a clip to CORE you confirm the following:</p>
+          <p>Drafts stay on your device and are not sent for review. These guidelines apply when sharing a clip with CORE:</p>
           <ul className="mt-4 flex flex-col gap-3">
             <li>
               <strong className="font-semibold text-primary">The clip is appropriate</strong> — no
@@ -453,8 +453,8 @@ function TermsModal({ onClose }: { onClose: () => void }) {
             Got it
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -479,37 +479,4 @@ function Field({
       {hint ? <span className="text-xs text-tertiary">{hint}</span> : null}
     </div>
   );
-}
-
-function detectPlatform(url: string): {
-  source: "twitch" | "youtube" | "tiktok" | "instagram" | null;
-  externalId: string | null;
-} {
-  if (!url) return { source: null, externalId: null };
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("clips.twitch.tv")) {
-      return { source: "twitch", externalId: u.pathname.slice(1) || null };
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.pathname.startsWith("/shorts/")
-        ? u.pathname.split("/")[2]
-        : u.searchParams.get("v");
-      return { source: "youtube", externalId: id ?? null };
-    }
-    if (u.hostname.includes("youtu.be")) {
-      return { source: "youtube", externalId: u.pathname.slice(1) || null };
-    }
-    if (u.hostname.includes("tiktok.com")) {
-      const m = u.pathname.match(/\/video\/(\d+)/);
-      return { source: "tiktok", externalId: m?.[1] ?? null };
-    }
-    if (u.hostname.includes("instagram.com")) {
-      const m = u.pathname.match(/\/(?:reel|p)\/([^/]+)/);
-      return { source: "instagram", externalId: m?.[1] ?? null };
-    }
-  } catch {
-    /* ignore */
-  }
-  return { source: null, externalId: null };
 }

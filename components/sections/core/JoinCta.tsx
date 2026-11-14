@@ -1,3 +1,4 @@
+import SiteImage from "@/components/ui/SiteImage";
 import { Button } from "@/components/base/buttons/button";
 import { getGroupPhotos } from "@/lib/asset-index";
 import { CtaSurface } from "@/components/marketing/CtaSurface";
@@ -31,7 +32,7 @@ const FALLBACK = [
   "https://www.untitledui.com/marketing/abstract-image-03.webp",
   "https://www.untitledui.com/marketing/smiling-girl-6.webp",
   "https://www.untitledui.com/marketing/smiling-girl-2.webp",
-];
+] as const;
 
 export function JoinCta() {
   let photos: string[] = [];
@@ -82,9 +83,9 @@ export function JoinCta() {
 
         <div className="grid h-122 w-[150%] grid-cols-[repeat(12,1fr)] grid-rows-[repeat(12,1fr)] gap-2 justify-self-center sm:h-124 sm:w-[120%] md:w-auto md:gap-4">
           {TILES.map((tile, i) => (
-            <img
+            <SiteImage width={480} height={480}
               key={tile.area}
-              src={sources[i]}
+              src={sources[i] ?? FALLBACK[0]}
               className="size-full rounded-lg object-cover transition-transform duration-500 ease-out hover:scale-[1.04]"
               alt="CORE"
               style={{ gridArea: tile.area }}

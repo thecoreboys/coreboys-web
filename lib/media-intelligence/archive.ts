@@ -328,7 +328,7 @@ async function youtubeArchiveSources(): Promise<MediaArchiveSource[]> {
           } : { items: [] };
           const member = target.memberSlug ? MEMBERS_BY_SLUG[target.memberSlug] : null;
           const items = (details.items ?? []).flatMap((video): WatchItem[] => {
-            if (!video.id || video.status?.privacyStatus === "private") return [];
+            if (!video.id || video.status?.privacyStatus === "private" || video.status?.embeddable === false) return [];
             const durationSeconds = isoDurationSeconds(video.contentDetails?.duration ?? "");
             const title = video.snippet?.title?.trim() || `${target.label} video`;
             const isShort = Boolean(durationSeconds && (

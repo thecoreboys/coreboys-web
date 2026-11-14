@@ -6,7 +6,7 @@ import { listAccountMatches } from "../lib/watch/list-account";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
-test("account settings and legacy My List routes converge on the membership DVR", () => {
+test("account settings and legacy My List routes converge on the saved library", () => {
   const settings = read("components/account/AccountSettingsHub.tsx");
   const dvr = read("app/dvr/page.tsx");
   const legacy = read("app/my-list/page.tsx");
@@ -15,7 +15,7 @@ test("account settings and legacy My List routes converge on the membership DVR"
   const poster = read("components/watch/PosterCard.tsx");
   const player = read("components/watch/PersistentPlayer.tsx");
 
-  assert.match(settings, /label="Manage my DVR"[^>]+href="\/dvr"/);
+  assert.match(settings, /label="Manage saved library"[^>]+href="\/dvr"/);
   assert.doesNotMatch(settings, /\/watch\/my-list/);
   assert.match(dvr, /getCurrentFanUserId\(\)/);
   assert.match(dvr, /redirect\("\/login\?next=\/dvr"\)/);
@@ -25,8 +25,11 @@ test("account settings and legacy My List routes converge on the membership DVR"
   assert.match(api, /requireAccountEntitlement/);
   assert.match(api, /featureId: "dvr\.extended_retention"/);
   assert.match(api, /status: 403/);
-  assert.match(gate, /DVR is included with membership/);
-  assert.match(poster, /Unlock DVR/);
+  assert.match(gate, /const DVR_FEATURE = "dvr\.extended_retention"/);
+  assert.match(gate, /\/upgrade\?feature=\$\{encodeURIComponent\(DVR_FEATURE\)\}/);
+  assert.match(gate, /<Link href=\{upgradeHref as never\}/);
+  assert.match(poster, /const dvrLocked = Boolean\(user && !dvrLoading && !dvrAllowed\)/);
+  assert.match(poster, /if \(!dvrAllowed\) \{[\s\S]{0,160}window\.location\.assign/);
   assert.match(poster, /subscription\.featureHref\("dvr\.extended_retention"\)/);
   assert.match(player, /dvrActionLoading/);
   assert.match(legacy, /redirect\("\/dvr"/);

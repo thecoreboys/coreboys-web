@@ -131,7 +131,7 @@ export default async function ChannelXArchivePage({ params, searchParams }: Rout
   });
 
   return (
-    <main className="min-h-screen bg-primary pb-24 pt-24 text-primary md:pt-28">
+    <div className="min-h-[var(--page-min-height)] bg-primary pb-24 text-primary">
       <div className="mx-auto max-w-container">
         <header className="px-6 pb-8 md:px-10 md:pb-10">
           <Link
@@ -183,6 +183,6 @@ export default async function ChannelXArchivePage({ params, searchParams }: Rout
           ) : null}
         </nav>
       </div>
-    </main>
+    </div>
   );
 }

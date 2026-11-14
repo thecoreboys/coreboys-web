@@ -203,6 +203,22 @@ test("Watch-home X selector keeps only valid dates and honors per-member bounds"
   assert.deepEqual(selectWatchHomeXPosts(catalog([]), { limit: 0 }), []);
 });
 
+test("channel X history can show 24 already-cached posts across more than a few days", () => {
+  const items = Array.from({ length: 24 }, (_, index) => {
+    return xItem({
+      id: `x-${30000 + index}`,
+      memberSlug: "lacy",
+      title: `Cached post ${index + 1}`,
+      publishedAt: new Date(Date.UTC(2026, 8, 20 - index, 12)).toISOString(),
+    });
+  });
+
+  const posts = selectWatchHomeXPosts(catalog(items), { limit: 24, perMember: 24 });
+
+  assert.equal(posts.length, 24);
+  assert.ok(Date.parse(posts[0]!.publishedAt) - Date.parse(posts.at(-1)!.publishedAt) > 7 * 86_400_000);
+});
+
 test("Watch-home X DTO preserves complete cached text and normalizes official entities", () => {
   const urlToken = "https://t.co/core";
   const raw = `Opening line 🎬\n\n${"full text ".repeat(70)}\u202E@SilkySzn #CORE ${urlToken}`;
@@ -252,6 +268,49 @@ test("Watch-home X DTO preserves complete cached text and normalizes official en
     accent: "#123456",
     verified: true,
   });
+});
+
+test("shared Twitch profiles use canonical creator and provider capitalization without changing post copy or destinations", () => {
+  for (const [login, display] of [
+    ["lAcY", "Lacy"], ["aDaPt", "Adapt"], ["sTaBlErOnAlDo", "StableRonaldo"],
+    ["jAsOnThEwEeN", "JasonTheWeen"], ["mArLoN", "Marlon"], ["sIlKy", "Silky"],
+  ]) {
+    const token = "https://t.co/stream";
+    const text = `WE ARE LIVE! ${token}`;
+    const [post] = selectWatchHomeXPosts(catalog([xItem({
+      id: "x-765432", memberSlug: "lacy", title: text,
+      x: {
+        statusId: "765432", statusUrl: "https://x.com/LacyHimself/status/765432",
+        authorId: "7", authorHandle: "@LacyHimself", authorProfileUrl: "https://x.com/LacyHimself",
+        noteText: text,
+        noteEntities: { urls: [{ start: text.indexOf(token), end: text.length, url: token,
+          expanded_url: `https://tWiTcH.Tv/${login}`, display_url: `tWiTcH.Tv/${login}`,
+          title: `${login} - Live on tWiTcH`, description: "KEEP this caption AS POSTED!" }] },
+      },
+    })]));
+    assert.equal(post?.text, text);
+    assert.equal(post?.entities[0]?.label, `twitch.tv/${display}`);
+    assert.equal(post?.entities[0]?.title, `${display} - Live on Twitch`);
+    assert.equal(post?.entities[0]?.href, `https://twitch.tv/${login}`);
+    assert.equal(post?.entities[0]?.description, "KEEP this caption AS POSTED!");
+  }
+});
+
+test("URL labels normalize domains while preserving case-sensitive paths, identifiers, and custom titles", () => {
+  const token = "https://t.co/story";
+  const [post] = selectWatchHomeXPosts(catalog([xItem({
+    id: "x-765432", memberSlug: "lacy", title: token,
+    x: {
+      statusId: "765432", statusUrl: "https://x.com/LacyHimself/status/765432", noteText: token,
+      authorId: "7", authorHandle: "@LacyHimself", authorProfileUrl: "https://x.com/LacyHimself",
+      noteEntities: { urls: [{ start: 0, end: token.length, url: token,
+        expanded_url: "https://ExAmPlE.com/Read/AbCd?Id=XyZ", display_url: "ExAmPlE.com/Read/AbCd?Id=XyZ",
+        title: "An iPhone and YouTube story" }] },
+    },
+  })]));
+  assert.equal(post?.entities[0]?.label, "example.com/Read/AbCd?Id=XyZ");
+  assert.equal(post?.entities[0]?.href, "https://example.com/Read/AbCd?Id=XyZ");
+  assert.equal(post?.entities[0]?.title, "An iPhone and YouTube story");
 });
 
 test("Watch-home X DTO carries snapshot rich-link and quoted-post previews", () => {

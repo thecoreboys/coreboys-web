@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { useMemo, useState } from "react";
 import { BookOpen, Check, Grid2X2, History, ListFilter, Search, Sparkles } from "lucide-react";
 import type { PassportAlbum, PassportCard, PassportRarity } from "@/lib/passport/types";
@@ -166,7 +167,7 @@ function Albums({
           const claimable = complete && !album.claimed;
           return (
             <article key={album.code} className="passport-album">
-              <div className="passport-album__cover">{album.artworkUrl ? <img src={album.artworkUrl} alt="" loading="lazy" /> : <BookOpen aria-hidden="true" />}<span>{album.collected}/{album.required}</span></div>
+              <div className="passport-album__cover">{album.artworkUrl ? <SiteImage fill sizes="(min-width: 768px) 33vw, 100vw" src={album.artworkUrl} alt="" loading="lazy" /> : <BookOpen aria-hidden="true" />}<span>{album.collected}/{album.required}</span></div>
               <div className="passport-album__copy">
                 <span>{complete ? <><Check aria-hidden="true" /> Set complete</> : `${Math.max(0, album.required - album.collected)} cards left`}</span>
                 <h3>{album.name}</h3>

@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { Fragment } from "react";
 import { ArrowRight } from "@untitledui/icons";
 import { BadgeGroup } from "@/components/base/badges/badge-groups";
@@ -67,7 +68,7 @@ export const HeroSplitImage01 = () => {
                     </div>
                 </div>
                 <div className="relative mt-16 h-60 w-full px-4 md:h-95 md:px-8 lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:h-full lg:w-1/2 lg:px-0">
-                    <img className="inset-0 size-full object-cover lg:absolute" src="https://www.untitledui.com/marketing/spirals.webp" alt="Spirals" />
+                    <SiteImage width={960} height={960} sizes="(min-width: 1024px) 50vw, 100vw" className="inset-0 size-full object-cover lg:absolute" src="https://www.untitledui.com/marketing/spirals.webp" alt="Spirals" />
                 </div>
             </section>
         </Fragment>

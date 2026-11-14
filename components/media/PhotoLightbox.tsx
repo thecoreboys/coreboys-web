@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
 import Link from "next/link";
 import {
   Camera,
@@ -80,6 +81,8 @@ export function PhotoLightbox({
   onClose: () => void;
 }) {
   const [meta, setMeta] = useState<Meta | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,8 +109,11 @@ export function PhotoLightbox({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
+      aria-label={alt || "Photo details and downloads"}
+      tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
       onClick={onClose}
     >

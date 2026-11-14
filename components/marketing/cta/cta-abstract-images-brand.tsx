@@ -1,3 +1,4 @@
+import SiteImage from "@/components/ui/SiteImage";
 import { Button } from "@/components/base/buttons/button";
 
 export const CTAAbstractImagesBrand = () => {
@@ -19,7 +20,7 @@ export const CTAAbstractImagesBrand = () => {
                 </div>
 
                 <div className="grid h-122 w-[150%] grid-cols-[repeat(12,1fr)] grid-rows-[repeat(12,1fr)] gap-2 justify-self-center sm:h-124 sm:w-[120%] md:w-auto md:gap-4">
-                    <img
+                    <SiteImage width={480} height={480}
                         src="https://www.untitledui.com/marketing/smiling-girl-5.webp"
                         className="size-full object-cover"
                         alt="Smiling girl"
@@ -27,7 +28,7 @@ export const CTAAbstractImagesBrand = () => {
                             gridArea: "3 / 3 / 7 / 7",
                         }}
                     />
-                    <img
+                    <SiteImage width={480} height={480}
                         src="https://www.untitledui.com/marketing/abstract-image-02.webp"
                         className="size-full object-cover"
                         alt="Abstract image"
@@ -35,7 +36,7 @@ export const CTAAbstractImagesBrand = () => {
                             gridArea: "1 / 7 / 7 / 11",
                         }}
                     />
-                    <img
+                    <SiteImage width={480} height={480}
                         src="https://www.untitledui.com/marketing/abstract-image-03.webp"
                         className="size-full object-cover"
                         alt="Abstract image"
@@ -43,7 +44,7 @@ export const CTAAbstractImagesBrand = () => {
                             gridArea: "7 / 5 / 13 / 9",
                         }}
                     />
-                    <img
+                    <SiteImage width={480} height={480}
                         src="https://www.untitledui.com/marketing/smiling-girl-6.webp"
                         className="size-full object-cover"
                         alt="Smiling girl"
@@ -51,7 +52,7 @@ export const CTAAbstractImagesBrand = () => {
                             gridArea: "7 / 9 / 10 / 13",
                         }}
                     />
-                    <img
+                    <SiteImage width={480} height={480}
                         src="https://www.untitledui.com/marketing/smiling-girl-2.webp"
                         className="size-full object-cover"
                         alt="Smiling girl"
