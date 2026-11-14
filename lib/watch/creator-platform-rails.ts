@@ -165,7 +165,7 @@ function dedupeKey(item: WatchItem): string {
 
 function railKind(item: WatchItem): CuratedChannelRailKind | null {
   if (item.platform === "x") return "posts";
-  if (item.kind === "live" || item.format === "live") return "live";
+  if (item.kind === "live") return "live";
   if (
     (item.platform === "twitch" || item.platform === "youtube") &&
     item.kind === "vod"

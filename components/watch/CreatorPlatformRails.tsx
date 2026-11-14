@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   buildCuratedChannelRails,
   type CuratedChannelPlatform,
@@ -31,6 +31,7 @@ export type CreatorPlatformRailsProps = {
   items: readonly WatchItem[];
   onPlay: (item: WatchItem, sourceQueue: readonly WatchItem[]) => void;
   maxItemsPerSource?: number;
+  initialItemsPerSource?: number;
   sources?: readonly CuratedChannelSourceDescriptor[];
   sourceLinks?: readonly CreatorPlatformSourceLink[];
   className?: string;
@@ -74,40 +75,11 @@ function statusIdOf(item: WatchItem): string | null {
 }
 
 function emptySourceMessage(rail: CuratedChannelRail): string {
-  const platform = PLATFORM_LABEL[rail.platform];
-  if (rail.ingestState === "invalid_account_ref") {
-    return `This ${platform} profile link needs to be fixed before public content can load.`;
-  }
-  if (rail.ingestState === "not_configured") {
-    if (rail.platform === "instagram" || rail.platform === "tiktok") return `${platform} public profile embeds are available.`;
-    return `${platform}'s automatic feed is not available.`;
-  }
-  if (rail.ingestState === "scope_missing") {
-    return `${platform}'s automatic feed is not available with the current permissions.`;
-  }
-  if (rail.ingestState === "token_unavailable") {
-    return `${platform}'s automatic feed could not refresh.`;
-  }
-  if (rail.ingestState === "vault_unavailable") {
-    return `CORE could not refresh ${platform} right now.`;
-  }
-  if (rail.ingestState === "ready") {
-    return `No recent items came back from ${platform}'s automatic feed.`;
-  }
-  if (rail.platform === "x") {
-    return "No cached posts are available from this account yet.";
-  }
-  return `No recent ${platform} posts have been indexed for this profile yet.`;
+  return `Recent ${PLATFORM_LABEL[rail.platform]} posts are not available here right now. You can visit the creator’s profile for their latest updates.`;
 }
 
-function emptySourceStatus(rail: CuratedChannelRail): string {
-  if (rail.ingestState === "invalid_account_ref") return "Profile configuration issue";
-  if (rail.platform === "tiktok") return "Official public Creator Profile Embed";
-  if (rail.platform === "instagram") return "Official public profile and post embeds";
-  if (rail.ingestState === "ready") return "Media access ready · no recent items";
-  if (rail.ingestState === "not_configured") return "Official profile · media access unavailable";
-  if (rail.ingestState) return "Media connection needs attention";
-  return "Official profile · awaiting indexed posts";
+function emptySourceStatus(_rail: CuratedChannelRail): string {
+  return "View creator profile";
 }
 
 function shouldRenderRail(rail: CuratedChannelRail): boolean {
@@ -133,11 +105,13 @@ function XSourceRail({ rail, posts }: { rail: CuratedChannelRail; posts: readonl
 function MediaSourceRail({
   rail,
   onPlay,
+  initialCount,
 }: {
   rail: CuratedChannelRail;
   onPlay: (item: WatchItem, sourceQueue: readonly WatchItem[]) => void;
+  initialCount: number;
 }) {
-  const [visibleCount, setVisibleCount] = useState(INITIAL_MEDIA_ITEMS);
+  const [visibleCount, setVisibleCount] = useState(initialCount);
   const visibleItems = rail.items.slice(0, visibleCount);
   const remaining = rail.items.length - visibleItems.length;
   const revealCount = Math.min(MEDIA_ITEMS_STEP, remaining);
@@ -177,11 +151,12 @@ function MediaSourceRail({
  * rail; media opens in the shared CORE player while true document posts retain
  * their canonical, safely validated provider link.
  */
-export function CreatorPlatformRails({
+export const CreatorPlatformRails = memo(function CreatorPlatformRails({
   channelName,
   items,
   onPlay,
   maxItemsPerSource = 20_000,
+  initialItemsPerSource = INITIAL_MEDIA_ITEMS,
   sources = [],
   sourceLinks = [],
   className = "",
@@ -276,7 +251,7 @@ export function CreatorPlatformRails({
               ) : usesOfficialEmbedFallback ? (
                 <OfficialSocialEmbedFallback rail={rail} />
               ) : (
-                <MediaSourceRail rail={rail} onPlay={onPlay} />
+                <MediaSourceRail rail={rail} onPlay={onPlay} initialCount={initialItemsPerSource} />
               )}
             </section>
           );
@@ -285,4 +260,4 @@ export function CreatorPlatformRails({
       <TikTokEmbedScriptLoader signature={tiktokEmbedSignature} />
     </section>
   );
-}
+});

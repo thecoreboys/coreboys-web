@@ -48,6 +48,8 @@ export type WatchItem = {
   href: string;
   /** Canonical platform permalink (distinct from the internal theater href). */
   sourceUrl?: string;
+  /** Matching public cross-posts; displayed as alternate source links. */
+  alternateSources?: Array<{ platform: WatchPlatform; href: string }>;
   /** Direct short-lived media URL, refreshed whenever the catalog is fetched. */
   mediaUrl?: string;
   embedUrl?: string;

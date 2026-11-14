@@ -43,7 +43,7 @@ export function FanZoneNav() {
   }, []);
 
   return (
-    <nav aria-label="Fanzone sections" className="sticky top-16 z-30 border-y border-secondary bg-primary/90 backdrop-blur-xl md:top-[72px]">
+    <nav aria-label="Fanzone sections" className="sticky top-[var(--site-header-h,8rem)] z-30 border-y border-secondary bg-primary/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-container items-center gap-1 overflow-x-auto px-4 py-2 md:px-8">
         {sections.map((section) => {
           const Icon = section.icon;

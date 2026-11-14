@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { ArrowDown, LinkExternal01 } from "@untitledui/icons";
 import { getHeroGroupPhoto } from "@/lib/asset-index";
 import { BadgeWithDot } from "@/components/base/badges/badges";

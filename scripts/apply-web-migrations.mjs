@@ -70,6 +70,8 @@ const migrations = [
   "060_x_content_verification.sql",
   "061_face_private_access.sql",
   "062_face_profile_review.sql",
+  "063_clipping_campaigns.sql",
+  "064_content_private_access.sql",
 ];
 
 function loadEnvLocal() {

@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { loadTwitchPlayer, type TwitchPlayerInstance } from "@/lib/watch/twitch-player";
 import { advancingTwitchPlayback, createTwitchAutoplayBudget, createTwitchLivePlaybackClock, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import { withTwitchAutoplayPermissions } from "@/lib/watch/player-autoplay";
 
-export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, onPlaying, onPaused, onProgress, onEnded }: {
+export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, statusContainer, label, onPlaying, onPaused, onProgress, onEnded }: {
   channel?: string | null;
   video?: string | null;
   muted: boolean;
   volume: number;
   startSeconds: number;
+  /** Recovery controls must not cover the provider they are trying to start. */
+  statusContainer: HTMLElement | null;
+  label: string;
   onPlaying: () => void;
   onPaused: () => void;
   onProgress: (position: number, duration: number) => void;
@@ -188,15 +192,16 @@ export function TwitchTileMedia({ channel, video, muted, volume, startSeconds, o
     try { playerRef.current?.seek?.(startSeconds); } catch { /* Wait for READY. */ }
   }, [startSeconds, video]);
 
+  const status = startRequired && !failed ? <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#101014] px-3 py-2 text-xs text-white" role="status">
+      <span><strong>{label}</strong> · Press Play in the Twitch player.</span>
+      <button type="button" className="pointer-events-auto min-h-10 rounded-lg bg-white px-3 font-semibold text-black" onClick={(event) => { event.stopPropagation(); mountRef.current?.scrollIntoView({ block: "center", inline: "nearest" }); retryRef.current?.(); }}>Retry playback</button>
+    </div> : failed ? <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#101014] px-3 py-2 text-xs text-white" role="status">
+      <p><strong>{label}</strong> · Twitch could not load.</p>
+      <button type="button" className="rounded-lg border border-white/20 px-4 py-2" onClick={() => { mountRef.current?.scrollIntoView({ block: "center", inline: "nearest" }); setAttempt((value) => value + 1); }}>Try again</button>
+    </div> : null;
+
   return <>
     <div ref={mountRef} id={id} className="absolute inset-0" />
-    {startRequired && !failed ? <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-lg bg-black/90 px-3 py-2 text-xs text-white" role="status">
-      <span>Press Play in the Twitch player.</span>
-      <button type="button" className="pointer-events-auto min-h-10 rounded-lg bg-white px-3 font-semibold text-black" onClick={(event) => { event.stopPropagation(); retryRef.current?.(); }}>Retry playback</button>
-    </div> : null}
-    {failed ? <div className="absolute inset-0 grid place-content-center gap-3 bg-[#101014] p-5 text-center text-sm">
-      <p>Twitch could not load.</p>
-      <button type="button" className="rounded-lg border border-white/20 px-4 py-2" onClick={() => setAttempt((value) => value + 1)}>Try again</button>
-    </div> : null}
+    {statusContainer && status ? createPortal(status, statusContainer) : null}
   </>;
 }

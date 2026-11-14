@@ -5,7 +5,7 @@ import test from "node:test";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { z } from "zod";
 import { contentIdentityKeys, contentReferencesIncludingQuotes, isContentUnavailable, sanitizeAvailableContent, type ContentIdentityInput } from "../lib/content-identity";
-import { catalogVisibilityItems, filterWatchCatalog } from "../lib/watch/content-visibility";
+import { catalogVisibilityItems, filterWatchCatalog, sanitizeWatchCatalog } from "../lib/watch/content-visibility";
 import { resolveHomeItems } from "../lib/watch/home-catalog";
 import { listAccountMatches } from "../lib/watch/list-account";
 import { availabilityRequestItems, MAX_AVAILABILITY_IDENTITIES } from "../lib/watch/availability-request";
@@ -57,6 +57,41 @@ test("a removed source also suppresses a saved alias with a different editorial 
     assert.equal(isContentUnavailable({ id }, blocked), true, id);
   }
   assert.equal(isContentUnavailable(kept, blocked), false);
+});
+
+test("availability filtering preserves distinct editorial versions of the same provider item", () => {
+  const stale = fixture();
+  const curated = { ...kept, title: "Editorial feature", poster: "/curated.webp", captions: [{
+    src: "https://media.example.test/captions.vtt", language: "en", label: "Editorial captions", kind: "captions" as const,
+  }] };
+  stale.billboard = curated;
+  stale.heroFeatured = [curated];
+  stale.programmingSections![0]!.items = [curated];
+  const filtered = sanitizeWatchCatalog(stale, blocked);
+  assert.equal(filtered.all[0], kept, "archive metadata must not be replaced by a same-ID hero override");
+  assert.equal(filtered.billboard, curated);
+  assert.equal(filtered.heroFeatured![0], curated);
+  assert.equal(filtered.programmingSections![0]!.items[0], curated);
+  assert.notEqual(filtered.all, stale.all, "page-local array operations cannot mutate the reusable cache");
+  assert.equal(stale.all.length, 2);
+});
+
+test("sanitizing a removed DVR preserves per-variant metadata and shared references without mutating cache", () => {
+  const live: WatchItem = { ...kept, id: "live-silky", kind: "live", platform: "twitch", sourceUrl: "https://www.twitch.tv/silky",
+    href: "/theater?kind=live&login=silky", live: { login: "silky" }, dvr: { enabled: true, twitchVodId: "123456789" } };
+  const curated = { ...live, title: "Curated live title", poster: "/curated-live.webp" };
+  const stale = fixture();
+  stale.all = [live]; stale.live = [live]; stale.billboard = curated; stale.heroFeatured = [curated];
+  const keys = new Set(contentIdentityKeys({ provider: "twitch", providerId: "video:123456789" }));
+  const filtered = sanitizeWatchCatalog(stale, keys);
+  assert.equal(filtered.all[0]!.dvr, undefined);
+  assert.equal(filtered.billboard!.dvr, undefined);
+  assert.equal(filtered.billboard!.title, "Curated live title");
+  assert.notEqual(filtered.billboard, filtered.all[0]);
+  assert.equal(filtered.all[0], filtered.live[0]);
+  assert.equal(filtered.billboard, filtered.heroFeatured![0]);
+  assert.equal(stale.all[0]!.dvr!.twitchVodId, "123456789");
+  assert.equal(stale.billboard!.dvr!.twitchVodId, "123456789");
 });
 
 test("a displayed X parent checks its removed quote even without a separate quoted card", () => {

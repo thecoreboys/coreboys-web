@@ -29,6 +29,7 @@ import {
 } from "@/components/fanzone/FanPhotoSubmit";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { cx } from "@/utils/cx";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 
 type MemberOption = {
   slug: string;
@@ -198,19 +199,9 @@ export function FanWallClient({ memberOptions }: { memberOptions: MemberOption[]
 
       {filtersOpen ? (
         <div className="mb-6 grid gap-3 rounded-2xl border border-secondary bg-secondary p-4 sm:grid-cols-3">
-          <FilterSelect label="Member" value={member} onChange={setMember}>
-            <option value="">Everyone</option>
-            {memberOptions.map((option) => <option key={option.slug} value={option.slug}>{option.stageName}</option>)}
-          </FilterSelect>
-          <FilterSelect label="Album" value={event} onChange={setEvent}>
-            <option value="">Every album</option>
-            {events.map((value) => <option key={value} value={value}>{value}</option>)}
-          </FilterSelect>
-          <FilterSelect label="Order" value={sort} onChange={(value) => setSort(value as typeof sort)}>
-            <option value="featured">Featured first</option>
-            <option value="newest">Newest</option>
-            <option value="loved">Most COREs</option>
-          </FilterSelect>
+          <FilterSelect label="Member" ariaLabel="Filter the wall by member" value={member} onChange={setMember} options={[{ value: "", label: "Everyone" }, ...memberOptions.map((option) => ({ value: option.slug, label: option.stageName }))]} />
+          <FilterSelect label="Album" ariaLabel="Filter the wall by album" value={event} onChange={setEvent} options={[{ value: "", label: "Every album" }, ...events.map((value) => ({ value, label: value }))]} />
+          <FilterSelect label="Order" ariaLabel="Sort the community wall" value={sort} onChange={(value) => setSort(value as typeof sort)} options={[{ value: "featured", label: "Featured first" }, { value: "newest", label: "Newest" }, { value: "loved", label: "Most COREs" }]} />
           {activeFilters > 0 ? (
             <button type="button" onClick={() => { setMember(""); setEvent(""); setSort("featured"); }} className="justify-self-start text-sm font-semibold text-brand-secondary sm:col-span-3">
               Clear filters
@@ -544,10 +535,6 @@ function StatusPill({ status }: { status: SubmissionStatus["status"] }) {
 
 function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button type="button" onClick={onClick} aria-pressed={active} className={cx("inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand", active ? "bg-primary text-primary shadow-xs ring-1 ring-inset ring-secondary" : "text-tertiary hover:text-primary")}>{children}</button>;
-}
-
-function FilterSelect({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: React.ReactNode }) {
-  return <label><span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-quaternary">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className={nativeSelectClass}>{children}</select></label>;
 }
 
 const nativeSelectClass = "min-h-10 w-full rounded-lg border border-secondary bg-primary px-3 text-sm text-primary outline-none focus:border-brand focus:ring-1 focus:ring-brand";

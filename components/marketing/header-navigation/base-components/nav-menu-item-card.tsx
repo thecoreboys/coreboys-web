@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { type ReactNode } from "react";
 
 interface ImageCardProps {
@@ -17,7 +18,7 @@ export const ImageCardHorizontal = (props: ImageCardProps) => {
             className="flex flex-col gap-4 rounded-lg px-4 py-3 outline-focus-ring transition hover:bg-primary_hover focus-visible:outline-2 sm:flex-row md:gap-3 md:px-3"
         >
             {props.imgSrc ? (
-                <img src={props.imgSrc} alt={props.title} className="h-50 w-full shrink-0 rounded-md bg-secondary object-cover sm:h-22 sm:w-36" />
+                <SiteImage width={480} height={270} src={props.imgSrc} alt={props.title} className="h-50 w-full shrink-0 rounded-md bg-secondary object-cover sm:h-22 sm:w-36" />
             ) : (
                 <div className="h-50 w-full shrink-0 rounded-md bg-secondary sm:h-22 sm:w-36" />
             )}
@@ -40,7 +41,7 @@ export const ImageCardVertical = (props: ImageCardProps) => {
             className="flex w-full flex-col gap-4 rounded-lg px-4 py-3 outline-focus-ring transition hover:bg-primary_hover focus-visible:outline-2 sm:max-w-xs"
         >
             {props.imgSrc ? (
-                <img src={props.imgSrc} alt={props.title} className="h-50 w-full shrink-0 rounded-md bg-secondary object-cover sm:h-34 sm:max-w-60" />
+                <SiteImage width={480} height={270} src={props.imgSrc} alt={props.title} className="h-50 w-full shrink-0 rounded-md bg-secondary object-cover sm:h-34 sm:max-w-60" />
             ) : (
                 <div className="h-50 w-full shrink-0 rounded-md bg-secondary sm:h-34 sm:max-w-60" />
             )}
@@ -71,7 +72,7 @@ export const VideoCardHorizontal = (props: VideoCardProps) => {
             className="flex flex-col gap-4 rounded-lg px-4 py-3 outline-focus-ring transition hover:bg-primary_hover focus-visible:outline-2 sm:flex-row md:gap-3 md:px-3"
         >
             <div className="relative w-60 shrink-0 overflow-hidden sm:w-44">
-                <img alt={props.title} src={props.imgSrc} className="aspect-video w-full rounded-md object-cover" />
+                <SiteImage width={480} height={270} alt={props.title} src={props.imgSrc} className="aspect-video w-full rounded-md object-cover" />
 
                 <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/10 ring-[0.5px] ring-black/10 ring-inset">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="size-5 text-fg-white">
@@ -100,7 +101,7 @@ export const VideoCardVertical = (props: VideoCardProps) => {
             href={props.href}
             className="flex flex-col gap-4 rounded-lg px-4 py-3 outline-focus-ring transition hover:bg-primary_hover focus-visible:outline-2 sm:max-w-xs"
         >
-            <img alt={props.title} src={props.imgSrc} className="aspect-video w-60 shrink-0 rounded-md object-cover" />
+            <SiteImage width={480} height={270} alt={props.title} src={props.imgSrc} className="aspect-video w-60 shrink-0 rounded-md object-cover" />
 
             <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
@@ -127,7 +128,7 @@ export const FeatureCardHorizontal = (props: FeatureCardProps) => {
             href={props.href}
             className="flex flex-col gap-4 rounded-lg px-4 py-3 outline-focus-ring transition hover:bg-primary_hover focus-visible:outline-2 sm:flex-row"
         >
-            <img alt={props.title} src={props.imgSrc} className="h-50 shrink-0 rounded-md object-cover sm:h-26 sm:w-44" />
+            <SiteImage width={480} height={270} alt={props.title} src={props.imgSrc} className="h-50 w-full shrink-0 rounded-md object-cover sm:h-26 sm:w-44" />
 
             <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
@@ -143,7 +144,7 @@ export const FeatureCardHorizontal = (props: FeatureCardProps) => {
 export const FeatureCardVertical = (props: FeatureCardProps) => {
     return (
         <a href={props.href} className="flex w-full flex-col gap-4 rounded-lg p-3 outline-focus-ring transition hover:bg-primary_hover focus-visible:outline-2">
-            <img alt={props.title} src={props.imgSrc} className="h-50 shrink-0 rounded-md object-cover sm:h-40" />
+            <SiteImage width={480} height={270} alt={props.title} src={props.imgSrc} className="h-50 w-full shrink-0 rounded-md object-cover sm:h-40" />
 
             <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">

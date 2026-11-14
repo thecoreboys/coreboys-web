@@ -82,8 +82,8 @@ export async function GET() {
       approved,
       favoriteMember,
       missions: [
-        { id: "vote", label: "Vote in a poll", progress: Math.min(1, pollVotes), goal: 1, href: "/fanzone#polls" },
-        { id: "react", label: "CORE three wall posts", progress: Math.min(3, reactions), goal: 3, href: "/fanzone#wall" },
+        ...(Number(publicRow?.open_polls ?? 0) > 0 ? [{ id: "vote", label: "Vote in a poll", progress: Math.min(1, pollVotes), goal: 1, href: "/fanzone#polls" }] : []),
+        ...(Number(publicRow?.photos ?? 0) > 0 ? [{ id: "react", label: "React to a fan post", progress: Math.min(1, reactions), goal: 1, href: "/fanzone#wall" }] : []),
         { id: "submit", label: "Share a photo or artwork", progress: Math.min(1, submissionsWeek), goal: 1, href: "/fanzone#wall" },
       ],
     },

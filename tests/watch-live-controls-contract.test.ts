@@ -42,7 +42,8 @@ test("Twitch live details prefer the current stream snapshot, title, and polishe
   assert.match(player, /live\?\.live\.find\(\(entry\) => entry\.isLive && entry\.login\.toLowerCase\(\) === current\.twitchLogin\?\.toLowerCase\(\)\)/);
   assert.match(player, /const detailPoster = detailSnapshot \?\? current\.poster/);
   assert.match(player, /const detailTitle = currentTwitchLive\?\.title\?\.trim\(\) \|\| current\.title/);
-  assert.match(player, /· \{formatDisplayLabel\(current\.platform\)\} ·/);
+  assert.match(player, />Creator<\/dt>[\s\S]{0,250}\{current\.memberLabel\} · \{formatDisplayLabel\(current\.platform\)\}/);
+  assert.match(player, /currentIsLive && !twitchDvrActive \? "Live now" : playbackClock\(scrubberDuration\)/);
 });
 
 test("the live timeline starts at 100 percent and switches into the growing archive", () => {

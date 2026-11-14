@@ -34,6 +34,7 @@ test("archive refresh splits sessions by UTC day, upserts corrections, and retai
 test("archive reads and writers fail closed before migration and are scheduled by both collectors", () => {
   assert.match(archiveLoader, /catch \{\s*return \[\];\s*\}/);
   assert.match(archiveLoader, /catch \{\s*return null;\s*\}/);
+  assert.match(archiveLoader, /DEFAULT_READ_DAYS = 800/);
   assert.match(reconcile, /await refreshAirtimeDailyArchive\(\{ days: 3 \}\)/);
   assert.match(snapshotRoute, /refreshAirtimeDailyArchive\(\{ force: true \}\)/);
 });

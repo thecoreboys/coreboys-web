@@ -33,7 +33,8 @@ test("preview warming is bounded and honors bandwidth and motion preferences", (
   assert.match(poster, /connection\?\.saveData\s*===\s*true/);
   assert.match(poster, /\["slow-2g", "2g"\]/);
   assert.match(poster, /prefers-reduced-motion:\s*reduce/);
-  assert.match(poster, /player\.previewAutoplay\s*\|\|\s*hoverAutoplay/);
+  assert.match(poster, /player\.previewAutoplay\s*&&\s*hoverAutoplay/);
+  assert.match(poster, /!avoidsMotionWarm\(player\.dataSaver, motionEnabled\)/);
 });
 
 test("social posters show a designed underlay while loading and warm near-visible covers at high priority", () => {
