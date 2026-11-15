@@ -149,9 +149,9 @@ export function ChatStreamPlayer({ channel, parent }: { channel: ChatChannel; pa
     const makeProviderInert = () => {
       const iframe = mount.querySelector("iframe");
       if (!iframe) return;
-      iframe.tabIndex = -1;
-      iframe.setAttribute("aria-hidden", "true");
-      iframe.style.pointerEvents = "none";
+      iframe.tabIndex = 0;
+      iframe.removeAttribute("aria-hidden");
+      iframe.style.pointerEvents = "auto";
     };
     const requestPlayback = () => {
       if (disposed || !instance || playbackAttempts >= 3) return;
@@ -399,22 +399,14 @@ export function ChatStreamPlayer({ channel, parent }: { channel: ChatChannel; pa
       ref={rootRef}
       data-chat-stream-player
       className={`chat-stream-player group/player relative overflow-hidden bg-black ${settingsOpen ? "is-controls-open" : ""}`}
-      style={{ aspectRatio: "16 / 9" }}
+      data-native-twitch-surface
     >
-      <div ref={mountRef} id={mountId} className="absolute inset-0 h-full w-full" aria-hidden="true" />
-
-      <div
-        aria-hidden="true"
-        data-chat-stream-shield
-        className="absolute inset-0 z-10 cursor-default"
-        onDoubleClick={toggleFullscreen}
-        onPointerDown={(event) => {
-          if (event.pointerType !== "mouse") rootRef.current?.classList.add("is-controls-open");
-        }}
-      />
+      <div className="relative aspect-video min-h-[300px] w-full" data-native-twitch-media>
+        <div ref={mountRef} id={mountId} className="absolute inset-0 h-full w-full" />
+      </div>
 
       {status ? (
-        <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-black/20 p-4 text-center">
+        <div className="grid place-items-center p-4 text-center">
           <span className="rounded-full bg-black/70 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-sm">
             {status}
           </span>
@@ -425,7 +417,7 @@ export function ChatStreamPlayer({ channel, parent }: { channel: ChatChannel; pa
         <button
           type="button"
           onClick={togglePlayback}
-          className="absolute left-1/2 top-1/2 z-30 inline-flex min-h-11 -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-black shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]"
+          className="relative m-2 inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-black shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]"
         >
           <Play className="size-4" fill="currentColor" aria-hidden="true" />
           Play stream
@@ -435,7 +427,7 @@ export function ChatStreamPlayer({ channel, parent }: { channel: ChatChannel; pa
       {settingsOpen ? (
         <div
           id={settingsId}
-          className="absolute bottom-14 right-2 z-40 w-[min(18rem,calc(100%-1rem))] rounded-xl border border-white/15 bg-[#111114]/95 p-3 text-white shadow-2xl backdrop-blur-xl"
+          className="relative m-2 w-[calc(100%-1rem)] rounded-xl border border-white/15 bg-[#111114]/95 p-3 text-white shadow-2xl backdrop-blur-xl"
           aria-label={`${channel.displayName} playback settings`}
         >
           <label className="block text-xs font-semibold text-white/70">
@@ -479,7 +471,7 @@ export function ChatStreamPlayer({ channel, parent }: { channel: ChatChannel; pa
       ) : null}
 
       <div
-        className="chat-stream-controls absolute inset-x-2 bottom-2 z-50 flex items-center gap-1 rounded-xl border border-white/10 bg-black/80 p-1 shadow-xl backdrop-blur-md"
+        className="chat-stream-controls relative m-2 flex items-center gap-1 rounded-xl border border-white/10 bg-black/80 p-1"
         role="group"
         aria-label={`${channel.displayName} stream controls`}
       >

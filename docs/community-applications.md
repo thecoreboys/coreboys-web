@@ -1,0 +1,17 @@
+# Community applications
+
+The public bottom-left “Help make this site better!” button opens an accessible application dialog. It is hidden in Admin, Studio, and the preview-access screen. First name, last name, role, a short explanation, one Twitter/X or Discord handle, and confirmation of age 13+ are required. Phone and portfolio are optional. The age confirmation is self-declared; it is not identity verification.
+
+Admins review all applications at `/admin/contributors`, linked as **Community applications** from the admin dashboard. The inbox paginates 25 entries at a time. Both the page layout and the data API require the live admin role; member managers cannot read it. The API does not cache contact details, and the public endpoint has no listing functionality.
+
+Application details are encrypted using AES-256-GCM with purpose-separated keys derived from `CONTRIBUTOR_SECRET`, falling back to the existing `FAN_SESSION_SECRET`. Keep the chosen secret stable and backed up. Changing it without migrating existing ciphertext makes saved applications unreadable. A dedicated secret should contain at least 24 random characters and be installed consistently across replicas before accepting real applications.
+
+The public POST checks Origin, content type, an actual streamed 16 KiB body limit, strict server validation, a honeypot, and an IP-bound signed 30-minute form token. Tokens cannot be submitted in their first two seconds. Token IDs are unique so retries do not duplicate applications. Shared database limits allow ten attempts per 15 minutes and five saved applications per visitor fingerprint per 24 hours. A transaction-level advisory lock enforces the daily limit across replicas. Raw IP addresses are not stored. Submitted URLs must be HTTPS without credentials and are never fetched by the server. Text is rendered as plain React text, and portfolio links open with `noopener noreferrer nofollow`.
+
+Same-origin development requests may use equivalent localhost/127.0.0.1/IPv6 loopback aliases on the same protocol and port because Next rewrites its internal local URL. Production has no loopback exception. No public API errors include private data or database diagnostics.
+
+Migration: `scripts/migrations/065_contributor_applications.sql`, registered in the web migration runner. The same additive schema is initialized lazily on the first save/read, matching the existing application pattern. No notifications or external messages are sent.
+
+Validation: focused security tests; source TypeScript check; a real fictional browser submission verified in encrypted database storage and the inbox query, then deleted by its exact test ID. Responsive checks covered 320px, 390px, 768px, 1440px and short landscape screens. Keyboard checks covered focus trapping, Escape, and focus restoration. Native screenshots are in `output/contributors/`.
+
+The launcher measures the actual player, radio, mobile navigation, watch-together panel, and tagged floating widgets. It moves above intersecting surfaces, responds to resizing and dragging, and hides temporarily when a full-screen player or a stack of widgets leaves no usable space. The form uses one native scroll container inside the visual viewport, including a smaller viewport when a keyboard opens. Successful submission replaces the form with an “Application received” screen, resets its scroll position, and focuses the confirmation heading.

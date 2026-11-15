@@ -29,7 +29,7 @@ export type MediaArchiveSource = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
+
   var __mediaArchiveSources: Map<string, MediaArchiveSource> | undefined;
 }
 

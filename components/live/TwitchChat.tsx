@@ -371,11 +371,11 @@ function Message({
       <span className="text-[color:var(--ink-faint)]"> · </span>
       {message.tokens.map((t, i) => {
         if (t.kind === "text") {
-          // eslint-disable-next-line react/no-array-index-key
+
           return <span key={i}>{t.text}</span>;
         }
         return (
-          // eslint-disable-next-line react/no-array-index-key
+
           <span key={i} className="group/emote relative inline-flex align-middle">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

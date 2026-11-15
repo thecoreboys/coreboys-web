@@ -25,6 +25,12 @@ export const metadata: Metadata = {
 
 const TILES = [
   {
+    href: "/admin/contributors",
+    title: "Community applications",
+    desc: "Review private applications from designers, editors, clippers, developers, and community members.",
+    Icon: UserPlus01,
+  },
+  {
     href: "/admin/campaigns",
     title: "Clipping campaigns",
     desc: "Create campaign ads for Home and Clips, preview artwork, set dates, and automatically hide expired campaigns.",

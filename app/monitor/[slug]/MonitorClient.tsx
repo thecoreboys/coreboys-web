@@ -82,6 +82,7 @@ export function MonitorClient({
   const containerId = `tw-monitor-${slug}`;
   const [parent, setParent] = useState<string | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
+  const [mountRevision, setMountRevision] = useState(0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const playerRef = useRef<any>(null);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
@@ -161,9 +162,7 @@ export function MonitorClient({
     if (!scriptReady || !parent) return;
     if (typeof window === "undefined" || !window.Twitch) return;
 
-    // Tear down a previous player by emptying the host div — the
-    // Twitch SDK doesn't expose a destroy() method, so the cleanest
-    // reset is to drop the iframe it injected.
+    // Keep a single provider instance, including after a manual reload.
     const host = document.getElementById(containerId);
     if (host) host.innerHTML = "";
 
@@ -175,9 +174,6 @@ export function MonitorClient({
         muted: true,
         width: "100%",
         height: "100%",
-        // Hide the giant "WATCH ON TWITCH" / channel info overlays — we
-        // already have a header with the channel name on this page.
-        layout: "video",
       });
       playerRef.current = player;
 
@@ -191,9 +187,11 @@ export function MonitorClient({
     }
 
     return () => {
+      try { playerRef.current?.pause?.(); playerRef.current?.destroy?.(); } catch { /* The frame may already be detached. */ }
       playerRef.current = null;
+      host?.replaceChildren();
     };
-  }, [scriptReady, parent, login, containerId]);
+  }, [scriptReady, parent, login, containerId, mountRevision]);
 
   // Telemetry poll. The official method is `getPlaybackStats()` — older
   // forks/wrappers expose `getStats()` so we try both, and we wrap in
@@ -253,31 +251,14 @@ export function MonitorClient({
   }, []);
 
   const reload = useCallback(() => {
-    const host = document.getElementById(containerId);
-    if (host) host.innerHTML = "";
     setStats(EMPTY_STATS);
     setHistory([]);
     setSkippedTrend([]);
+    setFpsTrend([]);
     setIsLive(null);
-    // Re-trigger the mount effect by toggling parent state.
-    setParent((p) => (p ? `${p}` : p));
-    if (parent && window.Twitch) {
-      try {
-        const player = new window.Twitch.Player(containerId, {
-          channel: login,
-          parent: [parent],
-          autoplay: true,
-          muted: true,
-          width: "100%",
-          height: "100%",
-          layout: "video",
-        });
-        playerRef.current = player;
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [containerId, login, parent]);
+    setError(null);
+    setMountRevision((revision) => revision + 1);
+  }, []);
 
   // Derived health pill — tries to assign blame between the broadcaster
   // and the viewer. Heuristics:
@@ -400,24 +381,25 @@ export function MonitorClient({
               }}
             >
               <div id={containerId} className="absolute inset-0 h-full w-full" />
-              {/* Health + reload pinned to the player corner so it's always glanceable. */}
-              <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
+            </section>
+            <div className="flex items-center justify-between gap-3" aria-label="Stream health and recovery">
+              <div className="flex flex-wrap items-center gap-2">
                 <HealthPill health={health} live={isLive} />
               </div>
               <button
                 type="button"
                 onClick={reload}
                 aria-label="Reload player"
-                className="pointer-events-auto absolute right-3 top-3 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-white/20 bg-black/55 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/75 hover:text-white"
+                className="pointer-events-auto inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-white/20 bg-black/55 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/75 hover:text-white"
               >
                 <RotateCcw size={13} />
               </button>
               {error ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center text-sm text-tertiary">
+                <div className="flex items-center justify-center bg-black/80 p-6 text-center text-sm text-tertiary">
                   {error}
                 </div>
               ) : null}
-            </section>
+            </div>
 
             <StatsGrid
               stats={stats}
