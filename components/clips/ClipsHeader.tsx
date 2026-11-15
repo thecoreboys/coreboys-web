@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ClipSubmitForm } from "@/components/clips/ClipSubmitForm";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import type { MemberLite } from "@/components/clips/ClipsPageClient";
 
 export function ClipsHeader({
@@ -15,25 +16,24 @@ export function ClipsHeader({
   const [open, setOpen] = useState(false);
 
   return (
-    <>
+    <Dialog open={open} onOpenChange={setOpen}>
       <PageHeader
         eyebrow="Cuts"
         title="Cuts."
         supporting="Recaps and moments from across the house."
         meta={`${total} ${total === 1 ? "cut" : "cuts"}`}
         actions={
-          <button
+          <DialogTrigger asChild><button
             type="button"
-            onClick={() => setOpen(true)}
-            className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink)] underline-offset-4 hover:underline"
+            className="min-h-11 font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink)] underline-offset-4 hover:underline"
           >
             Submit a cut
-          </button>
+          </button></DialogTrigger>
         }
       />
 
       {open ? <ClipSubmitModal members={members} onClose={() => setOpen(false)} /> : null}
-    </>
+    </Dialog>
   );
 }
 
@@ -44,28 +44,10 @@ function ClipSubmitModal({
   members: MemberLite[];
   onClose: () => void;
 }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Submit a clip"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-[680px] overflow-hidden border border-[color:var(--rule)] bg-[color:var(--bg)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <ClipSubmitForm members={members} onClose={onClose} />
-      </div>
-    </div>
+      <DialogContent className="max-w-[680px] bg-primary pt-12" aria-describedby={undefined}>
+        <DialogTitle className="sr-only">Submit a clip</DialogTitle>
+        <ClipSubmitForm members={members} onClose={onClose} showHeaderClose={false} />
+      </DialogContent>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "@/components/ui/SiteImage";
 import type { ReactNode } from "react";
 import { ArrowRight, Check, CreditCard, LockKeyhole, ShieldCheck } from "lucide-react";
 import type { AccountSubscriptionApiResponse } from "@/lib/subscriptions/api-contract";
@@ -10,14 +11,14 @@ import { AccountPageHeader } from "@/components/account/AccountPageHeader";
 import styles from "./PricingExperience.module.css";
 
 type AccountPlanPreview = AccountSubscriptionApiResponse["account"];
-const INCLUDED = ["Full access to current CORE beta features", "Multiview rooms, saved layouts, and queues", "Extended history, DVR folders, and notes", "Advanced alerts and account preferences", "Member card customization and profile tools", "Public content remains free for everyone"];
+const INCLUDED = ["Full access to current CORE beta features", "Multiview rooms, saved layouts, and queues", "Extended history, saved folders, and notes", "Advanced alerts and account preferences", "Member card customization and profile tools", "Public content remains free for everyone"];
 const FEATURE_FOCUS: Record<string, { title: string; copy: string }> = {
   "player.creator_tags": { title: "Creator tags", copy: "See reviewed creator tags as you watch and open their verified social profiles." },
   "multiview.expanded": { title: "Expanded multiview", copy: "Watch more live channels in one room." },
   "multiview.saved_layouts": { title: "Saved layouts", copy: "Keep your preferred room setup ready." },
   "rooms.private": { title: "Private rooms", copy: "Bring your people into one shared watch room." },
   "notifications.advanced": { title: "Advanced alerts", copy: "Choose what matters and when CORE should notify you." },
-  "dvr.extended_retention": { title: "Private DVR", copy: "Keep broadcasts, videos, and moments ready to revisit." },
+  "dvr.extended_retention": { title: "Saved library", copy: "Organize links, progress, and notes. Saving does not record videos." },
 };
 
 export function PricingExperience({ accountMode = false, account, accountLoading = false, accountUnavailable = false, focusFeature, children }: { accountMode?: boolean; account?: AccountPlanPreview; accountLoading?: boolean; accountUnavailable?: boolean; focusFeature?: string; children?: ReactNode }) {
@@ -32,13 +33,30 @@ export function PricingExperience({ accountMode = false, account, accountLoading
   return <div className={`${styles.shell} ${accountMode ? styles.accountMode : ""}`}>
     {!accountMode ? <AccountPageHeader
       title="Support CORE. Get beta access."
-      description="A single monthly membership unlocks the current CORE beta and helps fund the tools we’re building for the community."
+      description="One monthly membership opens the current CORE beta and helps fund the tools we’re building for the community."
+      visual={<figure className={styles.upgradeHeroVisual}>
+        <Image
+          src="/special-message/app-screens/now-playing-guide.png"
+          alt="CORE Watch beta with a live stream, guide, and chat together in one view."
+          fill
+          priority
+          sizes="(max-width: 760px) 100vw, 48vw"
+          className={styles.upgradeHeroImage}
+        />
+        <span className={styles.upgradeVisualTag}>A look inside the beta</span>
+        <figcaption className={styles.upgradeVisualCaption}>
+          <span>WATCH · DISCOVER · KEEP YOUR PLACE</span>
+          <strong>Everything you follow, in one CORE home.</strong>
+        </figcaption>
+      </figure>}
     >
+      <div className={styles.heroPromise}><span>ONE MEMBERSHIP</span><i aria-hidden="true" /><span>CANCEL ANYTIME</span></div>
       {requestedFeature ? <FocusCallout feature={requestedFeature} /> : null}
     </AccountPageHeader> : null}
 
-    <main className={`${styles.cleanMain} ${accountMode ? styles.accountMain : ""}`}>
+    <div className={`${styles.cleanMain} ${accountMode ? styles.accountMain : ""}`}>
       {accountMode ? <div className={styles.currentPlan} role="status" aria-live="polite"><span>Current plan</span><strong>{accountLoading ? "Checking…" : active ? "CORE Member" : "Free"}</strong><small>{account?.cancelAtPeriodEnd ? "Ends after this billing period" : active ? "Active" : "No membership yet"}</small></div> : null}
+      {!accountMode ? <div className={styles.cleanSectionHeading}><div><p className={styles.kicker}>One plan · cancel anytime</p><h2>More room to make CORE yours.</h2></div><span>Every member gets the same beta access.</span></div> : null}
       <section className={styles.cleanGrid} aria-label="Membership details">
         <article className={`${styles.membershipCard} ${styles.cleanCard}`}>
           <p className={styles.planEyebrow}>One plan · cancel anytime</p><h2>{supportClosed ? "Support is currently closed" : "CORE Membership"}</h2>
@@ -51,7 +69,7 @@ export function PricingExperience({ accountMode = false, account, accountLoading
       {children}
       <section className={styles.cleanNotice}><LockKeyhole aria-hidden="true" /><div><strong>Public content stays free.</strong><p>Your membership supports CORE development and personal account tools. It is not a subscription to any creator.</p></div></section>
       <section className={styles.cleanFaq} aria-labelledby="membership-faq"><div><p className={styles.kicker}>Need to know</p><h2 id="membership-faq">Simple billing, no surprises.</h2></div><div className={styles.cleanFaqList}><p><strong>Can I cancel?</strong> Yes. Cancel recurring billing from this page or through the secure billing portal.</p><p><strong>What does beta mean?</strong> You get access to all current beta features. Some may not work as intended while development and regular updates continue.</p></div></section>
-    </main>
+    </div>
   </div>;
 }
 

@@ -36,13 +36,14 @@ export const DialogContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-[min(960px,92vw)] max-h-[88vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl",
+        "fixed left-1/2 top-1/2 z-50 grid w-[min(960px,calc(100vw-2rem))] max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] min-w-0 -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl",
         "ring-1 ring-inset ring-secondary bg-secondary",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:animate-none",
         "shadow-[0_40px_120px_rgba(0,0,0,0.6)]",
         className,
       )}
+      data-lenis-prevent
       {...props}
     >
       {children}

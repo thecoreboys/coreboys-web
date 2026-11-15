@@ -1,6 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { ArrowRight, BarChart04, Heart, PlayCircle, Scissors02, Users01, Zap } from "@untitledui/icons";
 import { getGroupPhotos } from "@/lib/asset-index";
 

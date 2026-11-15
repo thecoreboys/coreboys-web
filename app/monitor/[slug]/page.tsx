@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { ArrowLeft as ArrowLeftIcon } from "@untitledui/icons";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { fetchUsersByLogin } from "@/lib/twitch";
@@ -56,7 +56,7 @@ export default async function MonitorPage({ params }: Params) {
   return (
     // No extra pt — the global <main> in app/layout.tsx already pads
     // for the fixed navbar. The monitor header docks straight below it.
-    <main className="relative">
+    <div className="relative">
       <section className="border-b border-[color:var(--rule)] bg-[color:var(--bg)]">
         <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-8">
           <div className="flex items-center gap-3">
@@ -102,6 +102,6 @@ export default async function MonitorPage({ params }: Params) {
       />
 
       <SiteFooter />
-    </main>
+    </div>
   );
 }

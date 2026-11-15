@@ -171,19 +171,27 @@ export async function GET(request: NextRequest) {
   const requestedMode = params.get("mode") === "enhanced" ? "enhanced" : "basic";
   const contentTypes = csv(params.get("contentType"), CONTENT_TYPES) ?? scopes(params.get("scope"));
   const watchState = csv(params.get("watchState"), WATCH_STATES)?.[0] ?? "all";
-  const context = await resolveSearchContext(request);
-  let progressByRef: SearchFilters["progressByRef"];
-  let watchProgressAvailable = false;
-  if (context.userId && watchState !== "all") {
-    try {
-      progressByRef = Object.fromEntries((await listProgress(context.userId)).map((mark) => [mark.ref, mark]));
+  // Account entitlements and watch progress are private, independent reads;
+  // don't serialize the public catalog load behind them.
+  const viewer = resolveSearchContext(request).then(async (context) => {
+    let progressByRef: SearchFilters["progressByRef"];
+    let watchProgressAvailable = false;
+    if (context.userId && watchState !== "all") {
+      try {
+        progressByRef = Object.fromEntries((await listProgress(context.userId)).map((mark) => [mark.ref, mark]));
+        watchProgressAvailable = true;
+      } catch {
+        progressByRef = {};
+      }
+    } else if (context.userId) {
       watchProgressAvailable = true;
-    } catch {
-      progressByRef = {};
     }
-  } else if (context.userId) {
-    watchProgressAvailable = true;
-  }
+    return { context, progressByRef, watchProgressAvailable };
+  });
+  const [{ context, progressByRef, watchProgressAvailable }, catalog] = await Promise.all([
+    viewer,
+    getWatchCatalog(),
+  ]);
   const filters: SearchFilters = {
     platforms: csv(params.get("platform"), PLATFORMS), formats: csv(params.get("format"), FORMATS),
     contentTypes, memberSlug: params.get("member")?.trim().toLowerCase().slice(0, 80) || undefined,
@@ -194,7 +202,6 @@ export async function GET(request: NextRequest) {
     maxDurationSeconds: finiteNumber(params.get("maxDuration") ?? params.get("maxDurationSeconds"), 7 * 86_400),
     watchState, progressByRef,
   };
-  const catalog = await getWatchCatalog();
   const catalogCount = new Set(catalog.all.map(canonicalWatchKey)).size;
   const creators = creatorResults(query);
 

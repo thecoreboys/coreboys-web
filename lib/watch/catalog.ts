@@ -47,12 +47,15 @@ function memberOf(slug: string | null) {
 }
 
 function fromYoutube(item: FeedItem): WatchItem | null {
+  if (item.embeddable === false) return null;
   const id = ytId(item);
   if (!id) return null;
   const m = memberOf(item.authorSlug);
   const sourceUrl = item.sourceUrl ?? item.url;
   const short = item.format === "short" || /\/shorts\//i.test(sourceUrl);
-  const isLive = item.isLive || item.format === "live";
+  // Provider availability is time-sensitive; a cached format is not proof a
+  // YouTube broadcast is still live. Enrichment sets `isLive` from the API.
+  const isLive = item.isLive === true;
   const isReplay = !isLive && Boolean(item.liveStartedAt);
   const rawThumb = item.thumbnailUrl ?? "";
   const poster =
@@ -112,7 +115,7 @@ function fromSocial(item: FeedItem): WatchItem | null {
   // instead of falling through to a generic placeholder.
   const poster = item.thumbnailUrl ?? (isPhoto ? item.mediaUrl : undefined) ?? "";
   const isPost = item.mediaType === "text";
-  const isLive = Boolean(item.isLive || item.format === "live");
+  const isLive = item.isLive === true;
   const isShortForm = !isLive && !isPhoto && !isPost && (
     item.format === "short" ||
     item.platform === "tiktok" ||
@@ -188,6 +191,7 @@ async function enrichYouTubeItems(items: FeedItem[]): Promise<FeedItem[]> {
     const id = ytId(item);
     const meta = id ? metadata[id] : undefined;
     if (!meta) return item;
+    if (!meta.available) return { ...item, embeddable: false };
     const isLive = meta.liveBroadcastContent === "live";
     const short = meta.isShort || item.format === "short";
     return {
@@ -269,7 +273,7 @@ async function getTwitchBroadcasts(
 }
 
 export const getWatchCatalog = cache(async (): Promise<WatchCatalog> => expandWatchCatalog(await cachedPublicData(
-  "watch-catalog:v3",
+  "watch-catalog:v4",
   async () => compactWatchCatalog(await buildWatchCatalog()),
   {
     freshSeconds: 20,

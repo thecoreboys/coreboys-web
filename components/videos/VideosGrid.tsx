@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useBrowseFilters } from "@/hooks/useBrowseFilters";
+import { useWatchProgress } from "@/hooks/useWatchProgress";
+import { readableTitle } from "@/lib/watch/presentation";
 import { Clock, LayoutGrid, PanelsTopLeft, PlayCircle, Youtube } from "lucide-react";
 import type { FeedItem } from "@/lib/social-feed";
 import { cn } from "@/lib/utils";
@@ -78,15 +81,19 @@ export function VideosGrid({
   channels: VideoChannel[];
   durationById?: Record<string, string>;
 }) {
-  const [active, setActive] = useState<string>("all");
+  const { filters, update } = useBrowseFilters({ creator: "all", q: "", date: "all", type: "all" });
+  const active = filters.creator;
+  const setActive = (creator: string) => update({ creator });
+  const { map } = useWatchProgress();
   const player = usePlayer();
 
   const filtered = useMemo(
     () =>
-      active === "all"
-        ? videos
-        : videos.filter((v) => (v.authorSlug ?? "org") === active),
-    [videos, active],
+      videos.filter((video) => (active === "all" || (video.authorSlug ?? "org") === active)
+        && (!filters.q || `${video.title} ${video.authorLabel}`.toLowerCase().includes(filters.q.toLowerCase()))
+        && (filters.type === "all" || (video.url.includes("/shorts/") ? "short" : "video") === filters.type)
+        && (filters.date === "all" || Date.parse(video.publishedAt) >= Date.now() - Number(filters.date) * 86_400_000)),
+    [videos, active, filters.q, filters.type, filters.date],
   );
 
   const context = useMemo(
@@ -132,6 +139,7 @@ export function VideosGrid({
 
   return (
     <div className="flex flex-col gap-8">
+      <div className="flex flex-wrap items-end gap-4"><label className="grid min-w-48 flex-1 gap-2 text-sm">Search<input type="search" value={filters.q} onChange={(event) => update({ q: event.target.value })} placeholder="Search video titles" className="min-h-11 rounded-lg border border-secondary bg-primary px-3" /></label><label className="grid gap-2 text-sm">Type<select value={filters.type} onChange={(event) => update({ type: event.target.value })} className="min-h-11 rounded-lg border border-secondary bg-primary px-3"><option value="all">All videos</option><option value="video">Videos</option><option value="short">Shorts</option></select></label><label className="grid gap-2 text-sm">Date<select value={filters.date} onChange={(event) => update({ date: event.target.value })} className="min-h-11 rounded-lg border border-secondary bg-primary px-3"><option value="all">Any time</option><option value="7">Past week</option><option value="30">Past month</option><option value="365">Past year</option></select></label></div>
       {/* Channel filter — horizontally scrollable row of avatar/logo pill
           chips. Active chip uses the Ironbow brand; each carries a count. */}
       <div
@@ -177,7 +185,7 @@ export function VideosGrid({
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[color:var(--rule-strong)] bg-[color:var(--bg-elev)] p-10 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-[color:var(--ink-faint)]">
-            No videos from this channel yet
+            No videos match these filters
           </p>
         </div>
       ) : (
@@ -258,9 +266,10 @@ export function VideosGrid({
                   </span>
 
                   <div className="flex flex-1 flex-col gap-2 p-4">
-                    <h3 className="line-clamp-2 text-balance text-sm font-semibold leading-snug tracking-tight text-[color:var(--ink)]">
-                      {it.title}
+                    <h3 title={it.title} className="line-clamp-2 text-balance text-base font-semibold leading-snug tracking-tight text-[color:var(--ink)]">
+                      {readableTitle(it.title)}
                     </h3>
+                    {map[it.id]?.progress ? <p className="text-sm text-secondary">{map[it.id]?.completed ? "Watched" : `Resume · ${Math.round((map[it.id]?.progress ?? 0) * 100)}% watched`}</p> : null}
                     <span className="mt-auto flex items-center gap-2 border-t border-[color:var(--rule)] pt-2.5 text-xs font-medium text-[color:var(--ink-dim)]">
                       <span className="tabular-nums">
                         {formatRelative(it.publishedAt)}

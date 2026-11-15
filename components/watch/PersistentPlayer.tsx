@@ -12,6 +12,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "@/components/ui/SiteImage";
 import { loadTwitchPlayer } from "@/lib/watch/twitch-player";
 import { advancingTwitchPlayback, createTwitchLivePlaybackClock, observedTwitchLivePlayback } from "@/lib/watch/twitch-autoplay";
 import {
@@ -24,6 +25,7 @@ import {
   LayoutGrid,
   ListVideo,
   Maximize,
+  Minimize2,
   MessageSquareText,
   Pause as PauseIcon,
   PanelRightClose,
@@ -34,6 +36,7 @@ import {
   ThumbsUp,
   Volume2,
   VolumeX,
+  X,
 } from "lucide-react";
 import { usePlayer, type PlayerAiringContext } from "@/components/providers/PlayerProvider";
 import { contentShape, embedFor, type Playable } from "@/lib/watch/playable";
@@ -54,6 +57,7 @@ import { OnScreenIdentityOverlay } from "@/components/watch/OnScreenIdentityOver
 import { CreatorTags } from "@/components/watch/CreatorTags";
 import { creatorTimelineSeconds } from "@/lib/creator-tags/model";
 import { SocialIcon } from "@/components/ui/SocialIcon";
+import { WatchThumb } from "@/components/watch/WatchThumb";
 import { WatchSelect } from "@/components/watch/WatchSelect";
 import { useWatchContextMenu } from "@/components/watch/WatchContextMenu";
 import {
@@ -71,6 +75,7 @@ import {
   youtubeCaptionCommands,
   listenToYouTube,
   youtubePlaybackSample,
+  youtubeLiveContentStatus,
   type YouTubePlayerCommand,
 } from "@/lib/watch/youtube-player";
 import {
@@ -80,7 +85,6 @@ import {
   isCoreControlledTwitchLivePlayback,
   isGuideLiveTwitchPlayback,
   liveChatAvailable,
-  youtubeLiveChatVideoId,
 } from "@/lib/watch/player-companion";
 import { previewVolumeRamp } from "@/lib/watch/preview-audio";
 import { redirectToMyListSignIn, toggleMyList } from "@/lib/watch/mylist";
@@ -90,6 +94,11 @@ import {
   isShortFormNavigationItem,
   shortFormPreloadBudget,
 } from "@/lib/watch/short-form-navigation";
+import {
+  SHORT_FORM_QUEUE_DEFAULT_LIMIT,
+  SHORT_FORM_QUEUE_FILTER,
+  isShortFormQueuePlayable,
+} from "@/lib/watch/queue-response";
 import {
   shouldStartFullPlayerMuted,
   shouldUpgradeTwitchLiveAutoplay,
@@ -524,27 +533,6 @@ function playbackClock(seconds: number) {
     : `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
-function currentTimeLabel(
-  item: Pick<Playable, "kind" | "platform">,
-  position: number,
-  duration: number,
-  twitchDvrActive: boolean,
-) {
-  const safePosition = Math.max(0, Number.isFinite(position) ? position : 0);
-  const safeDuration = Math.max(0, Number.isFinite(duration) ? duration : 0);
-  if (item.kind === "live" && item.platform === "youtube") {
-    // YouTube reports a live stream's elapsed playhead through its JS bridge.
-    // Keep showing that clock even though live playback is not seekable here.
-    return safeDuration > 0
-      ? `${playbackClock(safePosition)} / ${playbackClock(safeDuration)}`
-      : safePosition > 0
-        ? `${playbackClock(safePosition)} elapsed`
-        : "Live edge";
-  }
-  if (item.kind === "live" && !twitchDvrActive) return "Live edge";
-  return `${playbackClock(safePosition)} / ${playbackClock(safeDuration)}`;
-}
-
 function playbackRateLabel(rate: number) {
   if (Number.isInteger(rate)) return `${rate.toFixed(1)}×`;
   return `${rate.toFixed(2).replace(/0$/, "")}×`;
@@ -571,15 +559,15 @@ function PlayerSettingToggle({
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`flex min-h-14 w-full items-center gap-3 px-3 text-left outline-focus-ring transition duration-100 ease-linear first:rounded-t-xl last:rounded-b-xl focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${
+      className={`flex min-h-[4.25rem] w-full items-center gap-3 px-3.5 text-left outline-focus-ring transition duration-100 ease-linear first:rounded-t-xl last:rounded-b-xl focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${
         disabled
           ? "cursor-not-allowed opacity-45"
           : "cursor-pointer hover:bg-white/[0.055] active:bg-white/[0.075]"
       }`}
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-[11px] font-semibold text-white/85">{label}</span>
-        <span className="mt-0.5 block truncate text-[9px] text-white/38">{description}</span>
+        <span className="block text-[13px] font-semibold tracking-[-0.01em] text-white/90">{label}</span>
+        <span className="mt-1 block truncate text-[11px] leading-4 text-white/55">{description}</span>
       </span>
       <span
         aria-hidden="true"
@@ -757,7 +745,7 @@ function HandoffPrompt({
     <aside className="fixed right-3 top-[4.5rem] z-[96] w-[min(23rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl bg-[#121216]/95 p-3 text-white shadow-2xl ring-1 ring-white/20 backdrop-blur-xl" aria-label="Continue playback">
       <div className="flex gap-3">
         {snapshot.item.poster ? (
-          <img src={snapshot.item.poster} alt="" className="h-16 w-24 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
+          <Image src={snapshot.item.poster} alt="" width={96} height={64} className="h-16 w-24 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
         ) : null}
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#ff5364]">
@@ -833,7 +821,9 @@ export function PersistentPlayer() {
     refill,
     play,
   } = player;
+  const currentItemKey = current?.key ?? null;
   const handoff = usePlaybackHandoff();
+  const { deviceId: handoffDeviceId, publish: publishHandoff, dismiss: dismissHandoff, clear: clearHandoff } = handoff;
   const { data: live } = useLiveStatus();
   const {
     map,
@@ -851,10 +841,12 @@ export function PersistentPlayer() {
   const [origin, setOrigin] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [playbackError, setPlaybackError] = useState(false);
+  const [creatorDetailsOpen, setCreatorDetailsOpen] = useState(false);
   const [twitchStartRequired, setTwitchStartRequired] = useState(false);
   const [playbackSettingsOpen, setPlaybackSettingsOpen] = useState(false);
   const [uiPosition, setUiPosition] = useState(0);
   const [uiDuration, setUiDuration] = useState(0);
+  const [youtubeLiveStatus, setYoutubeLiveStatus] = useState<{ itemKey: string; isLive: boolean } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [frameReadyToken, setFrameReadyToken] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -905,6 +897,7 @@ export function PersistentPlayer() {
   const resumeOwnerRef = useRef("");
   const currentKeyRef = useRef<string | null>(null);
   const queueRefillRequestedRef = useRef<string | null>(null);
+  const shortFormRefillRequestedRef = useRef<string | null>(null);
   const previousPathRef = useRef(path);
   const progressMapRef = useRef(map);
   const controlsHideTimerRef = useRef<number | null>(null);
@@ -947,7 +940,7 @@ export function PersistentPlayer() {
   }, []);
 
   useEffect(() => {
-    if (!current) {
+    if (!currentItemKey) {
       setContentAdvisoryReady(true);
       setWaitingForTuningAudio(false);
       return;
@@ -989,7 +982,7 @@ export function PersistentPlayer() {
       audio?.pause();
       if (audio && contentAdvisoryAudioRef.current === audio) contentAdvisoryAudioRef.current = null;
     };
-  }, [current?.key, startContentAdvisory]);
+  }, [currentItemKey, startContentAdvisory]);
 
   useEffect(() => {
     setGuideDetailsCollapsed(false);
@@ -1109,8 +1102,10 @@ export function PersistentPlayer() {
     if (playerPageSidebarInitializedRef.current === playerPageKey) return;
     playerPageSidebarInitializedRef.current = playerPageKey;
     setQueueOpen(true);
-    setCompanionView(liveChatAvailable(current) ? "chat" : "details");
-  }, [current?.key, current?.kind, current?.platform, current?.twitchLogin, current?.youtubeId, playerPage, setCompanionView, setQueueOpen, shortsPage]);
+    const youtubeChatConfirmed = current.platform !== "youtube"
+      || (youtubeLiveStatus?.itemKey === current.key && youtubeLiveStatus.isLive);
+    setCompanionView(liveChatAvailable(current) && youtubeChatConfirmed ? "chat" : "details");
+  }, [current, playerPage, setCompanionView, setQueueOpen, shortsPage, youtubeLiveStatus]);
 
   useEffect(() => {
     if (!playerPage) playerPageSidebarInitializedRef.current = null;
@@ -1129,7 +1124,7 @@ export function PersistentPlayer() {
   useEffect(() => {
     const shell = playerStageShellRef.current;
     const playerScreenActive = mode === "theater" || playerPage;
-    if (!current || !shell || !playerScreenActive || routeHidden || isFullscreen) {
+    if (!currentItemKey || !shell || !playerScreenActive || routeHidden || isFullscreen) {
       setPlayerStageShellHeight(null);
       return;
     }
@@ -1148,7 +1143,7 @@ export function PersistentPlayer() {
       observer?.disconnect();
       window.removeEventListener("resize", syncHeight);
     };
-  }, [current?.key, isFullscreen, mode, playerPage, routeHidden]);
+  }, [currentItemKey, isFullscreen, mode, playerPage, routeHidden]);
 
   const hidden = !current || routeHidden;
   const activeMark = current ? map[progressRef(current)] : undefined;
@@ -1239,8 +1234,8 @@ export function PersistentPlayer() {
   }, []);
 
   useEffect(() => {
-    if (current && autoStartMuted) setIsMuted(true);
-  }, [autoStartMuted, current?.key]);
+    if (currentItemKey && autoStartMuted) setIsMuted(true);
+  }, [autoStartMuted, currentItemKey]);
 
   // Full playback has a real URL. The globally mounted player stays alive
   // while navigation changes the surrounding surface, so media never restarts.
@@ -1293,11 +1288,43 @@ export function PersistentPlayer() {
     progressMapRef.current = map;
   }, [map]);
 
-  // Keep long-form and short-form sessions supplied without waiting for the
-  // final item. The API returns a bounded batch and `refill` deduplicates it
-  // against the current queue/history, so requesting when five remain is
-  // safe and keeps the next transition seamless.
+  // Short-form sessions need a short-form-only refill. The general queue is
+  // live-first and can otherwise return no vertical videos for several pages.
+  // Send exclusions in the body so a long scroll session is not capped by URL
+  // length or the small legacy GET exclusion window.
   useEffect(() => {
+    if (current && shortFormTheaterNavigation && shortFormNavigation && !channel) {
+      const remaining = shortFormNavigation.total - shortFormNavigation.index;
+      if (remaining > 5) {
+        shortFormRefillRequestedRef.current = null;
+        return;
+      }
+      const boundaryKey = queue.at(-1)?.key ?? current.key;
+      if (shortFormRefillRequestedRef.current === boundaryKey) return;
+      shortFormRefillRequestedRef.current = boundaryKey;
+      const excluded = [...history.map((item) => item.key), current.key, ...queue.map((item) => item.key)]
+        .slice(-5_000);
+      void fetch("/api/watch/queue?mode=queue&format=short", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify({
+          filter: SHORT_FORM_QUEUE_FILTER,
+          limit: SHORT_FORM_QUEUE_DEFAULT_LIMIT,
+          exclude: excluded,
+        }),
+      })
+        .then((response) => (response.ok ? response.json() : Promise.reject()))
+        .then((data: { items?: Playable[] }) => {
+          const fresh = (data.items ?? []).filter(isShortFormQueuePlayable);
+          if (fresh.length) refill(fresh);
+        })
+        .catch(() => {
+          shortFormRefillRequestedRef.current = null;
+        });
+      return;
+    }
+
     if (!current || !autoplay || channel || queue.length > 5) {
       if (queue.length > 5) queueRefillRequestedRef.current = null;
       return;
@@ -1312,7 +1339,7 @@ export function PersistentPlayer() {
       .then((response) => (response.ok ? response.json() : Promise.reject()))
       .then((data: { items?: Playable[] }) => refill(data.items ?? []))
       .catch(() => { queueRefillRequestedRef.current = null; });
-  }, [autoplay, autoplayMode, channel, current, queue.length, refill]);
+  }, [autoplay, autoplayMode, channel, current, history, queue, refill, shortFormNavigation, shortFormTheaterNavigation]);
 
   useEffect(() => {
     const nextKey = current?.key ?? null;
@@ -1329,7 +1356,9 @@ export function PersistentPlayer() {
     setPlaybackError(false);
     setTwitchStartRequired(false);
     setPlaybackSettingsOpen(false);
-    setCompanionView(liveChatAvailable(current) ? "chat" : "up-next");
+    const youtubeChatConfirmed = current?.platform !== "youtube"
+      || (youtubeLiveStatus?.itemKey === current?.key && youtubeLiveStatus.isLive);
+    setCompanionView(liveChatAvailable(current) && youtubeChatConfirmed ? "chat" : "up-next");
     setIsPlaying(false);
     setIsMuted(false);
     twitchDvrActiveRef.current = false;
@@ -1364,7 +1393,7 @@ export function PersistentPlayer() {
         ref: current.key,
       }),
     }).catch(() => {});
-  }, [current, setCompanionView]);
+  }, [current, setCompanionView, youtubeLiveStatus]);
 
   const seekTo = useCallback((seconds: number) => {
     if (!current || !Number.isFinite(seconds)) return;
@@ -1410,8 +1439,8 @@ export function PersistentPlayer() {
   }), [accessibilityPreset, audioDescription, captionsEnabled, playbackRate, qualityPreference]);
 
   useEffect(() => {
-    if (!current || !handoff.deviceId) return;
-    const publishCurrent = () => handoff.publish({
+    if (!current || !handoffDeviceId) return;
+    const publishCurrent = () => publishHandoff({
       item: current,
       positionSeconds: positionRef.current,
       durationSeconds: durationRef.current,
@@ -1426,7 +1455,7 @@ export function PersistentPlayer() {
       window.removeEventListener("pagehide", publishCurrent);
       publishCurrent();
     };
-  }, [current, handoff.deviceId, handoff.publish, handoffPreferences]);
+  }, [current, handoffDeviceId, publishHandoff, handoffPreferences]);
 
   const availableHandoff = useMemo(() => {
     const candidate = handoff.candidate;
@@ -1450,11 +1479,11 @@ export function PersistentPlayer() {
       mode: "theater",
       startAtSeconds: candidate.positionSeconds,
     });
-    handoff.dismiss();
+    dismissHandoff();
   }, [
     applyAccessibilityPreset,
     availableHandoff,
-    handoff.dismiss,
+    dismissHandoff,
     play,
     setAudioDescription,
     setCaptionsEnabled,
@@ -1948,6 +1977,10 @@ export function PersistentPlayer() {
         }
         const details = youtubePlaybackSample(message);
         if (details) {
+          const isLiveContent = youtubeLiveContentStatus(details);
+          if (isLiveContent !== null) {
+            setYoutubeLiveStatus({ itemKey: current.key, isLive: isLiveContent });
+          }
           if (typeof details.currentTime === "number" && Number.isFinite(details.currentTime)) {
             const currentTime = Math.max(0, details.currentTime);
             positionRef.current = currentTime;
@@ -2424,9 +2457,9 @@ export function PersistentPlayer() {
   }, []);
 
   const stopPlayback = useCallback(() => {
-    handoff.clear();
+    clearHandoff();
     stop();
-  }, [handoff.clear, stop]);
+  }, [clearHandoff, stop]);
 
   const setPlaybackIntent = useCallback((action: "play" | "pause") => {
     const shouldPlay = action === "play";
@@ -2621,6 +2654,15 @@ export function PersistentPlayer() {
   const detailTitle = currentTwitchLive?.title?.trim() || current.title;
 
   const activeAiring = channel?.airing?.itemKey === current.key ? channel.airing : null;
+  const youtubeLiveStatusForCurrent = current.platform === "youtube" && youtubeLiveStatus?.itemKey === current.key
+    ? youtubeLiveStatus.isLive
+    : null;
+  const airingIsArchived = activeAiring?.status === "replay" || activeAiring?.status === "published";
+  const currentIsLive = current.platform === "youtube" && youtubeLiveStatusForCurrent !== null
+    ? youtubeLiveStatusForCurrent && !airingIsArchived
+    : current.kind === "live"
+      && !(current.platform === "youtube" && youtubeLiveStatusForCurrent === false)
+      && !airingIsArchived;
   const activeAiringLabel = activeAiring && viewerTime.ready
     ? airingTimeLabel(activeAiring, viewerTime)
     : null;
@@ -2645,9 +2687,7 @@ export function PersistentPlayer() {
     toggleMyList(current.key);
   };
   const shape = contentShape(current);
-  const src = current.platform === "instagram" && current.format !== "photo" && !current.mediaUrl
-    ? null
-    : embedFor(current, {
+  const src = embedFor(current, {
     parent,
     origin,
     autoplay: true,
@@ -2686,10 +2726,17 @@ export function PersistentPlayer() {
   const shortFormFrameDeck = !dataSaver && qualityPreference !== "data-saver" && shortFormTheaterNavigation
     ? [current, ...futureShortFormPreloads].flatMap((item) => {
         const active = item.key === current.key;
+        const instagramNativeSource = item.platform === "instagram"
+          ? preferredNativeSource(item, qualityPreference, false)
+          : null;
+        const instagramCanPlayNatively = Boolean(
+          instagramNativeSource
+          && (instagramNativeSource.startsWith("https://") || instagramNativeSource.startsWith("/")),
+        );
         const supportedProvider = Boolean(
           item.youtubeId
           || item.platform === "tiktok"
-          || item.platform === "instagram",
+          || (item.platform === "instagram" && !instagramCanPlayNatively),
         );
         if (!supportedProvider || !isShortFormNavigationItem(item)) return [];
         const frameSrc = embedFor(item, {
@@ -2716,7 +2763,7 @@ export function PersistentPlayer() {
       || 0,
   );
   const scrubberPosition = Math.min(scrubberDuration, Math.max(0, uiPosition));
-  const canScrub = scrubberDuration > 0 && (current.kind !== "live" || twitchDvrActive) && Boolean(
+  const canScrub = scrubberDuration > 0 && (!currentIsLive || twitchDvrActive) && Boolean(
     nativeMedia
       || current.youtubeId
       || current.vodId
@@ -2758,7 +2805,7 @@ export function PersistentPlayer() {
       && shape === "landscape"
       && activeAiring
       && (activeAiring.status === "replay" || activeAiring.status === "published")
-      && current.kind !== "live",
+      && !currentIsLive,
   );
   const cleanTwitchFrame = playerScreen && twitchInteractive;
   const modalTheater = theater && !playerPage;
@@ -2776,7 +2823,9 @@ export function PersistentPlayer() {
         passportChannelSlug: ambientMember?.slug,
       }
     : null;
-  const companionYoutubeLiveChatVideoId = youtubeLiveChatVideoId(current);
+  const companionYoutubeLiveChatVideoId = youtubeLiveStatusForCurrent === true && !airingIsArchived
+    ? current.youtubeId?.trim() || null
+    : null;
   const companionChatAvailable = Boolean(companionChatChannel || companionYoutubeLiveChatVideoId);
   const availableCompanionViews = playerCompanionViews(companionChatAvailable);
   const activeCompanionView = normalizePlayerCompanionView(
@@ -2805,10 +2854,13 @@ export function PersistentPlayer() {
       setQueueOpen(false);
       return;
     }
-    setCompanionView(activeCompanionView);
+    // Details are the default for on-demand titles; a live stream opens straight
+    // to its conversation when an embedded chat is available.
+    const nextView = companionChatAvailable ? "chat" : "details";
+    setCompanionView(nextView);
     setQueueOpen(true);
     window.requestAnimationFrame(() => {
-      document.getElementById(`player-companion-tab-${activeCompanionView}`)?.focus();
+      document.getElementById(`player-companion-tab-${nextView}`)?.focus();
     });
   };
   const closeCompanion = () => {
@@ -2841,7 +2893,7 @@ export function PersistentPlayer() {
       : null;
   const ambientActive = playerScreen && ambientLighting && !ambientPausedReason;
   const playerPanelPosition = playerScreen
-    ? "fixed bottom-20 right-3 w-[min(25rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-6rem)]"
+    ? "fixed bottom-20 right-3 w-[min(27rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-6rem)]"
     : `absolute ${shape === "portrait" ? "bottom-[8.5rem]" : "bottom-[5.75rem]"} left-0 w-[min(24rem,calc(100vw-1.5rem))]`;
   const aspect =
     shape === "portrait" ? "aspect-[9/16]" : shape === "square" ? "aspect-square" : "aspect-video";
@@ -2897,6 +2949,7 @@ export function PersistentPlayer() {
             key={`${current.key}:${ambientSource ?? "accent"}`}
             source={ambientSource}
             accent={ambientMember?.accent}
+            videoRef={videoRef}
           />
         ) : null}
         {theater && !shortsPage ? (
@@ -2989,8 +3042,8 @@ export function PersistentPlayer() {
                   </div>
                 )}
                 <Tooltip
-                  title={dvrLocked ? "DVR with CORE Membership" : dvrUser && savedToDvr ? "Remove from DVR" : "Add to DVR"}
-                  description={dvrLocked ? "DVR is included with CORE Membership." : dvrUser ? savedToDvr ? "Remove this broadcast from your DVR." : "Add this broadcast to your DVR for later." : "Sign in to add this broadcast to your DVR."}
+                  title={dvrLocked ? "Saved library with CORE Membership" : dvrUser && savedToDvr ? "Remove from library" : "Save"}
+                  description={dvrLocked ? "Your saved library is included with CORE Membership." : dvrUser ? savedToDvr ? "Remove this broadcast from your saved library." : "Add this broadcast to your saved library for later." : "Sign in to add this broadcast to your saved library."}
                   placement="bottom"
                 >
                   <button
@@ -2998,11 +3051,11 @@ export function PersistentPlayer() {
                     onClick={toggleDvrSave}
                     disabled={dvrActionLoading}
                     className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-semibold ring-1 ring-inset ${savedToDvr ? "bg-white text-black ring-white" : "text-white/78 ring-white/16 hover:bg-white/10 hover:text-white"} ${CONTROL_FEEDBACK}`}
-                    aria-label={dvrLocked ? `Unlock DVR to save ${current.title}` : dvrUser && savedToDvr ? `Remove ${current.title} from DVR` : `Add ${current.title} to DVR`}
+                    aria-label={dvrLocked ? `Save with membership to save ${current.title}` : dvrUser && savedToDvr ? `Remove ${current.title} from your library` : `Add ${current.title} to your library`}
                     aria-pressed={Boolean(dvrUser && savedToDvr)}
                   >
                     <Archive className="size-4" aria-hidden />
-                    <span className="hidden 2xl:inline">{dvrActionLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : savedToDvr ? "In DVR" : "Add to DVR"}</span>
+                    <span className="hidden 2xl:inline">{dvrActionLoading ? "Loading…" : dvrLocked ? "Save with membership" : savedToDvr ? "Saved" : "Save"}</span>
                   </button>
                 </Tooltip>
                 {canStartOver || twitchDvrActive ? (
@@ -3084,7 +3137,11 @@ export function PersistentPlayer() {
               {contentAdvisoryReady ? <>
               {/* Keep artwork visible while any provider iframe or Twitch SDK
                   is loading. It also remains available if the provider fails. */}
-              <img
+              <Image
+                fill
+                sizes="100vw"
+                unoptimized
+                loading="eager"
                 src={current.poster || "/embed-preview.png"}
                 alt=""
                 aria-hidden="true"
@@ -3097,13 +3154,21 @@ export function PersistentPlayer() {
               />
               {imageMedia ? (
                 <div className="absolute inset-0 isolate overflow-hidden bg-[#070709]">
-                  <img
+                  <Image
+                    width={1920}
+                    height={1080}
+                    unoptimized
+                    loading="eager"
                     src={imageMedia}
                     alt=""
                     aria-hidden
                     className="absolute inset-[-4%] h-[108%] w-[108%] scale-110 object-cover opacity-30 blur-2xl"
                   />
-                  <img
+                  <Image
+                    width={1920}
+                    height={1080}
+                    unoptimized
+                    loading="eager"
                     key={current.key}
                     src={imageMedia}
                     alt={current.title}
@@ -3312,7 +3377,7 @@ export function PersistentPlayer() {
                     <p className="mt-3 text-base font-semibold leading-snug text-white">{current.title}</p>
                     <p className="mt-2 text-sm leading-6 text-white/65">
                       {current.platform === "instagram"
-                        ? "This Reel may be private or no longer available to embed. The original post is one tap away."
+                        ? "This post cannot play in the website player. Open it on Instagram, or skip to the next item."
                         : `This title plays on ${current.platform}.`}
                     </p>
                     {current.url || current.sourceUrl ? (
@@ -3325,6 +3390,7 @@ export function PersistentPlayer() {
                         {current.platform === "instagram" ? "Open on Instagram ↗" : "Open source ↗"}
                       </a>
                     ) : null}
+                    <button type="button" onClick={() => { if (!navigateShortForm("next")) skip(); }} className="ml-3 mt-4 inline-flex min-h-11 items-center rounded-xl border border-white/30 px-4 text-sm font-semibold text-white">Skip this item</button>
                   </div>
                 </div>
               )}
@@ -3366,7 +3432,10 @@ export function PersistentPlayer() {
               ) : null}
               </> : (
                 <div className="absolute inset-0 z-30 overflow-hidden bg-[#080608]" role="status" aria-label="Mature audience advisory. The following program is intended for audiences ages 13 and older. Viewer discretion is advised.">
-                  <img
+                  <Image
+                    fill
+                    sizes="100vw"
+                    loading="eager"
                     src={shape === "portrait" ? "/watch/advisory/coretv-mature-audience-station-portrait-v2.png" : "/watch/advisory/coretv-mature-audience-station-v2.png"}
                     alt=""
                     className="h-full w-full object-cover"
@@ -3378,7 +3447,7 @@ export function PersistentPlayer() {
                   ) : null}
                 </div>
               )}
-              {current.kind !== "live" && nativeMedia && current.platform === "house" ? (
+              {current.kind !== "live" && nativeMedia && current.platform === "house" && !shortFormTheaterNavigation ? (
                 <OnScreenIdentityOverlay
                   contentId={current.key}
                   mode="vod"
@@ -3493,16 +3562,16 @@ export function PersistentPlayer() {
                   ) : null}
                 </div>
               ) : null}
-              {!cleanTwitchFrame ? <div className={`watch-player-window-controls absolute z-40 flex items-center ${playerScreen ? "right-3 top-3 gap-2" : "right-2 top-2 gap-1 rounded-full bg-black/75 p-1 shadow-xl ring-1 ring-white/20 backdrop-blur-md"}`}>
+              {!cleanTwitchFrame ? <div className={`watch-player-window-controls absolute z-40 flex items-center ${playerScreen ? "right-3 top-3 gap-1 rounded-full border border-white/15 bg-[#090b10]/85 p-1 shadow-xl backdrop-blur-xl" : "right-2 top-2 gap-1 rounded-full bg-black/75 p-1 shadow-xl ring-1 ring-white/20 backdrop-blur-md"}`}>
                 {playerScreen ? (
                   <Tooltip title="Minimize player" description="Keep watching in a compact floating player." placement="bottom">
                     <button
                       type="button"
                       onClick={() => leavePlayerPage(false)}
-                      className={`grid size-11 place-items-center rounded-full bg-black/75 text-base text-white shadow-xl ring-1 ring-white/20 backdrop-blur-md hover:bg-white hover:text-black hover:ring-white/70 hover:shadow-2xl md:size-10 ${CONTROL_FEEDBACK}`}
+                      className={`grid size-10 place-items-center rounded-full text-white/75 transition-colors hover:bg-white/12 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white md:size-9 ${CONTROL_FEEDBACK}`}
                       aria-label="Minimize player"
                     >
-                      ↙
+                      <Minimize2 className="size-4" aria-hidden />
                     </button>
                   </Tooltip>
                 ) : (
@@ -3522,10 +3591,10 @@ export function PersistentPlayer() {
                     type="button"
                     onClick={() => leavePlayerPage(true)}
                     data-player-close
-                    className={`grid place-items-center rounded-full text-lg text-white/75 hover:bg-white hover:text-black hover:shadow-lg ${playerScreen ? "size-11 bg-black/75 shadow-xl ring-1 ring-white/20 backdrop-blur-md hover:ring-white/70 md:size-10" : "size-10 ring-1 ring-transparent hover:ring-white/60"} ${CONTROL_FEEDBACK}`}
+                      className={`grid place-items-center rounded-full text-white/65 transition-colors hover:bg-rose-500/20 hover:text-rose-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white ${playerScreen ? "size-10 md:size-9" : "size-10 ring-1 ring-transparent hover:ring-white/60"} ${CONTROL_FEEDBACK}`}
                     aria-label="Stop playback"
                   >
-                    ×
+                    <X className="size-4" aria-hidden />
                   </button>
                 </Tooltip>
               </div> : null}
@@ -3723,7 +3792,7 @@ export function PersistentPlayer() {
                         checkpointCurrent();
                         minimize();
                       }}
-                      className={CONTROL_FEEDBACK}
+                      className={`watch-player-multiview-control ${CONTROL_FEEDBACK}`}
                       aria-label="Add another view"
                     >
                       <LayoutGrid aria-hidden />
@@ -3931,7 +4000,7 @@ export function PersistentPlayer() {
                 <div className="watch-guide-vod-actions">
                   <button type="button" onClick={toggleDvrSave} disabled={dvrActionLoading} aria-pressed={Boolean(dvrUser && savedToDvr)}>
                     <Archive aria-hidden />
-                    {dvrLocked ? "Unlock DVR" : savedToDvr ? "Saved to DVR" : "Add to DVR"}
+                    {dvrLocked ? "Save with membership" : savedToDvr ? "Saved to library" : "Save"}
                   </button>
                   {dvrUser && dvrAllowed ? <Link href={"/dvr" as never}>Open DVR</Link> : null}
                   {current.sourceUrl || current.url ? (
@@ -4030,7 +4099,7 @@ export function PersistentPlayer() {
                     description="Keep this playing while you choose another title, Twitch stream, or YouTube video."
                     placement="top"
                   >
-                    <Link href="/multiview?picker=1" onClick={() => {
+                    <Link href="/multiview?picker=1" className={`watch-player-multiview-control ${CONTROL_FEEDBACK}`} onClick={() => {
                       checkpointCurrent();
                       minimize();
                     }} aria-label="Add another view">
@@ -4058,16 +4127,11 @@ export function PersistentPlayer() {
                 </Tooltip>
               </div>
             ) : null}
-            {current.kind !== "live"
+            {!currentIsLive
               && !imageMedia
               && !usesVisibleTimeProxy(current)
               && !(nativeMedia && current.platform === "house") ? (
-              <OnScreenIdentityOverlay
-                contentId={current.key}
-                mode="vod"
-                variant="rail"
-                getMediaTimeMs={readPresenceTimeMs}
-              />
+              shortFormTheaterNavigation ? <details className="border-t border-white/10 bg-[#09090b] px-3 text-sm text-white/75" onToggle={(event) => setCreatorDetailsOpen(event.currentTarget.open)}><summary className="min-h-11 cursor-pointer py-3">Creator details</summary>{creatorDetailsOpen ? <OnScreenIdentityOverlay contentId={current.key} mode="vod" variant="rail" getMediaTimeMs={readPresenceTimeMs} /> : null}</details> : <OnScreenIdentityOverlay contentId={current.key} mode="vod" variant="rail" getMediaTimeMs={readPresenceTimeMs} />
             ) : null}
             {!playerScreen ? (
             <div
@@ -4080,7 +4144,9 @@ export function PersistentPlayer() {
                 }
               >
                 {channel?.artwork ? (
-                  <img
+                  <Image
+                    width={36}
+                    height={36}
                     src={channel.artwork}
                     alt=""
                     aria-hidden
@@ -4121,12 +4187,15 @@ export function PersistentPlayer() {
                 ref={settingsPanelRef}
                 id="playback-settings-panel"
                 role="dialog"
-                className={`z-[52] max-h-[calc(100dvh-1.5rem)] overscroll-contain overflow-y-auto rounded-2xl bg-[#121216]/96 p-3.5 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl ${playerPanelPosition}`}
+                className={`z-[52] max-h-[calc(100dvh-1.5rem)] overscroll-contain overflow-y-auto rounded-2xl bg-[#111216]/[0.98] p-4 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl ${playerPanelPosition}`}
                 aria-label="Player settings"
                 data-player-settings
               >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">Player settings</p>
+                <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
+                  <div className="min-w-0 pt-0.5">
+                    <p className="text-base font-semibold tracking-tight">Player settings</p>
+                    <p className="mt-1 text-xs leading-4 text-white/55">Customize playback, picture, and accessibility.</p>
+                  </div>
                   <Tooltip title="Close settings" description="Return to the video controls." placement="bottom">
                     <button
                       type="button"
@@ -4143,10 +4212,10 @@ export function PersistentPlayer() {
                   </Tooltip>
                 </div>
 
-                <div className="mt-3 space-y-4">
+                <div className="mt-4 space-y-5">
                   <div>
-                    <p className="mb-1.5 px-1 text-[10px] font-semibold text-white/42">Playback</p>
-                    <div className="divide-y divide-white/8 overflow-hidden rounded-xl bg-white/[0.035] ring-1 ring-inset ring-white/10">
+                    <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Playback</p>
+                    <div className="divide-y divide-white/10 overflow-hidden rounded-xl bg-white/[0.035] ring-1 ring-inset ring-white/12">
                       <PlayerSettingToggle
                         label="Ambient lighting"
                         description={
@@ -4168,8 +4237,8 @@ export function PersistentPlayer() {
                   </div>
 
                   <div>
-                    <p className="mb-1.5 px-1 text-[10px] font-semibold text-white/42">Accessibility</p>
-                    <div className="divide-y divide-white/8 overflow-hidden rounded-xl bg-white/[0.035] ring-1 ring-inset ring-white/10">
+                    <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Accessibility</p>
+                    <div className="divide-y divide-white/10 overflow-hidden rounded-xl bg-white/[0.035] ring-1 ring-inset ring-white/12">
                       <PlayerSettingToggle
                         label="Closed captions"
                         description={captionSupported ? "Show spoken words" : "Unavailable for this video"}
@@ -4203,7 +4272,7 @@ export function PersistentPlayer() {
                     <div className="grid gap-2">
                       {rateSupported ? (
                         <div>
-                          <p className="mb-1.5 px-1 text-[10px] font-semibold text-white/42">Speed</p>
+                          <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Speed</p>
                           <label className="watch-player-speed-control">
                             <span className="watch-player-speed-value">
                               <span>Playback speed</span>
@@ -4236,7 +4305,7 @@ export function PersistentPlayer() {
                       ) : null}
                       {qualitySupported ? (
                         <div>
-                          <p className="mb-1.5 px-1 text-[10px] font-semibold text-white/42">Quality</p>
+                          <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Quality</p>
                           <WatchSelect
                             compact
                             ariaLabel="Playback quality"
@@ -4252,7 +4321,7 @@ export function PersistentPlayer() {
                         </div>
                       ) : coreTwitchLiveControls ? (
                         <div>
-                          <p className="mb-1.5 px-1 text-[10px] font-semibold text-white/42">Quality</p>
+                          <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Quality</p>
                           <WatchSelect
                             compact
                             ariaLabel="Twitch playback quality"
@@ -4290,7 +4359,7 @@ export function PersistentPlayer() {
 
                   {chapters.length ? (
                     <div>
-                      <p className="mb-1.5 px-1 text-[10px] font-semibold text-white/42">Chapters</p>
+                      <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Chapters</p>
                       <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
                         {chapters.map((chapter) => (
                           <button
@@ -4307,9 +4376,9 @@ export function PersistentPlayer() {
                     </div>
                   ) : null}
 
-                  {current.kind !== "live" ? (
+                  {!currentIsLive ? (
                     <div>
-                      <p className="mb-1.5 px-1 text-[10px] font-semibold text-white/42">History</p>
+                      <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">History</p>
                       <button
                         type="button"
                         disabled={Boolean(activeMark?.completed)}
@@ -4319,10 +4388,10 @@ export function PersistentPlayer() {
                           current.memberSlug,
                           uiDuration || current.durationSeconds,
                         )}
-                        className={`min-h-11 w-full rounded-xl bg-white/[0.035] px-3 text-left text-xs font-semibold text-white/72 ring-1 ring-inset ring-white/10 disabled:cursor-default disabled:text-white/40 ${CONTROL_FEEDBACK} ${CONTROL_HOVER}`}
+                        className={`min-h-[3.75rem] w-full rounded-xl bg-white/[0.035] px-3.5 text-left text-[13px] font-semibold text-white/85 ring-1 ring-inset ring-white/12 disabled:cursor-default disabled:text-white/55 ${CONTROL_FEEDBACK} ${CONTROL_HOVER}`}
                       >
                         {activeMark?.completed ? "Marked watched" : "Mark as watched"}
-                        <span className="mt-0.5 block text-[10px] font-normal text-white/42">
+                        <span className="mt-1 block text-[11px] font-normal leading-4 text-white/55">
                           Completes the progress bar without adding watch time.
                         </span>
                       </button>
@@ -4393,7 +4462,7 @@ export function PersistentPlayer() {
                 role="tabpanel"
                 aria-labelledby={`player-companion-tab-${activeCompanionView}`}
                 tabIndex={0}
-                className={`min-h-0 flex-1 ${guideOverlayOpen && activeCompanionView === "details" ? "overflow-y-auto" : "overflow-hidden"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70 ${activeCompanionView === "chat" ? "" : "p-2"}`}
+                className={`min-h-0 flex-1 ${activeCompanionView === "up-next" ? "overflow-y-auto p-2" : "overflow-hidden"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70 ${activeCompanionView === "chat" ? "" : activeCompanionView === "details" ? "p-0" : ""}`}
               >
                 {activeCompanionView === "up-next" ? (
                   <>
@@ -4438,12 +4507,12 @@ export function PersistentPlayer() {
                     <div className="space-y-2">
                       {queue.slice(0, 3).map((item, index) => (
                         <article key={item.key} className="group relative isolate min-h-[4.5rem] overflow-hidden rounded-xl bg-[#17171c] ring-1 ring-white/10 transition hover:ring-white/25">
-                          {item.poster ? (
-                            <img
+                          {item.poster || item.platform === "tiktok" ? (
+                            <WatchThumb
                               src={item.poster}
                               alt=""
-                              aria-hidden
                               className="absolute inset-0 -z-20 h-full w-full object-cover opacity-90 saturate-[1.04] transition duration-300 group-hover:scale-[1.025] group-hover:opacity-100 motion-reduce:transition-none"
+                              fallback={<span className="absolute inset-0 -z-20 grid place-items-center bg-[radial-gradient(ellipse_at_50%_20%,rgba(254,44,85,.22),transparent_55%),linear-gradient(145deg,#21161c,#101014)]"><SocialIcon platform={item.platform === "house" ? "youtube" : item.platform} size={24} /></span>}
                             />
                           ) : null}
                           <span className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-black/55 via-black/15 to-transparent" aria-hidden />
@@ -4501,59 +4570,60 @@ export function PersistentPlayer() {
                     />
                   </div>
                 ) : (
-                  <div className="space-y-2.5">
-                    {detailPoster ? (
-                      <img
-                        src={detailPoster}
-                        alt=""
-                        title={currentTwitchLive?.title || undefined}
-                        onError={(event) => {
-                          if (detailSnapshot && current.poster && event.currentTarget.src !== current.poster) {
-                            event.currentTarget.src = current.poster;
-                          }
-                        }}
-                        className="aspect-video w-full rounded-xl object-cover ring-1 ring-white/10"
-                      />
-                    ) : null}
-                    <div>
+                  <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(ellipse_at_top_right,rgba(230,0,112,0.12),transparent_48%),linear-gradient(155deg,#17171b,#0b0b0e)] px-5 py-5 sm:px-6 sm:py-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="inline-flex min-h-8 items-center gap-2 rounded-full bg-white/[0.07] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-white/70 ring-1 ring-white/10">
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-black tracking-wide text-white ${currentIsLive ? "bg-[#ef233c]" : "bg-[#e60070]"}`}>{currentIsLive ? "Live" : "VOD"}</span>
+                        {currentIsLive ? "Live stream" : "Video on demand"}
+                      </p>
+                      <PlatformMark item={current} />
+                    </div>
+                    <div className="mt-6">
                       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#ff5364]">Now playing</p>
-                      <h2 className="mt-0.5 line-clamp-3 text-base font-semibold leading-tight text-white" title={detailTitle}>{detailTitle}</h2>
-                      <p className="mt-0.5 truncate text-[11px] text-white/50">
-                        {formatDisplayLabel(current.accountLabel ?? current.memberLabel)} · {formatDisplayLabel(current.platform)} · {current.kind === "live" ? "Live" : playbackClock(scrubberDuration)}
+                      <h2 className="mt-2 line-clamp-4 text-[clamp(1.65rem,3.2vw,2.45rem)] font-bold leading-[1.02] tracking-[-0.045em] text-white" title={detailTitle}>{detailTitle}</h2>
+                      <p className="mt-3 truncate text-sm font-semibold text-white/55">
+                        {channel?.title || current.accountLabel || current.memberLabel} · {currentIsLive ? "Live" : formatDisplayLabel(current.platform)}
                       </p>
                     </div>
-                    <dl className="grid grid-cols-2 gap-x-2 gap-y-1 rounded-xl bg-white/[0.035] p-2.5 ring-1 ring-white/10">
-                      <div>
-                        <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/40">Source</dt>
-                        <dd className="mt-0.5 text-xs font-medium text-white/80">{current.platform === "youtube" ? "YouTube" : current.platform === "twitch" ? "Twitch" : current.platform === "instagram" ? "Instagram" : current.platform === "tiktok" ? "TikTok" : "CORE"}</dd>
+                    {detailPoster ? (
+                      <div className="mt-6 h-24 shrink-0 overflow-hidden rounded-xl opacity-60 ring-1 ring-white/10">
+                        <WatchThumb src={detailPoster} alt="" className="h-full w-full object-cover" />
                       </div>
-                      <div>
-                        <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/40">Duration</dt>
-                        <dd className="mt-0.5 text-xs font-medium text-white/80">{current.kind === "live" ? twitchDvrActive ? playbackClock(scrubberDuration) : "Live now" : playbackClock(scrubberDuration)}</dd>
+                    ) : null}
+                    <dl className="mt-auto pt-8">
+                      <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3 border-t border-white/10 py-3">
+                        <dt className="text-[10px] font-bold uppercase tracking-wide text-white/35">Airtime</dt>
+                        <dd className="min-w-0 text-xs font-medium leading-5 text-white/75">{activeAiringLabel ?? (currentIsLive ? "Live now" : "Available to watch now")}</dd>
                       </div>
-                      <div>
-                        <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/40">Current time</dt>
-                        <dd className="mt-0.5 text-xs font-medium text-white/80">{currentTimeLabel(current, uiPosition, scrubberDuration, twitchDvrActive)}</dd>
+                      <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3 border-t border-white/10 py-3">
+                        <dt className="text-[10px] font-bold uppercase tracking-wide text-white/35">Creator</dt>
+                        <dd className="min-w-0 truncate text-xs font-semibold text-white/80">{current.memberLabel} · {formatDisplayLabel(current.platform)}</dd>
                       </div>
-                      <div>
-                        <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/40">Channel</dt>
-                        <dd className="mt-0.5 truncate text-xs font-medium text-white/80">{channel?.title || current.memberLabel}</dd>
+                      <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3 border-y border-white/10 py-3">
+                        <dt className="text-[10px] font-bold uppercase tracking-wide text-white/35">Length</dt>
+                        <dd className="text-xs font-semibold text-white/80">{currentIsLive && !twitchDvrActive ? "Live now" : playbackClock(scrubberDuration)}</dd>
                       </div>
                     </dl>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Tooltip title={dvrLocked ? "DVR with CORE Membership" : dvrUser && savedToDvr ? "Remove from DVR" : "Add to DVR"} description={dvrLocked ? "DVR is included with CORE Membership." : dvrUser ? "Keep this in your DVR for later." : "Sign in to save this to your DVR."} placement="top">
-                        <button type="button" onClick={toggleDvrSave} disabled={dvrActionLoading} aria-pressed={Boolean(dvrUser && savedToDvr)} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold ring-1 ${savedToDvr ? "bg-white text-black ring-white" : `bg-white/[0.04] text-white/80 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><Archive className="size-3.5" aria-hidden />{dvrLocked ? "Unlock DVR" : savedToDvr ? "In DVR" : "Add to DVR"}</button>
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                      <Tooltip title={dvrLocked ? "Saved library with CORE Membership" : dvrUser && savedToDvr ? "Remove from library" : "Save"} description={dvrLocked ? "Your saved library is included with CORE Membership." : dvrUser ? "Keep this in your saved library for later." : "Sign in to save this to your saved library."} placement="top">
+                        <button type="button" onClick={toggleDvrSave} disabled={dvrActionLoading} aria-pressed={Boolean(dvrUser && savedToDvr)} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold ring-1 ${savedToDvr ? "bg-white text-black ring-white" : `bg-white text-black ring-white ${PRIMARY_CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><Archive className="size-3.5" aria-hidden />{dvrLocked ? "Save with membership" : savedToDvr ? "Saved" : "Save"}</button>
                       </Tooltip>
-                      <Tooltip title={activeMark?.completed ? "Marked watched" : "Mark as watched"} description="Complete this title in your watch history." placement="top">
-                        <button type="button" onClick={() => markWatched(progressRef(current), current.kind, current.memberSlug, uiDuration || current.durationSeconds)} disabled={Boolean(activeMark?.completed)} className={`min-h-11 rounded-xl px-3 text-xs font-semibold text-white/75 ring-1 ring-white/12 ${CONTROL_FEEDBACK} ${CONTROL_HOVER} disabled:cursor-default disabled:opacity-45`}>{activeMark?.completed ? "Watched" : "Mark watched"}</button>
-                      </Tooltip>
-                      <Tooltip title="More like this" description="Use this to tune future recommendations." placement="top">
-                        <button type="button" onClick={() => setCurrentFeedback("like")} aria-pressed={currentFeedback === "like"} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold ring-1 ${currentFeedback === "like" ? "bg-white text-black ring-white" : `text-white/75 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><ThumbsUp className="size-3.5" aria-hidden />Like</button>
-                      </Tooltip>
-                      <Tooltip title="Less interested" description="Show fewer recommendations like this title." placement="top">
-                        <button type="button" onClick={() => setCurrentFeedback("not_interested")} aria-pressed={currentFeedback === "not_interested"} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold ring-1 ${currentFeedback === "not_interested" ? "bg-white text-black ring-white" : `text-white/75 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><ThumbsDown className="size-3.5" aria-hidden />Less interested</button>
-                      </Tooltip>
+                      {(current.sourceUrl ?? current.url) ? <a href={(current.sourceUrl ?? current.url)!} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-11 items-center justify-center truncate rounded-xl px-3 text-xs font-semibold text-white/70 ring-1 ring-white/15 ${CONTROL_FEEDBACK} ${CONTROL_HOVER}`}>Open on {formatDisplayLabel(current.platform)}</a> : null}
                     </div>
+                    <details className="mt-4 border-t border-white/10 pt-3">
+                      <summary className="cursor-pointer text-[10px] font-semibold text-white/45">More options</summary>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Tooltip title={activeMark?.completed ? "Marked watched" : "Mark as watched"} description="Complete this title in your watch history." placement="top">
+                          <button type="button" onClick={() => markWatched(progressRef(current), current.kind, current.memberSlug, uiDuration || current.durationSeconds)} disabled={Boolean(activeMark?.completed)} className={`min-h-10 rounded-xl px-2 text-[11px] font-semibold text-white/75 ring-1 ring-white/12 ${CONTROL_FEEDBACK} ${CONTROL_HOVER} disabled:cursor-default disabled:opacity-45`}>{activeMark?.completed ? "Watched" : "Mark watched"}</button>
+                        </Tooltip>
+                        <Tooltip title="More like this" description="Use this to tune future recommendations." placement="top">
+                          <button type="button" onClick={() => setCurrentFeedback("like")} aria-pressed={currentFeedback === "like"} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-2 text-[11px] font-semibold ring-1 ${currentFeedback === "like" ? "bg-white text-black ring-white" : `text-white/75 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><ThumbsUp className="size-3.5" aria-hidden />Like</button>
+                        </Tooltip>
+                        <Tooltip title="Less interested" description="Show fewer recommendations like this title." placement="top">
+                          <button type="button" onClick={() => setCurrentFeedback("not_interested")} aria-pressed={currentFeedback === "not_interested"} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-2 text-[11px] font-semibold ring-1 ${currentFeedback === "not_interested" ? "bg-white text-black ring-white" : `text-white/75 ring-white/12 ${CONTROL_HOVER}`} ${CONTROL_FEEDBACK}`}><ThumbsDown className="size-3.5" aria-hidden />Less interested</button>
+                        </Tooltip>
+                      </div>
+                    </details>
                     {activeChapter && !playerScreen ? (
                       <div className="rounded-xl bg-white/[0.04] p-3 ring-1 ring-white/10">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">Current chapter</p>

@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
@@ -446,7 +447,7 @@ export function ChatComposer({
         {passportIdentity?.badges.slice(0, 3).map((badge) => <span key={badge.code} title={`${badge.name} · ${badge.tier}`} className="inline-flex size-6 items-center justify-center rounded-full border border-brand-secondary bg-brand-primary text-[10px] font-bold text-brand-secondary" aria-label={`${badge.name} Passport badge`}>★</span>)}
         {passportIdentity?.featuredCard ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-secondary bg-primary py-0.5 pl-0.5 pr-2 text-[10px] font-semibold text-secondary" title={`Featured Moment Card: ${passportIdentity.featuredCard.name}${passportIdentity.featuredCard.serialNumber ? ` #${passportIdentity.featuredCard.serialNumber}` : ""}`}>
-            {passportIdentity.featuredCard.artworkUrl ? <img src={passportIdentity.featuredCard.artworkUrl} alt="" className="size-5 rounded-full object-cover" loading="lazy" /> : <span className="grid size-5 place-items-center rounded-full bg-brand-primary text-brand-secondary">◆</span>}
+            {passportIdentity.featuredCard.artworkUrl ? <SiteImage width={28} height={28} src={passportIdentity.featuredCard.artworkUrl} alt="" className="size-5 rounded-full object-cover" loading="lazy" /> : <span className="grid size-5 place-items-center rounded-full bg-brand-primary text-brand-secondary">◆</span>}
             {passportIdentity.featuredCard.name}
           </span>
         ) : null}

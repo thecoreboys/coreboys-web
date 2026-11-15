@@ -112,7 +112,7 @@ const TableRoot = ({ className, size = "md", ...props }: TableRootProps) => {
 
     return (
         <TableContext.Provider value={{ size: context?.size ?? size }}>
-            <div className="overflow-x-auto">
+            <div data-lenis-prevent className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
                 <AriaTable className={(state) => cx("w-full overflow-x-hidden", typeof className === "function" ? className(state) : className)} {...props} />
             </div>
         </TableContext.Provider>

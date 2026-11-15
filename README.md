@@ -155,6 +155,11 @@ on it.
 
 See [`THEMING.md`](./THEMING.md).
 
+## Live member and crew X feeds
+
+See [X feed delivery and setup](./docs/x-live-feed.md) for the shared scheduled
+reader, signed stream webhook, crew notification controls, and provider setup.
+
 ## Attribution
 
 Built and maintained by [MDCran](https://github.com/MDCran).

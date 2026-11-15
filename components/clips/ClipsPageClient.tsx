@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useBrowseFilters } from "@/hooks/useBrowseFilters";
+import { readableTitle } from "@/lib/watch/presentation";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { LayoutGrid, Play } from "lucide-react";
-import { Eye, Stars02, TrendUp01 as TrendingUpIcon, Users01, SearchLg, FaceSad } from "@untitledui/icons";
+import { Eye, TrendUp01 as TrendingUpIcon, Users01, SearchLg, FaceSad } from "@untitledui/icons";
 import { ClipEmbed, ClipPlatformBadge, ExternalClipLink } from "@/components/clips/ClipEmbed";
 import { ClipUpvoteButton } from "@/components/clips/ClipUpvoteButton";
 import { ClipLeaderboard } from "@/components/clips/ClipLeaderboard";
@@ -36,12 +38,17 @@ const SORT_OPTIONS: Array<{ key: ClipSortKey; label: string }> = [
 
 export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
   const player = usePlayer();
-  const [sort, setSort] = useState<ClipSortKey>("newest");
-  const [activeMember, setActiveMember] = useState<string | null>(null);
-  const [activeSource, setActiveSource] = useState<Clip["source"] | null>(null);
-  const [query, setQuery] = useState("");
-  // Search is AI-powered by default whenever the user has typed something.
-  const aiSearch = query.trim().length > 0;
+  const { filters, update } = useBrowseFilters({ sort: "newest", creator: "", platform: "", q: "", date: "all" });
+  const sort: ClipSortKey = filters.sort === "popular" || filters.sort === "oldest" ? filters.sort : "newest";
+  const setSort = (value: ClipSortKey) => update({ sort: value });
+  const activeMember = filters.creator || null;
+  const setActiveMember = (value: string | null) => update({ creator: value ?? "" });
+  const activeSource = filters.platform || null;
+  const setActiveSource = (value: Clip["source"] | null) => update({ platform: value ?? "" });
+  const query = filters.q;
+  const setQuery = (value: string) => update({ q: value });
+  const [visibleCount, setVisibleCount] = useState(24);
+  useEffect(() => setVisibleCount(24), [filters]);
 
   // Upvote hydration — counts per clip + which the current fan has upvoted.
   const [voteCounts, setVoteCounts] = useState<Record<string, number>>({});
@@ -86,6 +93,7 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
     if (activeSource) {
       filtered = filtered.filter((c) => c.source === activeSource);
     }
+    if (filters.date !== "all") filtered = filtered.filter((clip) => Date.parse(clip.publishedAt) >= Date.now() - Number(filters.date) * 86_400_000);
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       filtered = filtered.filter(
@@ -94,8 +102,8 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
           (c.aiDescription ?? "").toLowerCase().includes(q),
       );
     }
-    return sortClips(filtered, aiSearch ? "ai" : sort, query);
-  }, [clips, sort, activeMember, activeSource, aiSearch, query]);
+    return sortClips(filtered, sort, query);
+  }, [clips, sort, activeMember, activeSource, query, filters.date]);
 
   const playableClips = useMemo(
     () => visibleClips.map((clip) => playableOfClip(clip, members)),
@@ -130,21 +138,29 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
       ) : null}
 
       {/* Toolbar — UUI search input + sort button group */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="min-w-[280px] flex-1">
+      <div className="mb-4 grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap sm:items-center">
+        <div className="col-span-2 min-w-0 flex-1 sm:basis-[280px]">
           <Input
             icon={SearchLg}
             size="md"
             value={query}
             onChange={(v) => setQuery(v)}
-            placeholder="AI search — describe the moment, e.g. 'ron clutch'"
+            placeholder="Search clip titles and descriptions"
             aria-label="Search clips"
           />
         </div>
 
+        <label className="grid min-w-0 gap-1 text-sm sm:hidden">
+          <span>Sort</span>
+          <select aria-label="Sort clips" value={sort} onChange={(event) => setSort(event.target.value as ClipSortKey)} className="min-h-11 w-full rounded-lg border border-secondary bg-primary px-3 text-primary">
+            {SORT_OPTIONS.map((option) => <option key={option.key} value={option.key}>{option.key === "popular" ? "Popular" : option.label}</option>)}
+          </select>
+        </label>
+        <label className="grid min-w-0 gap-1 text-sm">Date<select className="min-h-11 w-full rounded-lg border border-secondary bg-primary px-3" value={filters.date} onChange={(event) => update({ date: event.target.value })}><option value="all">Any time</option><option value="7">Past week</option><option value="30">Past month</option><option value="365">Past year</option></select></label>
         <ButtonGroup
+          className="hidden sm:inline-flex"
           size="md"
-          selectedKeys={aiSearch ? new Set<string>() : new Set([sort])}
+          selectedKeys={new Set([sort])}
           onSelectionChange={(keys) => {
             const next = Array.from(keys)[0] as ClipSortKey | undefined;
             if (next) setSort(next);
@@ -161,22 +177,10 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
           ))}
         </ButtonGroup>
 
-        <span className="ml-auto text-sm font-medium text-quaternary">
+        <span className="col-span-2 ml-auto text-sm font-medium text-quaternary">
           {visibleClips.length} of {clips.length}
         </span>
       </div>
-
-      {/* AI search backend stub — until the AI ranker is wired up, the
-          search box just falls back to substring filtering. Tell users so
-          they don't expect natural-language matching yet. */}
-      {aiSearch ? (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-secondary bg-secondary p-4 shadow-xs-skeuomorphic">
-          <FeaturedIcon icon={Stars02} size="md" color="brand" theme="light" />
-          <p className="text-sm font-medium text-secondary">
-            AI search abilty backend is not set up yet sorry guys! &lt;3
-          </p>
-        </div>
-      ) : null}
 
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -214,7 +218,7 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
               onClick={() => setActiveSource(activeSource === s ? null : s)}
               aria-pressed={active}
               title={s.charAt(0).toUpperCase() + s.slice(1)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all cursor-pointer hover:-translate-y-0.5"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border transition-all cursor-pointer hover:-translate-y-0.5"
               style={
                 active
                   ? {
@@ -251,7 +255,7 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
         </div>
       ) : (
         <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4 [column-fill:_balance]">
-          {visibleClips.map((c) => {
+          {visibleClips.slice(0, visibleCount).map((c) => {
             const taggedMembers = c.memberSlugs
               .map((slug) => members.find((m) => m.slug === slug))
               .filter((m): m is MemberLite => !!m);
@@ -260,12 +264,12 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
                 key={c.id}
                 className="mb-5 break-inside-avoid overflow-hidden rounded-2xl border border-secondary bg-secondary shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
               >
-                <ClipEmbed clip={c} />
+                <ClipEmbed clip={c} onPlay={() => player.play(playableOfClip(c, members), playableClips)} />
                 <div className="flex flex-col gap-3 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <h3 className="text-balance text-md font-semibold leading-snug tracking-tight text-primary">
-                        {c.title}
+                        {readableTitle(c.title)}
                       </h3>
                       <p className="mt-1 text-sm text-tertiary">
                         {formatRelative(c.publishedAt)}
@@ -361,6 +365,7 @@ export function ClipsPageClient({ clips, members }: ClipsPageClientProps) {
           })}
         </div>
       )}
+      {visibleClips.length > visibleCount ? <button type="button" className="my-6 min-h-11 rounded-lg border border-secondary px-5" onClick={() => setVisibleCount((count) => count + 24)}>Show 24 more clips</button> : null}
     </div>
   );
 }
@@ -413,7 +418,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full py-1 ring-1 ring-inset ${
+      className={`inline-flex min-h-11 items-center gap-2 rounded-full py-1 ring-1 ring-inset ${
         hasAvatarSlot ? "pl-1 pr-3" : "px-2.5 py-1.5"
       } text-xs font-medium transition-all cursor-pointer ${
         active

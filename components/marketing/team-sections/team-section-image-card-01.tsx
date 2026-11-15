@@ -1,3 +1,4 @@
+import SiteImage from "@/components/ui/SiteImage";
 import { Button } from "@/components/base/buttons/button";
 import { Dribbble, LinkedIn, X } from "@/components/foundations/social-icons";
 
@@ -186,7 +187,7 @@ export const TeamSectionImageCard01 = () => {
                     <ul className="grid w-full grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4">
                         {teamMembers.map((item) => (
                             <li key={item.title} className="flex flex-col gap-4">
-                                <img alt={item.name} src={item.avatarUrl} className="aspect-square w-full object-cover" />
+                                <SiteImage width={480} height={480} alt={item.name} src={item.avatarUrl} className="aspect-square w-full object-cover" />
                                 <div>
                                     <h3 className="text-lg font-semibold text-primary">{item.name}</h3>
                                     <p className="text-md text-brand-secondary">{item.title}</p>

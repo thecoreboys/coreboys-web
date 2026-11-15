@@ -272,7 +272,7 @@ export function MyListPage({ initialItems }: { initialItems: WatchItem[] }) {
                     <span>{activeQueue.itemIds.length} title{activeQueue.itemIds.length === 1 ? "" : "s"}</span>
                     <Tooltip
                       title="Delete custom list"
-                      description="Delete this list. Titles stay in your DVR."
+                      description="Delete this list. Titles stay in your saved library."
                       placement="top"
                     >
                       <button
@@ -322,7 +322,7 @@ export function MyListPage({ initialItems }: { initialItems: WatchItem[] }) {
               <Layers3 aria-hidden />
               <div>
                 <h3>Create your first custom list</h3>
-                <p>Choose a name, then add titles from your DVR.</p>
+                <p>Choose a name, then add titles from your saved library.</p>
               </div>
             </div>
           )}

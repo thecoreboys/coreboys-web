@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import type { CSSProperties } from "react";
 import { CopyAddress } from "./CopyAddress";
 import { clipboardPayloadFor, type MailMember } from "@/lib/fan-mail";
@@ -66,7 +66,7 @@ function IdentityHero({ identity }: { identity: PostcardIdentity }) {
   if (identity.archetype === "broadcast-freeze-frame") {
     return (
       <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_176px] sm:items-stretch">
-        <div className="flex min-h-44 flex-col justify-between border-l-4 pl-4" style={{ borderColor: identity.palette.secondary }}>
+        <div className="@container flex min-w-0 min-h-44 flex-col justify-between border-l-4 pl-4" style={{ borderColor: identity.palette.secondary }}>
           <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em]">
             <span className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-white" style={{ background: identity.palette.secondary }}>
               <span className="size-1.5 rounded-full bg-white" aria-hidden="true" /> Live fan-mail feed
@@ -77,7 +77,7 @@ function IdentityHero({ identity }: { identity: PostcardIdentity }) {
             <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.24em]" style={{ color: identity.palette.mutedInk }}>
               Stable Network / Channel 02
             </p>
-            <h2 style={fontStyle(identity.typography.display)} className="text-[42px] sm:text-[58px]">
+            <h2 style={fontStyle(identity.typography.display)} className="max-w-full break-words text-[clamp(2rem,15cqi,3.625rem)] leading-[.9] [overflow-wrap:anywhere]">
               {identity.creatorName}
             </h2>
             <p className="mt-2 text-sm font-bold uppercase tracking-wide" style={{ color: identity.palette.highlight }}>
@@ -104,14 +104,14 @@ function IdentityHero({ identity }: { identity: PostcardIdentity }) {
           <Image src={identity.media.portrait} alt={`${identity.creatorName} portrait`} fill sizes="152px" className="object-cover" />
           <div className="absolute left-2 top-2 rounded-full border-2 border-black bg-white px-2 py-1 text-[9px] font-black uppercase">First edition</div>
         </div>
-        <div className="min-w-0 flex flex-col justify-between text-black">
+        <div className="@container min-w-0 flex flex-col justify-between text-black">
           <div className="flex items-start justify-between gap-3">
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em]">NMS player card / 001</p>
             <span className="text-5xl font-black italic leading-none">99</span>
           </div>
           <div>
             <p className="mb-1 text-xs font-black uppercase tracking-[0.2em]" style={{ color: identity.palette.secondary }}>{identity.communityName}</p>
-            <h2 style={fontStyle(identity.typography.display)} className="min-w-0 break-words [overflow-wrap:anywhere] text-[42px] sm:text-[54px]">{identity.creatorName}</h2>
+            <h2 style={fontStyle(identity.typography.display)} className="min-w-0 max-w-full break-words text-[clamp(1.75rem,15cqi,3.375rem)] leading-[.88] tracking-[-.035em] [overflow-wrap:anywhere]">{identity.creatorName}</h2>
             <p className="mt-2 inline-block -rotate-1 bg-black px-3 py-1.5 text-xs font-black uppercase tracking-wide text-white">{hero.headline}</p>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[9px] font-black uppercase">
@@ -136,7 +136,7 @@ function IdentityHero({ identity }: { identity: PostcardIdentity }) {
           <div>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em]">Exclusive / Fan-mail desk</p>
             <h2 style={fontStyle(identity.typography.display)} className="text-[44px] sm:text-[62px]">Mail desk open for {identity.creatorName}</h2>
-            <p className="mt-2 max-w-xl font-serif text-sm leading-snug">{identity.concept}</p>
+            <p className="mt-2 max-w-xl font-serif text-sm leading-snug">Fan mail for {identity.creatorName}. Use the recipient name and mailing address below.</p>
           </div>
           <div className="relative min-h-40 overflow-hidden border-2 border-[#181512] bg-[#ddd2bb]">
             <Image src={identity.media.portrait} alt={`${identity.creatorName} portrait`} fill sizes="150px" className="object-cover grayscale contrast-125" />
@@ -241,6 +241,7 @@ function AddressPanel({ identity, member, payload }: { identity: PostcardIdentit
         </p>
       ) : null}
       <div className="mt-5"><CopyAddress payload={payload} /></div>
+      <p className="mt-3 text-sm leading-relaxed" style={{ color: identity.palette.mutedInk }}>Address verification date unavailable. Check the creator’s latest mailing instructions before sending. Online postcard printing is currently paused.</p>
     </div>
   );
 }

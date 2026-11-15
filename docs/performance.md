@@ -1,0 +1,114 @@
+# Page and player performance
+
+## Strategy
+
+Keep the existing streaming experience and prioritize visible artwork, navigation,
+and active playback. Public catalog metadata is shared; account data is private.
+Do not increase every cache lifetime to hide slow requests: live transitions,
+entitlements, and saved progress have different freshness requirements.
+
+## Implemented
+
+- **Memory → Redis → source:** public snapshots use bounded memory and the existing
+  Redis integration. Concurrent requests within each server process share reads
+  and rebuilds. Usable stale
+  snapshots render while one refresh runs. Redis failure retains its short
+  deadline/backoff and never becomes a dependency for successful page rendering.
+  The adapter bounds both connection handshakes and responses after a successful
+  connection; a server that accepts commands but stops replying cannot leave
+  a page or deferred cache write waiting indefinitely.
+- **Response first:** Redis encoding, compression, and writes run through Next's
+  `after()` callback. Per-key ordering within each server process and remaining
+  TTL prevent that process's delayed writes from replacing its newer snapshot or
+  extending expired content. Ordering across replicas is not a distributed lock.
+- **Cheap warm hits:** validate each immutable snapshot once per validator and
+  retain frequently used entries with a 64-entry LRU. Copy cached data before
+  modifying it for a page or viewer.
+- **Channels and Guide:** reuse public history snapshots (tracker: five minutes;
+  airtime: four minutes), remove unused Guide history queries, overlap independent
+  reads, and warm provider avatars after sending the channel response.
+- **Guide freshness:** use the catalog's existing 20-second fresh / 180-second
+  stale policy instead of layering another five-minute catalog cache. Provider
+  schedules have separate deadlines and cache lifetimes.
+- **Client requests:** Guide, Tonight, and the player guide share one SWR key,
+  deduplicate requests, retain the last successful result, and refresh only while
+  visible/online. Focus, visibility, and routine catalog polling coalesce;
+  observed live changes keep an urgent refresh path.
+- **Private personalization:** queue/search overlap public catalog and private
+  viewer reads, but responses remain `private, no-store`. Account workspace reads
+  wait for sign-in; the passport bridge resets on account changes. Routine creator
+  updates use the existing private inbox instead of duplicate floating polling.
+- **Optional downloads:** sign-in forms and attached chat load when opened.
+  Station audio warms only on station selection or keyboard focus; opening a
+  page no longer downloads all seven stations. Save-Data and 2G connections skip optional audio.
+  Click-triggered station playback still uses the existing synchronous path.
+- **Repeat visits:** station MP3s and PNG brand artwork now receive the same
+  bounded browser/CDN cache policy as other public artwork. Filenames are not
+  treated as immutable content hashes.
+- **Station reliability:** fade progress and output volume are bounded. A browser
+  animation-frame timestamp earlier than the fade's start can no longer throw a
+  negative-volume error while tuning between networks.
+
+## Cache boundaries
+
+Redis is configured with `REDIS_URL` (redis/rediss), or a REST URL/token via
+`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`. Existing aliases
+`REDIS_URL` / `REDIS_TOKEN` also support the REST transport. No new service or
+dependency is required. Environment, site, and database identity are hashed into
+public-cache keys; `CORE_CACHE_NAMESPACE` can explicitly separate environments.
+
+Never cache account, billing, OAuth, watch progress, or entitlement responses in
+the public cache/CDN. Do not apply a blanket cache header to pages or `/api/*`.
+Do not cache video segments in Redis. Existing provider players retain their own
+playback, authentication, buffering, and adaptive quality behavior.
+
+## Verification and operation
+
+Run focused cache, route, guide, refresh, and radio tests, then TypeScript and
+the production build. A read-only HTTP probe is available:
+
+```sh
+node scripts/measure-route-performance.mjs http://127.0.0.1:3000
+```
+
+It reports three requests per route, response headers, full-response duration,
+and decoded payload bytes. The first request is only an initial sample, not a
+guaranteed cache miss; the probe never flushes shared caches. An access-gate
+redirect must be tested with an authorized browser session instead. Streaming
+header latency alone does not prove the page content is ready.
+
+For release comparisons, use the same production build mode, device, data, and
+network conditions. Check desktop/mobile navigation, station dial, player
+controls, Guide/return navigation, sign-in, logout/account switch, and provider
+outage recovery. Track real-user LCP/INP/CLS and endpoint p50/p95 separately from
+local development timings. Third-party player startup remains provider-dependent.
+
+Baseline evidence: the home-page browser check downloaded all seven local station
+recordings (1,977,704 file bytes). The final policy removes those automatic
+downloads on route load. Intentional station selection/focus and approved alternate
+recordings can add subsequent loads; playback continues to load its chosen source.
+
+Local production-snapshot measurements on November 8, 2026: all 24 HTTP probes
+returned 200. Warm complete HTML responses across home, CORE channel, Guide,
+Shorts, Theater, Multiview, and privacy ranged from 15–288 ms; warm Guide API
+responses were 125–158 ms. These are localhost/server response measurements,
+not real-user page-render or video-start times. The 54 focused performance and
+regression tests passed. Production snapshot compilation and type checking are
+separate from the workspace's ongoing UI changes and full-suite status.
+
+The final production browser smoke check passed home, CORE channel → Flock via
+the network dial, Guide, Shorts, Theater, Multiview, privacy, and mobile channel
+rendering with no page exceptions or same-origin server failures. Sign-in and
+create-account forms opened, switched, and closed successfully; no credentials
+were submitted. Initial home navigation downloaded zero station audio files.
+
+Release caveat: the isolated snapshot used `next build --no-lint` with TypeScript
+validation enabled; changed-code lint checks passed. The last complete workspace
+test run had 1,008 passes, two UI-contract failures, and one skipped test while
+other hero/channel work was being edited. A normal release build also encountered
+an unused hero-player helper in that separate work. These checks must be cleared
+against a settled workspace before a release. Nothing was deployed by this pass.
+
+Framework references: [Next lazy loading](https://nextjs.org/docs/app/guides/lazy-loading),
+[Next after](https://nextjs.org/docs/app/api-reference/functions/after),
+[SWR request deduplication](https://swr.vercel.app/docs/advanced/performance).

@@ -31,7 +31,7 @@ export function FanZonePulse() {
   }, [authLoading, user?.id]);
 
   const nextMission = useMemo(
-    () => summary?.missions?.find((mission) => mission.progress < mission.goal) ?? summary?.missions?.[0],
+    () => summary?.missions?.find((mission) => mission.progress < mission.goal),
     [summary],
   );
 
@@ -58,11 +58,11 @@ export function FanZonePulse() {
             <p className="mt-1 text-lg font-semibold tracking-tight text-primary">Hey, {user.displayName.split(/\s+/)[0]}</p>
           </div>
           <Metric icon={<Trophy size={15} />} value={(summary.points ?? 0).toLocaleString()} label={summary.tier ?? "Fan"} />
-          <Metric icon={<Flame size={15} />} value={String(summary.streak ?? 0)} label="day streak" />
-          <Metric icon={<Check size={15} />} value={String(summary.approved ?? 0)} label="on the wall" />
+          {(summary.streak ?? 0) > 0 ? <Metric icon={<Flame size={15} />} value={String(summary.streak)} label="day streak" /> : null}
+          {(summary.approved ?? 0) > 0 ? <Metric icon={<Check size={15} />} value={String(summary.approved)} label="on the wall" /> : null}
           {summary.favoriteMember ? <Metric icon={<Heart size={15} />} value={summary.favoriteMember} label="favorite member" /> : null}
           {nextMission ? (
-            <a href={nextMission.href} className="ml-auto min-w-[220px] rounded-xl border border-secondary bg-primary px-4 py-3 transition hover:border-brand">
+            <a href={nextMission.href} className="ml-auto min-w-0 w-full rounded-xl border border-secondary bg-primary px-4 py-3 transition hover:border-brand sm:min-w-[220px] sm:w-auto">
               <div className="flex items-center justify-between gap-4">
                 <div><p className="text-xs font-semibold uppercase tracking-wide text-brand-secondary">Next mission</p><p className="mt-0.5 text-sm font-semibold text-primary">{nextMission.label}</p></div>
                 <span className="text-xs font-semibold tabular-nums text-tertiary">{nextMission.progress}/{nextMission.goal}</span>
