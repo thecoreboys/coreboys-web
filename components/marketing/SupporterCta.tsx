@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -27,14 +28,14 @@ const COPY = {
   watch: {
     eyebrow: "Make CoreTV yours",
     title: "Your watching, remembered.",
-    body: "Pick up on any device, build a private DVR, and get a calmer, more personal way to watch.",
+    body: "Resume across devices and organize saved videos into folders with private notes.",
     benefit: "Resume points · DVR folders · smart alerts",
   },
   guide: {
     eyebrow: "Guide alerts",
     title: "Set reminders for live channels.",
-    body: "Save a channel, choose your quiet hours, and keep broadcasts in your DVR with private notes.",
-    benefit: "Live reminders · quiet hours · private DVR",
+    body: "Save a channel, choose your quiet hours, and keep broadcasts in your saved library with private notes.",
+    benefit: "Live reminders · quiet hours · saved library",
   },
   theater: {
     eyebrow: "Keep this in your orbit",
@@ -59,7 +60,7 @@ const COPY = {
 const DISCOVERY_FEATURES = [
   {
     key: "dvr",
-    title: "Cloud DVR",
+    title: "Saved library",
     detail: "Lists, folders, private notes, and tags",
     icon: Cloud,
   },
@@ -149,7 +150,7 @@ function SupporterDiscoveryGrid({
         {/* Previous supporter artwork retained for reference; it looked synthetic in the live layout.
         <img src="/brand/supporter/supporter-vault-hero-v3.webp" alt="" aria-hidden decoding="async" fetchPriority="low" className="member-hero__generated-art absolute inset-0 -z-20 h-full w-full object-cover object-center" />
         */}
-        <img src="/brand/supporter/supporter-workbench-v1.webp" alt="" aria-hidden decoding="async" fetchPriority="low" className="member-hero__generated-art absolute inset-0 -z-20 h-full w-full object-cover object-center" />
+        <SiteImage fill sizes="100vw" src="/brand/supporter/supporter-workbench-v1.webp" alt="" aria-hidden decoding="async" fetchPriority="low" className="member-hero__generated-art absolute inset-0 -z-20 h-full w-full object-cover object-center" />
         <span aria-hidden className="member-hero__art-wash" />
         <div className="relative z-10 flex min-h-[20rem] flex-col items-center justify-center py-8 text-center sm:h-full sm:min-h-0">
           <div className="member-hero__offer flex max-w-[34rem] flex-col items-center">

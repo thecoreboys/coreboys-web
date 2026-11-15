@@ -1,0 +1,62 @@
+/* The primary navigation shares the homepage's calm, rounded visual language.
+   Explicit hooks keep account menus, network cards and media controls intact. */
+.core-topnav__inner {
+  max-width: 1440px;
+  min-height: 64px;
+}
+
+.core-topnav__link {
+  min-height: 44px;
+  border-radius: 999px;
+  font-size: .875rem;
+  font-weight: 500;
+  letter-spacing: -.015em;
+  color: var(--ink-dim);
+}
+
+.core-topnav__link[aria-current="page"],
+.core-topnav__link[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}
+
+.core-topnav__link[aria-current="page"]::after { display: none; }
+
+.core-topnav .nav-membership-cta {
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding-inline: 1rem;
+  background: linear-gradient(120deg, #c22960, #a72c58) !important;
+  color: #fff;
+  font-size: .875rem;
+  font-weight: 600;
+  letter-spacing: -.015em;
+  box-shadow: none !important;
+}
+
+.core-topnav .nav-membership-cta:hover {
+  background: linear-gradient(120deg, #b72357, #94234b) !important;
+}
+
+.core-topnav .nav-membership-cta > span:last-child { color: #fff; }
+
+@media (min-width: 1024px) {
+  .core-topnav__inner { height: 72px; }
+  .core-topnav__link { padding-inline: .875rem; }
+  .core-topnav__actions { gap: .5rem; }
+}
+
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .core-topnav__inner { gap: .75rem; padding-inline: 1.5rem; }
+  .core-topnav__link { padding-inline: .65rem; }
+  .core-topnav__actions { gap: .375rem; }
+  .core-topnav__actions > button[aria-label="Search CORE Watch"] {
+    width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .core-topnav__actions > button[aria-label="Search CORE Watch"] > span { display: none; }
+  .core-topnav .nav-membership-cta { padding-inline: .875rem; }
+}

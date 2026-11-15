@@ -44,10 +44,11 @@ test("official YouTube embed URLs retain CORE's muted autoplay contract", () => 
   assert.equal(url.searchParams.get("controls"), "0");
 });
 
-test("home heroes can autoplay direct video sources without a provider iframe", () => {
-  assert.match(billboard, /function directVideoPreviewUrl\(value\?: string \| null\): string \| null/);
-  assert.match(billboard, /const nativeVideoUrl = directVideoPreviewUrl\(playable\.mediaUrl\)/);
-  assert.match(billboard, /<video[\s\S]{0,420}autoPlay[\s\S]{0,140}playsInline[\s\S]{0,140}preload="auto"/);
-  assert.match(billboard, /\[180, 650, 1_400\]/);
-  assert.match(billboard, /event: "listening", id: `core-billboard-\$\{item\.id\}`/);
+test("direct video sources remain playable after the viewer selects a home hero", () => {
+  const mediaUrl = "https://media.core.test/program.mp4";
+  const playable = itemToPlayable(watchItem({ mediaUrl }));
+  assert.equal(playable?.mediaUrl, mediaUrl);
+  assert.equal(playable?.url, mediaUrl);
+  assert.match(billboard, /player\.play\(item\)/);
+  assert.doesNotMatch(billboard, /<iframe\b|<video\b|autoPlay/);
 });

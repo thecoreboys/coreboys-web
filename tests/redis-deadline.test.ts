@@ -42,7 +42,7 @@ function loadAdapter(url: string, clock: { offset: number }) {
 }
 
 /** Minimal RESP command framing for a local fake Redis; no external service. */
-function respond(socket: Socket, observe?: (args: string[]) => void) {
+function respond(socket: Socket, observe?: (args: string[]) => void, shouldReply?: (args: string[]) => boolean) {
   let buffer = "";
   const values = new Map<string, string>();
   socket.on("data", (chunk) => {
@@ -63,6 +63,7 @@ function respond(socket: Socket, observe?: (args: string[]) => void) {
       }
       buffer = buffer.slice(position);
       observe?.(args);
+      if (shouldReply && !shouldReply(args)) continue;
       if (args[0] === "SET") values.set(args[1]!, args[2]!);
       if (args[0] === "GET") {
         const value = values.get(args[1]!) ?? JSON.stringify({ cached: true });
@@ -99,6 +100,9 @@ test("Redis bounds a silent handshake, shares backoff, destroys the socket and r
 
     assert.equal(await adapter.redisGetJson("catalog"), null);
     assert.equal(clients.length, 1, "retry backoff must avoid another connection attempt");
+    let serialized = false;
+    assert.equal(await adapter.redisSetJson("catalog", { toJSON() { serialized = true; return "large archive"; } }, 60), false);
+    assert.equal(serialized, false, "retry backoff must also avoid encoding large snapshots");
 
     healthy = true;
     clock.offset += 15_001;
@@ -106,6 +110,60 @@ test("Redis bounds a silent handshake, shares backoff, destroys the socket and r
     assert.equal(clients.length, 2, "recovery must use a new client, not the abandoned handshake");
     assert.equal(accepts, 2);
   } finally {
+    for (const client of clients) if (client.isOpen) client.destroy();
+    for (const socket of sockets) socket.destroy();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("disabled Redis skips serialization and compression entirely", async () => {
+  const { adapter, clients } = loadAdapter("", { offset: 0 });
+  let serialized = false;
+  assert.equal(await adapter.redisSetJson("catalog", { toJSON() { serialized = true; return "large archive"; } }, 60), false);
+  assert.equal(serialized, false);
+  assert.equal(clients.length, 0);
+});
+
+test("Redis bounds commands after a successful handshake when the server stops replying", { timeout: 10_000 }, async () => {
+  let silent = false;
+  const commands: string[][] = [];
+  const sockets = new Set<Socket>();
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.on("error", () => {});
+    socket.on("close", () => sockets.delete(socket));
+    respond(socket, (args) => commands.push(args), ([verb]) => !silent || (verb !== "GET" && verb !== "SET"));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const clock = { offset: 0 };
+  const { adapter, clients } = loadAdapter(`redis://127.0.0.1:${address.port}`, clock);
+  // A failing implementation must still release the test socket and report
+  // the missed deadline instead of hanging the whole verification process.
+  const safety = setTimeout(() => { for (const socket of sockets) socket.destroy(); }, 4_000);
+  try {
+    assert.equal(JSON.stringify(await adapter.redisGetJson("warm")), '{"cached":true}');
+    assert.equal(clients[0]!.isReady, true);
+    silent = true;
+    const started = Date.now();
+    assert.deepEqual(await Promise.all([
+      adapter.redisGetJson("silent-read"),
+      adapter.redisSetJson("silent-write", { ready: true }, 60),
+    ]), [null, false]);
+    assert.ok(Date.now() - started < 2500, "written commands must retain a response deadline");
+    assert.ok(commands.some(([verb, key]) => verb === "GET" && key === "silent-read"));
+    assert.ok(commands.some(([verb, key]) => verb === "SET" && key === "silent-write"));
+    assert.equal(clients[0]!.isOpen, false, "a silent ready connection must be discarded");
+    assert.equal(await adapter.redisGetJson("during-backoff"), null);
+    assert.equal(clients.length, 1);
+
+    silent = false;
+    clock.offset += 15_001;
+    assert.equal(JSON.stringify(await adapter.redisGetJson("recovered")), '{"cached":true}');
+    assert.equal(clients.length, 2);
+  } finally {
+    clearTimeout(safety);
     for (const client of clients) if (client.isOpen) client.destroy();
     for (const socket of sockets) socket.destroy();
     await new Promise<void>((resolve) => server.close(() => resolve()));

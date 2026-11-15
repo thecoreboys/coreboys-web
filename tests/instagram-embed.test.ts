@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { instagramEmbedUrl } from "../lib/watch/playable";
+import { embedFor, instagramEmbedUrl } from "../lib/watch/playable";
 
 test("uses official Instagram embed routes for Reels and posts", () => {
   assert.equal(
@@ -15,4 +15,25 @@ test("uses official Instagram embed routes for Reels and posts", () => {
 
 test("does not treat an Instagram profile as an embeddable post", () => {
   assert.equal(instagramEmbedUrl("https://www.instagram.com/lacy.himself/"), null);
+});
+
+test("uses the official Instagram player for Reel watch items without a direct video file", () => {
+  const src = embedFor({
+    key: "instagram-reel",
+    kind: "clip",
+    platform: "instagram",
+    title: "How did she do?",
+    poster: "https://cdn.example.test/reel.jpg",
+    memberSlug: "lacy",
+    memberLabel: "Lacy",
+    youtubeId: null,
+    twitchLogin: null,
+    vodId: null,
+    clipSrc: null,
+    clipId: null,
+    url: "https://www.instagram.com/reel/ABC_123/",
+    sourceUrl: "https://www.instagram.com/reel/ABC_123/",
+  }, { parent: "thecoreboys.com", origin: "https://thecoreboys.com", autoplay: true });
+
+  assert.equal(src, "https://www.instagram.com/reel/ABC_123/embed");
 });

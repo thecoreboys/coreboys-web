@@ -32,6 +32,44 @@ type NextFetchInit = RequestInit & {
   next?: { revalidate?: number; tags?: string[] };
 };
 
+test("private and unknown lookup outcomes never masquerade as successful public feeds", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousKey = process.env.SOCIAL_FETCH_API_KEY;
+  process.env.SOCIAL_FETCH_API_KEY = "test-social-fetch-key";
+  try {
+    for (const lookupStatus of ["private", "not_found", "new_unrecognized_status"]) {
+      globalThis.fetch = (async () => Response.json({ data: { lookupStatus, videos: [], posts: [], reels: [] } })) as typeof fetch;
+      assert.equal((await fetchSocialFetchTikTokVideos("privatefixture")).status, "not_found");
+      assert.equal((await fetchSocialFetchInstagramPosts("privatefixture")).status, "not_found");
+      assert.equal((await fetchSocialFetchInstagramReels("privatefixture")).status, "not_found");
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("SOCIAL_FETCH_API_KEY", previousKey);
+  }
+});
+
+test("TikTok native dimensions and timestamp variants survive normalization without losing large ids", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousKey = process.env.SOCIAL_FETCH_API_KEY;
+  process.env.SOCIAL_FETCH_API_KEY = "test-social-fetch-key";
+  const timestamp = Date.parse("2026-08-28T10:00:00Z");
+  globalThis.fetch = (async () => Response.json({ data: { lookupStatus: "found", videos: [
+    { id: "7610123456789012345", createdAt: String(timestamp / 1000), details: { video: { width: 1080, height: 1920 } }, thumbnailUrl: "https://user:secret@cdn.example/image.jpg" },
+    { id: "7610123456789012346", createdAt: String(timestamp) },
+  ] } })) as typeof fetch;
+  try {
+    const result = await fetchSocialFetchTikTokVideos("timestampfixture");
+    assert.equal(result.items[0]?.id, "7610123456789012345");
+    assert.deepEqual(result.items[0]?.dimensions, { width: 1080, height: 1920 });
+    assert.equal(result.items[0]?.thumbnailUrl, undefined);
+    assert.deepEqual(result.items.map((item) => item.createdAt), ["2026-08-28T10:00:00.000Z", "2026-08-28T10:00:00.000Z"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("SOCIAL_FETCH_API_KEY", previousKey);
+  }
+});
+
 function restoreEnv(name: string, value: string | undefined) {
   if (value === undefined) delete process.env[name];
   else process.env[name] = value;

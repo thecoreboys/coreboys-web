@@ -13,7 +13,7 @@ import { isReactComponent } from "@/utils/is-react-component";
 export const styles = sortCx({
     common: {
         root: [
-            "group/button-group inline-flex h-max cursor-pointer items-center bg-primary font-semibold whitespace-nowrap text-secondary shadow-skeuomorphic ring-1 ring-primary outline-brand transition duration-100 ease-linear ring-inset",
+            "group/button-group inline-flex h-max shrink-0 max-sm:min-h-11 cursor-pointer items-center bg-[color:var(--ui-surface)] font-medium whitespace-nowrap text-secondary ring-1 ring-[color:var(--ui-line)] outline-brand transition duration-150 ease-out ring-inset",
             // Hover and focus styles
             "hover:bg-primary_hover hover:text-secondary_hover focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2",
             // Disabled styles
@@ -96,7 +96,7 @@ export const ButtonGroup = ({ children, size = "md", className, ...otherProps }:
         <ButtonGroupContext.Provider value={{ size }}>
             <AriaToggleButtonGroup
                 selectionMode="single"
-                className={cx("relative z-0 inline-flex w-max -space-x-px rounded-lg shadow-xs", className)}
+                className={cx("relative z-0 inline-flex max-w-full w-max -space-x-px overflow-x-auto overscroll-x-contain rounded-lg", className)}
                 {...otherProps}
             >
                 {children}

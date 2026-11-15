@@ -39,7 +39,9 @@
   isolation: isolate;
   min-height: 100vh;
   background-color: var(--paper);
-  background-image: none;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(69, 50, 29, 0.025) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse at 50% 12%, #fbf8f1 0%, #f3eee4 75%);
 }
 
 .paper::before,
@@ -51,7 +53,13 @@
 }
 
 .paper::before {
-  display: none;
+  inset: 0;
+  display: block;
+  opacity: 0.14;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 6px, rgba(48, 37, 25, 0.09) 7px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px 5px);
+  mix-blend-mode: multiply;
 }
 
 .paper::after {
@@ -61,6 +69,69 @@
 .paper > * {
   position: relative;
   z-index: 1;
+}
+
+.chapter::after,
+.toolkitSection::after,
+.closingSpread::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 5px, rgba(55, 40, 24, 0.055) 6px),
+    radial-gradient(circle at 17% 23%, rgba(165, 29, 36, 0.12) 0 1px, transparent 1.4px);
+  background-size: auto, 9px 9px;
+  content: "";
+  mix-blend-mode: multiply;
+  opacity: 0.34;
+}
+
+.chapterDark::after,
+.toolkitSection::after {
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 5px, rgba(255, 244, 215, 0.11) 6px),
+    radial-gradient(circle at 17% 23%, rgba(229, 83, 83, 0.18) 0 1px, transparent 1.4px);
+  mix-blend-mode: screen;
+  opacity: 0.12;
+}
+
+.chapter > *,
+.toolkitSection > *,
+.closingSpread > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page[data-story-motion="on"] [data-story-reveal="true"] {
+  opacity: 0;
+  transform: translate3d(0, 1.4rem, 0);
+  transition: opacity 650ms ease, transform 700ms cubic-bezier(.2, .75, .25, 1);
+  will-change: opacity, transform;
+}
+
+.page[data-story-motion="on"] [data-story-reveal="true"][data-story-visible="true"] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  will-change: auto;
+}
+
+.page[data-story-motion="on"] .storyCopy h2,
+.page[data-story-motion="on"] .toolkitIntro h2,
+.page[data-story-motion="on"] .receiptsHeader h2,
+.page[data-story-motion="on"] .closingCopy h2 {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--news-red) 0%, transparent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.14em;
+  transition: text-decoration-color 700ms ease 180ms;
+}
+
+.page[data-story-motion="on"] [data-story-visible="true"] .storyCopy h2,
+.page[data-story-motion="on"] [data-story-visible="true"] .toolkitIntro h2,
+.page[data-story-motion="on"] [data-story-visible="true"] .receiptsHeader h2,
+.page[data-story-motion="on"] [data-story-visible="true"] .closingCopy h2 {
+  text-decoration-color: color-mix(in srgb, var(--news-red) 78%, transparent);
 }
 
 .frontPage {
@@ -391,9 +462,9 @@
   display: grid;
   width: min(100% - 3rem, 80rem);
   grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 2.4fr) minmax(11rem, 0.9fr);
-  gap: clamp(1.5rem, 4vw, 4rem);
+  gap: clamp(1rem, 3vw, 2.8rem);
   margin: 0 auto;
-  padding: clamp(5rem, 10vw, 9rem) 0;
+  padding: clamp(3rem, 6vw, 5.5rem) 0;
   scroll-margin-top: calc(13rem + var(--live-ribbon-h, 0px));
 }
 
@@ -476,7 +547,7 @@
 
 .storyCopy > p + p,
 .closingCopy > p + p {
-  margin-top: 1.35rem;
+  margin-top: 0.95rem;
 }
 
 .openDoor {
@@ -955,7 +1026,7 @@ a.redUnderline:focus-visible {
   width: 100%;
   max-width: none;
   grid-template-columns: minmax(8rem, 0.7fr) minmax(0, 1.9fr) minmax(15rem, 1fr);
-  padding: clamp(5rem, 10vw, 9rem) max(1.5rem, calc((100vw - 80rem) / 2));
+  padding: clamp(3rem, 6vw, 5.5rem) max(1.5rem, calc((100vw - 80rem) / 2));
   color: var(--paper-light);
   background:
     radial-gradient(circle at 92% 10%, rgba(165, 29, 36, 0.33), transparent 26rem),
@@ -1045,7 +1116,7 @@ a.redUnderline:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(18rem, 0.95fr);
   gap: clamp(2rem, 5vw, 5rem);
-  padding: clamp(4rem, 8vw, 8rem) max(1.5rem, calc((100vw - 90rem) / 2));
+  padding: clamp(3rem, 6vw, 5.5rem) max(1.5rem, calc((100vw - 90rem) / 2));
   scroll-margin-top: calc(13rem + var(--live-ribbon-h, 0px));
   color: var(--paper-light);
   background:
@@ -1168,7 +1239,7 @@ a.redUnderline:focus-visible {
 .receiptsSection {
   position: relative;
   isolation: isolate;
-  padding: clamp(5rem, 10vw, 10rem) 0 clamp(6rem, 10vw, 10rem);
+  padding: clamp(3.5rem, 7vw, 6rem) 0 clamp(4rem, 7vw, 6rem);
   scroll-margin-top: calc(13rem + var(--live-ribbon-h, 0px));
   border-top: 0.45rem solid var(--news-ink);
   background:
@@ -2442,7 +2513,7 @@ a.redUnderline:focus-visible {
 .closingSpread {
   display: block;
   min-height: 0;
-  padding: clamp(2rem, 5vw, 4rem) 1.5rem;
+  padding: clamp(1.5rem, 4vw, 3rem) 1.5rem;
   scroll-margin-top: calc(13rem + var(--live-ribbon-h, 0px));
   color: var(--news-ink);
   background: transparent;
@@ -3106,6 +3177,21 @@ a.redUnderline:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .page[data-story-motion="on"] [data-story-reveal="true"],
+  .page[data-story-motion="on"] [data-story-reveal="true"][data-story-visible="true"] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
+
+  .page[data-story-motion="on"] .storyCopy h2,
+  .page[data-story-motion="on"] .toolkitIntro h2,
+  .page[data-story-motion="on"] .receiptsHeader h2,
+  .page[data-story-motion="on"] .closingCopy h2 {
+    transition: none;
+  }
+
   .storyProgress span {
     transition: none;
   }

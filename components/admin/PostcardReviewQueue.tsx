@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Inbox01, RefreshCw01, X } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";

@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { cx } from "@/utils/cx";
 
 const sizes = {
@@ -18,9 +19,9 @@ interface AvatarCompanyIconProps {
 }
 
 export const AvatarCompanyIcon = ({ size, src, alt }: AvatarCompanyIconProps) => (
-    <img
+    <SiteImage width={20} height={20}
         src={src}
-        alt={alt}
+        alt={alt ?? ""}
         className={cx("absolute -right-0.5 -bottom-0.5 rounded-full bg-brand-50 object-cover ring-[1.5px] ring-bg-primary", sizes[size])}
     />
 );

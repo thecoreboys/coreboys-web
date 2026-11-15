@@ -1281,6 +1281,7 @@ export function WatchPalette({ catalog }: { catalog?: WatchCatalog }) {
           <div className="watch-search-title-row">
             <span className="watch-search-brand is-neutral" aria-hidden><Search /></span>
             <h1 id="watch-search-title">Search CORE</h1>
+            <Link href={{ pathname: "/search", query: { q } }} onClick={close} className="ml-auto min-h-11 py-3 text-sm underline underline-offset-4">Full search</Link>
             <Tooltip title="Close search" description="Return to Watch without changing playback." placement="bottom">
               <button type="button" className="watch-search-close" onClick={close} aria-label="Close search"><X /></button>
             </Tooltip>

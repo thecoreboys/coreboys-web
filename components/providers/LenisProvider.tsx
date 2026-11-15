@@ -19,6 +19,8 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Touch screens keep native momentum, browser gestures and form scrolling.
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     const profile = devicePerformanceProfile({
       hardwareConcurrency: navigator.hardwareConcurrency,
@@ -78,7 +80,6 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
     // the first real scroll gesture), so it does not compete with hydration.
     const onFirstScroll = () => { void start(); };
     window.addEventListener("wheel", onFirstScroll, { once: true, passive: true });
-    window.addEventListener("touchmove", onFirstScroll, { once: true, passive: true });
     if (browserWindow.requestIdleCallback) {
       idleHandle = browserWindow.requestIdleCallback(() => void start(), { timeout: 2_000 });
     } else {
@@ -88,7 +89,6 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
       window.removeEventListener("wheel", onFirstScroll);
-      window.removeEventListener("touchmove", onFirstScroll);
       if (idleHandle !== null) browserWindow.cancelIdleCallback?.(idleHandle);
       if (idleTimer !== null) window.clearTimeout(idleTimer);
       cancelAnimationFrame(raf);

@@ -9,6 +9,7 @@ import { watchChromeSnapshot, type WatchChromeSnapshot } from "@/lib/watch/chrom
 import type { UnifiedLiveSnapshot } from "@/lib/watch/live-snapshot";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useMyList } from "@/hooks/useMyList";
+import { createWatchRefreshScheduler } from "@/lib/watch/refresh-scheduler";
 import { WatchExperienceControls } from "./WatchExperienceControls";
 
 const unifiedLiveFetcher = async (url: string): Promise<UnifiedLiveSnapshot> => {
@@ -33,12 +34,22 @@ export function WatchChrome({
   const chrome = useMemo(() => snapshot ?? (catalog ? watchChromeSnapshot(catalog) : undefined), [catalog, snapshot]);
   const player = usePlayer();
   const router = useRouter();
+  const refreshScheduler = useMemo(() => createWatchRefreshScheduler({
+    refresh: () => router.refresh(),
+    isActive: () => document.visibilityState === "visible" && navigator.onLine,
+  }), [router]);
+  const hasChrome = Boolean(chrome);
   const { data: liveStatus } = useLiveStatus();
   // Select and synchronize the account-owned list once for every Watch
   // surface, including network pages whose cards do not mount WatchHome.
   useMyList();
   const refreshedFor = useRef("");
   const refreshedForUnified = useRef("");
+  useEffect(() => () => {
+    refreshScheduler.cancel();
+    refreshedFor.current = "";
+    refreshedForUnified.current = "";
+  }, [refreshScheduler]);
   const unifiedFallback = useMemo<UnifiedLiveSnapshot | undefined>(
     () =>
       chrome
@@ -66,7 +77,9 @@ export function WatchChrome({
     unifiedLiveFetcher,
     {
       fallbackData: unifiedFallback,
-      revalidateOnMount: false,
+      // A server snapshot is enough for hydration; a shell without one must
+      // still load live state immediately instead of waiting for the poll.
+      revalidateOnMount: !unifiedFallback,
       revalidateOnFocus: true,
       refreshInterval: 30_000,
       dedupingInterval: 10_000,
@@ -118,47 +131,54 @@ export function WatchChrome({
   // merely lets an open home/channel/Shorts page pick up the shared result.
   // Never refresh a background tab or an offline client.
   useEffect(() => {
-    if (!chrome) return;
+    if (!hasChrome) return;
     const refreshWhenActive = () => {
-      if (document.visibilityState !== "visible" || !navigator.onLine) return;
-      router.refresh();
+      refreshScheduler.request("catalog");
     };
     const timer = window.setInterval(refreshWhenActive, 60_000);
     const onVisibility = () => {
       if (document.visibilityState === "visible") refreshWhenActive();
     };
     window.addEventListener("focus", refreshWhenActive);
+    window.addEventListener("online", refreshWhenActive);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", refreshWhenActive);
+      window.removeEventListener("online", refreshWhenActive);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [chrome, router]);
+  }, [hasChrome, refreshScheduler]);
 
   // SWR keeps checking Twitch while the page is open. When somebody starts
   // or ends a stream, refresh the server catalog so live immediately moves to
   // (or leaves) the hero, shelves, Guide, search, and autoplay queue together.
   useEffect(() => {
-    if (!liveStatus || runtimeLiveKey === catalogLiveKey) return;
+    if (!liveStatus) return;
+    if (runtimeLiveKey === catalogLiveKey) {
+      refreshedFor.current = "";
+      return;
+    }
     const transition = `${catalogLiveKey}->${runtimeLiveKey}`;
     if (refreshedFor.current === transition) return;
     refreshedFor.current = transition;
-    const timer = window.setTimeout(() => router.refresh(), 500);
-    return () => window.clearTimeout(timer);
-  }, [catalogLiveKey, liveStatus, router, runtimeLiveKey]);
+    refreshScheduler.request("live");
+  }, [catalogLiveKey, liveStatus, refreshScheduler, runtimeLiveKey]);
 
   // YouTube Live and X Spaces do not emit through Twitch's fast status API.
   // A shared, cached snapshot keeps them live-first while Watch stays open
   // without downloading the entire catalog into the browser.
   useEffect(() => {
-    if (!unifiedLive || runtimeUnifiedLiveKey === catalogUnifiedLiveKey) return;
+    if (!unifiedLive) return;
+    if (runtimeUnifiedLiveKey === catalogUnifiedLiveKey) {
+      refreshedForUnified.current = "";
+      return;
+    }
     const transition = `${catalogUnifiedLiveKey}->${runtimeUnifiedLiveKey}`;
     if (refreshedForUnified.current === transition) return;
     refreshedForUnified.current = transition;
-    const timer = window.setTimeout(() => router.refresh(), 500);
-    return () => window.clearTimeout(timer);
-  }, [catalogUnifiedLiveKey, router, runtimeUnifiedLiveKey, unifiedLive]);
+    refreshScheduler.request("live");
+  }, [catalogUnifiedLiveKey, refreshScheduler, runtimeUnifiedLiveKey, unifiedLive]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

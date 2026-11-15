@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function NewArticlePage() {
   return (
     <AuthGate>
-      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+      <div className="relative min-h-[var(--page-min-height)] bg-secondary">
         <section className="relative mx-auto max-w-[920px] px-6 py-12 md:px-8 md:py-16">
           <Link
             href="/admin/articles"
@@ -34,7 +34,7 @@ export default function NewArticlePage() {
             <ArticleEditor />
           </div>
         </section>
-      </main>
+      </div>
     </AuthGate>
   );
 }
