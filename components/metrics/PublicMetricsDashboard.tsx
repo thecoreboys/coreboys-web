@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { useMemo, useState } from "react";
 import { Clock, Eye, MessageChatCircle, PlayCircle, Signal01, Users01, VideoRecorder } from "@untitledui/icons";
 import { MetricCard } from "@/components/metrics/MetricCard";

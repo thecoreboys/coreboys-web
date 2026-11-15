@@ -5,8 +5,8 @@ import { SiteFooter } from "@/components/chrome/SiteFooter";
 import { ClipSubmitForm } from "@/components/clips/ClipSubmitForm";
 
 export const metadata: Metadata = {
-  title: "Submit a clip",
-  description: "Send a viral clip our way. Twitch, YouTube, TikTok, Instagram.",
+  title: "Save a clip draft",
+  description: "Prepare a clip draft from Twitch, YouTube, TikTok, or Instagram on your device.",
   alternates: { canonical: "/clips/submit" },
 };
 
@@ -29,7 +29,7 @@ export default async function ClipSubmitPage() {
   }));
 
   return (
-    <main className="relative pt-20 md:pt-24">
+    <div className="relative">
       <section className="relative overflow-hidden">
         <div
           aria-hidden
@@ -40,13 +40,13 @@ export default async function ClipSubmitPage() {
           }}
         />
         <div className="relative mx-auto max-w-[720px] px-6 py-14 md:px-8 md:py-20">
-          <p className="text-sm font-semibold text-brand-secondary">Community · Submit</p>
+          <p className="text-sm font-semibold text-brand-secondary">Community · Clip drafts</p>
           <h1 className="mt-2 text-display-sm font-semibold tracking-tight text-primary md:text-display-md">
-            Submit a cut.
+            Save a clip for later.
           </h1>
           <p className="mt-3 max-w-[60ch] text-lg leading-relaxed text-tertiary">
-            Twitch clips, YouTube shorts, TikToks, Instagram reels. Drop a link, tag the boys in
-            it, and we&apos;ll review it for the public clips library.
+            Add a link and tag the boys in it. Your draft stays in this browser;
+            public clip submissions are not available yet.
           </p>
 
           <div className="mt-8 overflow-hidden rounded-2xl bg-primary shadow-xl ring-1 ring-inset ring-secondary">
@@ -55,6 +55,6 @@ export default async function ClipSubmitPage() {
         </div>
       </section>
       <SiteFooter />
-    </main>
+    </div>
   );
 }

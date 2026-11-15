@@ -4,12 +4,15 @@ import type {
   XFeedEntity,
 } from "@/components/feed/types";
 import { GROUP } from "@/lib/group";
+import { CREW } from "@coreboys/shared";
+import { crewXAuthorSlug, getXCrewOwner } from "@/lib/x/crew-roster";
 import type { WatchCatalog, WatchItem } from "./types";
+import { xLinkPresentation } from "./x-link-presentation";
 
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 48;
 const DEFAULT_PER_MEMBER = 2;
-const MAX_PER_MEMBER = 8;
+const MAX_PER_MEMBER = 48;
 const FALLBACK_ACCENT = "#db0368";
 const X_HANDLE_RE = /^[A-Za-z0-9_]{1,15}$/;
 
@@ -79,9 +82,11 @@ export type WatchHomeXPost = {
 };
 
 export type WatchHomeXPostOptions = {
+  /** Keep the creator and behind-the-camera feeds distinct. */
+  audience?: "members" | "crew" | "all";
   /** Total cards returned. Clamped to 0..48. */
   limit?: number;
-  /** Maximum cards from one member. Clamped to 1..8. */
+  /** Maximum cards from one member. Clamped to 1..48. */
   perMember?: number;
 };
 
@@ -363,14 +368,16 @@ function previewCopy(value: unknown, maxLength: number): string | undefined {
   return clean ? clean.slice(0, maxLength) : undefined;
 }
 
-function entityPreview(entity: XFeedEntity, kind: WatchHomeXPostEntity["kind"]) {
+function entityPreview(entity: XFeedEntity, kind: WatchHomeXPostEntity["kind"], href: string) {
   if (kind !== "url") return {};
   const image = Array.isArray(entity.images)
     ? entity.images.find((entry) => safeHttpsUrl(entry?.url))?.url
     : undefined;
+  const { label, title } = xLinkPresentation(href,
+    previewCopy(entity.display_url ?? entity.displayUrl, 80), previewCopy(entity.title, 160));
   return {
-    label: previewCopy(entity.display_url ?? entity.displayUrl, 80),
-    title: previewCopy(entity.title, 160),
+    label,
+    title,
     description: previewCopy(entity.description, 220),
     imageUrl: safeHttpsUrl(image) ?? undefined,
   };
@@ -398,7 +405,7 @@ function normalizedEntities(
     const start = cleanOffsets[range.start];
     const end = cleanOffsets[range.end];
     if (!Number.isInteger(start) || !Number.isInteger(end) || end! <= start!) return [];
-    return [{ start: start!, end: end!, kind, href, ...entityPreview(entity, kind) }];
+    return [{ start: start!, end: end!, kind, href, ...entityPreview(entity, kind, href) }];
   }));
 
   candidates.sort((left, right) => left.start - right.start || right.end - left.end);
@@ -520,7 +527,18 @@ export function selectWatchHomeXPosts(
     portrait: "/brand/logo-core-black.png",
     index: -1,
   };
-  const configuredAuthors = [groupAuthor, ...configuredMembers.values()];
+  const configuredCrew = new Map(CREW.map((crew, index) => [crewXAuthorSlug(crew.slug), {
+    slug: crewXAuthorSlug(crew.slug),
+    label: crew.name,
+    accent: FALLBACK_ACCENT,
+    portrait: "",
+    index: configuredMembers.size + index,
+  }] as const));
+  const audience = options.audience ?? "members";
+  const configuredAuthors = [
+    ...(audience !== "crew" ? [groupAuthor, ...configuredMembers.values()] : []),
+    ...(audience !== "members" ? [...configuredCrew.values()] : []),
+  ];
   const groupHandle = GROUP.socials.x.handle.toLowerCase();
   const postsByStatus = new Map<string, MutablePost>();
 
@@ -533,9 +551,20 @@ export function selectWatchHomeXPosts(
       normalizedHandle(item.x?.authorHandle) ??
       handleFromLabel(item.accountLabel) ??
       parsed.handle;
-    const author = memberSlug
-      ? configuredMembers.get(memberSlug)
-      : parsed.handle.toLowerCase() === groupHandle
+    const crewOwner = getXCrewOwner(memberSlug);
+    // A namespaced crew row must still match that person's registered X
+    // account. Never reattribute a member's post to their camera operator.
+    const crewHandle = crewOwner?.socials.find((social) => social.platform === "x")?.handle
+      ?.replace(/^@+/, "").toLowerCase();
+    const author = crewOwner
+      ? audience !== "members" && crewHandle === parsed.handle.replace(/^@+/, "").toLowerCase()
+        ? configuredCrew.get(crewXAuthorSlug(crewOwner.slug))
+        : undefined
+      : audience === "crew"
+        ? undefined
+        : memberSlug
+          ? configuredMembers.get(memberSlug)
+          : parsed.handle.toLowerCase() === groupHandle
         ? groupAuthor
         : undefined;
     if (!author) continue;

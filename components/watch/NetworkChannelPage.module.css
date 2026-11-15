@@ -14,7 +14,7 @@
 
 .networkNav {
   position: sticky;
-  top: 3.5rem;
+  top: var(--site-header-h, 8rem);
   z-index: 35;
   display: flex;
   align-items: center;
@@ -31,21 +31,21 @@
 .networkNav::-webkit-scrollbar,
 .channelRail::-webkit-scrollbar { display: none; }
 
-.dialLabel { flex: 0 0 auto; color: rgba(255,255,255,.48); font-size: .62rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.dialLabel { flex: 0 0 auto; color: rgba(255,255,255,.65); font-size: .8125rem; font-weight: 550; letter-spacing: .02em; }
 .networkDial { display: flex; min-width: max-content; gap: .12rem; padding: .18rem; border: 1px solid rgba(255,255,255,.14); border-radius: .8rem; background: rgba(255,255,255,.045); box-shadow: inset 0 1px rgba(255,255,255,.08); }
 .networkNav a {
   position: relative;
   display: inline-flex;
-  min-height: 2.55rem;
+  min-height: 2.75rem;
   align-items: center;
   gap: .42rem;
   flex: 0 0 auto;
   padding: .32rem .72rem .32rem .42rem;
   border: 1px solid transparent;
   border-radius: .62rem;
-  color: rgba(255,255,255,.58);
-  font-size: .68rem;
-  font-weight: 750;
+  color: rgba(255,255,255,.72);
+  font-size: .875rem;
+  font-weight: 600;
   box-shadow: inset 0 1px transparent;
   transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
@@ -212,30 +212,30 @@
 .identity > span { display: flex; flex-direction: column; gap: .15rem; }
 .identity > .identityPortraits { display: block; }
 .identity strong { font-size: .86rem; }
-.eyebrow { color: rgba(255,255,255,.52); font-size: .68rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
-.hero h1 { margin-top: 1rem; font-size: clamp(3rem, 8vw, 6.4rem); line-height: .9; letter-spacing: -.07em; }
+.eyebrow { color: rgba(255,255,255,.68); font-size: .875rem; font-weight: 550; letter-spacing: .02em; }
+.hero h1 { margin-top: 1rem; font-size: clamp(2.5rem, 5.5vw, 4.5rem); font-weight: 600; line-height: 1.08; letter-spacing: -.055em; }
 .heroCopy > p { max-width: 40rem; margin-top: 1rem; color: rgba(255,255,255,.67); font-size: clamp(.92rem, 1.5vw, 1.08rem); line-height: 1.55; }
 
 .modeTabs { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1.4rem; }
 .modeTabs a {
   display: inline-flex;
-  min-height: 2.7rem;
+  min-height: 2.75rem;
   align-items: center;
   gap: .42rem;
   padding: 0 .9rem;
   border: 1px solid rgba(255,255,255,.13);
-  border-radius: .6rem;
+  border-radius: 999px;
   background: rgba(20,20,23,.58);
-  color: rgba(255,255,255,.65);
-  font-size: .75rem;
-  font-weight: 700;
+  color: rgba(255,255,255,.78);
+  font-size: .875rem;
+  font-weight: 600;
 }
 .modeTabs a[aria-current="page"] { border-color: color-mix(in srgb, var(--channel-accent) 70%, white); color: #fff; background: color-mix(in srgb, var(--channel-accent) 35%, rgba(12,12,14,.8)); }
 
 .nowTitle { display: flex; flex-direction: column; max-width: 38rem; margin-top: 1.5rem; }
-.nowTitle > span { color: var(--channel-accent); font-size: .69rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.nowTitle > span { color: color-mix(in srgb, var(--channel-accent) 65%, #fff); font-size: .8125rem; font-weight: 600; letter-spacing: .02em; }
 .nowTitle strong { margin-top: .3rem; overflow: hidden; font-size: 1.05rem; text-overflow: ellipsis; white-space: nowrap; }
-.nowTitle small { margin-top: .25rem; color: rgba(255,255,255,.5); }
+.nowTitle small { margin-top: .25rem; color: rgba(255,255,255,.68); font-size: .875rem; }
 
 .tuneButton {
   display: inline-flex;
@@ -661,6 +661,8 @@
   position: relative;
   overflow: hidden;
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32rem;
   padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem);
   border-top: 1px solid rgba(255,255,255,.09);
   background:
@@ -712,6 +714,9 @@
    viewer out of the TV layout. */
 .teamSection {
   width: 100%;
+  scroll-margin-top: 6rem;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32rem;
   padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem);
   border-top: 1px solid rgba(255,255,255,.09);
   background:
@@ -806,20 +811,64 @@
 .teamCardCopy > span { display: inline-flex; align-items: center; gap: .08rem; margin-top: .1rem; color: rgba(255,255,255,.46); font-size: .62rem; font-weight: 700; }
 .teamCardCopy svg { transition: transform .16s ease; }
 .teamCard:hover .teamCardCopy svg { transform: translateX(2px); }
+.teamJumpLink {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  margin-left: 1rem;
+  padding: .75rem 0;
+  color: rgba(255,255,255,.72);
+  font-size: .78rem;
+  font-weight: 700;
+}
+.teamJumpLink:hover { color: #fff; }
+.teamSocials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  margin: .55rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.teamSocials a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  min-height: 2.5rem;
+  padding: .45rem .6rem;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: .5rem;
+  background: rgba(255,255,255,.035);
+  color: rgba(255,255,255,.76);
+  font-size: .65rem;
+  font-weight: 700;
+  transition: background .18s ease, color .18s ease;
+}
+.teamSocials a:hover { background: rgba(255,255,255,.12); color: #fff; }
+.teamSocials a:focus-visible, .teamJumpLink:focus-visible, .teamEmpty a:focus-visible {
+  outline: 2px solid var(--channel-accent);
+  outline-offset: 3px;
+}
+.teamEmpty { padding: 1.25rem; border: 1px solid rgba(255,255,255,.12); border-radius: .9rem; }
+.teamEmpty p { margin: 0 0 .75rem; color: rgba(255,255,255,.6); font-size: .86rem; }
+.teamEmpty a { display: inline-flex; align-items: center; gap: .2rem; color: #fff; font-size: .78rem; font-weight: 700; }
 
 .mailSection {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 24rem;
   padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem) 1rem;
 }
 .mailPostcard { display: flex; width: 100%; justify-content: center; grid-column: 1 / -1; }
 .mailPostcard > article { max-width: min(100%, 68rem); }
 .mailCopy { align-self: center; }
 .mailCopy .eyebrow { display: inline-flex; align-items: center; gap: .42rem; color: color-mix(in srgb, var(--channel-accent) 66%, #fff); }
-.mailCopy h2 { max-width: 18ch; margin-top: .42rem; font-size: clamp(2rem, 4.1vw, 3.5rem); letter-spacing: -.06em; line-height: .94; }
-.mailCopy p { max-width: 35rem; margin-top: .8rem; color: rgba(255,255,255,.56); font-size: .82rem; line-height: 1.58; }
+.mailCopy h2 { max-width: 18ch; margin-top: .42rem; font-size: clamp(2rem, 4.1vw, 3.5rem); letter-spacing: -.05em; line-height: 1.08; }
+.mailCopy p { max-width: 35rem; margin-top: .8rem; color: rgba(255,255,255,.7); font-size: 1rem; line-height: 1.65; }
 .mailCard,
 .mailUnavailable {
   min-width: 0;
@@ -856,6 +905,8 @@
 .channelHub {
   width: 100%;
   max-width: none;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36rem;
   margin: 0;
   padding: 1rem clamp(1rem, 4vw, 3rem) clamp(3rem, 6vw, 5.25rem);
 }
@@ -869,6 +920,7 @@
 }
 .channelHubIdentity { display: flex; min-width: 0; align-items: center; gap: .9rem; }
 .channelHubPortrait { width: clamp(3.8rem, 6vw, 5.25rem); height: clamp(3.8rem, 6vw, 5.25rem); flex: 0 0 auto; border: 2px solid color-mix(in srgb, var(--channel-accent) 58%, rgba(255,255,255,.72)); border-radius: 50%; background: #131316; box-shadow: 0 .75rem 2rem rgba(0,0,0,.34), 0 0 1.4rem color-mix(in srgb, var(--channel-accent) 22%, transparent); object-fit: cover; }
+.channelHubCoreMark { display: grid; place-items: center; color: #fff; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -.09em; text-shadow: 0 0 1.1rem color-mix(in srgb, var(--channel-accent) 50%, transparent); }
 .channelHubIdentity > div { min-width: 0; }
 .channelHubIntro h2 {
   margin-top: 0;
@@ -878,9 +930,9 @@
 .channelHubIntro p {
   max-width: 42rem;
   margin-top: .55rem;
-  color: rgba(255,255,255,.5);
-  font-size: .82rem;
-  line-height: 1.55;
+  color: rgba(255,255,255,.7);
+  font-size: 1rem;
+  line-height: 1.65;
 }
 .creatorProfileMeta {
   display: flex;
@@ -1113,6 +1165,8 @@
 .xCommunityLink svg { width: .85rem; height: .85rem; }
 .xOwnerPosts {
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 30rem;
   padding-bottom: clamp(4rem, 7vw, 6rem);
 }
 .xArchiveActions {
@@ -1246,10 +1300,10 @@
 .homeChannelCopy small { margin-top: .15rem; color: rgba(255,255,255,.58); font-size: .65rem; }
 
 @media (min-width: 960px) {
-  .networkNav { top: 4rem; }
+  .networkNav { top: var(--site-header-h, 8rem); }
   .hero {
     display: grid;
-    grid-template-columns: minmax(21rem, .78fr) minmax(32rem, 1.22fr);
+    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
     align-items: center;
     gap: clamp(1.25rem, 3vw, 3.5rem);
   }
@@ -1262,7 +1316,7 @@
   .heroPreview {
     width: auto;
     max-width: none;
-    min-width: 400px;
+    min-width: 0;
     min-height: 300px;
     align-self: center;
     margin: 4.5rem clamp(1.2rem, 4vw, 4rem) 3.5rem 0;
@@ -1273,8 +1327,9 @@
 @media (max-width: 640px) {
   .networkNav { justify-content: flex-start; gap: .52rem; padding-block: .58rem; }
   .dialLabel { display: none; }
-  .networkNav a { min-height: 2.1rem; padding-right: .48rem; }
+  .networkNav a { min-height: 2.75rem; min-width: 2.75rem; justify-content: center; padding-inline: .48rem; }
   .networkNav a span { display: none; }
+  .networkNav a .dialCoreWordmark { display: block; }
   .networkNav a img { width: 1.65rem; height: 1.65rem; }
   .hero { min-height: 42rem; }
   .heroBug { top: 8%; right: -15%; width: 22rem; height: 22rem; opacity: .12; }

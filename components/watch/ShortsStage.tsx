@@ -1,12 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { itemToPlayable, type Playable } from "@/lib/watch/playable";
 import {
   SHORT_FORM_QUEUE_DEFAULT_LIMIT,
   SHORT_FORM_QUEUE_FILTER,
-  WATCH_QUEUE_EXCLUDE_LIMIT,
   isShortFormQueuePlayable,
 } from "@/lib/watch/queue-response";
 import type { WatchItem } from "@/lib/watch/types";
@@ -27,6 +27,7 @@ const SHORTS_CHANNEL = {
 export function ShortsStage({ items }: { items: WatchItem[] }) {
   const {
     channel,
+    current,
     playChannel,
     ready,
     refill,
@@ -60,22 +61,15 @@ export function ShortsStage({ items }: { items: WatchItem[] }) {
     if (loadingMoreRef.current || exhaustedRef.current || feedRef.current.length === 0) return;
     loadingMoreRef.current = true;
     try {
-      const exclude = feedRef.current
-        .slice(-WATCH_QUEUE_EXCLUDE_LIMIT)
-        .map((item) => item.key)
-        .join(",");
-      const params = new URLSearchParams({
-        mode: "queue",
-        // This remains a recommendation hint for compatibility with the
-        // general queue endpoint; `filter` is the explicit response filter.
-        format: "short",
-        filter: SHORT_FORM_QUEUE_FILTER,
-        limit: String(SHORT_FORM_QUEUE_DEFAULT_LIMIT),
-        exclude,
-      });
-      const response = await fetch(`/api/watch/queue?${params}`, {
+      const response = await fetch("/api/watch/queue?mode=queue&format=short", {
+        method: "POST",
         credentials: "same-origin",
-        headers: { accept: "application/json" },
+        headers: { accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify({
+          filter: SHORT_FORM_QUEUE_FILTER,
+          limit: SHORT_FORM_QUEUE_DEFAULT_LIMIT,
+          exclude: feedRef.current.map((item) => item.key),
+        }),
       });
       if (!response.ok) throw new Error(`Shorts queue request failed (${response.status})`);
       const payload = await response.json() as { items?: Playable[] };
@@ -139,8 +133,19 @@ export function ShortsStage({ items }: { items: WatchItem[] }) {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
-    playChannel(SHORTS_CHANNEL, playables, 0);
+    let startIndex = 0;
+    try {
+      const savedKey = sessionStorage.getItem("core-shorts-position");
+      const found = playables.findIndex((item) => item.key === savedKey);
+      if (found >= 0) startIndex = found;
+    } catch { /* Session storage is optional. */ }
+    playChannel(SHORTS_CHANNEL, playables, startIndex);
   }, [channel?.id, feedItems, playChannel, ready, refill]);
+
+  useEffect(() => {
+    if (channel?.id !== SHORTS_CHANNEL.id || !current) return;
+    try { sessionStorage.setItem("core-shorts-position", current.key); } catch { /* Private browsing may disable storage. */ }
+  }, [channel?.id, current]);
 
   useEffect(() => {
     if (channel?.id !== SHORTS_CHANNEL.id || !shortFormNavigation) return;
@@ -151,7 +156,7 @@ export function ShortsStage({ items }: { items: WatchItem[] }) {
 
   return (
     <section className="min-h-dvh bg-[#050507]" aria-label="CORE Shorts">
-      <p className="sr-only">Opening the CORE Shorts player.</p>
+      {feedItems.length ? <p className="sr-only">Opening the CORE Shorts player.</p> : <div className="mx-auto max-w-lg px-5 py-20"><h1 className="text-3xl font-semibold">No Shorts available right now</h1><p className="mt-4 text-white/70">Try again later, or browse the latest videos.</p><Link href="/" className="mt-6 inline-flex min-h-11 items-center underline">Back to home</Link></div>}
     </section>
   );
 }

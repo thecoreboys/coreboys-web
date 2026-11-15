@@ -37,7 +37,7 @@ export default function WeeklyDigestPage() {
 
   return (
     <>
-      <main className="mx-auto max-w-2xl px-6 py-12 md:py-16">
+      <div className="mx-auto max-w-2xl px-6 py-12 md:py-16">
         <p className="text-sm font-semibold text-brand-secondary">Weekly recap</p>
         <h1 className="mt-2 text-display-sm font-semibold tracking-tight text-primary">
           What you did on CORE
@@ -75,7 +75,7 @@ export default function WeeklyDigestPage() {
             Why we can&apos;t show Twitch hours
           </Link>
         </p>
-      </main>
+      </div>
       <SiteFooter />
     </>
   );

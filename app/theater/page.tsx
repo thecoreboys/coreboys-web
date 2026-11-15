@@ -28,7 +28,7 @@ export default async function TheaterPage({ searchParams }: {
   if (!(await filterAvailableContent([identity])).length) return (
     <section className="grid min-h-[55vh] place-items-center px-5 text-center">
       <div><h1 className="text-3xl font-semibold">This title is no longer available</h1>
-        <p className="mt-3 text-white/60">The source has removed access to this content.</p>
+        <p className="mt-3 text-secondary">The source has removed access to this content.</p>
         <Link href="/" className="mt-6 inline-block underline">Browse Watch</Link></div>
     </section>
   );

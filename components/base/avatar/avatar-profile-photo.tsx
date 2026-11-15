@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { useState } from "react";
 import { User01 } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
@@ -66,7 +67,7 @@ export const AvatarProfilePhoto = ({
                         styles[size].content,
                     )}
                 >
-                    <img src={src} alt={alt} onError={() => setIsFailed(true)} className="size-full object-cover" />
+                    <SiteImage width={160} height={160} src={src} alt={alt ?? ""} onError={() => setIsFailed(true)} className="size-full object-cover" />
                 </div>
             );
         }

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { cx } from "@/utils/cx";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const ACCOUNT_SETTINGS_NAV = [
   { group: "Account", label: "Profile", href: "/account/settings#profile", id: "profile", icon: UserRound },
@@ -33,23 +34,19 @@ export function AccountSettingsLayout({
   title,
   description,
   activeSection,
+  onSectionChange,
   children,
 }: {
   title: string;
   description: string;
   activeSection: string;
+  onSectionChange?: (section: string) => void;
   children: ReactNode;
 }) {
   const activeId = activeSection.replace(/^#/, "");
   return (
-    <section className="min-h-[calc(100dvh-4rem)] bg-primary text-primary">
-      <header className="border-b border-secondary bg-primary">
-        <div className="mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
-          <p className="text-xs font-semibold text-tertiary">Account</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">{title}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-tertiary">{description}</p>
-        </div>
-      </header>
+    <section className="core-settings min-h-[calc(100dvh-4rem)] bg-primary text-primary">
+      <PageHeader eyebrow="Your account" title={title} supporting={description} />
 
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-5 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-8 lg:px-8">
         <aside className="min-w-0 lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)]">
@@ -59,12 +56,13 @@ export function AccountSettingsLayout({
               const active = activeId === item.id;
               return (
                 <div key={item.id} className={cx("shrink-0", item.group !== previous?.group && index > 0 && "lg:mt-2 lg:border-t lg:border-secondary lg:pt-2")}>
-                  {item.group !== previous?.group ? <p className="hidden px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-quaternary lg:block">{item.group}</p> : null}
+                  {item.group !== previous?.group ? <p className="hidden px-3 pb-1 pt-1 text-xs font-medium text-tertiary lg:block">{item.group}</p> : null}
                   <Link
                     href={item.href as never}
+                    onClick={onSectionChange && item.id !== "billing" ? (event) => { event.preventDefault(); onSectionChange(item.id); } : undefined}
                     aria-current={active ? "page" : undefined}
                     className={cx(
-                      "flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
+                      "flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
                       active ? "bg-secondary text-primary shadow-xs" : "text-tertiary hover:bg-primary_hover hover:text-primary",
                     )}
                   >
@@ -77,7 +75,7 @@ export function AccountSettingsLayout({
           </nav>
         </aside>
 
-        <main className="min-w-0 space-y-5">{children}</main>
+        <div className="min-w-0 space-y-5">{children}</div>
       </div>
     </section>
   );

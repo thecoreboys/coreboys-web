@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
@@ -88,9 +88,9 @@ export default async function CrewMemberPage({ params }: Params) {
   const otherCrew = CREW.filter((x) => x.slug !== c.slug);
 
   return (
-    <main className="relative pt-20 md:pt-24">
+    <div className="core-profile-page relative">
       {/* HERO — mirrors /about/[slug]: layered blooms + lens flares + isolation. */}
-      <section className="relative overflow-hidden border-b border-[color:var(--rule)] bg-dot-grid">
+      <section className="core-profile-intro relative overflow-hidden border-b border-[color:var(--rule)]">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -121,7 +121,7 @@ export default async function CrewMemberPage({ params }: Params) {
           style={{ isolation: "isolate" }}
         >
           <Link
-            href="/#crew"
+            href="/channels/core#crew"
             className="inline-flex items-center gap-2 text-sm font-semibold text-tertiary transition-colors hover:text-primary"
           >
             <ArrowLeft size={14} /> Crew
@@ -129,7 +129,7 @@ export default async function CrewMemberPage({ params }: Params) {
 
           <div className="mt-8 grid grid-cols-12 gap-8 md:gap-12">
             <div className="col-span-12 md:col-span-5">
-              <div className="relative aspect-[4/5] w-full overflow-hidden rounded-lg border border-[color:var(--rule)] bg-black media-tone">
+              <div className="core-profile-portrait relative aspect-[4/5] w-full overflow-hidden rounded-lg border border-[color:var(--rule)] bg-black media-tone">
                 {portrait ? (
                   <Image
                     src={portrait}
@@ -157,11 +157,7 @@ export default async function CrewMemberPage({ params }: Params) {
 
             <div className="col-span-12 md:col-span-7">
               <h1
-                className="text-display whitespace-nowrap font-black leading-[0.92] tracking-[-0.05em] text-[color:var(--ink)]"
-                style={{
-                  fontSize: "clamp(36px, 7vw, 96px)",
-                  textShadow: "0 2px 24px rgba(0,0,0,0.55)",
-                }}
+                className="text-display font-semibold leading-[1.08] tracking-[-0.05em] text-[color:var(--ink)]"
               >
                 {c.name}
               </h1>
@@ -396,7 +392,7 @@ export default async function CrewMemberPage({ params }: Params) {
               </h2>
             </div>
             <Link
-              href="/#crew"
+              href="/channels/core#crew"
               className="inline-flex items-center gap-1 text-sm font-medium text-tertiary hover:text-primary"
             >
               Full crew <ArrowUpRight size={14} />
@@ -464,6 +460,6 @@ export default async function CrewMemberPage({ params }: Params) {
       </section>
 
       <SiteFooter />
-    </main>
+    </div>
   );
 }

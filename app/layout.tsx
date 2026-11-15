@@ -1,31 +1,35 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { Barlow_Condensed, Inter, Inter_Tight } from "next/font/google";
+import { Barlow_Condensed, Inter } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { LenisProvider } from "@/components/providers/LenisProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PlayerProvider } from "@/components/providers/PlayerProvider";
 import { WatchContextMenuProvider } from "@/components/watch/WatchContextMenu";
 import { GlobalWatchEnhancements } from "@/components/watch/GlobalWatchEnhancements";
-import { Grain, Scanlines } from "@/components/editorial/Grain";
-import { Cursor } from "@/components/editorial/Cursor";
 import { TopNav } from "@/components/chrome/TopNav";
 import { LiveRibbon } from "@/components/live/LiveRibbon";
 import { GlobalSiteFooter } from "@/components/chrome/GlobalSiteFooter";
 
-import { GridOverlay } from "@/components/editorial/GridOverlay";
 import { ConsoleEgg } from "@/components/editorial/ConsoleEgg";
 import { OrganizationJsonLd } from "@/components/editorial/JsonLd";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
-import { ContactInquiryWidget } from "@/components/site/ContactInquiryWidget";
 import { UnreleasedBanner } from "@/components/chrome/UnreleasedBanner";
 import { SiteHeader } from "@/components/chrome/SiteHeader";
 import { CookieBanner } from "@/components/legal/CookieBanner";
 import { AuthModal } from "@/components/auth/AuthModal";
 import "./globals.css";
 import "./watch/watch.css";
+import "./ui-refinements.css";
+import "./responsive.css";
+import "./home-polish.css";
+import "./navigation-polish.css";
+import "./page-polish.css";
+import "./cta-polish.css";
+import "./site-polish.css";
 
 // One typeface across the entire product. Inter's variable font covers every
 // weight used by the streaming UI without introducing mismatched display,
@@ -33,14 +37,6 @@ import "./watch/watch.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  display: "swap",
-});
-
-// A more editorial, compact cut reserved for dense product labels such as the
-// floating membership benefits. Body copy remains Inter for consistency.
-const interTight = Inter_Tight({
-  subsets: ["latin"],
-  variable: "--font-inter-tight",
   display: "swap",
 });
 
@@ -59,6 +55,7 @@ export const viewport: Viewport = {
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecoreboys.com";
@@ -126,10 +123,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       data-theme="dark"
-      className={`dark-mode ${inter.variable} ${interTight.variable} ${coreWordmark.variable} ${inter.className}`}
+      className={`dark-mode ${inter.variable} ${coreWordmark.variable} ${inter.className}`}
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         <link rel="preconnect" href="https://i.ytimg.com" />
         <link rel="preconnect" href="https://static-cdn.jtvnw.net" />
         <link rel="dns-prefetch" href="https://player.twitch.tv" />
@@ -166,7 +165,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Suspense fallback={null}>
                 <AuthModal />
               </Suspense>
-              <ContactInquiryWidget />
             </LenisProvider>
             </WatchContextMenuProvider>
             </PlayerProvider>
@@ -174,12 +172,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </ThemeProvider>
         </NuqsAdapter>
 
-        <Suspense fallback={null}>
-          <GridOverlay />
-        </Suspense>
-        <Grain />
-        <Scanlines />
-        <Cursor />
         <ConsoleEgg />
         <OrganizationJsonLd />
         <CookieBanner />

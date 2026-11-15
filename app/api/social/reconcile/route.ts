@@ -36,6 +36,7 @@ import {
   type IngestProvider,
 } from "@/lib/watch/social-credentials";
 import { processSocialFetchBackfill } from "@/lib/social-fetch-backfill";
+import { configuredXCrewFeedAccounts } from "@/lib/x/crew-roster";
 import { drainContentRemovalCleanup } from "@/lib/content-availability";
 import { reconcileContentAvailability } from "@/lib/content-reconciliation";
 import { reconcileTwitchContentAvailability } from "@/lib/twitch-content-reconciliation";
@@ -61,7 +62,7 @@ function creatorSocialAccounts(): SocialAccount[] {
     accountLabel: string,
   ) => {
     if (!handle?.trim()) return;
-    accounts.push({ provider, handle, memberSlug, accountLabel });
+    accounts.push({ provider, handle: provider === "x" ? normalizedHandle(handle) : handle, memberSlug, accountLabel });
   };
 
   add("tiktok", GROUP.socials.tiktok?.handle, null, GROUP.name);
@@ -76,6 +77,9 @@ function creatorSocialAccounts(): SocialAccount[] {
   }
   for (const channel of configuredYouTubeWebhookChannels()) {
     add("youtube", channel.channelId, channel.memberSlug, channel.accountLabel);
+  }
+  for (const account of configuredXCrewFeedAccounts()) {
+    add("x", account.handle, account.authorSlug, account.authorLabel);
   }
   return accounts;
 }
@@ -176,6 +180,8 @@ async function reconcileCreatorSourceHealth(publicDiagnostics: readonly PublicMe
         )
         : account.provider === "twitch"
           ? Boolean(process.env.TWITCH_EVENTSUB_SECRET?.trim())
+          : account.provider === "x"
+            ? Boolean(process.env.X_CLIENT_SECRET?.trim() || process.env.X_API_SECRET?.trim())
           : Boolean(process.env.YOUTUBE_WEBHOOK_SECRET?.trim());
     await upsertSocialSource({
       provider: account.provider,

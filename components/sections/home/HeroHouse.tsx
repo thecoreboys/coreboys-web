@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";

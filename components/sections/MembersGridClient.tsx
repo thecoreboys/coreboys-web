@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { MemberPulse } from "@/components/watch/MemberPulse";

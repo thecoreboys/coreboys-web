@@ -34,6 +34,7 @@ import { BadgeWithDot } from "@/components/base/badges/badges";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 
 const TEXT_SCALE_MIN = 0.7;
 const TEXT_SCALE_MAX = 1.8;
@@ -816,26 +817,10 @@ export function ChatHub({ coreChannels }: ChatHubProps) {
                 ))}
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-4">
-                <label className="text-xs font-medium text-tertiary">
-                  Chat placement
-                  <select value={chatPlacement} onChange={(event) => setChatPlacement(event.target.value as typeof chatPlacement)} className="ml-2 rounded-md bg-secondary px-2 py-1.5 text-sm text-primary ring-1 ring-inset ring-secondary">
-                    <option value="right">Right of streams</option>
-                    <option value="left">Left of streams</option>
-                    <option value="below">Below streams</option>
-                  </select>
-                </label>
-                <label className="text-xs font-medium text-tertiary">
-                  Active chat limit
-                  <select
-                    value={maxConnected}
-                    onChange={(event) => setMaxConnected(Number(event.target.value))}
-                    className="ml-2 rounded-md bg-secondary px-2 py-1.5 text-sm text-primary ring-1 ring-inset ring-secondary"
-                  >
-                    {[1, 2, 4, 6, 8].map((count) => <option key={count} value={count}>{count}</option>)}
-                  </select>
-                </label>
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-tertiary">
+              <div className="mt-4 grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <FilterSelect label="Chat placement" value={chatPlacement} onChange={(value) => setChatPlacement(value as typeof chatPlacement)} options={[{ value: "right", label: "Right of streams" }, { value: "left", label: "Left of streams" }, { value: "below", label: "Below streams" }]} />
+                <FilterSelect label="Active chat limit" value={String(maxConnected)} onChange={(value) => setMaxConnected(Number(value))} options={[1, 2, 4, 6, 8].map((count) => ({ value: String(count), label: `${count} ${count === 1 ? "chat" : "chats"}` }))} />
+                <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-tertiary">
                   <input
                     type="checkbox"
                     checked={dataSaver}

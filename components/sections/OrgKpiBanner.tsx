@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import type { FC } from "react";
 import { ArrowUpRight } from "@untitledui/icons";

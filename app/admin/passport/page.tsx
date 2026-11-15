@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default function PassportAdminPage() {
   return (
     <AuthGate>
-      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+      <div className="relative min-h-[var(--page-min-height)] bg-secondary">
         <AdminPageHeader
           eyebrow="Admin · CORE Passport"
           title="Live control room."
@@ -34,7 +34,7 @@ export default function PassportAdminPage() {
             />
           </div>
         </section>
-      </main>
+      </div>
     </AuthGate>
   );
 }

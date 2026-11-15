@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import {
   forwardRef,
   memo,
@@ -237,6 +238,7 @@ export function ChatFeed({
   );
   const virtualMetrics = useMemo(
     () => buildVirtualChatMetrics(historyMessages, rowHeightsRef.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ResizeObserver mutates rowHeightsRef; metricVersion deliberately invalidates the measured layout.
     [historyMessages, metricVersion],
   );
   metricsRef.current = virtualMetrics;
@@ -469,7 +471,6 @@ export function ChatFeed({
             <ul
               className="relative"
               style={{ height: `${Math.max(1, virtualMetrics.totalHeight)}px` }}
-              aria-setsize={historyMessages.length}
             >
               {virtualMessages.map((message, localIndex) => {
                 const index = virtualWindow.start + localIndex;
@@ -480,6 +481,7 @@ export function ChatFeed({
                     key={chatMessageKey(message)}
                     rowKey={chatMessageKey(message)}
                     rowIndex={index}
+                    ariaSetSize={historyMessages.length}
                     top={top}
                     onHeight={onRowHeight}
                     message={message}
@@ -539,6 +541,7 @@ type ChatMessageRowProps = {
   viewerIdentity?: PassportChatIdentity | null;
   virtualStyle?: CSSProperties;
   ariaPosInSet?: number;
+  ariaSetSize?: number;
 };
 
 const VirtualizedChatMessageRow = memo(function VirtualizedChatMessageRow({
@@ -589,6 +592,7 @@ const ChatMessageRow = memo(forwardRef<HTMLLIElement, ChatMessageRowProps>(funct
   viewerIdentity,
   virtualStyle,
   ariaPosInSet,
+  ariaSetSize,
 }, ref) {
   const fontPx = 13 * textScale;
   const emotePx = 22 * textScale;
@@ -605,6 +609,7 @@ const ChatMessageRow = memo(forwardRef<HTMLLIElement, ChatMessageRowProps>(funct
       className="group/message w-fit max-w-full rounded-lg px-1.5 py-1 leading-snug text-primary transition-colors hover:bg-primary focus-within:bg-primary"
       style={{ ...virtualStyle, fontSize: `${fontPx}px`, overflowWrap: "anywhere", wordBreak: "break-word" }}
       aria-posinset={ariaPosInSet}
+      aria-setsize={ariaSetSize}
     >
       {time ? <span className="mr-1.5 font-mono text-[0.78em] tabular-nums text-quaternary">{time}</span> : null}
       {merged ? (
@@ -674,7 +679,7 @@ const ChatMessageRow = memo(forwardRef<HTMLLIElement, ChatMessageRowProps>(funct
       {viewerIdentity?.badges.slice(0, 3).map((badge) => <span key={badge.code} className="ml-0.5 inline-flex size-[1.15em] items-center justify-center rounded-full border border-brand-secondary bg-brand-primary align-middle text-[0.7em] font-bold text-brand-secondary" title={`${badge.name} · ${badge.tier}`} aria-label={`${badge.name} Passport badge`}>★</span>)}
       {viewerIdentity?.featuredCard ? (
         <span className="ml-0.5 inline-flex align-middle" title={`Featured Moment Card: ${viewerIdentity.featuredCard.name}${viewerIdentity.featuredCard.serialNumber ? ` #${viewerIdentity.featuredCard.serialNumber}` : ""}`}>
-          {viewerIdentity.featuredCard.artworkUrl ? <img src={viewerIdentity.featuredCard.artworkUrl} alt="" className="inline-block size-[1.25em] rounded-sm object-cover ring-1 ring-brand-secondary" loading="lazy" /> : <span className="inline-flex size-[1.15em] items-center justify-center rounded-sm bg-brand-primary text-brand-secondary">◆</span>}
+          {viewerIdentity.featuredCard.artworkUrl ? <SiteImage width={28} height={28} src={viewerIdentity.featuredCard.artworkUrl} alt="" className="inline-block size-[1.25em] rounded-sm object-cover ring-1 ring-brand-secondary" loading="lazy" /> : <span className="inline-flex size-[1.15em] items-center justify-center rounded-sm bg-brand-primary text-brand-secondary">◆</span>}
         </span>
       ) : null}
       <span className="text-quaternary"> · </span>

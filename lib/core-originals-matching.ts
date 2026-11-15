@@ -26,7 +26,6 @@ export function originalSourceKey(raw: string): string | null {
 
 const RULES: Record<string, readonly RegExp[]> = {
   "core-x-vegas": [/\bvegas\b/],
-  "core-rug": [/\brug\b/],
   "basketball-segments": [/\bbasketball\b/, /\b(?:3v3|1v1)\b.*\b(?:court|hoops)\b/],
   "hot-ones": [/\bhot ones\b/],
   "caretakers": [/\bcaretakers?\b/],

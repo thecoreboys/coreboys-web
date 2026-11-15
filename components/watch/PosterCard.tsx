@@ -1,5 +1,7 @@
 "use client";
 
+import { watchTitle, watchFormatLabel } from "@/lib/watch/presentation";
+
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FocusEvent } from "react";
@@ -218,9 +220,18 @@ export function PosterCard({
   const isPhoto = item.format === "photo";
   const isInstagramPhoto = isPhoto && item.platform === "instagram";
   const isExternalPost = item.kind === "post";
-  const live = item.kind === "live" || item.format === "live";
+  // `kind` carries current availability. A cached format can remain `live`
+  // after a broadcast ends, so it must never produce a LIVE badge.
+  const live = item.kind === "live";
   const shortSourceLabel = shortFormPlatformLabel(item);
   const memberPortrait = item.memberSlug ? MEMBERS_BY_SLUG[item.memberSlug]?.portrait : undefined;
+  const preferTikTokThumbnail = item.platform === "tiktok"
+    && Boolean(item.sourceUrl)
+    && (!item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png");
+  const hasInstagramSource = item.platform === "instagram" && Boolean(item.sourceUrl);
+  const preferInstagramThumbnail = hasInstagramSource
+    && Boolean(item.sourceUrl)
+    && (!item.poster || item.poster === memberPortrait || item.poster === "/embed-preview.png");
   const posterFallback = ["instagram", "tiktok", "youtube"].includes(item.platform) ? (
     <span className={`watch-poster-art-fallback is-${item.platform}${memberPortrait ? " has-member-art" : ""}`} aria-hidden="true">
       {memberPortrait ? (
@@ -237,7 +248,7 @@ export function PosterCard({
   ) : undefined;
   const playable = isPhoto ? null : itemToPlayable(item);
   const fallbackHref = item.sourceUrl || item.href;
-  const motionEnabled = player.previewAutoplay || hoverAutoplay || item.platform === "twitch";
+  const motionEnabled = item.platform === "twitch" || (player.previewAutoplay && hoverAutoplay);
   // Short-form providers are the slowest to boot (especially on a cold
   // mobile connection). Warm their poster and provider connection as soon as
   // the card is approaching the visible edge, even when a shelf did not opt
@@ -387,7 +398,7 @@ export function PosterCard({
     const mayWarmMotion = !avoidsMotionWarm(player.dataSaver, motionEnabled);
     if (!avoidsPreviewWarm(player.dataSaver)) warmHoverStill(item, true);
     if (mayWarmMotion) preconnectHoverEmbed(item, moment?.seconds ?? positionSeconds);
-    const mountDuringIntent = !(item.platform === "x" && item.kind === "post");
+    const mountDuringIntent = false;
     // Mount the real preview immediately but keep it inert and invisible during
     // the intent delay. YouTube/TikTok can finish booting with autoplay off;
     // activation then promotes that same iframe instead of loading it twice.
@@ -409,6 +420,7 @@ export function PosterCard({
         return;
       }
       if (!mountDuringIntent) {
+        window.dispatchEvent(new CustomEvent("core:preview-open", { detail: previewPanelId }));
         previewRef.current = true;
         setPreview(true);
       }
@@ -420,8 +432,25 @@ export function PosterCard({
       if (youtubeId && youtubeId !== item.id) {
         trackHover(youtubeId, "youtube", item.memberSlug);
       }
-    }, keyboard ? 140 : 380);
+    }, keyboard ? 250 : 650);
   }
+
+  useEffect(() => {
+    const closeOtherPreview = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === previewPanelId) return;
+      cancelPreviewOpen();
+      if (closeTimer.current) window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+      previewRef.current = false;
+      previewVisibleRef.current = false;
+      setPreview(false);
+      setPreviewVisible(false);
+      setPreviewClosing(false);
+      setPreviewKeyboard(false);
+    };
+    window.addEventListener("core:preview-open", closeOtherPreview);
+    return () => window.removeEventListener("core:preview-open", closeOtherPreview);
+  }, [previewPanelId]);
 
   function hidePreview() {
     cancelPreviewOpen();
@@ -540,10 +569,14 @@ export function PosterCard({
             player.play(item, context, moment ? { startAtSeconds: moment.seconds } : undefined);
           }}
         >
-          {item.poster ? (
+          {item.poster || item.platform === "tiktok" || hasInstagramSource ? (
             <WatchThumb
               youtubeId={youtubeId}
-              src={item.poster}
+              src={preferTikTokThumbnail || preferInstagramThumbnail ? "" : item.poster ?? ""}
+              tiktokSourceUrl={item.platform === "tiktok" ? item.sourceUrl : undefined}
+              preferTikTokSource={preferTikTokThumbnail}
+              instagramSourceUrl={hasInstagramSource ? item.sourceUrl : undefined}
+              preferInstagramSource={preferInstagramThumbnail}
               focalPoint={item.focalPoint}
               fallback={posterFallback}
               placeholder={posterFallback}
@@ -562,10 +595,14 @@ export function PosterCard({
             ? `View ${item.title} on ${isExternalPost ? "X" : "Instagram"} (opens in a new tab)`
             : `Open ${item.title}`}
         >
-          {item.poster ? (
+          {item.poster || item.platform === "tiktok" || hasInstagramSource ? (
             <WatchThumb
               youtubeId={youtubeId}
-              src={item.poster}
+              src={preferTikTokThumbnail || preferInstagramThumbnail ? "" : item.poster ?? ""}
+              tiktokSourceUrl={item.platform === "tiktok" ? item.sourceUrl : undefined}
+              preferTikTokSource={preferTikTokThumbnail}
+              instagramSourceUrl={hasInstagramSource ? item.sourceUrl : undefined}
+              preferInstagramSource={preferInstagramThumbnail}
               focalPoint={item.focalPoint}
               fallback={posterFallback}
               placeholder={posterFallback}
@@ -591,10 +628,12 @@ export function PosterCard({
       ) : null}
 
       <div className="watch-poster-copy">
-        <p className="line-clamp-2 watch-poster-title">{item.title}</p>
+        <p className="line-clamp-2 watch-poster-title" title={item.title}>{watchTitle(item)}</p>
         <p className="watch-poster-member">
           {shortSourceLabel ? `${shortSourceLabel} · ${watchDisplayLabel(item)}` : watchDisplayLabel(item)}
         </p>
+        <p className="watch-poster-details">{watchFormatLabel(item)}{!live && item.duration ? ` · ${item.duration}` : ""}{live && item.live?.game ? ` · ${item.live.game}` : ""}</p>
+        {item.alternateSources?.length ? <p className="watch-poster-sources">Also on {item.alternateSources.map((source) => <a key={source.href} href={source.href} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>{source.platform === "youtube" ? "YouTube" : source.platform === "tiktok" ? "TikTok" : source.platform === "instagram" ? "Instagram" : source.platform}</a>)}</p> : null}
       </div>
 
       {progress > 0 || done ? (
@@ -611,16 +650,16 @@ export function PosterCard({
       ) : null}
 
       <Tooltip
-        title={dvrLoading ? "Loading DVR" : dvrLocked ? "DVR with CORE Membership" : user && dvrSaved ? "Remove from DVR" : "Add to DVR"}
+        title={dvrLoading ? "Loading saved library" : dvrLocked ? "Saved library with CORE Membership" : user && dvrSaved ? "Remove from library" : "Save"}
         description={dvrLoading
           ? "Checking your saved titles."
           : user
             ? dvrLocked
-              ? "DVR is included with CORE Membership."
+              ? "Your saved library is included with CORE Membership."
               : dvrSaved
-              ? "Remove this title from your DVR."
-              : "Add this title to your DVR so you can quickly find it later."
-            : "Sign in to add this title to your DVR across your devices."}
+              ? "Remove this title from your saved library."
+              : "Add this title to your saved library so you can quickly find it later."
+            : "Sign in to add this title to your saved library across your devices."}
         placement="top"
         isDisabled={dvrLoading}
       >
@@ -628,10 +667,10 @@ export function PosterCard({
           type="button"
           data-no-drag
           aria-label={dvrLoading
-            ? "Loading DVR"
+            ? "Loading saved library"
             : user
-              ? dvrLocked ? `Unlock DVR to save ${item.title}` : dvrSaved ? `Remove ${item.title} from DVR` : `Add ${item.title} to DVR`
-              : `Add ${item.title} to DVR`}
+              ? dvrLocked ? `Save with membership to save ${item.title}` : dvrSaved ? `Remove ${item.title} from your library` : `Add ${item.title} to your library`
+              : `Add ${item.title} to your library`}
           aria-pressed={Boolean(user && dvrSaved)}
           disabled={dvrLoading}
           onFocus={cancelPreviewOpen}
@@ -657,7 +696,7 @@ export function PosterCard({
         >
           <span className="watch-poster-save-icon"><MyListGlyph saved={dvrSaved} /></span>
           <span className="watch-poster-save-label" aria-hidden>
-            {dvrLoading ? "Loading…" : dvrLocked ? "Unlock DVR" : user && dvrSaved ? "In DVR" : "Add to DVR"}
+            {dvrLoading ? "Loading…" : user && dvrSaved ? "Saved" : "Save"}
           </span>
         </button>
       </Tooltip>
@@ -790,15 +829,15 @@ export function MyListShelf({
           <div>
             <p className="watch-my-list-eyebrow">Saved to your account</p>
             <div className="watch-my-list-title-row">
-              <Heading id="my-list-title">DVR</Heading>
+              <Heading id="my-list-title">Saved library</Heading>
               {hasSavedItems ? <span>{totalCount}</span> : null}
             </div>
             <p>
               {loading
-                ? "Loading your DVR…"
+                ? "Loading your saved library…"
                 : signedIn
                 ? "Your saved titles and watch progress. Playback depends on the original source remaining available."
-                : "Sign in to build a DVR that stays with your CORE account."}
+                : "Sign in to keep your saved library with your CORE account."}
             </p>
           </div>
           {hasSavedItems ? (
@@ -850,13 +889,13 @@ export function MyListShelf({
               <MyListGlyph saved={false} />
             </span>
             <div>
-              <h3>{loading ? "Loading your DVR" : hasSavedItems ? "No matching titles" : "No saved titles yet"}</h3>
+              <h3>{loading ? "Loading your saved library" : hasSavedItems ? "No matching titles" : "No saved titles yet"}</h3>
               <p>
                 {loading
                   ? "Checking your CORE account for saved titles."
                   : hasSavedItems
                   ? "Try another filter or search."
-                  : "Use Add to DVR on any video, stream, replay, short, or photo."}
+                  : "Use Save on any video, stream, replay, short, or photo."}
               </p>
             </div>
             {loading ? null : hasSavedItems ? (

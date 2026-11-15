@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { ChevronDown } from "lucide-react";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { SocialIcon, PLATFORM_LABEL } from "@/components/ui/SocialIcon";
@@ -76,8 +76,8 @@ export function LinksClient({ members, groupSocials }: Props) {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-[640px] px-4 py-10 md:py-14">
-      <header className="mb-8 flex flex-col items-center text-center">
+    <div className="core-links-page mx-auto min-h-screen max-w-[640px] px-4 py-10 md:py-14">
+      <header className="core-links-intro mb-8 flex flex-col items-center text-center">
         <p className="text-sm font-semibold text-brand-secondary">
           The CORE crew
         </p>
@@ -130,7 +130,7 @@ export function LinksClient({ members, groupSocials }: Props) {
               href={s.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-3 text-xs text-[color:var(--ink)] transition-colors hover:border-[color:var(--core)]"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[color:var(--rule)] bg-[color:var(--bg-elev)] px-4 text-sm text-[color:var(--ink)] transition-colors hover:border-[color:var(--core)]"
             >
               <SocialIcon platform={s.platform as never} className="h-3.5 w-3.5" />
               <span className="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ink-dim)]">

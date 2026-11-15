@@ -27,8 +27,13 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Verify internal content permissions against isolated PostgreSQL
+        run: node scripts/test-content-private-access-sql.mjs
+      - name: Verify campaign permissions against isolated PostgreSQL
+        run: node scripts/test-clipping-campaigns-sql.mjs
       - name: Verify guest enrollment metadata against isolated PostgreSQL
         run: node scripts/test-face-people-sql.mjs
   face-worker-tests:

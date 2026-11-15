@@ -80,7 +80,19 @@ async function command(args: string[]): Promise<unknown> {
     if (connection.kind === "native") {
       const redis = await client(connection.url);
       usedClient = redis;
-      return await redis.sendCommand(args, { abortSignal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) });
+      const remaining = Math.max(1, deadline - Date.now());
+      // node-redis removes its AbortSignal listener once a command is sent.
+      // Keep our own response deadline so a ready but silent server cannot
+      // pin a page's cache read (or all subsequent deferred writes) forever.
+      return await new Promise<unknown>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Redis response deadline exceeded")), remaining);
+        void Promise.resolve()
+          .then(() => redis.sendCommand(args, { abortSignal: AbortSignal.timeout(remaining) }))
+          .then(
+            (value) => { clearTimeout(timeout); resolve(value); },
+            (error) => { clearTimeout(timeout); reject(error); },
+          );
+      });
     }
     const response = await fetch(connection.url, {
       method: "POST",
@@ -117,6 +129,9 @@ export async function redisGetJson(key: string): Promise<unknown | null> {
 }
 
 export async function redisSetJson(key: string, value: unknown, expirySeconds: number): Promise<boolean> {
+  // Large archives can cost considerable CPU to encode/compress. During an
+  // outage (or local development without Redis), skip that work entirely.
+  if (!config() || Date.now() < retryAt) return false;
   let serialized: string | undefined;
   try { serialized = JSON.stringify(value); } catch { return false; }
   if (typeof serialized !== "string" || serialized.length > MAX_JSON_BYTES) return false;

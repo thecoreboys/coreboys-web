@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import dynamic from "next/dynamic";
 import type { Route } from "next";
 import { createPortal } from "react-dom";
@@ -15,10 +15,8 @@ import {
   Gem,
   LogOut,
   Menu,
-  Moon,
   Search,
   Settings,
-  Sun,
   UserRound,
   X,
 } from "lucide-react";
@@ -27,7 +25,7 @@ import { Button } from "@/components/base/buttons/button";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { openAuthModal } from "@/lib/auth/modal";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
-import { useTheme } from "@/components/providers/ThemeProvider";
+import { ThemeToggle } from "@/components/chrome/ThemeToggle";
 import { MEMBERS_BY_SLUG } from "@/lib/members";
 import { NETWORK_CHANNELS } from "@/lib/watch/channels";
 import { cn } from "@/lib/utils";
@@ -85,6 +83,7 @@ export function TopNav() {
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const accountDropdownRef = useRef<HTMLDivElement | null>(null);
   const accountTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { data } = useLiveStatus();
   const liveEntries = (data?.live ?? []).filter((l) => l.isLive);
   const { data: unifiedLive } = useSWR<UnifiedLiveSnapshot>(
@@ -102,7 +101,6 @@ export function TopNav() {
     (sum, e) => sum + (e.viewerCount ?? 0),
     0,
   ) + youtubeLiveEntries.reduce((sum, e) => sum + (e.viewerCount ?? 0), 0);
-  const { theme, toggle: toggleTheme } = useTheme();
   const { user, loading: authLoading, logout } = useAuth();
   const supporterControls = useSupporterBillingControls();
   const supporterPrice = supporterControls?.renewalsDisabledAt
@@ -134,6 +132,34 @@ export function TopNav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => { setOpen(false); }, [pathname, searchParams]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.dataset.navigationOpen = "true";
+    const close = () => { setOpen(false); mobileTriggerRef.current?.focus(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const onDesktop = () => { if (desktop.matches) setOpen(false); };
+    const onOutside = (event: Event) => {
+      if (event.target instanceof Node && !mobileTriggerRef.current?.closest("header")?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onOutside);
+    document.addEventListener("pointerdown", onOutside);
+    desktop.addEventListener("change", onDesktop);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      delete document.body.dataset.navigationOpen;
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onOutside);
+      document.removeEventListener("pointerdown", onOutside);
+      desktop.removeEventListener("change", onDesktop);
+    };
+  }, [open]);
 
   // Lock body scroll + close-on-Escape while the live modal is open so
   // it doesn't drift visually with Lenis-driven background scroll.
@@ -193,13 +219,13 @@ export function TopNav() {
   return (
     <header
       className={cn(
-        "relative z-40 transition-colors duration-300",
+        "core-topnav relative z-40 transition-colors duration-300",
         solidChrome
           ? "border-b border-[color:var(--rule)] bg-[color:var(--bg)]/85 backdrop-blur-md"
           : "border-b border-transparent bg-transparent",
       )}
     >
-      <div className="mx-auto grid h-14 max-w-container grid-cols-[auto_1fr_auto] items-center gap-2 px-4 sm:gap-4 sm:px-6 md:h-16 md:px-8">
+      <div className="core-topnav__inner mx-auto grid h-14 max-w-container grid-cols-[auto_1fr_auto] items-center gap-2 px-4 sm:gap-4 sm:px-6 md:h-16 md:px-8">
         <Link
           href="/"
           aria-label="CORE — watch"
@@ -210,7 +236,7 @@ export function TopNav() {
           </span>
         </Link>
 
-        <nav className="hidden items-center justify-center gap-0.5 lg:flex">
+        <nav aria-label="Main navigation" className="core-topnav__links hidden items-center justify-center gap-0.5 lg:flex">
           <NavLink
             href="/"
             onIntent={() => prefetchOnIntent("/")}
@@ -249,7 +275,7 @@ export function TopNav() {
               aria-expanded={membersOpen}
               aria-haspopup="menu"
               className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors cursor-pointer xl:px-3",
+                "core-topnav__link inline-flex items-center gap-1 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors cursor-pointer xl:px-3",
                 membersOpen
                   ? "bg-[color:var(--bg-elev)] text-[color:var(--ink)]"
                   : "text-[color:var(--ink-dim)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]",
@@ -354,18 +380,18 @@ export function TopNav() {
           </div>
         </nav>
 
-        <div className="hidden items-center justify-end gap-2 lg:flex">
+        <div className="core-topnav__actions hidden items-center justify-end gap-2 lg:flex">
           {watchSearchAvailable ? (
             <button
               type="button"
               onClick={() => window.dispatchEvent(new Event("core-watch-search"))}
               onPointerEnter={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
               onFocus={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
-              className="group inline-flex min-h-10 w-10 cursor-pointer items-center justify-start gap-2 rounded-lg bg-[color:var(--bg-elev)] px-2.5 text-sm font-semibold text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--rule)] transition-[color,background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] hover:ring-[color:var(--ink-faint)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.28)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)] lg:w-36 xl:w-56 2xl:w-72"
+              className="group inline-flex min-h-10 w-10 cursor-pointer items-center justify-start gap-2.5 rounded-xl bg-[color:var(--ui-surface)] px-3 text-sm font-normal text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--ui-line)] transition-colors duration-150 hover:bg-[color:var(--ui-hover)] hover:text-[color:var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)] lg:w-32 xl:w-44 2xl:w-56"
               aria-label="Search CORE Watch"
               aria-keyshortcuts="Control+K Meta+K /"
             >
-              <Search size={16} aria-hidden className="shrink-0 transition-transform duration-150 group-hover:scale-110" />
+              <Search size={16} strokeWidth={1.6} aria-hidden className="shrink-0" />
               <span className="hidden whitespace-nowrap lg:inline">Search</span>
             </button>
           ) : null}
@@ -374,43 +400,30 @@ export function TopNav() {
             href="/upgrade"
             data-cursor-hint="Explore member benefits"
             aria-label={supporterAriaLabel}
-            className="nav-membership-cta group relative isolate hidden min-h-10 items-center gap-2 overflow-hidden rounded-lg px-3 text-xs font-bold text-white transition-[transform,box-shadow] duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-200 lg:inline-flex"
+            className="nav-membership-cta relative hidden min-h-10 items-center gap-2 overflow-hidden rounded-xl px-3 text-xs font-medium text-[color:var(--ink)] transition-colors hover:bg-[color:var(--ui-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)] lg:inline-flex"
           >
-            <span className="grid size-5 place-items-center rounded-md bg-white/15 ring-1 ring-inset ring-white/20">
-              <Gem size={13} aria-hidden />
-            </span>
+            <Gem size={14} strokeWidth={1.5} aria-hidden />
             <span className="whitespace-nowrap">Support the site</span>
-            <span className="hidden text-[10px] font-semibold text-white/70 xl:inline">{supporterPrice}</span>
+            <span className="hidden text-xs font-normal text-[color:var(--ink-dim)] xl:inline">{supporterPrice}</span>
           </Link>
 
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]"
-          >
-            {theme === "dark" ? <Sun size={17} aria-hidden /> : <Moon size={17} aria-hidden />}
-          </button>
+          <ThemeToggle />
 
-          {/* LIVE / OFFLINE pill — opens member-picker modal when live.
-              When live, the whole pill blinks red (live-pill-blink) and
-              shows the combined viewer count across every live member. */}
+          {/* Keep live status visible without an animated promotion. */}
           {liveCount > 0 ? (
             <button
               type="button"
               onClick={() => setLiveModalOpen(true)}
-              className="live-pill-blink group relative inline-flex items-center gap-2 rounded-lg border px-3 py-2 shadow-xs-skeuomorphic cursor-pointer"
+              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 transition-colors hover:bg-[color:var(--ui-hover)]"
               aria-label={`Live — ${liveCount} ${liveCount === 1 ? "person" : "people"} — open picker`}
             >
               <span
                 aria-hidden
-                className="h-2 w-2 rounded-full bg-[color:var(--core)] shadow-[0_0_8px_rgba(219,3,104,0.7)]"
-                style={{ animation: "live-blink 1s ease-in-out infinite" }}
+                className="size-1.5 rounded-full bg-[color:var(--live)]"
               />
-              <span className="text-xs font-bold tracking-tight text-[color:var(--core)]">
+              <span className="text-xs font-medium text-[color:var(--ink)]">
                 LIVE
-                <span className="mx-1.5 text-[color:var(--core)]/50">·</span>
+                <span className="mx-1.5 text-[color:var(--ink-dim)]">·</span>
                 <span className="tabular-nums">{liveCount}</span>
               </span>
             </button>
@@ -489,7 +502,7 @@ export function TopNav() {
                       <AccountMenuLink
                         href="/dvr"
                         icon={Bookmark}
-                        label="DVR"
+                        label="Saved library"
                         active={pathname.startsWith("/dvr") || pathname.startsWith("/my-list")}
                         onSelect={() => setAccountOpen(false)}
                       />
@@ -537,24 +550,28 @@ export function TopNav() {
         {/* Mobile / tablet menu — Untitled UI utility button. Lives in
             grid column 3 + right-aligned so it hugs the navbar's right
             edge. 44px touch target. */}
-        <div className="col-start-3 flex items-center gap-1 justify-self-end lg:hidden">
+        <div className="core-topnav__mobile-actions col-start-3 flex items-center gap-0.5 justify-self-end lg:hidden">
           {watchSearchAvailable ? (
             <button
               type="button"
               onClick={() => window.dispatchEvent(new Event("core-watch-search"))}
               onPointerEnter={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
               onFocus={() => window.dispatchEvent(new Event("core-watch-search-warm"))}
-              className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-[color:var(--ink-dim)] ring-1 ring-inset ring-[color:var(--rule)] transition-[color,background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)] hover:ring-[color:var(--ink-faint)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.24)] active:translate-y-0 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--core)]"
+              className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full text-[color:var(--ink-dim)] transition-colors hover:bg-[color:var(--ui-hover)] hover:text-[color:var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ink)]"
               aria-label="Search CORE Watch"
             >
               <Search size={18} aria-hidden />
             </button>
           ) : null}
+          <ThemeToggle />
           {user ? <NotificationBell variant="mobile" /> : null}
           <ButtonUtility
+            ref={mobileTriggerRef}
             size="sm"
-            color="secondary"
+            color="tertiary"
             aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="mobile-navigation"
             onClick={() => setOpen((v) => !v)}
             icon={open ? X : Menu}
             className="min-h-11 min-w-11 shrink-0"
@@ -563,10 +580,10 @@ export function TopNav() {
       </div>
 
       {open ? (
-        <div className="max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-t border-[color:var(--rule)] bg-[color:var(--bg)] lg:hidden">
-          <nav className="mx-auto max-w-container px-4 py-4 sm:px-6">
-            <p className="eyebrow">Networks</p>
-            <ul className="mt-3 grid grid-cols-2 gap-2 min-[400px]:grid-cols-3">
+        <div id="mobile-navigation" data-lenis-prevent className="core-topnav__mobile-menu absolute inset-x-0 top-full max-h-[calc(100dvh-var(--site-header-h,8rem))] overflow-y-auto overscroll-contain border-y border-[color:var(--rule)] bg-[color:var(--bg)] pb-[env(safe-area-inset-bottom)] shadow-xl lg:hidden">
+          <nav aria-label="Mobile navigation" className="mx-auto max-w-container px-4 py-4 sm:px-6">
+            <p className="text-xs font-medium text-[color:var(--ink-dim)]">Networks</p>
+            <ul className="mt-3 grid grid-cols-2 gap-2">
               {NETWORK_CHANNELS.map((network) => {
                 const member = network.memberSlug ? MEMBERS_BY_SLUG[network.memberSlug] : null;
                 return (
@@ -577,14 +594,14 @@ export function TopNav() {
                       onFocus={() => prefetchOnIntent(`/channels/${network.slug}`)}
                       data-cursor-community={network.slug}
                       onClick={() => setOpen(false)}
-                      className="group relative flex min-h-[6.5rem] items-end overflow-hidden rounded-xl border border-[color:var(--rule)] bg-black p-2.5 cursor-pointer transition-colors hover:border-[color:var(--rule-strong)]"
+                      className="flex min-h-[4.5rem] cursor-pointer items-center gap-3 overflow-hidden rounded-xl bg-[color:var(--ui-surface)] p-3 transition-colors hover:bg-[color:var(--ui-hover)]"
                     >
-                      <Image src={network.backdrop} alt="" fill sizes="50vw" className="object-cover opacity-75 transition duration-300 group-hover:scale-105 group-hover:opacity-100" />
-                      <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                      <Image src={network.artwork} alt="" width={112} height={48} className={cn("absolute left-1/2 top-3 h-10 w-[78%] -translate-x-1/2 object-contain drop-shadow-[0_3px_8px_rgba(0,0,0,0.8)]", network.slug === "marlon" && "scale-[1.3]")} />
-                      <span className="relative min-w-0">
-                        <span className="block text-xs font-semibold text-white">{network.name}</span>
-                        <span className="mt-0.5 block break-words text-[10px] leading-snug text-white/65">{member ? `@${member.twitchLogin}` : "All CORE"}</span>
+                      <span aria-hidden="true" className="relative hidden size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-black min-[360px]:grid">
+                        {network.slug === "core" ? <CoreWordmark className="text-xl text-white" /> : <Image src={network.artwork} alt="" fill sizes="36px" className="object-contain p-1" />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-medium text-[color:var(--ink)]">{network.name}</span>
+                        <span className="mt-1 block truncate text-[11px] text-[color:var(--ink-dim)]">{member ? `@${member.twitchLogin}` : "All CORE"}</span>
                       </span>
                     </Link>
                   </li>
@@ -592,7 +609,7 @@ export function TopNav() {
               })}
             </ul>
 
-            <p className="eyebrow mt-6">Watch</p>
+            <p className="mt-6 text-xs font-medium text-[color:var(--ink-dim)]">Watch</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {(
                 [
@@ -618,16 +635,15 @@ export function TopNav() {
             <Link
               href="/upgrade"
               onClick={() => setOpen(false)}
-              className="relative mt-5 flex min-h-12 items-center justify-between overflow-hidden rounded-xl border border-pink-300/35 px-3.5 text-sm font-bold text-white shadow-[0_10px_26px_rgba(190,8,109,0.25)]"
+              className="mt-5 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[color:var(--ui-line)] px-3.5 text-sm font-medium text-[color:var(--ink)] transition-colors hover:bg-[color:var(--ui-hover)]"
             >
-              <span aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_120%,rgba(255,89,177,0.74),transparent_48%),linear-gradient(135deg,rgba(124,17,83,0.96),rgba(55,17,82,0.96))]" />
               <span className="inline-flex items-center gap-2"><Gem size={16} aria-hidden /> Support the site</span>
-              <span className="text-xs font-medium text-white/75">{supporterPrice}</span>
+              <span className="text-xs font-normal text-[color:var(--ink-dim)]">{supporterPrice}</span>
             </Link>
 
             {/* Account + theme controls — mirror the desktop right rail so
                 everything reachable on desktop is reachable here too. */}
-            <p className="eyebrow mt-6">Account</p>
+            <p className="mt-6 text-xs font-medium text-[color:var(--ink-dim)]">Account</p>
             <div className="mt-3 flex items-center gap-2">
               {authLoading ? (
                 <span
@@ -676,14 +692,6 @@ export function TopNav() {
                   Sign in
                 </Button>
               )}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] text-[color:var(--ink-dim)] shadow-xs-skeuomorphic transition-colors hover:bg-[color:var(--surface)] hover:text-[color:var(--ink)]"
-              >
-                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
             </div>
 
           </nav>
@@ -728,10 +736,11 @@ function NavLink({
       prefetch={false}
       onPointerEnter={onIntent}
       onFocus={onIntent}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "cursor-pointer rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors xl:px-3",
+        "core-topnav__link relative inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors xl:px-3",
         active
-          ? "bg-[color:var(--bg-elev)] text-[color:var(--ink)]"
+          ? "text-[color:var(--ink)] after:absolute after:inset-x-3 after:bottom-1 after:h-px after:bg-[color:var(--ink)]"
           : primary
             ? "font-semibold text-[color:var(--ink)] hover:bg-[color:var(--bg-elev)]"
             : "text-[color:var(--ink-dim)] hover:bg-[color:var(--bg-elev)] hover:text-[color:var(--ink)]",

@@ -18,7 +18,7 @@ const PLATFORM_LABEL: Record<Clip["source"], string> = {
  * cross-origin requests on first paint. Clicking the cover swaps in
  * the platform's official iframe.
  */
-export function ClipEmbed({ clip }: { clip: Clip }) {
+export function ClipEmbed({ clip, onPlay }: { clip: Clip; onPlay?: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const brand = PLATFORM_BRAND[clip.source];
 
@@ -29,7 +29,7 @@ export function ClipEmbed({ clip }: { clip: Clip }) {
       {!loaded ? (
         <button
           type="button"
-          onClick={() => setLoaded(true)}
+          onClick={() => onPlay ? onPlay() : setLoaded(true)}
           className="group absolute inset-0 flex items-center justify-center"
           aria-label={`Play ${clip.title}`}
         >

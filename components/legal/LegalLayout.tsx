@@ -36,12 +36,12 @@ export function LegalLayout({
   const HeaderIcon = KIND_ICON[kind];
 
   return (
-    <main className="legal-page">
+    <div className="legal-page legal-page--polished">
       <header className="legal-page-header">
         <div className="legal-page-width">
           <div className="legal-title-row">
             <HeaderIcon className="legal-title-icon" aria-hidden="true" />
-            <div>
+            <div className="legal-title-copy">
               <p className="legal-kicker">Policies &amp; your data</p>
               <h1>{title}</h1>
               <p className="legal-updated">Last updated <time dateTime={effectiveDate}>{effectiveDate}</time></p>
@@ -100,6 +100,6 @@ export function LegalLayout({
           </footer>
         </article>
       </div>
-    </main>
+    </div>
   );
 }

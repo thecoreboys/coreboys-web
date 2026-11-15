@@ -444,10 +444,51 @@
 .cleanFaqList p { border: 1px solid var(--upgrade-line); border-radius: .8rem; background: rgba(255,255,255,.02); padding: .9rem 1rem; color: var(--upgrade-muted); font-size: .76rem; line-height: 1.55; }
 .cleanFaqList strong { color: #f3f3f5; }
 
+.upgradeHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1.03fr) minmax(20rem, .97fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 4.5rem);
+  padding-top: clamp(3.25rem, 6vw, 5rem);
+  padding-bottom: clamp(2.5rem, 5vw, 4.25rem);
+}
+.upgradeHeroCopy { min-width: 0; animation: upgrade-arrive 700ms cubic-bezier(.2,.7,.25,1) both; }
+.upgradeHeroCopy h1 { max-width: 13ch; margin-top: 1rem; font-size: clamp(2.8rem, 5.4vw, 5rem); font-weight: 745; line-height: .96; letter-spacing: -.072em; text-wrap: balance; }
+.upgradeHeroCopy h1 br { display: block; }
+.upgradeHeroCopy .heroCopy { max-width: 38rem; margin-top: 1.2rem !important; }
+.heroPromise { display: flex; margin-top: 1.25rem; align-items: center; gap: .65rem; color: var(--upgrade-subtle); font-size: .62rem; font-weight: 750; letter-spacing: .1em; }
+.heroPromise i { width: .24rem; height: .24rem; border-radius: 50%; background: #f06bad; box-shadow: 0 0 .7rem rgba(240,107,173,.8); }
+.upgradeHeroVisual { position: relative; min-width: 0; aspect-ratio: 1.28; overflow: hidden; margin: 0; border: 1px solid rgba(255,255,255,.16); border-radius: 1.1rem; background: #111116 url("/brand/supporter/upgrade-signal-material-v1.webp") center / cover; box-shadow: 0 2rem 4rem rgba(0,0,0,.4); animation: upgrade-arrive 850ms 100ms cubic-bezier(.2,.7,.25,1) both; }
+.upgradeHeroVisual::after { position: absolute; inset: 0; content: ""; background: linear-gradient(180deg,rgba(8,8,10,.04) 24%,rgba(8,8,10,.82) 100%),linear-gradient(115deg,rgba(227,7,109,.14),transparent 55%); pointer-events: none; }
+.upgradeHeroImage { object-fit: cover; object-position: center; opacity: .88; transition: transform 700ms cubic-bezier(.2,.7,.25,1), opacity 300ms ease; }
+.upgradeHeroVisual:hover .upgradeHeroImage { opacity: 1; transform: scale(1.025); }
+.upgradeVisualTag { position: absolute; z-index: 1; top: 1rem; left: 1rem; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; background: rgba(9,9,11,.76); padding: .45rem .65rem; color: #f6c0da; font-size: .59rem; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; backdrop-filter: blur(12px); }
+.upgradeVisualCaption { position: absolute; z-index: 1; right: 1.25rem; bottom: 1.15rem; left: 1.25rem; display: grid; gap: .38rem; }
+.upgradeVisualCaption span { color: #ff9ccc; font-size: .58rem; font-weight: 780; letter-spacing: .12em; }
+.upgradeVisualCaption strong { max-width: 25rem; color: #fff; font-size: clamp(1.2rem,2.5vw,1.85rem); font-weight: 720; line-height: 1.08; letter-spacing: -.045em; text-wrap: balance; }
+.cleanSectionHeading { display: flex; margin: 0 0 1rem; align-items: end; justify-content: space-between; gap: 1.5rem; }
+.cleanSectionHeading h2 { margin-top: .4rem; font-size: clamp(1.4rem,2.6vw,2rem); font-weight: 720; letter-spacing: -.055em; }
+.cleanSectionHeading > span { padding-bottom: .18rem; color: var(--upgrade-muted); font-size: .73rem; }
+.shell:not(.accountMode) .cleanGrid { align-items: stretch; gap: 1rem; }
+.shell:not(.accountMode) .membershipCard.cleanCard { border-color: rgba(240,107,173,.38); background: radial-gradient(ellipse at 100% 0%,rgba(227,7,109,.16),transparent 52%),linear-gradient(145deg,rgba(255,255,255,.045),transparent 42%),var(--upgrade-surface); }
+.shell:not(.accountMode) .membershipCard.cleanCard::before { position: absolute; inset: 0 0 auto; height: 2px; content: ""; background: linear-gradient(90deg,#f06bad,rgba(240,107,173,.12) 72%,transparent); }
+.shell:not(.accountMode) .cleanCard .amountSelector { margin-top: auto; padding-top: 1.35rem; }
+.cleanNotice { margin-top: 1rem; }
+.cleanFaq { margin-top: clamp(2.75rem,5vw,4rem); }
+
+@keyframes upgrade-arrive {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 760px) {
   .cleanHeader, .cleanMain { width: min(100% - 2rem, 68rem); }
   .cleanGrid, .cleanFaq { grid-template-columns: 1fr; }
   .cleanFaq { gap: 1.25rem; }
+  .upgradeHeader { grid-template-columns: 1fr; gap: 1.75rem; }
+  .upgradeHeroVisual { width: 100%; aspect-ratio: 1.45; }
+  .cleanSectionHeading { align-items: flex-start; flex-direction: column; gap: .35rem; }
+  .shell:not(.accountMode) .cleanCard .amountSelector { margin-top: 1.4rem; }
 }
 
 /* The account plan is a billing surface first: restrained, readable, and operational. */
@@ -493,4 +534,110 @@
 @media (max-width: 900px) {
   .accountMode .cleanGrid { grid-template-columns: 1fr; }
   .accountMode .membershipCard { width: 100%; }
+}
+
+/* Spacious membership cards share the public site's quieter visual language. */
+.shell { --upgrade-accent: #b82855; }
+.shell:not(.accountMode) {
+  background: radial-gradient(ellipse at 85% 52%, color-mix(in srgb, #bd8b73 7%, transparent), transparent 40%), var(--upgrade-bg);
+}
+.cleanMain { width: min(100% - 3rem, 72rem); }
+.cleanSectionHeading { margin-bottom: 1.5rem; gap: 1rem 2rem; }
+.cleanSectionHeading h2 { font-size: clamp(1.7rem, 2.8vw, 2.4rem); line-height: 1.15; letter-spacing: -.045em; }
+.cleanSectionHeading > span { font-size: .875rem; line-height: 1.6; }
+.cleanSectionHeading .kicker, .cleanFaq .kicker { color: var(--upgrade-muted); font-size: .8125rem; letter-spacing: .02em; text-transform: none; }
+.shell:not(.accountMode) .cleanGrid { gap: 1.25rem; }
+.membershipCard.cleanCard, .includedCard { border-radius: 1.5rem; padding: clamp(1.5rem, 3vw, 2.5rem); }
+.shell:not(.accountMode) .membershipCard.cleanCard {
+  isolation: isolate;
+  border-color: color-mix(in srgb, var(--upgrade-accent) 24%, var(--upgrade-line));
+  background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, #c69b80 10%, transparent), transparent 65%), var(--upgrade-surface);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--upgrade-text) 4%, transparent);
+}
+.shell:not(.accountMode) .membershipCard.cleanCard::before { display: none; }
+.shell:not(.accountMode) .membershipCard.cleanCard::after {
+  display: block;
+  inset: 0 0 0 25%;
+  z-index: -1;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: url("/design/core-atmosphere.webp") right center / cover no-repeat;
+  mask-image: linear-gradient(90deg, transparent, #000);
+  opacity: .12;
+}
+.cleanCard h2, .includedCard h2 { margin-top: .8rem; color: var(--upgrade-text); font-size: clamp(1.4rem, 2vw, 1.7rem); font-weight: 650; line-height: 1.25; }
+.planEyebrow { padding-right: 0; color: var(--upgrade-muted); font-size: .8125rem; font-weight: 550; letter-spacing: .01em; text-transform: none; }
+.priceLine { margin-top: 1.4rem; flex-wrap: wrap; gap: .5rem .7rem; }
+.priceLine strong { font-size: clamp(3rem, 5vw, 4.3rem); font-weight: 650; letter-spacing: -.055em; }
+.priceLine span { font-size: .9375rem; }
+.planDescription { margin-top: 1.1rem; font-size: 1rem; line-height: 1.65; }
+.cleanCardIcon { width: 3rem; height: 3rem; border-color: var(--upgrade-line); border-radius: 1rem; background: color-mix(in srgb, var(--upgrade-accent) 7%, var(--upgrade-surface)); color: var(--upgrade-text); }
+.cleanCardIcon svg { width: 1.35rem; height: 1.35rem; stroke-width: 1.6; }
+.includedCard ul { margin-top: 1.5rem; gap: 1rem; }
+.includedCard li { gap: .8rem; font-size: .9375rem; line-height: 1.55; }
+.includedCard li svg { margin-top: .2rem; color: var(--upgrade-muted); }
+.primaryCta, .secondaryCta, .textLink { min-height: 3rem; border-radius: 999px; padding: .85rem 1.25rem; font-size: .9375rem; font-weight: 600; line-height: 1.4; }
+.primaryCta { border-color: transparent; box-shadow: none; }
+.primaryCta:hover:not(:disabled) { background: #9f234a; }
+.secondaryCta, .textLink { background: var(--upgrade-surface); color: var(--upgrade-text); }
+.primaryCta:focus-visible, .secondaryCta:focus-visible, .textLink:focus-visible, .amountField input:focus-visible, .amountStepper button:focus-visible, .amountOption:focus-visible { outline: 2px solid var(--upgrade-text); outline-offset: 3px; }
+.cleanNotice { margin-top: 1.25rem; border-radius: 1.25rem; background: var(--upgrade-surface); padding: 1.35rem 1.5rem; }
+.cleanNotice > svg { width: 1.15rem; margin-top: .2rem; color: var(--upgrade-muted); }
+.cleanNotice strong { color: var(--upgrade-text); font-size: .9375rem; }
+.cleanNotice p { font-size: .875rem; line-height: 1.65; }
+.cleanFaq { margin-top: clamp(3rem, 6vw, 5rem); padding-top: clamp(2rem, 4vw, 3rem); }
+.cleanFaq h2 { line-height: 1.15; font-weight: 650; }
+.cleanFaqList { gap: 1rem; }
+.cleanFaqList p { border-radius: 1.25rem; background: var(--upgrade-surface); padding: 1.35rem 1.5rem; font-size: .9375rem; line-height: 1.7; }
+.cleanFaqList strong { display: block; margin-bottom: .35rem; font-size: 1rem; font-weight: 600; }
+.heroPromise { flex-wrap: wrap; color: var(--upgrade-muted); font-size: .8125rem; font-weight: 550; letter-spacing: .015em; }
+.heroPromise i { background: var(--upgrade-muted); box-shadow: none; }
+.upgradeHeroVisual { border-radius: 1.5rem; box-shadow: 0 20px 50px rgba(0, 0, 0, .13); animation: none; }
+.upgradeVisualTag { font-size: .75rem; font-weight: 550; letter-spacing: .01em; text-transform: none; }
+.upgradeVisualCaption span { color: #f2d1df; font-size: .75rem; font-weight: 550; letter-spacing: .035em; }
+.upgradeVisualCaption strong { font-size: clamp(1.35rem, 2.5vw, 1.85rem); line-height: 1.2; }
+.focusFeature { border-color: var(--upgrade-line); border-radius: 1rem; background: var(--upgrade-surface); padding: 1rem; }
+.focusFeature small { color: var(--upgrade-muted); font-size: .75rem; letter-spacing: .01em; text-transform: none; }
+.focusFeature strong { color: var(--upgrade-text); font-size: .9375rem; }
+.focusFeature em { background: transparent; padding: .25rem 0 0; color: var(--upgrade-muted); font-size: .875rem; font-weight: 400; line-height: 1.5; }
+.focusFeature > svg { color: var(--upgrade-muted); }
+.accountMode .membershipCard, .accountMode .includedCard, .accountMode .currentPlan { border-radius: 1.1rem; }
+.currentPlan span, .currentPlan small { font-size: .8125rem; line-height: 1.5; }
+.billingActions { gap: .9rem; }
+.billingActions > p, .amountSelector > p { font-size: .875rem; line-height: 1.6; }
+.billingActions > label:not(.amountField) { font-size: .875rem; line-height: 1.6; }
+.amountField { grid-template-columns: auto minmax(0, 1fr) auto; gap: .65rem; border-color: var(--upgrade-line-strong); border-radius: 1rem; background: var(--upgrade-bg); padding: .9rem; }
+.amountField > span:first-child { grid-column: 1 / -1; color: var(--upgrade-text); font-size: .875rem; }
+.amountField input { min-height: 2.75rem; border-color: var(--upgrade-line-strong); color: var(--upgrade-text); font-size: 1rem; }
+.amountField .currency, .amountField em { font-size: .875rem; }
+.amountInputWrap { gap: .5rem; }
+.amountInputWrap input { min-width: 0; padding-right: 0; text-align: left; }
+.amountStepper { position: static; display: flex; flex: none; width: auto; height: 2.875rem; border-color: var(--upgrade-line); border-radius: .6rem; background: var(--upgrade-surface); }
+.amountStepper button { width: 2.75rem; height: 2.75rem; color: var(--upgrade-text); }
+.amountStepper button + button { border-top: 0; border-left: 1px solid var(--upgrade-line); }
+.amountStepper button:hover { background: color-mix(in srgb, var(--upgrade-accent) 10%, var(--upgrade-surface)); color: var(--upgrade-text); }
+.amountStepper svg { width: 1rem; height: 1rem; }
+.amountOption { min-height: 2.75rem; border-radius: 999px; padding-inline: 1rem; color: var(--upgrade-text); font-size: .875rem; }
+.amountOption:hover, .amountOption[aria-pressed="true"] { color: var(--upgrade-text); }
+
+@media (max-width: 760px) {
+  .cleanMain { width: min(100% - 2rem, 72rem); padding-bottom: 4rem; }
+  .cleanSectionHeading { align-items: flex-start; flex-direction: column; gap: .7rem; }
+  .cleanCard h2, .includedCard h2 { font-size: 1.5rem; }
+  .cleanNotice, .cleanFaqList p { padding: 1.2rem; }
+  .upgradeHeroVisual { border-radius: 1.25rem; }
+}
+
+@media (max-width: 400px) {
+  .membershipCard.cleanCard, .includedCard { padding: 1.25rem; }
+  .amountField { grid-template-columns: auto minmax(0, 1fr); padding: .75rem; gap: .4rem; }
+  .amountField em { grid-column: 2; font-size: .8125rem; }
+  .amountInputWrap { gap: .25rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upgradeHeroImage { transition: none; }
+  .upgradeHeroVisual:hover .upgradeHeroImage { transform: none; }
 }

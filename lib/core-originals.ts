@@ -29,7 +29,6 @@ export type CoreOriginalSnapshot = { originals: CoreOriginal[]; items: CoreOrigi
 
 const SEEDS = [
   ["core-x-vegas", "CORE X VEGAS", "/brand/events-series-challenges/core-x-vegas.webp"],
-  ["core-rug", "CORE Rug", "/brand/events-series-challenges/core-rug.webp"],
   ["basketball-segments", "Basketball Segments", "/brand/events-series-challenges/basketball-segments.webp"],
   ["hot-ones", "Hot Ones", "/brand/events-series-challenges/hot-ones.webp"],
   ["caretakers", "Caretakers", "/brand/events-series-challenges/caretakers.webp"],
@@ -92,7 +91,7 @@ function mapItem(row: Record<string, unknown>): CoreOriginalItem {
 export async function getCoreOriginalSnapshot(includeUnpublished = false): Promise<CoreOriginalSnapshot> {
   await ensureCoreOriginalsSchema();
   const [originals, items] = await Promise.all([
-    query(`SELECT id::text,slug,title,summary,poster_url,enabled,sort_order FROM core_originals ${includeUnpublished ? "" : "WHERE enabled"} ORDER BY sort_order,created_at`),
+    query(`SELECT id::text,slug,title,summary,poster_url,enabled,sort_order FROM core_originals WHERE slug <> 'core-rug' ${includeUnpublished ? "" : "AND enabled"} ORDER BY sort_order,created_at`),
     query(`SELECT id::text,original_id::text,source_url,platform,title,subtitle,poster_url,format,status,recommendation_note,sort_order FROM core_original_items ${includeUnpublished ? "" : "WHERE status='approved'"} ORDER BY sort_order,created_at DESC`),
   ]);
   return { originals: originals.rows.map(mapOriginal), items: items.rows.map(mapItem) };

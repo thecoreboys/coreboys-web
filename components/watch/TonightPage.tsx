@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "@/components/ui/SiteImage";
 import { Bell, BellOff, Check, Clock3, Play, Radio, Zap } from "lucide-react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
@@ -12,23 +13,9 @@ import { itemDurationSeconds } from "@/lib/watch/channels";
 import { watchAttributionLabel } from "@/lib/watch/display-label";
 import { makeReminderId, useWatchReminders } from "@/lib/watch/reminders-client";
 import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
+import { useWatchGuide } from "@/hooks/useWatchGuide";
+import type { GuideProgram } from "@/lib/watch/guide-response";
 import { WatchThumb } from "./WatchThumb";
-
-type GuideStatus = "upcoming" | "replay" | "published" | "live";
-
-type GuideProgram = {
-  id: string;
-  slug: string;
-  login: string | null;
-  title: string;
-  startsAt: string;
-  endsAt: string | null;
-  status: GuideStatus;
-  platform: WatchPlatform;
-  thumbnailUrl: string | null;
-  sourceUrl: string;
-  watchItem?: WatchItem;
-};
 
 type RotationSlot = {
   item: WatchItem;
@@ -154,8 +141,9 @@ export function TonightPage({
   const viewer = useBrowserTimeZone();
   const initialNow = Date.parse(serverNow);
   const [now, setNow] = useState(Number.isFinite(initialNow) ? initialNow : 0);
-  const [programs, setPrograms] = useState<GuideProgram[]>([]);
-  const [guideReady, setGuideReady] = useState(false);
+  const { data: guide, isLoading: guideLoading } = useWatchGuide();
+  const programs = useMemo(() => guide?.programs ?? [], [guide?.programs]);
+  const guideReady = !guideLoading;
 
   useEffect(() => {
     const update = () => setNow(Date.now());
@@ -171,16 +159,6 @@ export function TonightPage({
       window.removeEventListener("focus", update);
       document.removeEventListener("visibilitychange", updateWhenVisible);
     };
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetch("/api/watch/guide", { signal: controller.signal })
-      .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data: { programs?: GuideProgram[] }) => setPrograms(data.programs ?? []))
-      .catch(() => undefined)
-      .finally(() => setGuideReady(true));
-    return () => controller.abort();
   }, []);
 
   const tonight = useMemo(
@@ -230,7 +208,7 @@ export function TonightPage({
 
   return (
     <div className="min-h-screen bg-[#070708] text-white" data-tonight-page>
-      <header className="relative isolate flex min-h-[min(76dvh,50rem)] items-end overflow-hidden border-b border-white/8">
+      <header className="core-tonight-intro relative isolate flex min-h-[min(76dvh,50rem)] items-end overflow-hidden border-b border-white/8">
         {featured ? (
           <div className="absolute inset-0 -z-20" aria-hidden>
             <WatchThumb src={featured.backdrop || featured.poster} className="h-full w-full object-cover opacity-65" />
@@ -255,7 +233,7 @@ export function TonightPage({
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-[100rem] gap-14 px-5 py-12 md:px-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,.65fr)]">
+      <div className="mx-auto grid max-w-[100rem] gap-14 px-5 py-12 md:px-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,.65fr)]">
         <div className="space-y-14">
           <section aria-labelledby="tonight-live-heading">
             <div className="mb-4 flex items-end justify-between gap-4">
@@ -334,7 +312,7 @@ export function TonightPage({
           </section>
         </div>
 
-        <aside className="space-y-8 lg:sticky lg:top-28 lg:self-start">
+        <aside className="space-y-8 lg:sticky lg:top-[calc(var(--site-header-h,8rem)+1rem)] lg:self-start">
           <section className="rounded-2xl border border-white/10 bg-[#111114] p-5" data-alert-preferences>
             <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-[color:var(--core)]/15 text-[color:var(--core)]"><Bell className="size-4" /></span><div><h2 className="text-sm font-semibold">Don&apos;t miss the live</h2><p className="mt-1 text-xs leading-relaxed text-white/42">In-app and optional browser alerts work while a CORE tab or app remains open. Background push is not enabled yet.</p></div></div>
             {reminders.browserState === "default" ? (
@@ -352,7 +330,7 @@ export function TonightPage({
                 const enabled = Boolean(reminders.creatorAlerts[member.slug]);
                 return (
                   <button key={member.slug} type="button" disabled={!reminders.ready} onClick={() => void reminders.toggleCreatorAlert(member.slug)} aria-pressed={enabled} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-2 text-left hover:bg-white/5 disabled:cursor-wait disabled:opacity-45">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}<img src={member.portrait} alt="" className="size-7 rounded-full object-cover" />
+                    <Image src={member.portrait} alt="" width={28} height={28} className="size-7 rounded-full object-cover" />
                     <span className="min-w-0 flex-1 truncate text-xs font-medium">{member.stageName}</span>
                     {enabled ? <Bell className="size-4 text-[color:var(--core)]" /> : <BellOff className="size-4 text-white/25" />}
                   </button>
@@ -368,7 +346,7 @@ export function TonightPage({
             <Link href="/channels/core" className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-white px-4 text-xs font-bold text-black">Open channels</Link>
           </section>
         </aside>
-      </main>
+      </div>
     </div>
   );
 }

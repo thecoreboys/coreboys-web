@@ -3,54 +3,68 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 
-const billboard = readFileSync(resolve(process.cwd(), "components/watch/Billboard.tsx"), "utf8");
-const watchCss = readFileSync(resolve(process.cwd(), "app/watch/watch.css"), "utf8");
-const globalCss = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8");
+const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
+const billboard = source("components/watch/Billboard.tsx");
+const hover = source("components/watch/HoverPreview.tsx");
+const twitchHover = source("components/watch/TwitchHoverMedia.tsx");
+const homeHero = billboard.slice(billboard.indexOf("export function Billboard({"));
+const previewPlayer = billboard.slice(billboard.indexOf("function BillboardHeroPlayer("), billboard.indexOf("export function Billboard({"));
 
-test("hero carousel previews autoplay behind CORE-owned interaction controls", () => {
-  assert.match(billboard, /\{playable && !heroPlayable \? \(\s*<button[\s\S]{0,180}watch-billboard-surface-action/);
-  assert.match(billboard, /item\.platform === "youtube" && !playable\.youtubeId/);
-  assert.match(billboard, /autoplay: true,[\s\S]{0,80}muted: true/);
-  assert.match(billboard, /api\.Player\.READY[\s\S]{0,180}providerReady = true[\s\S]{0,180}requestPlayback\(\)/);
-  assert.match(billboard, /instance\.addEventListener\(api\.Player\.PLAYING/);
-  assert.match(billboard, /func: nextMuted \? "mute" : "unMute"[\s\S]{0,240}func: "playVideo"/);
-  assert.match(billboard, /void loadBillboardTwitch\(\)\.catch/);
-  assert.match(billboard, /const maxPlaybackAttempts = 14/);
-  assert.match(billboard, /PLAYBACK_BLOCKED[\s\S]{0,1400}schedulePlaybackRetries\(\[350, 900, 1_800, 3_000\]\)/);
-  assert.match(billboard, /instance\?\.isPaused\?\.\(\) === false/);
-  assert.match(billboard, /playbackWatchdog = window\.setInterval/);
-  assert.match(watchCss, /\.watch-billboard-live-player\.is-preview[\s\S]{0,1300}pointer-events: none/);
-  assert.match(watchCss, /\.watch-billboard-live-player\.is-preview[\s\S]{0,1600}iframe[\s\S]{0,120}pointer-events: none !important/);
-  assert.match(watchCss, /\.watch-billboard-live-core-overlay[\s\S]{0,300}z-index: 4/);
-  assert.match(watchCss, /data-preview-state="warming"/);
+test("home hero opens the shared player only through viewer intent", () => {
+  assert.match(homeHero, /const playable = useMemo\(\(\) => itemToPlayable\(item\)/);
+  assert.match(homeHero, /const playInPlayer = \(\) => \{\s*if \(!playable\) return;\s*player\.play\(item\);/);
+  assert.match(homeHero, /\{playable && !heroPlayable \? \(\s*<button[\s\S]{0,180}watch-billboard-surface-action/);
+  assert.match(homeHero, /onClick=\{playInPlayer\}/);
+  assert.match(homeHero, /onClick=\{\(event\) => \{\s*if \(!playable\) return;\s*event\.preventDefault\(\);\s*playInPlayer\(\);/);
+  assert.equal((homeHero.match(/player\.play\(/g) ?? []).length, 1, "all hero playback must use the intent handler");
+  assert.match(homeHero, /<BillboardHeroPlayer item=\{item\} playable=\{heroPlayable\} onOpen=\{playInPlayer\}/);
+  assert.doesNotMatch(previewPlayer, /player\.play\(/);
 });
 
-test("live previews keep browser-safe visibility and size gates", () => {
-  assert.match(billboard, /width >= 400 && height >= 300/);
-  assert.match(billboard, /visibleWidth \/ rect\.width >= 0\.85/);
-  assert.match(billboard, /visibleHeight \/ rect\.height >= 0\.85/);
-  assert.doesNotMatch(billboard, /getElementById\("watch-filters"\)/);
-  assert.match(billboard, /const wantsAutoplay =[\s\S]{0,80}playerReady[\s\S]{0,180}!current[\s\S]{0,80}!dataSaver[\s\S]{0,80}slotFitsProvider[\s\S]{0,80}providerExposed[\s\S]{0,80}pageVisible/);
-  assert.doesNotMatch(billboard, /current: activePlayer/);
-  assert.match(watchCss, /\.watch-billboard-live-player\.is-preview[\s\S]{0,300}min-width: 400px[\s\S]{0,160}min-height: 300px/);
-  assert.match(globalCss, /html:has\(\.watch-os\) \.grain-host,[\s\S]{0,120}\.scanlines[\s\S]{0,80}display: none/);
+test("hero keeps source fallbacks and accessible rotation separate from its preview", () => {
+  const carousel = billboard.slice(billboard.indexOf("export function BillboardCarousel"), billboard.indexOf("function BillboardHeroPlayer("));
+  assert.match(carousel, /slides\.length < 2 \|\| interactionPaused \|\| reducedMotion/);
+  assert.match(carousel, /onFocusCapture=\{\(\) => setFocusPaused\(true\)\}/);
+  assert.match(carousel, /onMouseEnter=\{\(\) => setHoverPaused\(true\)\}/);
+  assert.match(carousel, /aria-selected=\{slideIndex === index\}/);
+  assert.doesNotMatch(carousel, /player\.play\(|playInPlayer|autoplay|autoPlay/);
+  assert.match(homeHero, /const fallbackHref = item\.sourceUrl \|\| item\.href/);
+  assert.match(homeHero, /href=\{\(fallbackOnly \? fallbackHref : "#"\)/);
+  assert.match(homeHero, /rel=\{fallbackOnly[\s\S]{0,100}"noopener noreferrer"/);
+  assert.match(homeHero, /<WatchThumb[\s\S]{0,220}loading="eager"/);
 });
 
-test("the hero uses the Twitch SDK for both live channels and past broadcasts", () => {
-  assert.match(
-    billboard,
-    /item\.platform === "twitch" && !\(\(live && playable\.twitchLogin\) \|\| playable\.vodId\)/,
-  );
-  assert.match(billboard, /const twitchChannel = playable\.kind === "live" \? playable\.twitchLogin : null/);
-  assert.match(billboard, /else if \(twitchVideo\) options\.video = twitchVideo\.startsWith\("v"\) \? twitchVideo : `v\$\{twitchVideo\}`/);
-  assert.match(billboard, /twitchPlayerRef\.current = instance/);
-  assert.match(billboard, /instance\.setMuted\?\.\(mutedRef\.current\)/);
+test("the right-side hero preview starts muted and honors viewing preferences and provider exposure", () => {
+  assert.match(previewPlayer, /watch-billboard-live-player is-preview/);
+  assert.doesNotMatch(previewPlayer, /is-background/);
+  assert.match(previewPlayer, /const wantsAutoplay =[\s\S]{0,400}!current[\s\S]{0,100}!dataSaver[\s\S]{0,100}previewAutoplay[\s\S]{0,100}!reducedMotion[\s\S]{0,100}slotFitsProvider[\s\S]{0,100}providerExposed[\s\S]{0,100}pageVisible/);
+  assert.match(previewPlayer, /width >= 400 && height >= 300/);
+  assert.match(previewPlayer, /visibleWidth \/ rect\.width >= 0\.85/);
+  assert.match(previewPlayer, /visibleHeight \/ rect\.height >= 0\.85/);
+  assert.match(previewPlayer, /muted: true,[\s\S]{0,100}controls: false,[\s\S]{0,100}autoplay: true/);
+  assert.match(previewPlayer, /nativeVideoUrl && wantsAutoplay \? \(/);
+  assert.match(previewPlayer, /instance\?\.destroy\?\.\(\)/);
 });
 
-test("hero previews expose an owned sound control after their muted player mounts", () => {
-  assert.match(billboard, /const soundControlReady = !isTwitch[\s\S]{0,180}loadedSrc/);
-  assert.match(billboard, /className="watch-billboard-live-sound"/);
-  assert.match(billboard, /func: nextMuted \? "mute" : "unMute"/);
-  assert.match(watchCss, /\.watch-billboard-live-sound \{[\s\S]{0,600}z-index: 5/);
-  assert.match(watchCss, /\.watch-billboard-live-core-muted \{[\s\S]{0,100}left: 0\.85rem/);
+test("active hover previews honor motion preferences and hand playback off to the shared player", () => {
+  assert.match(hover, /const wantsMotion =[\s\S]{0,160}!player\.dataSaver[\s\S]{0,40}!reducedMotion/);
+  assert.match(hover, /const twitchSource =[\s\S]{0,180}item\.embeddable !== false[\s\S]{0,160}item\.previewStrategy !== "external"[\s\S]{0,100}item\.previewStrategy !== "image"/);
+  assert.match(hover, /active=\{active && !preloadOnly && !handedOff\}/);
+  assert.match(hover, /if \(!active \|\| !iframeSrc \|\| playbackStartedRef\.current\) return/);
+  assert.match(hover, /if \(!active\) \{\s*video\.pause\(\);/);
+  assert.match(hover, /video\.muted = true/);
+});
+
+test("the mounted Twitch hover player stays muted, visible, and bounded by provider readiness", () => {
+  assert.match(twitchHover, /autoplay: false, muted: true/);
+  assert.match(twitchHover, /channel \? \{ channel \} : \{ video: video\?\.startsWith\("v"\)/);
+  assert.match(twitchHover, /if \(disposed \|\| !ready \|\| !instance \|\| !budget\.takeAttempt\(\)\) return/);
+  assert.match(twitchHover, /current\.current\.active && inView && document\.visibilityState === "visible"/);
+  assert.match(twitchHover, /instance\.addEventListener\(api\.Player\.READY/);
+  assert.match(twitchHover, /instance\.setMuted\?\.\(true\)/);
+  assert.match(twitchHover, /observedTwitchLivePlayback\(providerPlaying, paused, instance\.getPlaybackStats\?\.\(\)\)/);
+  assert.match(twitchHover, /advancingTwitchPlayback\(previousPosition, position, paused\)/);
+  assert.match(twitchHover, /window\.clearInterval\(poll\)/);
+  assert.match(twitchHover, /visibilityObserver\.disconnect\(\)/);
+  assert.match(twitchHover, /instance\?\.pause\?\.\(\); instance\?\.destroy\?\.\(\)/);
 });

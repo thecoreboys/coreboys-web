@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { usePlayer } from "@/components/providers/PlayerProvider";
 
 // These are useful, stateful watch surfaces, but none of them contributes to
 // the first paint of an editorial, account, or legal page. Keeping the
@@ -38,10 +40,6 @@ const PlayerChatCompanion = dynamic(
 );
 const WatchAlertsBridge = dynamic(
   () => import("@/components/watch/WatchAlertsBridge").then((module) => module.WatchAlertsBridge),
-  { ssr: false },
-);
-const SocialAlertsTray = dynamic(
-  () => import("@/components/watch/SocialAlertsTray").then((module) => module.SocialAlertsTray),
   { ssr: false },
 );
 
@@ -111,21 +109,23 @@ function useWatchEnhancementReadiness(pathname: string) {
  */
 export function GlobalWatchEnhancements() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const player = usePlayer();
   const ready = useWatchEnhancementReadiness(pathname);
 
   if (!ready) return null;
 
   return (
     <>
-      <PersistentPlayer />
+      {player.current || isRoomSurface(pathname) || pathname.startsWith("/shorts") ? <PersistentPlayer /> : null}
       <RadioAudioSystem />
       {isRoomSurface(pathname) ? <WatchTogetherBridge /> : null}
       <CinematicRouteTransition />
       <WatchPalette />
-      <PassportPresenceBridge />
-      <PlayerChatCompanion />
+      {user ? <PassportPresenceBridge key={user.id} /> : null}
+      {player.current ? <PlayerChatCompanion /> : null}
       <WatchAlertsBridge />
-      <SocialAlertsTray />
+      {/* Routine creator updates live in NotificationBell and the inbox. */}
     </>
   );
 }

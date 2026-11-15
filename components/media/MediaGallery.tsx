@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
 import Link from "next/link";
+import Image from "@/components/ui/SiteImage";
 import {
   Camera,
   Download,
@@ -11,7 +13,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { SearchLg, Stars02, Grid01, Rows01, SearchRefraction } from "@untitledui/icons";
+import { SearchLg, Grid01, Rows01, SearchRefraction } from "@untitledui/icons";
 import { Input } from "@/components/base/input/input";
 import { ButtonGroup, ButtonGroupItem } from "@/components/base/button-group/button-group";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
@@ -111,7 +113,7 @@ function downloadsFor(src: string): DownloadFormat[] {
 }
 
 /**
- * Photo gallery with grid + table views, AI search, member-only filter
+ * Photo gallery with grid + table views, caption search, member-only filter
  * chips (Twitch profile pictures), modal popup for detail (centered,
  * not full-screen), and downloads in 5 formats per photo.
  *
@@ -123,12 +125,13 @@ export function MediaGallery({ members, taggablePeople, items }: MediaGalleryPro
   const [credits, setCredits] = useState<Record<string, string[]>>({});
   const [collabs, setCollabs] = useState<Person[]>([]);
   const [query, setQuery] = useState("");
-  const aiSearch = query.trim().length > 0;
+  const [visibleCount, setVisibleCount] = useState(24);
   const [activeMember, setActiveMember] = useState<string | null>(null);
   const [includeCrew, setIncludeCrew] = useState(false);
   const [includeTalent, setIncludeTalent] = useState(false);
   const [view, setView] = useState<"grid" | "table">("grid");
   const [openPhoto, setOpenPhoto] = useState<MediaItem | null>(null);
+  useEffect(() => setVisibleCount(24), [query, activeMember, includeCrew, includeTalent]);
 
   const [authed, setAuthed] = useState(false);
   useEffect(() => {
@@ -245,20 +248,19 @@ export function MediaGallery({ members, taggablePeople, items }: MediaGalleryPro
         .join(" ");
       return haystack.includes(q);
     });
-    void aiSearch;
-  }, [items, query, activeMember, peopleOnItem, includeCrew, includeTalent, aiSearch]);
+  }, [items, query, activeMember, peopleOnItem, includeCrew, includeTalent]);
 
   return (
     <div>
       {/* Toolbar — UUI search input + view button group */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="min-w-[280px] flex-1">
+        <div className="min-w-0 basis-full flex-1 sm:basis-[280px]">
           <Input
             icon={SearchLg}
             size="md"
             value={query}
             onChange={(v) => setQuery(v)}
-            placeholder="AI search — describe the shot, e.g. 'marlon laughing on the couch'"
+            placeholder="Search by creator, caption, or camera"
             aria-label="Search photos"
           />
         </div>
@@ -284,18 +286,6 @@ export function MediaGallery({ members, taggablePeople, items }: MediaGalleryPro
           {filteredItems.length} of {items.length}
         </span>
       </div>
-
-      {/* AI search backend stub — until the AI ranker is wired up, the
-          search box just falls back to substring filtering. Tell users so
-          they don't expect natural-language matching yet. */}
-      {aiSearch ? (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-secondary bg-secondary p-4 shadow-xs-skeuomorphic">
-          <FeaturedIcon icon={Stars02} size="md" color="brand" theme="light" />
-          <p className="text-sm font-medium text-secondary">
-            AI search abilty backend is not set up yet sorry guys! &lt;3
-          </p>
-        </div>
-      ) : null}
 
       {/* Filter chips — Twitch avatar + name */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -339,19 +329,21 @@ export function MediaGallery({ members, taggablePeople, items }: MediaGalleryPro
         </div>
       ) : view === "grid" ? (
         <GridView
-          items={filteredItems}
+          items={filteredItems.slice(0, visibleCount)}
           peopleOnItem={peopleOnItem}
           onClick={setOpenPhoto}
         />
       ) : (
         <TableView
-          items={filteredItems}
+          items={filteredItems.slice(0, visibleCount)}
           peopleOnItem={peopleOnItem}
           onClick={setOpenPhoto}
         />
       )}
 
       {/* Modal */}
+      {filteredItems.length > visibleCount ? <div className="mt-6 text-center"><button type="button" className="min-h-11 rounded-lg border border-secondary px-5 py-3 text-sm font-semibold text-primary" onClick={() => setVisibleCount((count) => count + 24)}>Show more photos ({filteredItems.length - visibleCount} remaining)</button></div> : null}
+
       {openPhoto ? (
         <PhotoModal
           item={openPhoto}
@@ -397,15 +389,16 @@ function GridView({
               style={
                 item.meta?.width && item.meta?.height
                   ? { aspectRatio: `${item.meta.width} / ${item.meta.height}` }
-                  : undefined
+                  : { aspectRatio: "4 / 5" }
               }
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={item.src}
                 alt={peopleHere.map((p) => p.name).join(", ") || "CORE photo"}
-                width={item.meta?.width}
-                height={item.meta?.height}
+                width={item.meta?.width ?? 800}
+                height={item.meta?.height ?? 1000}
+                sizes="(min-width: 1280px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
                 className="media-fade block h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 loading="lazy"
                 decoding="async"
@@ -554,11 +547,16 @@ function PhotoModal({
   onClose: () => void;
 }) {
   const meta = item.meta;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef);
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
+      aria-label="Photo details and downloads"
+      tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
@@ -584,7 +582,7 @@ function PhotoModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-4 top-4 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] transition-all hover:scale-110 hover:border-[color:var(--core)] hover:text-[color:var(--core)]"
+            className="absolute right-4 top-4 inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-[color:var(--rule)] bg-[color:var(--bg)] text-[color:var(--ink-dim)] transition-colors hover:border-[color:var(--core)] hover:text-[color:var(--core)]"
           >
             <X size={15} />
           </button>
@@ -822,7 +820,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-full border py-1 ${hasAvatarSlot ? "pl-1 pr-3" : "px-3"} text-sm font-medium transition-all cursor-pointer ${
+      className={`inline-flex min-h-11 items-center gap-2 rounded-full border py-1 ${hasAvatarSlot ? "pl-1 pr-3" : "px-3"} text-sm font-medium transition-all cursor-pointer ${
         active
           ? "text-primary"
           : "border-secondary text-tertiary hover:bg-secondary hover:text-primary"
@@ -872,7 +870,7 @@ function ToggleChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
         active
           ? "border-secondary bg-secondary text-primary"
           : "border-dashed border-secondary bg-transparent text-tertiary hover:text-primary"

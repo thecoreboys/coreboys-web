@@ -23,17 +23,17 @@ export const metadata: Metadata = {
 export default function FanMailPage() {
   return (
     <>
-    <div className="fan-mail-shell relative min-h-screen pb-32">
+    <div className="fan-mail-shell fan-mail-page relative min-h-screen pb-32">
       {/* Hero */}
-      <header className="relative px-6 pb-10 pt-24 md:px-16 md:pb-16 md:pt-32">
+      <header className="fan-mail-page__intro relative px-6 pb-10 pt-24 md:px-16 md:pb-16 md:pt-32">
         <div className="mx-auto max-w-[1080px]">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[color:var(--ink-faint)]">
+          <p className="fan-mail-page__eyebrow text-[color:var(--ink-dim)]">
             Fan mail
           </p>
           <h1 className="mt-3 font-display text-[44px] font-semibold leading-[0.92] tracking-[-0.03em] text-[color:var(--ink)] md:text-[96px]">
             Send fan mail.
           </h1>
-          <p className="mt-5 max-w-2xl text-md leading-relaxed text-[color:var(--ink-dim)] md:text-lg">
+          <p className="fan-mail-page__description mt-5 max-w-2xl text-md leading-relaxed text-[color:var(--ink-dim)] md:text-lg">
             Use the addresses below to send letters, artwork, or packages. Do not
             send perishables, hazardous items, or cash.
           </p>
@@ -44,7 +44,7 @@ export default function FanMailPage() {
           rotations feel like a real stack. */}
       <section
         aria-label="Mailing addresses"
-        className="px-6 pt-14 md:px-16 md:pt-20"
+        className="fan-mail-page__cards px-6 pt-14 md:px-16 md:pt-20"
       >
         <div className="mx-auto grid max-w-[1080px] grid-cols-1 gap-10 md:gap-14 lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:gap-16">
           {MAIL_MEMBERS.map((m) => (
