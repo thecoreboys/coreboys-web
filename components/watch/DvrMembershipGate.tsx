@@ -7,19 +7,19 @@ export function DvrMembershipGate({ planName }: { planName: string }) {
   const upgradeHref = `/upgrade?feature=${encodeURIComponent(DVR_FEATURE)}`;
 
   return (
-    <main className="watch-dvr-gate" aria-labelledby="dvr-gate-title">
+    <div className="watch-dvr-gate" aria-labelledby="dvr-gate-title">
       <section className="watch-dvr-gate__shell">
         <div className="watch-dvr-gate__intro">
           <span className="watch-dvr-gate__icon" aria-hidden><Archive /></span>
           <p className="watch-dvr-gate__eyebrow"><LockKeyhole aria-hidden /> {planName}</p>
-          <h1 id="dvr-gate-title">DVR is included with membership.</h1>
+          <h1 id="dvr-gate-title">Your saved library is included with membership.</h1>
           <p className="watch-dvr-gate__copy">
-            Save streams, videos, Shorts, and posts to a private list that stays with your CORE account.
+            Save links to streams, videos, Shorts, and posts in your private library. Saving does not record or download the video.
           </p>
         </div>
 
         <div className="watch-dvr-gate__actions">
-          <ul aria-label="DVR membership benefits">
+          <ul aria-label="Saved library membership benefits">
             <li><Check aria-hidden /> Pick up where you left off</li>
             <li><Check aria-hidden /> Keep saved titles in one place</li>
             <li><Check aria-hidden /> Build custom watch queues</li>
@@ -32,6 +32,6 @@ export function DvrMembershipGate({ planName }: { planName: string }) {
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

@@ -46,7 +46,8 @@ const PUBLIC_STATIC_ASSET = /\.(?:avif|gif|ico|jpe?g|mp3|mp4|ogg|png|svg|ttf|wav
 function withPathHeader(req: NextRequest, accessPage = false): NextResponse {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-coreboys-pathname", req.nextUrl.pathname);
-  if (accessPage) requestHeaders.set("x-coreboys-access-page", "1");
+  if (accessPage || req.nextUrl.pathname === "/access") requestHeaders.set("x-coreboys-access-page", "1");
+  else requestHeaders.delete("x-coreboys-access-page");
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
 

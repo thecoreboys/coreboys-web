@@ -60,6 +60,8 @@ test("multiview keeps catalog YouTube broadcasts in the live counter and clock p
   const multiview = readFileSync("components/watch/MultiPlayerStage.tsx", "utf8");
   const player = readFileSync("components/watch/PersistentPlayer.tsx", "utf8");
   assert.match(multiview, /if \(item\.platform === "youtube"\) return Boolean\(item\.youtubeId\)/);
-  assert.match(player, /currentTimeLabel\(current, uiPosition, scrubberDuration, twitchDvrActive\)/);
-  assert.match(player, /Number\.isFinite\(details\.currentTime\)/);
+  assert.match(player, /setYoutubeLiveStatus\(\{ itemKey: current\.key, isLive: isLiveContent \}\)/);
+  assert.match(player, /Number\.isFinite\(details\.currentTime\)[\s\S]{0,350}setUiPosition\(currentTime\)/);
+  assert.match(player, /<span>\{playbackClock\(scrubberPosition\)\}<\/span>/);
+  assert.match(player, /const canScrub = scrubberDuration > 0 && \(!currentIsLive \|\| twitchDvrActive\)/);
 });

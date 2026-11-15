@@ -19,7 +19,7 @@ function titleFingerprint(value: string): string {
 }
 
 function isKnownBroadcast(item: WatchItem): boolean {
-  return item.kind === "live" || item.format === "live" || item.kind === "vod";
+  return item.kind === "live" || item.kind === "vod";
 }
 
 function isDedicatedYoutubeVod(item: WatchItem): boolean {
@@ -62,6 +62,7 @@ export function markCrossPlatformBroadcastAliases(items: readonly WatchItem[]): 
     return {
       ...item,
       kind: "vod" as const,
+      format: "long" as const,
       subtitle: `${item.memberLabel} · Past broadcast`,
       live: item.live ?? {
         startedAt: item.publishedAt,

@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 /**
- * /send-to-[slug] — focused single-card page. Same paper card as the hub
+ * /send-to-:slug rewrites to this dynamic route. Same paper card as the hub
  * but presented as a destination URL. Useful for sharing in chat or a
  * Twitch panel.
  */

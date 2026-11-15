@@ -435,10 +435,11 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
   cursor: none !important;
 }
 
-/* Theater-only ambient lighting. A single cached artwork clone carries the
-   playing title's real edge colors beyond the video frame without sampling
-   cross-origin YouTube, Twitch, TikTok, or Instagram pixels. */
+/* Theater-only ambient lighting. Native media can softly tint the bloom from
+   current video frames; artwork and member accents remain a safe fallback for
+   protected cross-origin provider embeds. */
 .watch-player-ambient {
+  --player-ambient-frame-color: transparent;
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -473,11 +474,10 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
 .watch-player-ambient__accent {
   position: absolute;
   inset: 0;
-  background: radial-gradient(
-    68% 76% at 50% 50%,
-    color-mix(in srgb, var(--player-ambient-accent) 18%, transparent),
-    transparent 74%
-  );
+  background:
+    radial-gradient(68% 76% at 50% 50%, color-mix(in srgb, var(--player-ambient-frame-color) 34%, transparent), transparent 74%),
+    radial-gradient(68% 76% at 50% 50%, color-mix(in srgb, var(--player-ambient-accent) 16%, transparent), transparent 74%);
+  transition: background 1.35s ease;
 }
 
 .watch-player-ambient__veil {
@@ -498,11 +498,9 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
 }
 
 .watch-player-ambient--frame .watch-player-ambient__accent {
-  background: radial-gradient(
-    72% 78% at 50% 50%,
-    color-mix(in srgb, var(--player-ambient-accent) 22%, transparent),
-    transparent 76%
-  );
+  background:
+    radial-gradient(72% 78% at 50% 50%, color-mix(in srgb, var(--player-ambient-frame-color) 34%, transparent), transparent 76%),
+    radial-gradient(72% 78% at 50% 50%, color-mix(in srgb, var(--player-ambient-accent) 18%, transparent), transparent 76%);
 }
 
 .watch-player-ambient--frame .watch-player-ambient__veil {
@@ -713,7 +711,7 @@ body[data-cursor="agentic"] [data-drag-scroll-root="true"].is-dragging * {
 }
 .legal-sidebar {
   position: sticky;
-  top: 6.5rem;
+  top: calc(var(--site-header-h, 8rem) + 1rem);
 }
 .legal-nav {
   display: grid;

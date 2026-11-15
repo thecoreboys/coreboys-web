@@ -70,3 +70,18 @@ test("live watch time excludes pause, buffering, hidden tabs, and suspended poll
   assert.equal(clock.sample(110000, true), 3);
   assert.equal(clock.sample(111000, true), 4);
 });
+
+test("Twitch recovery feedback cannot become another overlay blocking native Play", () => {
+  const source = readFileSync("components/watch/TwitchTileMedia.tsx", "utf8");
+  const feedback = source.slice(source.indexOf("const status ="));
+  assert.match(feedback, /createPortal\(status, statusContainer\)/);
+  assert.doesNotMatch(feedback.slice(0, feedback.indexOf("return <>")), /\babsolute\b|\bfixed\b/);
+  assert.match(feedback, /retryRef\.current\?\.\(\)/);
+  assert.match(feedback, /setAttempt\(\(value\) => value \+ 1\)/);
+  assert.match(feedback, /scrollIntoView\(\{ block: "center", inline: "nearest" \}\)/);
+  const room = readFileSync("components/watch/MultiPlayerStage.tsx", "utf8");
+  assert.match(room, /statusContainer=\{twitchStatusRail\}/);
+  assert.ok(room.indexOf("data-room-playback-status") > room.indexOf("<TheaterRoomSurface"), "Delayed recovery feedback belongs after the player grid");
+  const theater = room.slice(room.indexOf('aria-label="Theater multiview room"'), room.indexOf("function MobileStage"));
+  assert.match(theater, /overflow-clip/, "Keyboard focus must not scroll the clipped room beneath its native media");
+});

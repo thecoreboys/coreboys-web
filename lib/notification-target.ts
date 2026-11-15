@@ -59,7 +59,7 @@ function safeHttpUrl(value: string | null | undefined): string | null {
   if (!value || value.length > MAX_URL_LENGTH) return null;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+    return !url.username && !url.password && (url.protocol === "https:" || url.protocol === "http:") ? url.toString() : null;
   } catch {
     return null;
   }
@@ -72,6 +72,7 @@ function safeImageUrl(value: string | null | undefined): string | null {
 
 function safeInternalPath(value: string): string | null {
   const trimmed = value.trim();
+  if (/[\\\u0000-\u001f\u007f]/.test(trimmed)) return null;
   if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed.slice(0, MAX_URL_LENGTH);
   const source = safeHttpUrl(trimmed);
   if (!source) return null;
@@ -91,7 +92,7 @@ export function notificationProviderForUrl(value: string | null | undefined): No
   try {
     const host = new URL(source).hostname.toLowerCase().replace(/^www\./, "");
     if (host === "twitch.tv" || host.endsWith(".twitch.tv")) return "twitch";
-    if (host === "youtube.com" || host.endsWith(".youtube.com") || host === "youtu.be") return "youtube";
+    if (host === "youtube.com" || host.endsWith(".youtube.com") || host === "youtu.be" || host === "youtube-nocookie.com" || host.endsWith(".youtube-nocookie.com")) return "youtube";
     if (host === "tiktok.com" || host.endsWith(".tiktok.com")) return "tiktok";
     if (host === "instagram.com" || host.endsWith(".instagram.com")) return "instagram";
     if (host === "x.com" || host.endsWith(".x.com") || host === "twitter.com" || host.endsWith(".twitter.com")) return "x";

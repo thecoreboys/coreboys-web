@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function StaffAccountsPage() {
   return (
     <AuthGate>
-      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+      <div className="relative min-h-[var(--page-min-height)] bg-secondary">
         <AdminPageHeader
           eyebrow="Admin · Access"
           title="Staff accounts."
@@ -23,7 +23,7 @@ export default function StaffAccountsPage() {
             <StaffAccountsManager members={MEMBERS.map((member) => ({ slug: member.slug, name: member.stageName }))} />
           </div>
         </section>
-      </main>
+      </div>
     </AuthGate>
   );
 }

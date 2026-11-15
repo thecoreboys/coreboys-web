@@ -40,8 +40,11 @@ function platformUrl(raw: string | undefined): { provider: ContentProvider; id: 
       if (id) return { provider: "twitch", id: `clip:${id}`, url: `https://clips.twitch.tv/${id}` };
     }
     if (host === "clips.twitch.tv") {
-      id = /^\/([\w-]+)\/?$/.exec(path)?.[1] ?? (path === "/embed" ? parsed.searchParams.get("clip") ?? undefined : undefined);
-      if (id) return { provider: "twitch", id: `clip:${id}`, url: `https://clips.twitch.tv/${id}` };
+      // /embed is a player route, never the shared identity of its clips.
+      id = /^\/embed\/?$/.test(path)
+        ? parsed.searchParams.get("clip") ?? undefined
+        : /^\/([\w-]+)\/?$/.exec(path)?.[1];
+      if (id && /^[\w-]+$/.test(id)) return { provider: "twitch", id: `clip:${id}`, url: `https://clips.twitch.tv/${id}` };
     }
   } catch { /* Invalid/internal/CDN URLs do not identify provider content. */ }
   return null;

@@ -97,7 +97,7 @@ function gameSnapshot(row: GameRow): TwitchTrackerGameSnapshot {
   };
 }
 
-async function loadLatestChannels(): Promise<TwitchTrackerChannelSnapshot[]> {
+export async function loadLatestTwitchTrackerChannels(): Promise<TwitchTrackerChannelSnapshot[]> {
   try {
     const result = await query<ChannelRow>(`
       SELECT DISTINCT ON (member_slug)
@@ -152,7 +152,7 @@ async function loadLatestGames(): Promise<TwitchTrackerGameSnapshot[]> {
  */
 export async function loadTwitchTrackerAnalytics(): Promise<TwitchTrackerAnalytics> {
   const [latest, history, games] = await Promise.all([
-    loadLatestChannels(),
+    loadLatestTwitchTrackerChannels(),
     loadChannelHistory(),
     loadLatestGames(),
   ]);

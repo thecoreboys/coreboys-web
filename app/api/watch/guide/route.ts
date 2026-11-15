@@ -8,6 +8,8 @@ import { getWatchCatalog } from "@/lib/watch/catalog";
 import { buildGuideNetworkRows } from "@/lib/watch/channels";
 import { removeActiveTwitchArchiveDuplicates } from "@/lib/watch/guide-programs";
 import type { WatchCatalog, WatchItem, WatchPlatform } from "@/lib/watch/types";
+import type { GuidePayload } from "@/lib/watch/guide-response";
+import { packGuidePayload } from "@/lib/watch/guide-transport";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,8 +46,6 @@ const TWITCH_SCHEDULE_TTL = 5 * 60;
 const YOUTUBE_SCHEDULE_TTL = 4 * 60 * 60;
 
 let twitchTokenCache: { value: string; expiresAt: number } | null = null;
-let guideCatalogCache: { value: Promise<WatchCatalog | null>; expiresAt: number } | null = null;
-const GUIDE_CATALOG_TTL_MS = 5 * 60_000;
 
 function decodeTitle(raw: string): string {
   return raw
@@ -77,6 +77,7 @@ async function getTwitchAppToken(): Promise<string | null> {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: body.toString(),
       cache: "no-store",
+      signal: AbortSignal.timeout(4_000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as { access_token?: string; expires_in?: number };
@@ -122,6 +123,7 @@ async function loadTwitchSchedules(
             "Client-Id": clientId!,
           },
           next: { revalidate: TWITCH_SCHEDULE_TTL },
+          signal: AbortSignal.timeout(5_000),
         });
         if (!res.ok) return [] as GuideProgram[];
 
@@ -235,7 +237,7 @@ async function loadYoutubeUpcoming(
         url.searchParams.set("order", "date");
         url.searchParams.set("maxResults", "8");
         url.searchParams.set("key", key);
-        const res = await fetch(url, { next: { revalidate: YOUTUBE_SCHEDULE_TTL } });
+        const res = await fetch(url, { next: { revalidate: YOUTUBE_SCHEDULE_TTL }, signal: AbortSignal.timeout(5_000) });
         if (!res.ok) return [] as Array<{ videoId: string; target: YoutubeTarget }>;
         const json = (await res.json()) as { items?: Array<{ id?: { videoId?: string } }> };
         return (json.items ?? []).flatMap((item) =>
@@ -252,7 +254,7 @@ async function loadYoutubeUpcoming(
     detailUrl.searchParams.set("part", "snippet,liveStreamingDetails");
     detailUrl.searchParams.set("id", ids.slice(0, 50).join(","));
     detailUrl.searchParams.set("key", key);
-    const detailRes = await fetch(detailUrl, { next: { revalidate: YOUTUBE_SCHEDULE_TTL } });
+    const detailRes = await fetch(detailUrl, { next: { revalidate: YOUTUBE_SCHEDULE_TTL }, signal: AbortSignal.timeout(5_000) });
     if (!detailRes.ok) return { items: [], state: "error" };
     const details = (await detailRes.json()) as {
       items?: Array<{
@@ -477,28 +479,21 @@ function loadCatalogTimeline(catalog: WatchCatalog): GuideProgram[] {
   });
 }
 
-function getGuideCatalog(): Promise<WatchCatalog | null> {
-  const now = Date.now();
-  if (guideCatalogCache && guideCatalogCache.expiresAt > now) return guideCatalogCache.value;
-  const value = getWatchCatalog().catch(() => null);
-  guideCatalogCache = { value, expiresAt: now + GUIDE_CATALOG_TTL_MS };
-  return value;
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   const serverNow = new Date();
-  let users: Record<string, { id: string }> = {};
-  try {
-    users = await fetchUsersByLogin(MEMBERS.map((member) => member.twitchLogin));
-  } catch {
-    users = {};
-  }
+  // Only Twitch schedules depend on its directory. Other providers, recorded
+  // history and the shared catalog can start immediately.
+  const twitchSchedulePromise = fetchUsersByLogin(MEMBERS.map((member) => member.twitchLogin))
+    .catch(() => ({}))
+    .then((users) => loadTwitchSchedules(users, serverNow));
 
   const [twitchSchedule, youtubeUpcoming, sessions, catalog] = await Promise.all([
-    loadTwitchSchedules(users, serverNow),
+    twitchSchedulePromise,
     loadYoutubeUpcoming(serverNow),
     loadRecordedSessions(),
-    getGuideCatalog(),
+    // getWatchCatalog already coalesces and caches public data. Another
+    // five-minute cache here hid live changes and cached failures as null.
+    getWatchCatalog().catch(() => null),
   ]);
 
   const timeline = catalog ? loadCatalogTimeline(catalog) : [];
@@ -511,8 +506,7 @@ export async function GET() {
       .filter((program) => !(program.status === "published" && program.youtubeId && scheduledYoutubeIds.has(program.youtubeId))),
   ).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
 
-  return NextResponse.json(
-    {
+  const payload: GuidePayload = {
       serverNow: serverNow.toISOString(),
       horizonEnd: new Date(serverNow.getTime() + SCHEDULE_DAYS * 86_400_000).toISOString(),
       programs,
@@ -522,10 +516,13 @@ export async function GET() {
         youtubeUpcoming: youtubeUpcoming.state,
         socialTimeline: timeline.length ? "ok" : "empty",
       },
-    },
+    };
+  return NextResponse.json(
+    request?.headers.get("X-CORE-Guide-Format") === "compact-v1" ? packGuidePayload(payload) : payload,
     {
       headers: {
         "Cache-Control": "public, s-maxage=60, stale-while-revalidate=180",
+        "Vary": "X-CORE-Guide-Format",
       },
     },
   );

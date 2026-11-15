@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { MEMBERS_BY_SLUG } from "@/lib/members";
 import { MEMBERS } from "@/lib/members";

@@ -1,6 +1,6 @@
 export default function ChannelLoading() {
   return (
-    <main className="mx-auto min-h-[calc(100dvh-4rem)] w-full max-w-[1800px] px-4 py-5 sm:px-6 lg:px-10" aria-busy="true" aria-label="Loading network">
+    <div className="mx-auto min-h-[calc(100dvh-4rem)] w-full max-w-[1800px] px-4 py-5 sm:px-6 lg:px-10" aria-busy="true" aria-label="Loading network">
       <div className="animate-pulse space-y-8">
         <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-white/10 bg-white/[0.035] p-3">
           <span className="h-3 w-20 shrink-0 rounded bg-white/10" />
@@ -31,6 +31,6 @@ export default function ChannelLoading() {
           </section>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

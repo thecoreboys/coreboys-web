@@ -7,6 +7,8 @@ import test from "node:test";
 import ts from "typescript";
 import * as identity from "../lib/content-identity";
 import * as normalization from "../lib/social-event-normalization";
+import type * as availabilityApi from "../lib/content-availability";
+import type * as socialApi from "../lib/social-events";
 import type { ContentRemovalInput } from "../lib/content-availability";
 import type { SocialEventInput } from "../lib/social-events";
 
@@ -35,6 +37,32 @@ test("legacy saved references and provider permalinks normalize across supported
     assert.equal(identity.isContentUnavailable(alias, new Set(identity.contentIdentityKeys(removed))), true, JSON.stringify(alias));
   }
   assert.equal(identity.isContentUnavailable({ id: "clip-youtube-AbC123def_-" }, new Set(identity.contentIdentityKeys({ provider: "youtube", providerId: "AbC123def_-" }))), true);
+});
+
+test("Twitch clip embeds share only their actual clip's canonical identity", () => {
+  const canonical = { sourceUrl: "https://clips.twitch.tv/FirstClip_123-AbC" };
+  const canonicalKeys = identity.contentIdentityKeys(canonical);
+  for (const sourceUrl of [
+    "https://clips.twitch.tv/embed?clip=FirstClip_123-AbC&parent=thecoreboys.com",
+    "https://clips.twitch.tv/embed/?parent=thecoreboys.com&clip=FirstClip_123-AbC",
+    "https://www.twitch.tv/crew/clip/FirstClip_123-AbC",
+  ]) {
+    assert.deepEqual(identity.contentIdentityKeys({ sourceUrl }), canonicalKeys);
+  }
+  const removedEmbed = new Set(identity.contentIdentityKeys({ sourceUrl: "https://clips.twitch.tv/embed?clip=FirstClip_123-AbC" }));
+  assert.equal(identity.isContentUnavailable(canonical, removedEmbed), true);
+  assert.equal(identity.isContentUnavailable({ sourceUrl: "https://clips.twitch.tv/embed?clip=SecondClip" }, removedEmbed), false);
+  assert.equal(identity.isContentUnavailable({ sourceUrl: "https://clips.twitch.tv/SecondClip" }, removedEmbed), false);
+});
+
+test("missing or malformed Twitch embed clip IDs never become removal identities", () => {
+  for (const sourceUrl of [
+    "https://clips.twitch.tv/embed", "https://clips.twitch.tv/embed/",
+    "https://clips.twitch.tv/embed?clip=", "https://clips.twitch.tv/embed?parent=thecoreboys.com",
+    "https://clips.twitch.tv/embed?clip=First%2FSecond", "https://clips.twitch.tv/embed?clip=First%20Second",
+    "https://clips.twitch.tv/embed?clip=https%3A%2F%2Fevil.example",
+    "https://clips.twitch.tv.evil.example/embed?clip=FirstClip",
+  ]) assert.deepEqual(identity.contentIdentityKeys({ sourceUrl }), [], sourceUrl);
 });
 
 test("internal, CDN, hostile lookalike and account URLs never become content identities", () => {
@@ -151,9 +179,9 @@ function fixture() {
   const modules = new Map<string, unknown>();
   function load(relative: string) {
     const filename = path.resolve(relative);
-    const module = { exports: {} };
+    const compiledModule = { exports: {} };
     const code = ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    vm.runInNewContext(code, { module, exports: module.exports, URL, Buffer, console, process, require: (name: string) => {
+    vm.runInNewContext(code, { module: compiledModule, exports: compiledModule.exports, URL, Buffer, console, process, require: (name: string) => {
       if (name === "server-only") return {};
       if (name === "next/cache") return { revalidateTag: () => {} };
       if (name === "@/lib/db") return { query: sql, withTransaction };
@@ -175,11 +203,11 @@ function fixture() {
       if (name.startsWith("node:")) return nodeRequire(name);
       throw new Error(`Unexpected dependency ${name}`);
     } }, { filename });
-    return module.exports;
+    return compiledModule.exports;
   }
-  const availability = load("lib/content-availability.ts") as typeof import("../lib/content-availability");
+  const availability = load("lib/content-availability.ts") as typeof availabilityApi;
   modules.set("availability", availability);
-  const social = load("lib/social-events.ts") as typeof import("../lib/social-events");
+  const social = load("lib/social-events.ts") as typeof socialApi;
   return { availability, social, keys, jobs, events, deliveries, traces, cleaned, remoteDeleted,
     setFailReads: (value: boolean) => { failReads = value; }, setFailCleanup: (value: boolean) => { failCleanup = value; },
     setFailRemote: (value: boolean) => { failRemote = value; }, parentHasQuote: () => parentHasQuote,

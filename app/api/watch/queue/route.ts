@@ -28,12 +28,41 @@ function addAffinity(map: Map<string, number>, key: string, value: number) {
   map.set(key, (map.get(key) ?? 0) + value);
 }
 
-export async function GET(request: Request) {
+async function loadQueueViewer() {
+  const userId = await getCurrentFanUserId();
+  if (!userId) return {
+    favorite: null,
+    progress: new Map<string, ProgressRow>(),
+    feedback: [] as WatchFeedbackRow[],
+  };
+  const [marks, user, feedback] = await Promise.all([
+    listProgress(userId).catch(() => []),
+    query<{ favorite_member: string | null }>(
+      `SELECT favorite_member FROM fan_users WHERE id = $1`,
+      [userId],
+    ).catch(() => ({ rows: [] })),
+    listWatchFeedback(userId).catch(() => []),
+  ]);
+  return {
+    favorite: user.rows[0]?.favorite_member ?? null,
+    progress: new Map(marks.map((mark) => [mark.ref, mark])),
+    feedback,
+  };
+}
+
+async function queueResponse(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
-    const catalog = await getWatchCatalog();
-    const { excluded, shortFormOnly, responseLimit } = watchQueueResponseOptions(params);
-    const userId = await getCurrentFanUserId();
+    const body = request.method === "POST"
+      ? await request.json().catch(() => null) as { filter?: unknown; limit?: unknown; exclude?: unknown } | null
+      : null;
+    // Viewer-specific reads never enter the shared catalog cache. Run both
+    // branches together so a cold catalog does not delay account lookups.
+    const [catalog, { favorite, progress, feedback }] = await Promise.all([
+      getWatchCatalog(),
+      loadQueueViewer(),
+    ]);
+    const { excluded, shortFormOnly, responseLimit } = watchQueueResponseOptions(params, body);
     const requestedMode = params.get("mode");
     const mode: AutoplayMode = ["off", "queue", "same-creator", "similar", "live-first", "keep-grid-full"].includes(requestedMode ?? "")
       ? requestedMode as AutoplayMode
@@ -41,22 +70,6 @@ export async function GET(request: Request) {
     const fromMember = params.get("member");
     const fromPlatform = params.get("platform");
     const fromFormat = params.get("format");
-    let favorite: string | null = null;
-    let progress = new Map<string, ProgressRow>();
-    let feedback: WatchFeedbackRow[] = [];
-    if (userId) {
-      const [marks, user, feedbackRows] = await Promise.all([
-        listProgress(userId).catch(() => []),
-        query<{ favorite_member: string | null }>(
-          `SELECT favorite_member FROM fan_users WHERE id = $1`,
-          [userId],
-        ).catch(() => ({ rows: [] })),
-        listWatchFeedback(userId).catch(() => []),
-      ]);
-      progress = new Map(marks.map((mark) => [mark.ref, mark]));
-      favorite = user.rows[0]?.favorite_member ?? null;
-      feedback = feedbackRows;
-    }
     const feedbackMap = new Map(feedback.map((entry) => [`${entry.scope}:${entry.value}`, entry.signal]));
     const now = Date.now();
     const playables = catalogPlayables(catalog);
@@ -162,8 +175,19 @@ export async function GET(request: Request) {
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   } catch {
-    const response = NextResponse.json({ items: [] });
+    // Let clients distinguish a real empty catalog from a temporary upstream
+    // failure. Short-form loaders can retry instead of permanently declaring
+    // the feed exhausted after one transient error.
+    const response = NextResponse.json({ items: [] }, { status: 503 });
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   }
+}
+
+export async function GET(request: Request) {
+  return queueResponse(request);
+}
+
+export async function POST(request: Request) {
+  return queueResponse(request);
 }

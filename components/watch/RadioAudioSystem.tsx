@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePlayer } from "@/components/providers/PlayerProvider";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { beginCinematicTransition } from "@/components/watch/CinematicRouteTransition";
 import { RadioAudioDirector } from "@/components/watch/RadioAudioDirector";
 import { preloadRadioCues, type RadioCue } from "@/lib/radio-client";
@@ -21,6 +22,7 @@ import {
   type RadioAudioSettings,
 } from "@/lib/radio/settings";
 import { NETWORK_CHANNELS, resolveNetworkChannel } from "@/lib/watch/channels";
+import { radioPreloadNetwork, canPreloadRadioAudio } from "@/lib/radio/preload";
 
 type PublicCatalogResponse = {
   assets?: RadioCueAsset[];
@@ -49,6 +51,9 @@ function asDirectorCue(asset: RadioCueAsset): RadioCue {
  */
 export function RadioAudioSystem() {
   const player = usePlayer();
+  const suppressRadioAudio = Boolean(player.audioDescription || player.current);
+  const { user } = useAuth();
+  const accountId = user?.id;
   const pathname = usePathname();
   const router = useRouter();
   const [settings, setSettings] = useState<RadioAudioSettings>(() => readRadioAudioSettings());
@@ -67,26 +72,41 @@ export function RadioAudioSystem() {
     // priority over the optional station voice. The data attribute is read by
     // the click-synchronous transition code without introducing a second
     // provider or a delayed browser-gesture path.
-    document.documentElement.dataset.radioAudioSuppressed = player.audioDescription ? "true" : "false";
+    document.documentElement.dataset.radioAudioSuppressed = suppressRadioAudio ? "true" : "false";
     return () => { delete document.documentElement.dataset.radioAudioSuppressed; };
-  }, [player.audioDescription]);
+  }, [suppressRadioAudio]);
 
   useEffect(() => {
     if (!settings.enabled || settings.dataSaver || player.dataSaver) return;
-    // The seven immutable station IDs are ready before the optional catalog
-    // request completes. They are static recordings held in the browser cache
-    // only; prewarming them neither plays sound nor calls a voice provider.
-    preloadRadioCues(RADIO_NETWORK_SLUGS.flatMap((network) => networkTuneCandidates(network)));
-    if (!catalog.length) return;
-    // Warm one likely recorded alternative per pool only. This is static
-    // browser caching, not playback and never a generation/provider request.
-    const preferred = new Map<string, RadioCue>();
-    for (const cue of catalog) {
-      const key = `${cue.kind}:${cue.networkSlug ?? "global"}`;
-      if (!preferred.has(key)) preferred.set(key, cue);
-    }
-    preloadRadioCues([...preferred.values()].slice(0, 8));
-  }, [catalog, player.dataSaver, settings.dataSaver, settings.enabled]);
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    if (!canPreloadRadioAudio(connection)) return;
+
+    const warm = (network: ReturnType<typeof radioPreloadNetwork>) => {
+      if (!network || document.visibilityState === "hidden") return;
+      // A station's fallback plus one approved alternative is enough. Loading
+      // all seven stations here used nearly 2 MB before the first interaction.
+      const candidates = networkTuneCandidates(network);
+      const fallback = candidates.find((cue) => cue.fallback);
+      const alternative = candidates.find((cue) => !cue.fallback);
+      preloadRadioCues([...(fallback ? [fallback] : []), ...(alternative ? [alternative] : [])]);
+    };
+    const warmIntent = (event: Event) => {
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link) return;
+      const url = new URL(link.href, window.location.origin);
+      if (url.origin === window.location.origin) warm(radioPreloadNetwork(url.pathname));
+    };
+    document.addEventListener("pointerdown", warmIntent, { passive: true });
+    document.addEventListener("focusin", warmIntent);
+    // A route load alone is not an intention to listen. Fetch audio only
+    // when a viewer chooses or focuses a station link.
+    return () => {
+      document.removeEventListener("pointerdown", warmIntent);
+      document.removeEventListener("focusin", warmIntent);
+    };
+  }, [catalog, pathname, player.dataSaver, settings.dataSaver, settings.enabled]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -110,6 +130,7 @@ export function RadioAudioSystem() {
   useEffect(() => {
     // Signed-in users get the same preference on another device. Anonymous
     // visitors retain the local default without a failed auth flow changing it.
+    if (!accountId) return;
     const controller = new AbortController();
     void fetch("/api/account/workspaces?kind=account-settings", {
       credentials: "same-origin",
@@ -125,7 +146,7 @@ export function RadioAudioSystem() {
       })
       .catch(() => {});
     return () => controller.abort();
-  }, []);
+  }, [accountId]);
 
   const activeCatalog = useMemo(() => catalog.filter((cue) => {
     const network = cue.networkSlug;
@@ -146,11 +167,11 @@ export function RadioAudioSystem() {
   // Keep the floating dial tucked away on dense surfaces such as the Guide.
   // This only hides the dock; it does not stop DJ Cora or change the tune.
   const compactDockPage = pathname.startsWith("/theater") || pathname.startsWith("/multiview")
-    || pathname.startsWith("/account") || pathname.startsWith("/guide") || pathname === "/upgrade";
+    || pathname.startsWith("/account") || pathname.startsWith("/guide") || pathname === "/upgrade" || Boolean(player.current);
 
   return (
     <RadioAudioDirector
-      enabled={settings.enabled && !player.audioDescription}
+      enabled={settings.enabled && !player.audioDescription && !player.current}
       volume={settings.volume}
       captions={settings.captions}
       cueCatalog={activeCatalog}

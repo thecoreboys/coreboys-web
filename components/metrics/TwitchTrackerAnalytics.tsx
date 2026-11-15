@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { BarChartSquare02, Clock, Eye, Signal01, Users01 } from "@untitledui/icons";

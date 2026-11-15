@@ -1,6 +1,6 @@
 import type { WatchItem } from "./types";
 
-/** Treat either live marker as authoritative so stale catalog records cannot look like VODs. */
+/** Current availability is authoritative; the format marker may be stale on an archived broadcast. */
 export function isLiveWatchItem(item: Pick<WatchItem, "kind" | "format">): boolean {
-  return item.kind === "live" || item.format === "live";
+  return item.kind === "live";
 }
