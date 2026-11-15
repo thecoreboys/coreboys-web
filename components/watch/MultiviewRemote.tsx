@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronDown, Copy, MonitorPlay, Radio, Share2 } from "lucide-react";
-import Image from "next/image";
+import { ArrowLeft, Check, ChevronDown, Copy, MonitorPlay, MoreHorizontal, Share2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
@@ -11,11 +10,13 @@ import { CombinedRemoteChat } from "@/components/watch/CombinedRemoteChat";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { postMultiviewRemote, useRemoteSessions } from "@/hooks/useMultiviewRemote";
 import { openAuthModal } from "@/lib/auth/modal";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
 import { MEMBERS } from "@/lib/members";
 import {
   MULTIVIEW_LAUNCH_PATH, MULTIVIEW_REMOTE_PATH, remoteDeviceName, remoteSourceKey,
   type RemotePlatform, type RemoteSession, type RemoteSource,
 } from "@/lib/watch/multiview-remote";
+import "./MultiviewRemote.css";
 
 type ChatMode = RemotePlatform | "both";
 const chatLabels: Record<ChatMode, string> = { both: "Both chats", twitch: "Twitch", youtube: "YouTube" };
@@ -98,18 +99,18 @@ function RemoteChat({ member, mode, sources, sessionId }: { member: (typeof MEMB
     return response.ok ? response.json() : {};
   }, { revalidateOnFocus: false });
 
-  if (!twitch && !youtube) return <p className={`${panel} p-5 text-sm text-[color:var(--ink-dim)]`}>There’s no live chat for {member.stageName} right now.</p>;
+  if (!twitch && !youtube) return <p className={`${panel} grid h-full place-items-center p-5 text-center text-sm text-[color:var(--ink-dim)]`}>There’s no live chat for {member.stageName} right now.</p>;
 
   const providerChats = (
-    <div className={`grid min-w-0 gap-3 ${twitch && youtube ? "sm:grid-cols-2" : ""}`}>
+    <div className={`grid h-full min-h-0 min-w-0 gap-2 ${twitch && youtube ? "grid-rows-2 sm:grid-cols-2 sm:grid-rows-1" : "grid-rows-1"}`}>
       {twitch ? (
-        <div data-lenis-prevent className={`min-w-0 ${youtube ? "h-[16rem] sm:h-[24rem]" : "h-[clamp(17rem,52dvh,34rem)]"}`}>
-          <TwitchChat login={member.twitchLogin} userId={data?.id ?? ""} displayName={member.stageName} compact />
+        <div data-lenis-prevent className="h-full min-h-0 min-w-0">
+          <TwitchChat login={member.twitchLogin} userId={data?.id ?? ""} displayName={member.stageName} avatarUrl={member.portrait} channelLogoUrl={member.comm.logo} channelLogoName={member.comm.name} accent={member.accent} floatingJumpToLatest isCore />
         </div>
       ) : null}
       {youtube ? (
-        <div className={`min-w-0 ${twitch ? "h-[16rem] sm:h-[24rem]" : "h-[clamp(17rem,52dvh,34rem)]"}`}>
-          <YouTubeLiveChat videoId={youtube} title={member.stageName} />
+        <div className="h-full min-h-0 min-w-0">
+          <YouTubeLiveChat videoId={youtube} title={member.stageName} channelLogoUrl={member.comm.logo} channelLogoName={member.comm.name} avatarUrl={member.portrait} />
         </div>
       ) : null}
     </div>
@@ -122,23 +123,26 @@ function RemoteChat({ member, mode, sources, sessionId }: { member: (typeof MEMB
       login={login}
       twitchUserId={data?.id}
       name={member.stageName}
+      logoUrl={member.comm.logo}
+      logoName={member.comm.name}
+      avatarUrl={member.portrait}
       fallback={providerChats}
     />
   ) : providerChats;
 }
 
 function ConnectedRemote({
-  session, sessions, changeSession, onUpdate,
+  session, sessions, changeSession, onUpdate, onOpenComputer,
 }: {
   session: RemoteSession;
   sessions: RemoteSession[];
   changeSession: (id: string) => void;
   onUpdate: (session?: RemoteSession) => void;
+  onOpenComputer: () => void;
 }) {
   const [choice, setChoice] = useState<{ member: string; mode: ChatMode } | null>(null);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
-  const observedMain = useRef(session.main);
   const latestRequest = useRef(0);
   const requestQueue = useRef(Promise.resolve());
   useEffect(() => () => { latestRequest.current += 1; }, []);
@@ -154,10 +158,8 @@ function ConnectedRemote({
   const mainPlatform = main?.platform;
 
   useEffect(() => {
-    if (sending || pending || session.main === observedMain.current) return;
-    observedMain.current = session.main;
-    if (!mainMemberSlug) return;
-    setChoice((previous) => previous?.member === mainMemberSlug && (previous.mode === "both" || previous.mode === mainPlatform) ? previous : null);
+    if (sending || pending) return;
+    setChoice((previous) => previous && previous.member === mainMemberSlug && (previous.mode === "both" || previous.mode === mainPlatform) ? previous : null);
   }, [mainMemberSlug, mainPlatform, pending, sending, session.main]);
 
   if (!member || !memberSlug) return null;
@@ -196,63 +198,38 @@ function ConnectedRemote({
     });
   }
 
-  const mainMember = MEMBERS.find(({ slug }) => slug === main?.member);
+  const liveMembers = MEMBERS.filter((entry) => session.sources.some((source) => source.member === entry.slug));
   return (
-    <section className="space-y-4" aria-label="Connected Multiview controls">
-      <div className={`${panel} flex flex-wrap items-center justify-between gap-3 p-4`}>
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"><MonitorPlay className="size-5" aria-hidden /></div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold">{device} connected</p>
-            <p aria-live="polite" className="mt-0.5 text-sm leading-snug text-[color:var(--ink-dim)]">
-              {sending || pending ? "Switching main source…" : mainMember && main ? `Main source · ${mainMember.stageName} on ${chatLabels[main.platform]}` : "Ready for a live source"}
-            </p>
-          </div>
-        </div>
-        {sessions.length > 1 ? (
-          <div className="relative w-full sm:w-auto">
-            <select aria-label="Computer to control" value={session.id} onChange={(event) => changeSession(event.target.value)} className="min-h-11 w-full appearance-none rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg)] py-2 pl-3 pr-9 text-sm">
-              {sessions.map((entry) => <option key={entry.id} value={entry.id}>{deviceLabel(entry, sessions)}</option>)}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2" aria-hidden />
-          </div>
-        ) : null}
-      </div>
-      {message || session.command?.status === "unavailable" ? (
-        <p role="status" className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm">{message || "The computer couldn’t switch to that stream. Choose an available source and try again."}</p>
-      ) : null}
-      <div>
-        <h2 className="mb-2 text-base font-semibold">Choose a member</h2>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" role="group" aria-label="CORE members">
-          {MEMBERS.map((entry) => {
-            const live = session.sources.some(({ member }) => member === entry.slug);
+    <section data-remote-chat-screen className="remote-chat-screen" aria-label="Connected Multiview controls">
+      <header className="relative z-20 flex shrink-0 items-center gap-1 border-b border-[color:var(--rule)] px-1 py-1">
+        <h1 className="sr-only">Multiview remote</h1>
+        <p aria-live="polite" className="sr-only">{sending || pending ? "Switching main source…" : device + " connected"}</p>
+        <Link prefetch={false} href="/" aria-label="Back to CORE" className="grid size-11 shrink-0 place-items-center rounded-xl text-[color:var(--ink-dim)] hover:bg-[color:var(--ui-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"><ArrowLeft className="size-4" aria-hidden /></Link>
+        <div className="remote-channel-switcher flex min-w-0 flex-1 gap-1 overflow-x-auto overscroll-contain py-0.5" role="group" aria-label="Main source and chat channel" data-lenis-prevent>
+          {liveMembers.map((entry) => {
             const selected = entry.slug === memberSlug;
-            return (
-              <button key={entry.slug} type="button" aria-pressed={selected} onClick={() => select(entry.slug, choice?.mode)} className={`flex min-h-[6.5rem] min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border px-1.5 py-2.5 text-center transition-colors ${selected ? "border-indigo-500 bg-indigo-500/12" : "border-[color:var(--rule)] bg-[color:var(--bg-elev)] hover:bg-[color:var(--ui-hover)]"}`}>
-                <Image src={entry.portrait} alt="" width={36} height={36} className="size-9 rounded-full object-cover" />
-                <span className="max-w-full text-xs font-semibold leading-tight [overflow-wrap:anywhere]">{entry.stageName}</span>
-                <span className="inline-flex min-w-0 items-center justify-center gap-1 text-xs leading-tight text-[color:var(--ink-dim)]">
-                  {main?.member === entry.slug ? <><Check className="size-3 shrink-0" aria-hidden /> Main</> : live ? <><Radio className="size-3 shrink-0 text-red-500" aria-hidden /> Live</> : "Offline"}
-                </span>
-              </button>
-            );
+            return <button key={entry.slug} type="button" aria-label={"Watch " + entry.stageName + " and open chat"} aria-pressed={selected} onClick={() => select(entry.slug, choice?.mode)} className={"inline-flex min-h-11 min-w-max flex-1 cursor-pointer items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current " + (selected ? "bg-[color:var(--ink)] text-[color:var(--bg)]" : "text-[color:var(--ink-dim)] hover:bg-[color:var(--ui-hover)]")}>
+              {selected ? <Check className="size-3 shrink-0" aria-hidden /> : null}{entry.stageName}
+            </button>;
           })}
         </div>
-      </div>
-      <section aria-label={`${member.stageName} live chats`}>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="min-w-0 break-words text-lg font-semibold tracking-tight">{member.stageName} chat</h2>
-          {sources.length > 0 ? (
-            <div className="flex max-w-full flex-wrap gap-1 rounded-2xl border border-[color:var(--rule)] p-1" role="group" aria-label="Chat platform">
-              {(["both", "twitch", "youtube"] as const).filter((item) =>
-                item === "both" ? sources.length > 1 : sources.some(({ platform }) => platform === item),
-              ).map((item) => (
-                <button key={item} type="button" onClick={() => select(memberSlug, item)} aria-pressed={mode === item} className={`min-h-11 cursor-pointer rounded-xl px-3 text-xs font-semibold ${mode === item ? "bg-indigo-600 text-white" : "hover:bg-[color:var(--ui-hover)]"}`}>{chatLabels[item]}</button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-        <RemoteChat key={memberSlug} member={member} mode={mode} sources={sources} sessionId={session.id} />
+        <details className="relative shrink-0">
+          <summary aria-label="Remote options" title={device + " connected"} className="relative grid size-11 cursor-pointer list-none place-items-center rounded-xl text-[color:var(--ink-dim)] hover:bg-[color:var(--ui-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"><MoreHorizontal className="size-5" aria-hidden /><span className="absolute right-2 top-2 size-1 rounded-full bg-emerald-500" aria-hidden /></summary>
+          <div className="absolute right-0 top-full z-30 mt-1 w-64 rounded-2xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] p-2 shadow-2xl">
+            <p className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[color:var(--ink-dim)]"><MonitorPlay className="size-4 text-emerald-500" aria-hidden />{device} connected</p>
+            {sessions.length > 1 ? <label className="block p-2 text-xs font-semibold text-[color:var(--ink-dim)]">Computer to control<div className="relative mt-2"><select aria-label="Computer to control" value={session.id} onChange={(event) => changeSession(event.target.value)} className="min-h-11 w-full appearance-none rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg)] py-2 pl-3 pr-8 text-sm text-[color:var(--ink)]">{sessions.map((entry) => <option key={entry.id} value={entry.id}>{deviceLabel(entry, sessions)}</option>)}</select><ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2" aria-hidden /></div></label> : null}
+            <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onOpenComputer(); }} className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl px-3 text-left text-xs font-semibold hover:bg-[color:var(--ui-hover)]"><Share2 className="size-4 shrink-0" aria-hidden />Open on another computer</button>
+            <Link prefetch={false} href="/special-message" className="mt-1 block rounded-xl border-t border-[color:var(--rule)] px-3 py-3 text-[11px] text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]">Unofficial fan site · Read note</Link>
+          </div>
+        </details>
+      </header>
+      {message || session.command?.status === "unavailable" ? <p role="status" className="shrink-0 border-b border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs leading-5">{message || "The computer couldn’t switch. Choose an available source and try again."}</p> : null}
+      {sources.length > 1 ? <div className="flex shrink-0 gap-1 border-b border-[color:var(--rule)] px-2 py-1" role="group" aria-label="Chat platform">
+        {(["both", "twitch", "youtube"] as const).filter((item) => item === "both" || sources.some(({ platform }) => platform === item)).map((item) => <button key={item} type="button" onClick={() => select(memberSlug, item)} aria-pressed={mode === item} className={"min-h-9 flex-1 cursor-pointer rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current " + (mode === item ? "bg-indigo-600 text-white" : "text-[color:var(--ink-dim)] hover:bg-[color:var(--ui-hover)]")}>{chatLabels[item]}</button>)}
+      </div> : null}
+      <section className="min-h-0 flex-1 overflow-hidden p-2" aria-label={member.stageName + " live chats"}>
+        <h2 className="sr-only">{member.stageName} chat</h2>
+        {session.sources.length ? <RemoteChat key={memberSlug} member={member} mode={mode} sources={sources} sessionId={session.id} /> : <p className="grid h-full place-items-center p-5 text-center text-sm text-[color:var(--ink-dim)]">Waiting for live streams on this computer…</p>}
       </section>
     </section>
   );
@@ -264,55 +241,44 @@ function AccountRemote({ accountId }: { accountId: string }) {
   const [showLaunch, setShowLaunch] = useState(false);
   const active = data?.find(({ id }) => id === selectedId) ?? data?.find(({ main }) => main) ?? data?.[0];
   const activeId = active?.id ?? null;
-  useEffect(() => {
-    if (data) setSelectedId(activeId);
-  }, [activeId, data]);
-  if (error) return <div className={`${panel} p-5`} role="status"><p>Couldn’t check for Multiview sessions.</p><button type="button" onClick={() => void mutate()} className={`${secondaryButton} mt-3`}>Try again</button></div>;
-  if (!data) return <p className={`${panel} p-5 text-sm text-[color:var(--ink-dim)]`} role="status">Looking for your computers…</p>;
-  if (!active) return <LaunchMultiview linked={false} />;
-  return (
-    <div className="space-y-5">
-      <ConnectedRemote
-        key={active.id}
-        session={active}
-        sessions={data}
-        changeSession={setSelectedId}
-        onUpdate={(session) => {
-          if (!session) {
-            void mutate();
-            return;
-          }
-          void mutate((sessions) => sessions?.map((entry) =>
-            entry.id === session.id && (entry.command?.revision ?? 0) < (session.command?.revision ?? 0) ? session : entry,
-          ), { revalidate: false });
-        }}
-      />
-      {showLaunch ? <LaunchMultiview linked /> : (
-        <button type="button" onClick={() => setShowLaunch(true)} className={secondaryButton}><Share2 className="size-4" aria-hidden /> Open on another computer</button>
-      )}
-    </div>
-  );
+  useEffect(() => { if (data) setSelectedId(activeId); }, [activeId, data]);
+  if (error) return <RemotePageShell><div className={panel + " p-5"} role="status"><p>Couldn’t check for Multiview sessions.</p><button type="button" onClick={() => void mutate()} className={secondaryButton + " mt-3"}>Try again</button></div></RemotePageShell>;
+  if (!data) return <RemotePageShell><p className={panel + " p-5 text-sm text-[color:var(--ink-dim)]"} role="status">Looking for your computers…</p></RemotePageShell>;
+  if (!active) return <RemotePageShell><LaunchMultiview linked={false} /></RemotePageShell>;
+  return <>
+    <ConnectedRemote key={active.id} session={active} sessions={data} changeSession={setSelectedId} onOpenComputer={() => setShowLaunch(true)} onUpdate={(session) => {
+      if (!session) { void mutate(); return; }
+      void mutate((sessions) => sessions?.map((entry) => entry.id === session.id && (entry.command?.revision ?? 0) < (session.command?.revision ?? 0) ? session : entry), { revalidate: false });
+    }} />
+    {showLaunch ? <RemoteLaunchDialog onClose={() => setShowLaunch(false)} /> : null}
+  </>;
+}
+
+function RemotePageShell({ children }: { children: React.ReactNode }) {
+  return <div className="bg-[color:var(--bg)] text-[color:var(--ink)]"><div className="mx-auto max-w-4xl px-4 pb-20 pt-5 sm:px-6 sm:pt-8">
+    <Link prefetch={false} href="/multiview" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]"><ArrowLeft className="size-4" aria-hidden />Multiview</Link>
+    <h1 className="mb-5 mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">Multiview remote</h1>{children}
+  </div></div>;
+}
+
+function RemoteLaunchDialog({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
+  return <div className="fixed inset-0 z-[90] grid place-items-center bg-black/65 p-3 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="remote-launch-title" tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }} className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)]" data-lenis-prevent>
+      <header className="flex items-center justify-between px-4 py-2"><h2 id="remote-launch-title" className="text-sm font-semibold">Connect another computer</h2><button type="button" onClick={onClose} aria-label="Close computer connection" className="grid size-11 cursor-pointer place-items-center rounded-xl text-[color:var(--ink-dim)] hover:bg-[color:var(--ui-hover)]"><X className="size-4" aria-hidden /></button></header>
+      <LaunchMultiview linked />
+    </section>
+  </div>;
 }
 
 export function MultiviewRemote() {
   const { user, loading } = useAuth();
-  return (
-    <div className="bg-[color:var(--bg)] text-[color:var(--ink)]">
-      <div className="mx-auto max-w-4xl px-4 pb-20 pt-5 sm:px-6 sm:pt-8">
-        <Link prefetch={false} href="/multiview" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[color:var(--ink-dim)] hover:text-[color:var(--ink)]">
-          <ArrowLeft className="size-4" aria-hidden /> Multiview
-        </Link>
-        <h1 className="mb-5 mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">Multiview remote</h1>
-        {loading ? <p className="text-sm text-[color:var(--ink-dim)]" role="status">Loading your account…</p> : user ? (
-          <AccountRemote key={user.id} accountId={user.id} />
-        ) : (
-          <section className={`${panel} p-5 sm:p-8`}>
-            <h2 className="text-xl font-semibold">Sign in to connect your phone</h2>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-[color:var(--ink-dim)]">Use the same CORE account on your phone and computer.</p>
-            <button type="button" onClick={() => openAuthModal({ next: MULTIVIEW_REMOTE_PATH })} className={`${primaryButton} mt-5`}>Sign in</button>
-          </section>
-        )}
-      </div>
-    </div>
-  );
+  if (loading) return <RemotePageShell><p className="text-sm text-[color:var(--ink-dim)]" role="status">Loading your account…</p></RemotePageShell>;
+  if (user) return <AccountRemote key={user.id} accountId={user.id} />;
+  return <RemotePageShell><section className={panel + " p-5 sm:p-8"}>
+    <h2 className="text-xl font-semibold">Sign in to connect your phone</h2>
+    <p className="mt-2 max-w-md text-sm leading-relaxed text-[color:var(--ink-dim)]">Use the same CORE account on your phone and computer.</p>
+    <button type="button" onClick={() => openAuthModal({ next: MULTIVIEW_REMOTE_PATH })} className={primaryButton + " mt-5"}>Sign in</button>
+  </section></RemotePageShell>;
 }

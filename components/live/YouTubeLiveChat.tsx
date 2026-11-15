@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChannelLogo } from "@/components/live/ChannelLogo";
 
 const YOUTUBE_ID = /^[0-9A-Za-z_-]{6,}$/;
 
@@ -17,7 +18,7 @@ export function youtubeLiveChatUrl(videoId: string, embedDomain: string): string
   return `https://www.youtube.com/live_chat?${params.toString()}`;
 }
 
-export function YouTubeLiveChat({ videoId, title }: { videoId: string; title: string }) {
+export function YouTubeLiveChat({ videoId, title, channelLogoUrl, channelLogoName, avatarUrl }: { videoId: string; title: string; channelLogoUrl?: string; channelLogoName?: string; avatarUrl?: string }) {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,8 +29,8 @@ export function YouTubeLiveChat({ videoId, title }: { videoId: string; title: st
     <section className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-[#111116] ring-1 ring-white/10" aria-label="YouTube live chat">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3 py-2.5">
         <span className="inline-flex items-center gap-2 text-xs font-semibold text-white/85">
-          <span className="size-1.5 rounded-full bg-red-500" aria-hidden />
-          YouTube live chat
+          {channelLogoUrl ? <ChannelLogo name={title} logoUrl={channelLogoUrl} logoName={channelLogoName} avatarUrl={avatarUrl} /> : <span className="size-1.5 rounded-full bg-red-500" aria-hidden />}
+          {channelLogoUrl ? title : "YouTube live chat"}
         </span>
         <a href={`https://www.youtube.com/live_chat?v=${encodeURIComponent(videoId)}`} target="_blank" rel="noopener noreferrer" className="text-xs text-white/60 underline-offset-4 hover:text-white hover:underline">Open on YouTube</a>
       </header>

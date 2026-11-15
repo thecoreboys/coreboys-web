@@ -1,0 +1,38 @@
+/* A connected phone remote is a chat screen with its own compact navigation. */
+html:has([data-remote-chat-screen]) {
+  --mobile-nav-space: 0px;
+}
+
+body:has([data-remote-chat-screen]) {
+  overflow: hidden;
+}
+
+body:has([data-remote-chat-screen]) :is(.site-header, .site-footer, .mobile-bottom-nav, [data-floating-widget], .contribute-launcher) {
+  display: none;
+}
+
+body:has([data-remote-chat-screen]) #main {
+  padding: 0;
+}
+
+.remote-chat-screen {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: flex;
+  height: 100dvh;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.remote-channel-switcher {
+  scrollbar-width: none;
+}
+
+.remote-channel-switcher::-webkit-scrollbar {
+  display: none;
+}

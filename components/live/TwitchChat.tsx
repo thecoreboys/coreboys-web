@@ -16,6 +16,7 @@ import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { useTwitchBadges } from "@/hooks/useTwitchBadges";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
+import { ChannelLogo } from "@/components/live/ChannelLogo";
 
 const MESSAGE_LIMIT = 200;
 
@@ -32,6 +33,10 @@ export type TwitchChatProps = {
   compact?: boolean;
   /** Twitch profile picture URL — rendered in the header next to the name. */
   avatarUrl?: string;
+  channelLogoUrl?: string;
+  channelLogoName?: string;
+  /** Keep a paused chat's resume button over the feed on compact screens. */
+  floatingJumpToLatest?: boolean;
   /** Mark this column as a CORE member so the header gets a special badge. */
   isCore?: boolean;
   /** Optional close affordance (e.g. for non-CORE channels in the hub). */
@@ -65,6 +70,9 @@ export function TwitchChat({
   displayName,
   compact = false,
   avatarUrl,
+  channelLogoUrl,
+  channelLogoName,
+  floatingJumpToLatest = false,
   isCore = false,
   onClose,
   textScale = 1,
@@ -169,7 +177,7 @@ export function TwitchChat({
   return (
     <section
       aria-label={`${channelName} live Twitch chat`}
-      className={`flex h-full flex-col overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] ${className}`}
+      className={`relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)] ${className}`}
       style={{ boxShadow: `inset 0 0 0 1px ${accent}1a` }}
     >
       {/* Header */}
@@ -185,23 +193,7 @@ export function TwitchChat({
           aria-label={`Watch ${channelName} on Twitch`}
           className="group/header -mx-1 -my-0.5 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-[color:var(--bg)]/40 cursor-pointer"
         >
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt=""
-              draggable={false}
-              className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset transition-transform group-hover/header:scale-105"
-              style={{ ["--tw-ring-color" as string]: accent }}
-            />
-          ) : (
-            <span
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--bg)] text-xs font-bold uppercase"
-              style={{ color: accent }}
-            >
-              {channelName[0]}
-            </span>
-          )}
+          <ChannelLogo name={channelName} logoUrl={channelLogoUrl} logoName={channelLogoName} avatarUrl={avatarUrl} />
           <span className="flex min-w-0 flex-col leading-tight">
             <span
               className={`truncate font-bold tracking-tight text-[color:var(--ink)] transition-colors group-hover/header:text-[color:var(--core)] ${compact ? "text-xs" : "text-sm"}`}
@@ -266,7 +258,7 @@ export function TwitchChat({
         ref={scrollerRef}
         onScroll={onScroll}
         data-lenis-prevent
-        className={`flex-1 overflow-x-hidden overflow-y-auto overscroll-contain ${compact ? "px-3 py-2" : "px-4 py-3"}`}
+        className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain ${compact ? "px-3 py-2" : "px-4 py-3"}`}
         role="log"
         aria-live="polite"
       >
@@ -294,11 +286,11 @@ export function TwitchChat({
 
       {/* Resume auto-scroll prompt */}
       {!autoScroll ? (
-        <div className="shrink-0 border-t border-[color:var(--rule)] bg-[color:var(--bg)] p-2">
+        <div className={floatingJumpToLatest ? "pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center" : "shrink-0 border-t border-[color:var(--rule)] bg-[color:var(--bg)] p-2"}>
           <Button
             size="sm"
             color="primary"
-            className="w-full"
+            className={floatingJumpToLatest ? "pointer-events-auto rounded-full shadow-lg" : "w-full"}
             iconTrailing={ArrowDown}
             onPress={() => {
               setAutoScroll(true);

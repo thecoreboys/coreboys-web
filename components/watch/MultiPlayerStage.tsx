@@ -14,6 +14,7 @@ import {
   Maximize2,
   MessageSquare,
   Minimize2,
+  MonitorPlay,
   MoreHorizontal,
   Pause,
   PanelRight,
@@ -35,8 +36,8 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
-import { ChatDock, ChatSessionProvider } from "@/components/live/chat";
-import { YouTubeLiveChat } from "@/components/live/YouTubeLiveChat";
+import { ChatSessionProvider } from "@/components/live/chat";
+import { MainStageChat } from "@/components/watch/MainStageChat";
 import { usePlayer, type PlayerContextValue } from "@/components/providers/PlayerProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { openAuthModal } from "@/lib/auth/modal";
@@ -45,6 +46,7 @@ import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useMultiviewSourceSearch } from "@/hooks/useMultiviewSourceSearch";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
 import { useMultiviewRemoteHost } from "@/hooks/useMultiviewRemote";
 import { MULTIVIEW_LAUNCH_PATH, remoteSourceKey, type RemoteSource } from "@/lib/watch/multiview-remote";
 import { useWatchDiscovery, type WatchFeedbackValue } from "@/lib/watch/discovery-state";
@@ -61,6 +63,7 @@ import { formatHandleDisplay } from "@/lib/watch/display-label";
 import { readableTitle } from "@/lib/watch/presentation";
 import { WatchThumb } from "@/components/watch/WatchThumb";
 import { groupCrossPlatformLiveSources, uniqueCrossPlatformLiveSources } from "@/lib/watch/live-source-groups";
+import { mainStageChatSelection, mainStageTwitchLogin, prioritizeChatLogins, type MainStageChatChoice } from "@/lib/watch/main-stage-chat";
 import {
   AUTOPLAY_MODES,
   decodeWorkspace,
@@ -155,6 +158,8 @@ function channelFor(login: string) {
     login: login.toLowerCase(),
     displayName: member?.stageName ?? formatHandleDisplay(login),
     avatarUrl: member?.portrait,
+    channelLogoUrl: member?.comm.logo,
+    channelLogoName: member?.comm.name,
     accent: member?.accent,
     isCore: Boolean(member),
     passportChannelSlug: member?.slug,
@@ -282,12 +287,12 @@ export function MultiPlayerStage({
   const [dragTileId, setDragTileId] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
   const [adaptivePlayerBudget, setAdaptivePlayerBudget] = useState(4);
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("details");
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("chat");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
-  const [audioPickerOpen, setAudioPickerOpen] = useState(false);
-  const [chatGuestLogin, setChatGuestLogin] = useState("");
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [mainStagePickerOpen, setMainStagePickerOpen] = useState(false);
+  const [chatChoice, setChatChoice] = useState<MainStageChatChoice | null>(null);
+  const chatDockInitializedRef = useRef(false);
   const importedRef = useRef(false);
   const autoLiveRoomRef = useRef(false);
   const offlineHandledRef = useRef(new Set<string>());
@@ -295,6 +300,7 @@ export function MultiPlayerStage({
   const sourceWasOpenRef = useRef(false);
 
   const { tiles: openRoomTiles, focusedTile: focusedRoomTile, removeTile: removeRoomTile } = player;
+  const { ready: roomReady, setChatDock: setRoomChatDock } = player;
 
   useEffect(() => {
     // Older saved rooms can already contain both sides of a YouTube/Twitch
@@ -463,14 +469,18 @@ export function MultiPlayerStage({
     }
     player.fillWithLive(roomLive, { limit: tileLimit });
     player.setChatChannels(currentLive.flatMap((item) => item.platform === "twitch" && item.twitchLogin ? [item.twitchLogin] : []));
-    player.setChatMode("combined");
-    if (player.chatDock === "closed") player.setChatDock("right");
-    // The Theater panel opens on Details. Chat stays connected and one click
-    // away, but a newly assembled room should first explain what is playing.
-    setSidebarTab("details");
-    if (roomLive.length) setAudioPickerOpen(true);
+    player.setChatMode("focused");
+    player.setChatDock("right");
+    setSidebarTab("chat");
+    if (roomLive.length) setMainStagePickerOpen(true);
     if (!roomLive.length) setNotice({ text: "No one is live right now. This room will stay ready for the next stream." });
   }, [authoritativeLiveRoom, autoFillLive, currentLive, liveStatus, player, roomLive, subscription.loading, tileLimit]);
+
+  useEffect(() => {
+    if (!roomReady || chatDockInitializedRef.current) return;
+    chatDockInitializedRef.current = true;
+    setRoomChatDock("right");
+  }, [roomReady, setRoomChatDock]);
 
   const focused = player.focusedTile ?? player.tiles[0] ?? null;
   const mainTile = mainRoomTile(player.tiles, player.maximizedTileId);
@@ -506,6 +516,7 @@ export function MultiPlayerStage({
       if (!tileId) return false;
       player.makeMain(tileId, { takeAudio: true });
       if (player.maximizedTileId) player.setMaximizedTileId(tileId);
+      setChatChoice(null);
       return true;
     },
   });
@@ -539,7 +550,7 @@ export function MultiPlayerStage({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']") || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (target?.closest("[role='dialog'], input, textarea, select, [contenteditable='true']") || event.metaKey || event.ctrlKey || event.altKey) return;
       const numbered = Number(event.key);
       if (Number.isInteger(numbered) && numbered >= 1 && numbered <= 9) {
         const tile = visibleTiles[numbered - 1];
@@ -566,44 +577,25 @@ export function MultiPlayerStage({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [focused, player, visibleTiles]);
 
-  const chatLogins = useMemo(() => Array.from(new Set([
-    focused?.item.platform === "twitch" ? focused.item.twitchLogin ?? focusedMember?.twitchLogin : null,
+  const mainChatLogin = mainStageTwitchLogin(mainTile?.item, MEMBERS);
+  const mainChatSourceKey = mainTile?.item.key ?? null;
+  const chatLogins = useMemo(() => prioritizeChatLogins([
+    ...player.tiles.map((tile) => mainStageTwitchLogin(tile.item, MEMBERS)),
     ...player.chatChannels,
-    ...player.tiles.map((tile) => tile.item.platform === "twitch" && tile.item.kind === "live" ? tile.item.twitchLogin
-      ?? MEMBERS.find((member) => member.slug === tile.item.memberSlug)?.twitchLogin : null),
-  ].filter((login): login is string => Boolean(login)))).slice(0, 8), [focused, focusedMember, player.chatChannels, player.tiles]);
+  ].filter((login): login is string => Boolean(login)), mainChatLogin, mainChatLogin, 8), [mainChatLogin, player.chatChannels, player.tiles]);
   const chatChannels = useMemo(() => chatLogins.map(channelFor), [chatLogins]);
-  const youtubeChats = useMemo(() => {
-    const seen = new Set<string>();
-    return player.tiles.flatMap(({ item }) => {
-      const id = item.kind === "live" && item.platform === "youtube" ? item.youtubeId : null;
-      if (!id || seen.has(id)) return [];
-      seen.add(id);
-      return [{ id, label: item.memberLabel || "YouTube", title: item.title }];
-    });
-  }, [player.tiles]);
-  const hasRoomChat = chatChannels.length > 0 || youtubeChats.length > 0;
-  const activeChat = selectedChat === "twitch" && chatChannels.length ? "twitch"
-    : selectedChat && youtubeChats.some((entry) => entry.id === selectedChat) ? selectedChat
-    : focused?.item.platform === "youtube" && focused.item.kind === "live" && youtubeChats.some((entry) => entry.id === focused.item.youtubeId)
-      ? focused.item.youtubeId : chatChannels.length ? "twitch" : youtubeChats[0]?.id;
+  const chatSelection = mainStageChatSelection(mainChatSourceKey, mainChatLogin, chatChoice, chatLogins);
+  const hasRoomChat = Boolean(chatSelection.login);
   // This provider intentionally outlives the visual ChatDock. Changing from
   // side → bottom → floating only remounts the presentation, not the IRC
   // session or its buffered history.
   const chatConnectionLimit = player.dataSaver ? 2 : player.maxActivePlayers;
   const connectedChatChannels = useMemo(
-    () => chatChannels.slice(0, Math.max(1, Math.min(8, chatConnectionLimit))),
-    [chatChannels, chatConnectionLimit],
+    () => prioritizeChatLogins(chatLogins, chatSelection.login, mainChatLogin, chatConnectionLimit).map(channelFor),
+    [chatLogins, chatSelection.login, mainChatLogin, chatConnectionLimit],
   );
-  const focusedLogin = focused?.item.twitchLogin ?? focusedMember?.twitchLogin ?? chatLogins[0];
-  const focusChatChannel = (login: string) => {
-    const member = MEMBERS.find((entry) => entry.twitchLogin.toLowerCase() === login.toLowerCase());
-    const tile = player.tiles.find((entry) =>
-      entry.item.twitchLogin?.toLowerCase() === login.toLowerCase()
-      || Boolean(member && entry.item.memberSlug === member.slug),
-    );
-    // Reading a channel should not replace the room's active audio source.
-    if (tile) player.focusTile(tile.id, { takeAudio: false });
+  const focusChatChannel = (login: string | null) => {
+    setChatChoice(login ? { sourceKey: mainChatSourceKey, login } : null);
   };
 
   const needle = query.trim().toLowerCase();
@@ -703,13 +695,18 @@ export function MultiPlayerStage({
       player.updateTile(selectedTileId, { muted: false });
     }
     player.focusTile(selectedTileId, { takeAudio: options.takeAudio });
-    if (options.takeAudio) setAudioPickerOpen(false);
+    if (options.takeAudio) setMainStagePickerOpen(false);
     setNotice({ text: `${options.takeAudio ? "Now watching" : "Switched to"} ${item.memberLabel} on ${platformLabel(item)}.` });
     return selectedTileId;
   }
 
-  function chooseLiveSource(item: Playable) {
-    switchLiveSource(item, { takeAudio: true });
+  function chooseMainStage(item: Playable) {
+    const tileId = switchLiveSource(item, { takeAudio: true, resume: true });
+    if (!tileId) return;
+    player.makeMain(tileId, { takeAudio: true });
+    if (player.maximizedTileId) player.setMaximizedTileId(tileId);
+    setChatChoice(null);
+    setNotice({ text: `${item.memberLabel} is now on the main stage.` });
   }
 
   function addUrl() {
@@ -773,7 +770,7 @@ export function MultiPlayerStage({
     if (remaining > 0) player.fillWithLive(available.slice(0, remaining), { limit: tileLimit });
     if (currentLive.length) {
       player.setChatChannels(currentLive.flatMap((item) => item.platform === "twitch" && item.twitchLogin ? [item.twitchLogin] : []));
-      setAudioPickerOpen(true);
+      setMainStagePickerOpen(true);
     }
     if (available.length > remaining && !expandedMultiview) {
       showFeatureNotice(
@@ -797,52 +794,19 @@ export function MultiPlayerStage({
     });
   }, [sourceOpen]);
 
-  const chat = hasRoomChat ? (
-    <div className="flex h-full min-h-0 flex-col gap-2">
-      {chatChannels.length + youtubeChats.length > 1 ? <div className="flex shrink-0 gap-2 overflow-x-auto pb-1" aria-label="Live chat sources">
-        {chatChannels.length ? <button type="button" onClick={() => setSelectedChat("twitch")} aria-pressed={activeChat === "twitch"} className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${activeChat === "twitch" ? "bg-white text-black" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"}`}>Twitch</button> : null}
-        {youtubeChats.map((entry) => <button key={entry.id} type="button" onClick={() => setSelectedChat(entry.id)} aria-pressed={activeChat === entry.id} className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${activeChat === entry.id ? "bg-white text-black" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"}`}>YouTube · {entry.label}</button>)}
-      </div> : null}
-      {activeChat !== "twitch" && youtubeChats.find((entry) => entry.id === activeChat) ? <YouTubeLiveChat videoId={activeChat!} title={youtubeChats.find((entry) => entry.id === activeChat)!.title} /> : activeChat === "twitch" ? <>
-      <details className="shrink-0 rounded-xl border border-white/10 bg-white/[0.025] px-3 text-xs text-white/70">
-      <summary className="cursor-pointer py-3 font-semibold hover:text-white">Chat settings</summary>
-      <form
-        className="flex flex-wrap items-center gap-2 pb-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const login = chatGuestLogin.trim().replace(/^@/, "").toLowerCase().replace(/[^a-z0-9_]/g, "");
-          if (!login) return;
-          player.setChatChannels([...player.chatChannels, login]);
-          setChatGuestLogin("");
-        }}
-      >
-        <label className="flex w-full items-center gap-2 text-xs text-white/60">
-          <span className="shrink-0">Text size</span>
-        <input aria-label="Chat text size" type="range" min="0.7" max="1.8" step="0.1" value={player.chatTextScale} onChange={(event) => player.setChatTextScale(Number(event.target.value))} className="min-w-0 flex-1 cursor-pointer accent-white" />
-        </label>
-        <input aria-label="Twitch channel name" value={chatGuestLogin} onChange={(event) => setChatGuestLogin(event.target.value)} placeholder="Twitch channel" className="min-h-10 min-w-0 flex-1 rounded-lg bg-black/30 px-3 text-xs text-white outline-none ring-1 ring-white/10 placeholder:text-white/40 focus:ring-white/25" />
-        <button type="submit" className="min-h-10 rounded-lg bg-white px-3 text-xs font-semibold text-black">Add chat</button>
-      </form>
-      </details>
-      <ChatDock
-        channels={chatChannels}
-        mode={player.chatMode}
-        onModeChange={player.setChatMode}
-        focusedLogin={player.chatFocusedLogin ?? focusedLogin}
-        onFocusedLoginChange={player.setChatFocusedLogin}
-        onFocusChannel={focusChatChannel}
-        onCloseChannel={(login) => player.setChatChannels(player.chatChannels.filter((channel) => channel !== login.toLowerCase()))}
-        textScale={player.chatTextScale}
-        showTimestamps={player.showChatTimestamps}
-        maxConnected={chatConnectionLimit}
-        dataSaver={player.dataSaver}
-        showToolbar={chatChannels.length > 1}
-        className="min-h-0 flex-1"
-      />
-      </> : null}
-    </div>
-  ) : (
-    <EmptyChat onAdd={() => openSources()} />
+  const chat = (
+    <MainStageChat
+      channels={chatChannels}
+      selectedLogin={chatSelection.login}
+      followsMain={chatSelection.followsMain}
+      onSelectChannel={focusChatChannel}
+      textScale={player.chatTextScale}
+      onTextScaleChange={player.setChatTextScale}
+      showTimestamps={player.showChatTimestamps}
+      onTimestampsChange={player.setShowChatTimestamps}
+      width={player.chatDockSize.side}
+      onWidthChange={(side) => player.setChatDockSize({ side })}
+    />
   );
   const workspaceSidebar = (
     <WorkspaceSidebar
@@ -850,13 +814,6 @@ export function MultiPlayerStage({
       onTabChange={setSidebarTab}
       mobileOpen={mobileSidebarOpen}
       onMobileClose={closeMobileSidebar}
-      forceCompactDesktop={Boolean(
-        !mobile
-        && !player.maximizedTileId
-        && (player.layoutPreset === "theater-first" || player.layoutPreset === "split")
-        && visibleTiles.length === 2
-        && visibleTiles.some((tile) => tile.item.platform === "twitch"),
-      )}
       focused={focused}
       member={focusedMember}
       tiles={visibleTiles}
@@ -866,20 +823,9 @@ export function MultiPlayerStage({
     />
   );
   const sideWidth = `${player.chatDockSize.side}px`;
-  const theaterTwitchPair = Boolean(
-    !mobile
-    && !player.maximizedTileId
-    && (player.layoutPreset === "theater-first" || player.layoutPreset === "split")
-    && visibleTiles.length === 2
-    && visibleTiles.some((tile) => tile.item.platform === "twitch"),
-  );
   const roomColumns = player.chatDock === "left"
-    ? theaterTwitchPair
-      ? "2xl:grid-cols-[minmax(19rem,min(var(--room-chat-width),25vw))_minmax(0,1fr)]"
-      : "xl:grid-cols-[minmax(19rem,min(var(--room-chat-width),25vw))_minmax(0,1fr)]"
-    : theaterTwitchPair
-      ? "2xl:grid-cols-[minmax(0,1fr)_minmax(19rem,min(var(--room-chat-width),25vw))]"
-      : "xl:grid-cols-[minmax(0,1fr)_minmax(19rem,min(var(--room-chat-width),25vw))]";
+    ? "lg:grid-cols-[minmax(17.5rem,min(var(--room-chat-width),32vw))_minmax(0,1fr)]"
+    : "lg:grid-cols-[minmax(0,1fr)_minmax(17.5rem,min(var(--room-chat-width),32vw))]";
 
   return (
     <ChatSessionProvider
@@ -898,7 +844,7 @@ export function MultiPlayerStage({
               {player.tiles.length} {player.tiles.length === 1 ? "player" : "players"}{authoritativeLiveRoom && lockedLiveSlots.length ? ` · ${lockedLiveSlots.length} locked` : ""}
             </p>
           </div>
-          <div className="flex shrink-0 items-center justify-end gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <button
               type="button"
               onClick={fillLive}
@@ -909,6 +855,9 @@ export function MultiPlayerStage({
               <Radio className="size-3.5" aria-hidden />
               <span>{currentLive.length ? "Watch live" : "No one live"}</span>
             </button>
+            <IconControlTooltip title="Choose main stage" description="Select the stream featured in your main player." placement="bottom">
+              <button type="button" onClick={() => setMainStagePickerOpen(true)} disabled={!liveSourceGroups.length} aria-label="Choose main stage" aria-expanded={mainStagePickerOpen} aria-haspopup="dialog" aria-controls="main-stage-picker" className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-white/5 text-white/75 ring-1 ring-inset ring-white/12 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-35 md:size-10"><MonitorPlay className="size-4" aria-hidden /></button>
+            </IconControlTooltip>
             <button
               type="button"
               onClick={() => {
@@ -922,8 +871,8 @@ export function MultiPlayerStage({
               <span>Room studio</span>
             </button>
             <IconControlTooltip
-              title="Open side panel"
-              description="Choose Up Next, chat, or media details."
+              title="Open Twitch chat"
+              description="Chat follows the main stage automatically."
               placement="bottom"
             >
               <button
@@ -931,12 +880,19 @@ export function MultiPlayerStage({
                 onClick={() => setMobileSidebarOpen(true)}
                 aria-expanded={mobileSidebarOpen}
                 aria-controls="multiview-sidebar"
-                className={`grid size-11 place-items-center rounded-xl bg-white/5 text-white/70 ring-1 ring-white/12 hover:bg-white/10 hover:text-white ${theaterTwitchPair ? "2xl:hidden" : "xl:hidden"}`}
-                aria-label="Open Up Next, chat, or details"
+                className="grid size-11 place-items-center rounded-xl bg-white/5 text-white/70 ring-1 ring-white/12 hover:bg-white/10 hover:text-white lg:hidden"
+                aria-label="Open Twitch chat"
               >
-                <PanelRight className="size-4" aria-hidden />
+                <MessageSquare className="size-4" aria-hidden />
               </button>
             </IconControlTooltip>
+            <details className="relative">
+              <summary aria-label="More room controls" className="grid size-11 cursor-pointer list-none place-items-center rounded-xl bg-white/5 text-white/70 ring-1 ring-white/12 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white md:size-10"><MoreHorizontal className="size-4" aria-hidden /></summary>
+              <div className="absolute right-0 top-full z-50 mt-2 w-44 rounded-xl border border-white/15 bg-[#18181d] p-1.5 shadow-2xl">
+                <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setSidebarTab("queue"); }} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-medium text-white/75 transition hover:bg-white/8 hover:text-white"><ListVideo className="size-4" aria-hidden />Up next</button>
+                <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setSidebarTab("details"); }} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-medium text-white/75 transition hover:bg-white/8 hover:text-white"><Info className="size-4" aria-hidden />Player details</button>
+              </div>
+            </details>
           </div>
         </header>
 
@@ -1079,12 +1035,13 @@ export function MultiPlayerStage({
         />
       ) : null}
 
-      {audioPickerOpen ? (
-        <AudioLeadPicker
+      {mainStagePickerOpen ? (
+        <MainStagePicker
           groups={liveSourceGroups}
+          mainItemKey={mainTile?.item.key ?? null}
           mobile={mobile}
-          onClose={() => setAudioPickerOpen(false)}
-          onChoose={chooseLiveSource}
+          onClose={() => setMainStagePickerOpen(false)}
+          onChoose={chooseMainStage}
         />
       ) : null}
 
@@ -1152,31 +1109,14 @@ function ToolbarButton({
   );
 }
 
-const SIDEBAR_TABS: Array<{ id: SidebarTab; label: string; accessibleLabel: string; description: string; icon: typeof ListVideo }> = [
-  { id: "details", label: "Details", accessibleLabel: "Details", description: "See the focused player and a compact overview of every open tile.", icon: Info },
-  { id: "queue", label: "Up next", accessibleLabel: "Up next", description: "Review and reorder what plays after the main title.", icon: ListVideo },
-  { id: "chat", label: "Chat", accessibleLabel: "Chat", description: "Open the combined chat for active Twitch players.", icon: MessageSquare },
-];
-
 function WorkspaceSidebar({
-  activeTab,
-  onTabChange,
-  mobileOpen,
-  onMobileClose,
-  forceCompactDesktop = false,
-  focused,
-  member,
-  tiles,
-  chat,
-  onAddQueue,
-  onReplace,
+  activeTab, onTabChange, mobileOpen, onMobileClose,
+  focused, member, tiles, chat, onAddQueue, onReplace,
 }: {
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
-  /** Keep a two-Twitch Theater stage wide until the companion is usable. */
-  forceCompactDesktop?: boolean;
   focused: WorkspaceTile | null;
   member: MemberRecord | null;
   tiles: WorkspaceTile[];
@@ -1184,162 +1124,50 @@ function WorkspaceSidebar({
   onAddQueue: (opener?: HTMLElement | null) => void;
   onReplace: (tileId: string, opener?: HTMLElement | null) => void;
 }) {
-  const desktopClasses = forceCompactDesktop
-    ? "2xl:sticky 2xl:top-[calc(var(--site-header-h,8rem)+.75rem)] 2xl:z-20 2xl:flex 2xl:h-[calc(100dvh-var(--site-header-h,8rem)-2rem)] 2xl:w-auto 2xl:min-h-[18rem] 2xl:shadow-[0_24px_90px_rgba(0,0,0,.3)]"
-    : "xl:sticky xl:top-[calc(var(--site-header-h,8rem)+.75rem)] xl:z-20 xl:flex xl:h-[calc(100dvh-var(--site-header-h,8rem)-2rem)] xl:w-auto xl:min-h-[18rem] xl:shadow-[0_24px_90px_rgba(0,0,0,.3)]";
-  const compactHideClass = forceCompactDesktop ? "2xl:hidden" : "xl:hidden";
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    const previousBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const focusFrame = window.requestAnimationFrame(() => {
-      document.querySelector<HTMLButtonElement>("#multiview-sidebar [role='tab'][aria-selected='true']")?.focus();
-    });
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onMobileClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const sidebar = document.getElementById("multiview-sidebar");
-      const focusable = Array.from(sidebar?.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
-      ) ?? []).filter((element) => element.tabIndex >= 0 && !element.hidden && element.getClientRects().length > 0);
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousBodyOverflow;
-      window.requestAnimationFrame(() => {
-        if (previousFocus?.isConnected) previousFocus.focus();
-      });
-    };
-  }, [mobileOpen, onMobileClose]);
-
-  const selectTab = (tab: SidebarTab, focus = false) => {
-    onTabChange(tab);
-    if (focus) window.requestAnimationFrame(() => document.getElementById(`multiview-tab-${tab}`)?.focus());
-  };
-
-  const onTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    let destination = index;
-    if (event.key === "ArrowRight") destination = (index + 1) % SIDEBAR_TABS.length;
-    else if (event.key === "ArrowLeft") destination = (index - 1 + SIDEBAR_TABS.length) % SIDEBAR_TABS.length;
-    else if (event.key === "Home") destination = 0;
-    else if (event.key === "End") destination = SIDEBAR_TABS.length - 1;
-    else return;
-    event.preventDefault();
-    selectTab(SIDEBAR_TABS[destination]!.id, true);
-  };
-
+  const sidebarRef = useRef<HTMLElement>(null);
   return (
     <>
-      {mobileOpen ? (
-        <div
-          className={`fixed inset-0 z-[79] cursor-default bg-black/55 backdrop-blur-[2px] ${compactHideClass}`}
-          onClick={onMobileClose}
-          aria-hidden="true"
-        />
-      ) : null}
+      {mobileOpen ? <div className="fixed inset-0 z-[79] bg-black/55 backdrop-blur-[2px] lg:hidden" onClick={onMobileClose} aria-hidden="true" /> : null}
       <aside
-      id="multiview-sidebar"
-      role={mobileOpen ? "dialog" : undefined}
-      aria-modal={mobileOpen ? "true" : undefined}
-      aria-label="Details, Up next, and chat panel"
-      className={`${mobileOpen ? "fixed inset-x-3 bottom-3 z-[80] flex h-[min(72dvh,38rem)]" : "hidden"} min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(160deg,rgba(28,28,34,.98),rgba(12,12,16,.98)_46%,rgba(9,9,12,.98))] shadow-[0_28px_100px_rgba(0,0,0,.72)] ${desktopClasses}`}
-    >
-      <div className="hidden shrink-0 items-center justify-between border-b border-white/8 px-4 py-4 xl:flex">
-        <div>
-          <p className="text-sm font-semibold tracking-tight text-white">Your room</p>
-          <p className="mt-1 text-xs text-white/50">Manage what you’re watching</p>
+        ref={sidebarRef}
+        id="multiview-sidebar"
+        role={mobileOpen ? "dialog" : undefined}
+        aria-modal={mobileOpen ? "true" : undefined}
+        aria-label="Main stage Twitch chat"
+        onKeyDown={(event) => { if (mobileOpen && event.key === "Escape") { event.stopPropagation(); onMobileClose(); } }}
+        className={`${mobileOpen ? "fixed inset-x-3 bottom-3 z-[80] flex h-[min(80dvh,46rem)]" : "hidden"} min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#101014] shadow-[0_24px_90px_rgba(0,0,0,.3)] lg:sticky lg:inset-auto lg:top-[calc(var(--site-header-h,8rem)+.75rem)] lg:z-20 lg:flex lg:h-[calc(100dvh-var(--site-header-h,8rem)-6rem)] lg:min-h-[18rem] lg:w-auto`}
+      >
+        {mobileOpen ? <SidebarDialogFocus dialogRef={sidebarRef} /> : null}
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-1 lg:hidden">
+          <span className="text-xs font-semibold text-white/65">Main stage chat</span>
+          <button type="button" onClick={onMobileClose} aria-label="Close Twitch chat" className="grid size-10 cursor-pointer place-items-center rounded-xl text-white/55 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-white"><X className="size-4" aria-hidden /></button>
         </div>
-        <span className="grid size-7 place-items-center rounded-lg bg-white/6 text-white/50 ring-1 ring-white/10"><PanelRight className="size-3.5" aria-hidden /></span>
-      </div>
-      <div className="flex shrink-0 items-center gap-1 border-b border-white/8 p-2">
-        <div role="tablist" aria-label="Multiview sidebar" className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl bg-white/[0.035] p-1">
-          {SIDEBAR_TABS.map((tab, index) => {
-            const Icon = tab.icon;
-            const selected = activeTab === tab.id;
-            return (
-              <IconControlTooltip
-                key={tab.id}
-                title={tab.accessibleLabel}
-                description={tab.description}
-                placement="bottom"
-              >
-                <button
-                  id={`multiview-tab-${tab.id}`}
-                  type="button"
-                  role="tab"
-                  aria-label={tab.accessibleLabel}
-                  aria-selected={selected}
-                  aria-controls={`multiview-panel-${tab.id}`}
-                  tabIndex={selected ? 0 : -1}
-                  onClick={() => selectTab(tab.id)}
-                  onKeyDown={(event) => onTabKeyDown(event, index)}
-                  className={`group inline-flex min-h-11 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-1.5 text-xs font-semibold transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${selected ? "bg-white text-black shadow-sm" : "text-white/55 hover:-translate-y-px hover:bg-white/8 hover:text-white active:translate-y-0"}`}
-                >
-                  <Icon className="size-3.5 shrink-0" aria-hidden />
-                  <span className="hidden truncate min-[300px]:inline">{tab.label}</span>
-                </button>
-              </IconControlTooltip>
-            );
-          })}
-        </div>
-        <IconControlTooltip title="Close panel" description="Return to the multiview player grid." placement="bottom">
-          <button type="button" onClick={onMobileClose} className={`grid size-11 shrink-0 place-items-center rounded-xl text-white/50 hover:bg-white/8 hover:text-white ${compactHideClass}`} aria-label="Close sidebar">
-            <X className="size-4" aria-hidden />
-          </button>
-        </IconControlTooltip>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <div
-          id="multiview-panel-queue"
-          role="tabpanel"
-          aria-labelledby="multiview-tab-queue"
-          tabIndex={activeTab === "queue" ? 0 : -1}
-          hidden={activeTab !== "queue"}
-          className="h-full min-h-0 outline-none"
-        >
-          <UpNextPanel onAdd={onAddQueue} />
-        </div>
-        <div
-          id="multiview-panel-chat"
-          role="tabpanel"
-          aria-labelledby="multiview-tab-chat"
-          tabIndex={activeTab === "chat" ? 0 : -1}
-          hidden={activeTab !== "chat"}
-          className="h-full min-h-0 outline-none"
-        >
-          <div className="h-full min-h-0 p-2">{chat}</div>
-        </div>
-        <div
-          id="multiview-panel-details"
-          role="tabpanel"
-          aria-labelledby="multiview-tab-details"
-          tabIndex={activeTab === "details" ? 0 : -1}
-          hidden={activeTab !== "details"}
-          className="h-full min-h-0 outline-none"
-        >
-          <DetailsPanel focused={focused} member={member} tiles={tiles} onReplace={onReplace} />
-        </div>
-      </div>
+        <div className="min-h-0 flex-1 overflow-hidden">{chat}</div>
       </aside>
+      {activeTab !== "chat" ? (
+        <RoomPanelDialog title={activeTab === "queue" ? "Up next" : "Player details"} onClose={() => onTabChange("chat")}>
+          {activeTab === "queue" ? <UpNextPanel onAdd={onAddQueue} /> : <DetailsPanel focused={focused} member={member} tiles={tiles} onReplace={onReplace} />}
+        </RoomPanelDialog>
+      ) : null}
     </>
+  );
+}
+
+function SidebarDialogFocus({ dialogRef }: { dialogRef: React.RefObject<HTMLElement | null> }) {
+  useDialogFocus(dialogRef);
+  return null;
+}
+
+function RoomPanelDialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
+  return (
+    <div className="fixed inset-0 z-[85] grid place-items-center bg-black/65 p-3 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="room-panel-title" tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }} className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#111115] shadow-2xl">
+        <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-2"><h2 id="room-panel-title" className="text-sm font-semibold text-white">{title}</h2><button type="button" onClick={onClose} aria-label="Close room panel" className="grid size-11 cursor-pointer place-items-center rounded-xl text-white/55 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-white"><X className="size-4" aria-hidden /></button></header>
+        <div className="min-h-0 overflow-y-auto" data-lenis-prevent>{children}</div>
+      </section>
+    </div>
   );
 }
 
@@ -3042,7 +2870,7 @@ function CustomizePanel({
               return <button key={option.id} type="button" onClick={() => player.setChatDock(option.id)} aria-pressed={selected} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3 text-left shadow-xs-skeuomorphic ring-1 ring-inset outline-focus-ring transition duration-100 ease-linear hover:bg-white/[0.08] focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-[.99] ${selected ? "bg-white text-black ring-white/90" : "bg-white/[0.035] text-white/70 ring-white/8"}`}><MessageSquare className="size-3.5 shrink-0" aria-hidden /><span className="min-w-0"><span className="block text-[10px] font-semibold">{option.label}</span><span className={`mt-0.5 block text-[9px] ${selected ? "text-black/58" : "text-white/35"}`}>{option.description}</span></span></button>;
             })}
           </div>
-          <p className="rounded-xl bg-white/[0.035] px-3 py-2 text-[9px] leading-4 text-white/38">Combined chat keeps every conversation together. Columns show each channel separately. Focused chat follows the player you select.</p>
+          <p className="rounded-xl bg-white/[0.035] px-3 py-2 text-[9px] leading-4 text-white/38">Twitch chat follows the main stage, including changes from your phone. Use Chat settings for channels, text size, and filters.</p>
         </SettingGroup>
 
         {advancedOpen ? <SettingGroup id="advanced" title="Advanced controls" description="Keyboard shortcuts and precise playback" open={openSection === "advanced"} onToggle={() => toggleSection("advanced")}>
@@ -4011,13 +3839,7 @@ function RoomStudio({
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/[.035] p-1 ring-1 ring-white/8">
-                    {(["combined", "columns", "focused"] as const).map((mode) => (
-                      <button key={mode} type="button" onClick={() => setDraftAndCommit({ ...draftRef.current, chatMode: mode })} aria-pressed={draft.chatMode === mode} className={`min-h-9 rounded-lg text-[9px] font-semibold ${draft.chatMode === mode ? "bg-white text-black" : "text-white/50 hover:text-white"}`}>
-                        {mode === "combined" ? "One room" : mode === "columns" ? "Separate" : "Focus"}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="rounded-xl bg-white/[.035] p-3 text-[10px] leading-5 text-white/50">Chat follows the main stage automatically. Changes from your phone switch the chat too. Use the settings button in chat for channels and message filters.</p>
                   <div onPointerDown={beginDockEdit} onFocusCapture={beginDockEdit} className="space-y-2">
                     {draft.chatDock === "floating" ? (
                       <>
@@ -4090,8 +3912,9 @@ function RoomStudio({
   );
 }
 
-function AudioLeadPicker({
+function MainStagePicker({
   groups,
+  mainItemKey,
   mobile,
   onClose,
   onChoose,
@@ -4101,42 +3924,57 @@ function AudioLeadPicker({
     memberLabel: string;
     sources: Array<{ item: Playable; tileId: string | null }>;
   }>;
+  mainItemKey: string | null;
   mobile: boolean;
   onClose: () => void;
   onChoose: (item: Playable) => void;
 }) {
-  const hasAlternates = groups.some((group) => group.sources.length > 1);
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
+
   return (
     <div className="fixed inset-0 z-[95] grid place-items-end bg-black/72 p-3 backdrop-blur-sm md:place-items-center md:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="audio-lead-title" className={`w-full overflow-hidden rounded-3xl border border-white/15 bg-[#111115] shadow-[0_32px_120px_rgba(0,0,0,.78)] ${mobile ? "max-w-none" : "max-w-md"}`}>
-        <header className="flex items-center justify-between gap-4 px-5 pb-2 pt-5 sm:px-6 sm:pt-6">
-          <div><p id="audio-lead-title" className="text-base font-semibold tracking-tight text-white">{hasAlternates ? "Choose where to watch" : "Choose room audio"}</p>{!hasAlternates ? <p className="mt-1 text-xs text-white/55">Select a stream to hear.</p> : null}</div>
-          <button type="button" onClick={onClose} className="grid size-10 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition hover:border-white/30 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label="Close and keep streams muted"><X className="size-4" aria-hidden /></button>
+      <section ref={dialogRef} id="main-stage-picker" role="dialog" aria-modal="true" aria-labelledby="main-stage-title" aria-describedby="main-stage-description" tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }} className={`flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#111115] shadow-[0_32px_120px_rgba(0,0,0,.78)] ${mobile ? "max-w-none" : "max-w-md"}`}>
+        <header className="flex shrink-0 items-start justify-between gap-3 px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
+          <div>
+            <span aria-hidden className="mb-3 grid h-8 w-12 grid-cols-[1fr_12px] grid-rows-2 gap-1 rounded-md bg-white/5 p-1 ring-1 ring-inset ring-white/10"><span className="row-span-2 grid place-items-center rounded-sm bg-white text-black"><Play className="size-3 fill-current" /></span><span className="rounded-sm bg-white/25" /><span className="rounded-sm bg-white/15" /></span>
+            <h2 id="main-stage-title" className="text-xl font-semibold tracking-tight text-white">Choose your main stage</h2>
+            <p id="main-stage-description" className="mt-1.5 text-xs leading-5 text-white/55">Pick the stream to feature in the main player.</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-white/10 text-white/60 transition hover:border-white/30 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label="Close main stage picker"><X className="size-4" aria-hidden /></button>
         </header>
-        <div className="max-h-[55dvh] space-y-2 overflow-y-auto p-3">
-          {groups.map((group) => (
-            <div key={group.key} className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-3">
-              <div className="flex items-center gap-3">
-                <span className="relative block aspect-video w-20 shrink-0 overflow-hidden rounded-xl bg-black ring-1 ring-white/8">{group.sources[0]?.item.poster ? <img src={group.sources[0].item.poster} alt="" className="h-full w-full object-cover" /> : null}<span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span></span>
-                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-white">{group.memberLabel}</span>{group.sources.length === 1 ? <span className="mt-0.5 block truncate text-xs text-white/50">{group.sources[0]?.item.title}</span> : null}</span>
-              </div>
-              {group.sources.length > 1 ? (
-                <div className="mt-3 grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
-                  {group.sources.map(({ item }) => (
-                    <button key={item.key} type="button" onClick={() => onChoose(item)} aria-label={`Watch ${group.memberLabel} on ${platformLabel(item)}`} className="group flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.07] px-3 text-xs font-semibold text-white transition duration-150 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white hover:text-black active:translate-y-0 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                      <Play className="size-3.5 fill-current" aria-hidden />
-                      <span>Watch on {platformLabel(item)}</span>
-                    </button>
-                  ))}
+        <div className="min-h-0 space-y-2.5 overflow-y-auto overscroll-contain px-3 pb-1">
+          {groups.map((group) => {
+            const selected = group.sources.find(({ item }) => item.key === mainItemKey);
+            const preview = selected?.item ?? group.sources[0]?.item;
+            return (
+              <div key={group.key} className={`overflow-hidden rounded-2xl border p-3 transition ${selected ? "border-white/35 bg-white/[0.08]" : "border-white/10 bg-white/[0.035]"}`}>
+                <div className="flex items-center gap-3">
+                  <span className="relative block aspect-video w-24 shrink-0 overflow-hidden rounded-xl bg-black ring-1 ring-white/8">{preview?.poster ? <img src={preview.poster} alt="" className="h-full w-full object-cover" /> : null}<span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-white">{group.memberLabel}</p>
+                    <p className="mt-1 truncate text-xs text-white/50">{readableTitle(preview?.title ?? "")}</p>
+                  </div>
                 </div>
-              ) : group.sources[0] ? (
-                <button type="button" onClick={() => onChoose(group.sources[0]!.item)} aria-label={`Hear ${group.memberLabel} as room audio`} className="mt-2 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-white/8 px-2 text-[10px] font-semibold text-white/70 ring-1 ring-inset ring-white/10 transition hover:bg-white hover:text-black hover:ring-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Volume2 className="size-3.5" aria-hidden />Hear {platformLabel(group.sources[0].item)}</button>
-              ) : null}
-            </div>
-          ))}
-          {!groups.length ? <p className="p-4 text-center text-xs text-white/45">No live streams are available to use as room audio.</p> : null}
+                <div className={`mt-3 grid gap-2 ${group.sources.length > 1 ? "min-[400px]:grid-cols-2" : "grid-cols-1"}`}>
+                  {group.sources.map(({ item }) => {
+                    const active = item.key === mainItemKey;
+                    return (
+                      <button key={item.key} type="button" onClick={() => onChoose(item)} aria-pressed={active} aria-label={`Make ${group.memberLabel} on ${platformLabel(item)} the main stage`} className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold ring-1 ring-inset transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${active ? "bg-white text-black ring-white" : "bg-white/[0.06] text-white/85 ring-white/15 hover:bg-white hover:text-black hover:ring-white"}`}>
+                        {active ? <Check className="size-3.5 shrink-0" aria-hidden /> : <MonitorPlay className="size-3.5 shrink-0" aria-hidden />}
+                        <span>{active ? "Main stage" : "Make main"}</span>
+                        <span aria-hidden className={`h-3 w-px ${active ? "bg-black/20" : "bg-white/20"}`} />
+                        <span className={active ? "text-black/60" : "text-current opacity-65"}>{platformLabel(item)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {!groups.length ? <p className="p-4 text-center text-xs text-white/45">No live streams are available for the main stage.</p> : null}
         </div>
-        <div className="px-3 pb-4"><button type="button" onClick={onClose} className="min-h-11 w-full cursor-pointer rounded-xl px-3 text-xs font-medium text-white/55 transition hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Keep all muted</button></div>
+        <div className="shrink-0 px-3 pb-3 pt-2"><button type="button" onClick={onClose} className="min-h-11 w-full cursor-pointer rounded-xl px-3 text-xs font-medium text-white/55 transition hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Keep current view</button></div>
       </section>
     </div>
   );
@@ -4274,10 +4112,6 @@ function SourceDrawer({
       </section>
     </div>
   );
-}
-
-function EmptyChat({ onAdd }: { onAdd: () => void }) {
-  return <div className="grid h-full min-h-52 place-items-center p-5 text-center"><div><MessageSquare className="mx-auto size-5 text-white/25" /><p className="mt-3 text-xs font-semibold text-white/60">Chat follows Twitch players</p><p className="mt-1 text-[11px] leading-5 text-white/35">Add a Twitch stream and its channel joins the dock automatically.</p><button type="button" onClick={onAdd} className="mt-4 min-h-10 rounded-xl px-4 text-xs font-semibold ring-1 ring-white/15">Add stream</button></div></div>;
 }
 
 function ChatDockPlacementNote({ dock }: { dock: "bottom" | "floating" }) {

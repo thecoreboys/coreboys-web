@@ -4,15 +4,16 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChatSessionProvider, useChatSession } from "@/components/live/ChatSession";
 import type { ChatToken } from "@/lib/twitch-chat-client";
 import { MULTIVIEW_REMOTE_API, type RemoteChatMessage } from "@/lib/watch/multiview-remote";
+import { ChannelLogo, type ChannelLogoProps } from "@/components/live/ChannelLogo";
 
 const MESSAGE_LIMIT = 100;
 type Message = RemoteChatMessage & { platform: "twitch" | "youtube"; tokens?: ChatToken[] };
 
-function CombinedFeed({ youtube, youtubeReady, login }: {
+function CombinedFeed({ youtube, youtubeReady, login, name, logoUrl, logoName, avatarUrl }: {
   youtube: RemoteChatMessage[];
   youtubeReady: boolean;
   login: string;
-}) {
+} & ChannelLogoProps) {
   const { mergedMessages, statusByChannel } = useChatSession();
   const scroller = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
@@ -29,8 +30,10 @@ function CombinedFeed({ youtube, youtubeReady, login }: {
   }, [messages]);
 
   return (
-    <div className="flex h-[clamp(17rem,52dvh,34rem)] min-h-0 flex-col overflow-hidden rounded-2xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)]" data-lenis-prevent>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[color:var(--rule)] bg-[color:var(--bg-elev)]" data-lenis-prevent>
       <div className="flex flex-wrap items-center gap-2 border-b border-[color:var(--rule)] px-4 py-3 text-xs text-[color:var(--ink-dim)]">
+        <ChannelLogo name={name} logoUrl={logoUrl} logoName={logoName} avatarUrl={avatarUrl} />
+        <span className="mr-auto font-semibold text-[color:var(--ink)]">{name}</span>
         <span className="rounded-full bg-violet-500/15 px-2.5 py-1 font-semibold text-[color:var(--ink)]">Twitch{statusByChannel[login] === "open" ? "" : " · Connecting"}</span>
         <span className="rounded-full bg-red-500/15 px-2.5 py-1 font-semibold text-[color:var(--ink)]">YouTube{youtubeReady ? "" : " · Connecting"}</span>
       </div>
@@ -65,14 +68,14 @@ function CombinedFeed({ youtube, youtubeReady, login }: {
   );
 }
 
-export function CombinedRemoteChat({ sessionId, videoId, login, twitchUserId, name, fallback }: {
+export function CombinedRemoteChat({ sessionId, videoId, login, twitchUserId, name, logoUrl, logoName, avatarUrl, fallback }: {
   sessionId: string;
   videoId: string;
   login: string;
   twitchUserId?: string;
   name: string;
   fallback: ReactNode;
-}) {
+} & Pick<ChannelLogoProps, "logoUrl" | "logoName" | "avatarUrl">) {
   const [youtube, setYoutube] = useState<RemoteChatMessage[]>([]);
   const [status, setStatus] = useState<"connecting" | "ready" | "unavailable">("connecting");
   const channels = useMemo(() => [{ login, userId: twitchUserId, displayName: name }], [login, name, twitchUserId]);
@@ -106,7 +109,7 @@ export function CombinedRemoteChat({ sessionId, videoId, login, twitchUserId, na
 
   return status === "unavailable" ? fallback : (
     <ChatSessionProvider channels={channels} perChannelLimit={MESSAGE_LIMIT} mergedLimit={MESSAGE_LIMIT}>
-      <CombinedFeed youtube={youtube} youtubeReady={status === "ready"} login={login} />
+      <CombinedFeed youtube={youtube} youtubeReady={status === "ready"} login={login} name={name} logoUrl={logoUrl} logoName={logoName} avatarUrl={avatarUrl} />
     </ChatSessionProvider>
   );
 }
