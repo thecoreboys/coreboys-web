@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { compactTitle, groupCrossposts, isRecentItem, readableTitle, watchFormatLabel, watchTitle } from "../lib/watch/presentation";
+import { billboardHeadline, compactTitle, groupCrossposts, isRecentItem, readableTitle, watchFormatLabel, watchTitle } from "../lib/watch/presentation";
 import type { WatchItem } from "../lib/watch/types";
 
 const short = (patch: Partial<WatchItem> = {}): WatchItem => ({ id: "one", kind: "clip", platform: "tiktok", title: "Prime Lacy is back in the house", memberSlug: "lacy", memberLabel: "Lacy", publishedAt: "2026-11-09T00:00:00Z", format: "short", poster: "", backdrop: "", accent: "red", href: "https://www.tiktok.com/@lacy/video/1", ...patch });
@@ -13,6 +13,17 @@ test("display titles clean provider noise without changing source titles", () =>
   assert.equal(readableTitle("🔴SUIT SHOPPING🔴LATE NIGHT GAMING🔴 !live"), "Suit shopping · late night gaming");
   assert.equal(compactTitle("A full title that should end at a word boundary", 24), "A full title that…");
   assert.equal(watchTitle(short({ title: "https://t.co/abc", kind: "post" })), "Lacy · Post");
+});
+
+test("mobile billboard headlines preserve complete topics and bound long single-topic titles", () => {
+  const title = "🟥 MY LAST STREAM 🟥 CORE DAY 🟥 GINGE IS HERE 🟥 STREAMER AWARDS TOMORROW 🟥 DRAMA 🟥 JOIN !sub";
+  assert.equal(billboardHeadline(title), "My last stream · CORE day · ginge is here");
+  assert.equal(billboardHeadline("A short feature title"), "A short feature title");
+  const sentence = "A single long feature title with several useful details that still need to be available in the disclosure";
+  const headline = billboardHeadline(sentence);
+  assert.ok(headline.length <= 64);
+  assert.ok(headline.endsWith("…"));
+  assert.ok(sentence.startsWith(headline.slice(0, -1)));
 });
 
 test("cross-post grouping preserves alternate sources without mutating the feed", () => {

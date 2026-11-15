@@ -1,0 +1,34 @@
+/* Shared refinements for the full Guide and the guide inside a player frame. */
+.guide-v2 .guide-controls { gap: 12px; min-width: 0; }
+.guide-filter-popover { max-height: min(320px, var(--available-height, calc(100dvh - 48px))) !important; max-width: calc(100vw - 48px); overscroll-behavior: contain; }
+.guide-v2 .guide-select-wrap, .guide-v2 .guide-search-wrap { min-width: 0; }
+.guide-v2 .guide-select-wrap::after { display: none; }
+.guide-v2 .guide-search-wrap input { height: 46px; min-height: 46px; font-size: 16px; }
+.guide-v2 .guide-controls button { min-height: 46px; }
+.guide-v2 .guide-timeline-toolbar { flex-wrap: wrap; gap: 12px; padding-block: 8px; }
+.guide-v2 .guide-timeline-toolbar > div { flex-wrap: wrap; min-width: 0; gap: 6px; }
+.guide-v2 .guide-timeline-toolbar button, .guide-v2 .guide-scope button { min-height: 44px; }
+.guide-v2 .guide-timeline-toolbar .guide-timeline-zoom button { width: 44px; min-width: 44px; min-height: 44px; padding: 0; }
+.guide-v2 .guide-timeline-toolbar > p > strong { font-size: 13px; }
+.guide-v2 .guide-timeline-toolbar > p > span { font-size: 12px; }
+.guide-v2 .guide-timeline-scroll { scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; scroll-padding-inline-start: var(--guide-label-w); }
+.guide-v2 .guide-timeline-scroll::-webkit-scrollbar { display: block; height: 6px; width: 6px; }
+.guide-v2 .guide-timeline-scroll::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 999px; }
+.guide-v2 .guide-timeline-label-copy strong { font-size: 13px; }
+.guide-v2 .guide-timeline-subchannel { font-size: 11px !important; }
+.guide-v2 .guide-now-next-card { display: flex; flex-direction: column; padding: 20px; }
+.guide-v2 .guide-now-next-network > div { min-width: 0; }
+.guide-v2 .guide-now-next-network strong { overflow-wrap: anywhere; }
+.guide-v2 .guide-now-next-card h3 { min-height: 3em; }
+.guide-v2 .guide-now-next-play { margin-top: auto; flex-shrink: 0; }
+
+@media (max-width: 767px) {
+  .guide-v2 .guide-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .guide-v2 .guide-controls .guide-search-wrap { grid-column: 1 / -1; }
+  .guide-v2 .guide-schedule-heading { flex-wrap: wrap; gap: 12px; }
+  .guide-v2 .guide-timeline-toolbar > div { width: 100%; }
+  .guide-v2 .guide-timeline-zoom { margin-left: 0; }
+  .guide-v2 .guide-timeline-toolbar button { padding-inline: 10px; font-size: 12px; }
+  .guide-v2 .guide-scope { max-width: 100%; overflow-x: auto; }
+}
+@media (max-width: 479px) { .guide-v2 .guide-untitled-select { grid-column: 1 / -1; } }

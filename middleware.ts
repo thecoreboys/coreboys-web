@@ -37,6 +37,12 @@ const TRUSTED_INTEGRATION_PATHS = [
   // This exact route independently verifies its dedicated retention secret.
   "/api/admin/faces/maintenance",
   "/api/auth/verify-email",
+  // Recovery uses a single-use token or shared IP/account throttles and must
+  // work on another device without the preview access cookie.
+  "/reset-password",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+  "/api/auth/reset-password/validate",
 ] as const;
 
 const PUBLIC_STATIC_ASSET = /\.(?:avif|gif|ico|jpe?g|mp3|mp4|ogg|png|svg|ttf|wav|webm|webp|woff2?)$/i;

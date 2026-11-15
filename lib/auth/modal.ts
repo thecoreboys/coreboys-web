@@ -1,4 +1,4 @@
-export type AuthModalMode = "login" | "signup";
+export type AuthModalMode = "login" | "signup" | "forgot-password";
 
 export type AuthModalRequest = {
   mode?: AuthModalMode;

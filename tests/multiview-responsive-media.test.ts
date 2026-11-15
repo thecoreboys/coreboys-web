@@ -25,5 +25,5 @@ test("Twitch room controls reserve their own space above the native iframe", () 
   assert.match(source, /height: "calc\(100% - 64px\)", top: 64/);
   assert.match(source, /size\.height - 64 < 300/);
   assert.match(source, /minmax\(384px, 1fr\)/);
-  assert.match(source, /tile\.item\.platform === "twitch" \? "h-16 bg-\[#101014\]"/);
+  assert.match(source, /tile\.item\.platform === "twitch" \? "h-16 bg-room-panel"/);
 });

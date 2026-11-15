@@ -39,6 +39,7 @@ type FanUserRow = {
   id: string;
   email: string;
   password_hash: string;
+  session_version: number;
   display_name: string;
   email_verified: boolean;
   created_at: Date;
@@ -85,7 +86,7 @@ export async function createFanUser(input: SignupInput): Promise<FanUserPublic> 
 /** Full row incl. password hash — for login comparison only. */
 export async function getFanUserByEmail(email: string): Promise<FanUserRow | null> {
   const { rows } = await query<FanUserRow>(
-    `SELECT id, email, password_hash, display_name, email_verified, created_at
+    `SELECT id, email, password_hash, session_version, display_name, email_verified, created_at
      FROM fan_users WHERE email = $1`,
     [email.trim().toLowerCase()],
   );

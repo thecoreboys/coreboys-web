@@ -11,10 +11,9 @@ export function GuideGrid({ serverNow, initialLive, networks, partial = false }:
   const items = new Map(networks.flatMap((group) => group.rows.flatMap((row) => row.items)).map((item) => [`${item.platform}:${item.id}`, item]));
   const snapshot = projectGuideWindow({ serverNow, horizonEnd: new Date(now + 7 * 86_400_000).toISOString(), networks,
     programs: [...items.values()].flatMap((item) => { const program = guideProgramFromItem(item); return program ? [program] : []; }),
-  }, now - 26 * 3_600_000, now + 18 * 3_600_000, !partial);
+  }, now - 26 * 3_600_000, now + 18 * 3_600_000);
   if (partial) {
     snapshot.partial = true;
-    snapshot.networks = networks.map((group) => ({ ...group, rows: group.rows.map((row) => ({ ...row, items: [] })) }));
   }
   return <GuideGridPayload snapshot={packGuidePayload(snapshot)} live={packWatchItemLists({ live: initialLive })} />;
 }

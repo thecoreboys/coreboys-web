@@ -14,6 +14,7 @@ import {
 
 export function useMyList() {
   const { user, loading } = useAuth();
+  const userId = user?.id ?? null;
   const [ids, setIds] = useState<string[]>([]);
   const [status, setStatus] = useState(readMyListStatus);
 
@@ -37,19 +38,19 @@ export function useMyList() {
   useEffect(() => {
     if (loading) return;
     let cancelled = false;
-    if (!user) {
+    if (!userId) {
       selectMyListAccount(null);
       setIds([]);
       return;
     }
-    setIds(selectMyListAccount(user.id));
-    void syncMyList(user.id).then((nextIds) => {
+    setIds(selectMyListAccount(userId));
+    void syncMyList(userId).then((nextIds) => {
       if (!cancelled) setIds(nextIds);
     });
     return () => {
       cancelled = true;
     };
-  }, [loading, user?.id]);
+  }, [loading, userId]);
 
   return {
     ids,

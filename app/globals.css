@@ -7,6 +7,7 @@
    components/providers/ThemeProvider.tsx. */
 @import "../styles/theme.css";
 @import "../styles/typography.css";
+@import "./multiview.css";
 
 @plugin "@tailwindcss/typography";
 @plugin "tailwindcss-react-aria-components";

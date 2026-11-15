@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { fetchWatchGuide, WATCH_GUIDE_KEY, type GuidePayload } from "@/lib/watch/guide-response";
+import { fetchWatchGuide, guideRefreshInterval, WATCH_GUIDE_KEY, type GuidePayload } from "@/lib/watch/guide-response";
 
 /** One public snapshot shared by the full Guide, Tonight, and player guide. */
 export function useWatchGuide(options?: { window?: { start: number; end: number }; initialData?: GuidePayload; linear?: boolean }) {
@@ -12,8 +12,8 @@ export function useWatchGuide(options?: { window?: { start: number; end: number 
     keepPreviousData: true,
     // Revisiting a surface immediately renders the same cached snapshot.
     // Concurrent mounts and quick navigation share a single network request.
-    dedupingInterval: 30_000,
-    refreshInterval: 60_000,
+    dedupingInterval: 4_000,
+    refreshInterval: guideRefreshInterval,
     revalidateOnFocus: true,
     focusThrottleInterval: 30_000,
     refreshWhenHidden: false,

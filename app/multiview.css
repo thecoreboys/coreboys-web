@@ -1,0 +1,137 @@
+/* Room chrome follows the site theme. Video and artwork keep their own
+   dark palette so provider frames and controls over images stay legible. */
+@theme inline {
+  --color-room-ink: var(--room-ink);
+  --color-room-secondary: var(--room-secondary);
+  --color-room-muted: var(--room-muted);
+  --color-room-faint: var(--room-faint);
+  --color-room-inverse: var(--room-inverse);
+  --color-room-base: var(--room-base);
+  --color-room-canvas: var(--room-canvas);
+  --color-room-inset: var(--room-inset);
+  --color-room-panel: var(--room-panel);
+  --color-room-raised: var(--room-raised);
+  --color-room-glass: var(--room-glass);
+  --color-room-danger: var(--room-danger);
+}
+
+:root,
+[data-room-player],
+[data-room-media] {
+  --room-ink: #fff;
+  --room-secondary: rgb(255 255 255 / .78);
+  --room-muted: rgb(255 255 255 / .58);
+  --room-faint: rgb(255 255 255 / .4);
+  --room-inverse: #09090b;
+  --room-base: #050506;
+  --room-canvas: #070709;
+  --room-inset: #0b0b0e;
+  --room-panel: #101014;
+  --room-raised: #16161a;
+  --room-glass: #000;
+  --room-danger: #ffe2e2;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] [data-room-surface] {
+  --room-ink: #202026;
+  --room-secondary: #45454f;
+  --room-muted: #62626e;
+  --room-faint: #70707b;
+  --room-inverse: #fff;
+  --room-base: #f8f8f7;
+  --room-canvas: #eeeef0;
+  --room-inset: #f3f3f5;
+  --room-panel: #fff;
+  --room-raised: #fafafb;
+  --room-glass: #fff;
+  --room-danger: #ad2437;
+}
+
+.multiview-room__sidebar {
+  background: linear-gradient(160deg, rgb(28 28 34 / .98), rgb(12 12 16 / .98) 46%, rgb(9 9 12 / .98));
+}
+
+html[data-theme="light"] .multiview-room__sidebar {
+  background: var(--room-panel);
+  border-color: #dedee3;
+  box-shadow: 0 2px 6px rgb(24 24 32 / .025), 0 12px 36px rgb(24 24 32 / .05);
+}
+
+html[data-theme="light"] .multiview-room__stage {
+  border-color: #dedee3;
+  box-shadow: 0 2px 6px rgb(24 24 32 / .025), 0 16px 40px rgb(24 24 32 / .05);
+}
+
+html[data-theme="light"] .multiview-room__stage > .watch-player-ambient,
+html[data-theme="light"] .multiview-room__stage > [aria-hidden="true"] {
+  display: none;
+}
+
+html[data-theme="light"] .multiview-room [data-room-player] {
+  outline-color: #d1d1d9;
+}
+
+html[data-theme="light"] .multiview-room [data-room-player][data-focused="true"] {
+  outline-color: #a7a7b4;
+}
+
+.multiview-room__tile-toolbar[data-room-surface] {
+  border-bottom: 1px solid rgb(255 255 255 / .08);
+}
+
+html[data-theme="light"] .multiview-room__tile-toolbar[data-room-surface] {
+  color: var(--room-ink);
+  border-bottom-color: #e6e6eb;
+}
+
+html[data-theme="light"] .multiview-room__tile-toolbar[data-room-surface] button {
+  box-shadow: none;
+}
+
+html[data-theme="light"] .multiview-room__sidebar [role="tablist"] {
+  background: #f0f0f3;
+}
+
+html[data-theme="light"] .multiview-room__sidebar [role="tab"][aria-selected="true"] {
+  background: #fff;
+  color: var(--room-ink);
+  box-shadow: 0 1px 4px rgb(24 24 32 / .1), 0 0 0 1px rgb(24 24 32 / .04);
+}
+
+html[data-theme="light"] .multiview-room__locked {
+  background: #f6f3f8;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .multiview-room__locked > [aria-hidden] {
+  background: radial-gradient(ellipse at 15% 10%, rgb(219 3 104 / .07), transparent 60%),
+    radial-gradient(ellipse at 90% 90%, rgb(118 2 153 / .06), transparent 60%), #f8f6fa;
+}
+
+html[data-theme="light"] .multiview-room__locked > [aria-hidden] > span {
+  display: none;
+}
+
+html[data-theme="light"] .multiview-studio__canvas {
+  box-shadow: 0 8px 32px rgb(24 24 32 / .07);
+  background-image: radial-gradient(#bdbdc9 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+html[data-theme="light"] .multiview-room :where([role="dialog"], [aria-label="Floating chat"], [aria-label="Chat below the player grid"]) {
+  box-shadow: 0 8px 32px rgb(24 24 32 / .08);
+}
+
+html[data-theme="light"] .multiview-studio .text-emerald-300 {
+  color: #08744d;
+}
+
+html[data-theme="light"] .multiview-studio .text-amber-200 {
+  color: #925200;
+}
+
+html[data-theme="light"] .multiview-room :where(button, a, input):focus-visible,
+html[data-theme="light"] .multiview-studio :where(button, a, input):focus-visible {
+  outline-color: var(--core);
+}

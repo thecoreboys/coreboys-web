@@ -19,7 +19,7 @@ export function siteAccessClientIp(headers: Headers): string {
 type FallbackBucket = { hits: number; startedAt: number };
 
 declare global {
-  // eslint-disable-next-line no-var
+
   var __siteAccessFallbackBuckets: Map<string, FallbackBucket> | undefined;
 }
 

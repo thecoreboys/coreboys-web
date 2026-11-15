@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import useSWR from "swr";
+import Image from "@/components/ui/SiteImage";
 import { ArrowRight } from "lucide-react";
 import { campaignIsInWindow, nextCampaignBoundary } from "@/lib/campaigns/schedule";
 import type { CampaignFeed, CampaignPlacement, PublicCampaign } from "@/lib/campaigns/types";
@@ -61,7 +62,7 @@ export function CampaignShowcase({ campaigns, preview = false }: { campaigns: Pu
   return <section className={`watch-campaign-section ${styles.section}`} aria-labelledby={headingId}>
     <div className={styles.surface}>
       <div className={styles.intro}>
-        <img className={styles.illustration} src="/brand/campaign-clips-coins-v1.webp" alt="" width={600} height={400} loading="lazy" decoding="async" />
+        <Image className={styles.illustration} src="/brand/campaign-clips-coins-v1.webp" alt="" width={600} height={400} />
         <h2 id={headingId}><span className={styles.headline}>Your clips.<br /> Your coin.</span></h2>
         <div className={styles.introDetail}>
           <p>Find a campaign. Make your clip.<br />Submit it to the organizer.</p>

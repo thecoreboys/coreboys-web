@@ -8,10 +8,16 @@ const player = readFileSync(resolve(root, "components/watch/PersistentPlayer.tsx
 const theaterGuide = readFileSync(resolve(root, "components/watch/TheaterNetworkGuide.tsx"), "utf8");
 const css = readFileSync(resolve(root, "app/watch/watch.css"), "utf8");
 
-test("Theater Guide stays inside the existing player frame", () => {
+test("Theater Guide opens the shared Guide as a full-page dialog with a back action", () => {
   assert.match(player, /guideOverlayOpen \? "is-guide-open"/);
   assert.doesNotMatch(player, /guideDockedPlayer|is-guide-docked|data-guide-player/);
-  assert.match(css, /\.watch-player-frame-shell\.is-guide-open\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(theaterGuide, /Dialog\.Portal/);
+  assert.match(theaterGuide, /import\("\.\/GuideGrid"\)/);
+  assert.match(theaterGuide, /Back to media player/);
+  assert.match(theaterGuide, /onTune=\{tuneProgram\}/);
+  assert.match(theaterGuide, /onClick=\{returnToPlayer\}/);
+  assert.match(theaterGuide, /onEscapeKeyDown=\{event => \{ event.preventDefault\(\); event.stopPropagation\(\); returnToPlayer\(\); \}\}/);
+  assert.match(player, /if \(event.defaultPrevented \|\| guideMenuOpen\) return/);
 });
 
 test("Guide and Now Playing toggle labels do not render a back arrow", () => {
@@ -32,7 +38,7 @@ test("Shorts never inherits the Theater Guide control", () => {
 test("Shorts preserves a closed companion panel while the viewer moves between clips", () => {
   assert.match(player, /const playerPageKey = shortsPage \? "shorts" : "theater"/);
   assert.match(player, /playerPageSidebarInitializedRef\.current === playerPageKey\) return/);
-  assert.match(player, /shortsPage && queueOpen[\s\S]{0,240}lg:grid-cols-\[minmax\(0,calc\(\(100dvh-8rem\)\*9\/16\)\)_22rem\]/);
+  assert.match(player, /shortsPage && queueOpen[\s\S]{0,240}lg:grid-cols-\[minmax\(0,calc\(\(100dvh-8rem-var\(--watch-creator-tags-height,0px\)\)\*9\/16\)\)_22rem\]/);
 });
 
 test("Theater has a top-left back arrow labeled Home", () => {
@@ -42,7 +48,7 @@ test("Theater has a top-left back arrow labeled Home", () => {
   assert.match(css, /\.watch-player-theater-home\s*\{[^}]*position:\s*absolute;[^}]*top:[^;]+;[^}]*left:[^;]+;/s);
 });
 
-test("Theater Guide program labels do not create native browser tooltips", () => {
-  assert.doesNotMatch(theaterGuide, /onClick=\{\(\) => tune\(row, entry\)\} title=\{entry\.title\}/);
-  assert.match(theaterGuide, /<strong>\{entry\.title\}<\/strong>/);
+test("Theater uses the shared program cards instead of a separate cramped timeline", () => {
+  assert.doesNotMatch(theaterGuide, /theater-network-guide-program/);
+  assert.match(theaterGuide, /initialGuide=\{data\}/);
 });

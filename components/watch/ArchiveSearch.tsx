@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import Image from "@/components/ui/SiteImage";
 import { MEMBERS } from "@/lib/members";
 import { useBrowseFilters } from "@/hooks/useBrowseFilters";
 import { archiveMentionAt, removeArchiveMention } from "@/lib/watch/archive-mentions";
@@ -43,7 +44,8 @@ export function ArchiveSearch() {
 
   useEffect(() => { const timer = window.setTimeout(() => setQuery(filters.q), 300); return () => window.clearTimeout(timer); }, [filters.q]);
   const mention = focused && !dismissed ? archiveMentionAt(filters.q, caret) : null;
-  const suggestions = useMemo(() => mention ? CREATOR_OPTIONS.filter((creator) => creator.aliases.some((alias) => alias.toLowerCase().replace(/[^a-z0-9._-]/g, "").includes(mention.query))).slice(0, 7) : [], [mention?.query]);
+  const mentionQuery = mention?.query;
+  const suggestions = useMemo(() => mentionQuery !== undefined ? CREATOR_OPTIONS.filter((creator) => creator.aliases.some((alias) => alias.toLowerCase().replace(/[^a-z0-9._-]/g, "").includes(mentionQuery))).slice(0, 7) : [], [mentionQuery]);
   const activeMentionIndex = Math.min(mentionIndex, Math.max(0, suggestions.length - 1));
 
   const params = new URLSearchParams({ ...filters, q: query, limit: String(PAGE_SIZE), offset: String(offset), mode: "basic" });
@@ -88,7 +90,7 @@ export function ArchiveSearch() {
         {mention && suggestions.length ? <div className={styles.suggestions} id={listId} role="listbox" aria-label="Choose a creator">
           {suggestions.map((creator, index) => <div key={creator.slug} id={`${listId}-${index}`} role="option" aria-selected={index === activeMentionIndex} data-active={index === activeMentionIndex} className={styles.suggestion}
             onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseCreator(creator)}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}<img src={creator.portrait} alt="" loading="lazy" />
+            <Image src={creator.portrait} alt="" width={40} height={40} />
             <span><strong>{creator.label}</strong><small>@{creator.handle}</small></span>
           </div>)}
         </div> : null}

@@ -98,7 +98,7 @@ let schemaReady: Promise<void> | null = null;
 declare global {
   // Keep one local refresh promise across Next.js hot reloads. This is only a
   // development fallback; production refreshes use the Postgres advisory lock.
-  // eslint-disable-next-line no-var
+
   var __coreboysXLocalRefresh: Promise<XFeedRefreshResult> | undefined;
 }
 

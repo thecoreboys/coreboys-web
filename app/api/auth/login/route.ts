@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
 
-  const token = await signFanSessionToken(row.id);
+  const token = await signFanSessionToken(row.id, row.session_version);
   const res = NextResponse.json({
     user: {
       id: row.id,

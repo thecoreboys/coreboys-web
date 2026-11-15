@@ -43,6 +43,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           pnpm typecheck
+          pnpm lint
           pnpm test
 
       - name: Verify Stripe supporter readiness
