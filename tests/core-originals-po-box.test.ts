@@ -26,6 +26,15 @@ test("CORE X VEGAS is available in both Originals data paths", () => {
   assert.ok(statSync(asset).size < 500_000, "the home-rail poster should stay below 500 KB");
 });
 
+test("CORE X RUG is excluded from the Originals catalog and home fallback", () => {
+  const home = read("components/watch/WatchHome.tsx");
+  const originals = read("lib/core-originals.ts");
+
+  assert.doesNotMatch(home, /CORE Rug|core-rug\.webp/i);
+  assert.doesNotMatch(originals, /\["core-rug",/);
+  assert.match(originals, /slug <> 'core-rug'/);
+});
+
 test("seeded Originals remain reachable when the database is unavailable", () => {
   const originals = read("lib/core-originals.ts");
 

@@ -1,4 +1,6 @@
 import "server-only";
+import { getUnavailableContentKeys } from "@/lib/content-availability";
+import { sanitizeAvailableContent } from "@/lib/content-identity";
 import { cosineSimilarity, getEmbeddingProvider } from "./embedding";
 import { expandConcepts, focusedMediaQuery, matchedQueryTerms, normalizeText, textTokens, tokenFuzzySimilarity } from "./text";
 import { getMediaIntelligenceStore } from "./postgres-store";
@@ -149,8 +151,11 @@ export async function searchMedia(input: {
     input.filters ?? {},
     queryVector,
   );
+  const unavailable = await getUnavailableContentKeys(documents.map((document) => document.asset.item));
   const byAsset = new Map<string, MediaSearchHit>();
   for (const document of documents) {
+    const item = sanitizeAvailableContent([document.asset.item], unavailable)[0];
+    if (!item) continue;
     if (!matchesSearchFilters(document.asset.item, input.filters ?? {})) continue;
     const canonicalKey = canonicalWatchKey(document.asset.item);
     const { score, breakdown, matchedTerms } = scoreDocument(
@@ -162,7 +167,7 @@ export async function searchMedia(input: {
     const label = document.segment.title || document.asset.title;
     const hit: MediaSearchHit = {
       key: canonicalKey,
-      item: document.asset.item,
+      item,
       score: Number(score.toFixed(6)),
       scoreBreakdown: {
         exact: Number(breakdown.exact.toFixed(4)),

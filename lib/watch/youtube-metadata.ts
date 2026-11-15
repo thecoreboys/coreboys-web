@@ -1,8 +1,13 @@
 import "server-only";
 import { formatDurationSeconds, isoDurationSeconds } from "@/lib/youtube-duration";
 import type { WatchChapter } from "./types";
+import { isYouTubeVideoAvailable, missingYouTubeVideoIds } from "./youtube-availability";
+import { unavailableYouTubeObjects } from "@/lib/provider-availability";
+import { recordContentRemoval } from "@/lib/content-availability";
 
 export type WatchYoutubeMetadata = {
+  /** False when YouTube confirms the ID is private, missing, or not embeddable. */
+  available: boolean;
   duration?: string;
   durationSeconds?: number;
   isShort: boolean;
@@ -40,10 +45,10 @@ export function parseYoutubeChapters(
 ): WatchChapter[] {
   const found = description.split(/\r?\n/).flatMap((raw) => {
     const line = raw.trim();
-    const leading = /^(?:[-*•]\s*)?(?:\[\s*)?((?:(?:\d{1,2}):)?\d{1,2}:\d{2})(?:\s*\])?\s*(?:[-–—|:]\s*)?(.*)$/.exec(line);
+    const leading = /^(?:[-*â€¢]\s*)?(?:\[\s*)?((?:(?:\d{1,2}):)?\d{1,2}:\d{2})(?:\s*\])?\s*(?:[-â€“â€”|:]\s*)?(.*)$/.exec(line);
     const trailing = leading ? null : /^(.*?)\s+((?:(?:\d{1,2}):)?\d{1,2}:\d{2})\s*$/.exec(line);
     const clock = leading?.[1] ?? trailing?.[2];
-    const title = (leading?.[2] ?? trailing?.[1] ?? "").trim().replace(/^[-–—|:]\s*/, "");
+    const title = (leading?.[2] ?? trailing?.[1] ?? "").trim().replace(/^[-â€“â€”|:]\s*/, "");
     const startSeconds = clock ? clockSeconds(clock) : null;
     if (startSeconds == null || !title || (durationSeconds && startSeconds >= durationSeconds)) return [];
     return [{ title: title.slice(0, 100), startSeconds }];
@@ -84,7 +89,7 @@ export async function fetchWatchYoutubeMetadata(
     for (let index = 0; index < ids.length; index += 50) {
       const batch = ids.slice(index, index + 50);
       const params = new URLSearchParams({
-        part: "contentDetails,snippet,liveStreamingDetails",
+        part: "contentDetails,snippet,liveStreamingDetails,status",
         id: batch.join(","),
         key,
       });
@@ -99,6 +104,7 @@ export async function fetchWatchYoutubeMetadata(
       const json = (await response.json()) as {
         items?: Array<{
           id?: string;
+          status?: { privacyStatus?: "public" | "unlisted" | "private"; uploadStatus?: string; embeddable?: boolean };
           contentDetails?: { duration?: string };
           snippet?: {
             title?: string;
@@ -114,8 +120,16 @@ export async function fetchWatchYoutubeMetadata(
         }>;
       };
 
+      for (const removed of unavailableYouTubeObjects(batch, json)) {
+        await recordContentRemoval({ provider: "youtube", providerId: removed.id,
+          reason: removed.reason, evidence: "provider_lookup" });
+      }
+      const returnedIds = new Set<string>();
       for (const item of json.items ?? []) {
         if (!item.id) continue;
+        if (item.status?.privacyStatus === "private" || item.status?.uploadStatus === "deleted") continue;
+        returnedIds.add(item.id);
+        const available = isYouTubeVideoAvailable(item.status);
         const durationSeconds = item.contentDetails?.duration
           ? isoDurationSeconds(item.contentDetails.duration) ?? undefined
           : undefined;
@@ -129,6 +143,7 @@ export async function fetchWatchYoutubeMetadata(
           ? Number(item.liveStreamingDetails.concurrentViewers)
           : undefined;
         output[item.id] = {
+          available,
           duration: durationSeconds ? formatDurationSeconds(durationSeconds) : undefined,
           durationSeconds,
           isShort:
@@ -147,6 +162,13 @@ export async function fetchWatchYoutubeMetadata(
           chapters: parseYoutubeChapters(item.snippet?.description ?? "", durationSeconds),
           relatedFullVideoId: linkedYoutubeVideo(item.snippet?.description ?? "", item.id),
         };
+      }
+
+      // A successful videos.list response omits IDs viewers cannot access,
+      // including videos switched to private or removed since the feed was
+      // ingested. Preserve the distinction from a failed lookup above.
+      for (const id of missingYouTubeVideoIds(batch, returnedIds)) {
+        output[id] = { available: false, isShort: false, liveBroadcastContent: "none" };
       }
     }
   } catch {

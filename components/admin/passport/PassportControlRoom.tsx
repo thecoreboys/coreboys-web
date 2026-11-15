@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   AlertTriangle,
@@ -200,8 +201,7 @@ export function PassportControlRoom({
         <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.42fr)]">
           <div className="flex min-w-0 items-start gap-3">
             {channel?.artwork ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={channel.artwork} alt="" className="size-12 shrink-0 rounded-xl bg-black object-contain p-2 ring-1 ring-inset ring-white/10" />
+              <SiteImage width={48} height={48} src={channel.artwork} alt="" className="size-12 shrink-0 rounded-xl bg-black object-contain p-2 ring-1 ring-inset ring-white/10" />
             ) : null}
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-secondary">Active scope</p>
@@ -494,13 +494,19 @@ function EventDesk({ event, channelSlug, busy, mutate }: { event: PassportEvent 
   const [minimumWatchSeconds, setMinimumWatchSeconds] = useState(120);
   const [attendanceGraceSeconds, setAttendanceGraceSeconds] = useState(300);
   const [heartbeatIntervalSeconds, setHeartbeatIntervalSeconds] = useState(30);
+  const {
+    id: eventId,
+    minimumWatchSeconds: savedMinimumWatchSeconds = 120,
+    attendanceGraceSeconds: savedAttendanceGraceSeconds = 300,
+    heartbeatIntervalSeconds: savedHeartbeatIntervalSeconds = 30,
+  } = event ?? {};
   useEffect(() => { setPlaybackRef(event?.playbackRef ?? ""); }, [event?.id, event?.playbackRef]);
   useEffect(() => {
-    if (!event) return;
-    setMinimumWatchSeconds(event.minimumWatchSeconds);
-    setAttendanceGraceSeconds(event.attendanceGraceSeconds);
-    setHeartbeatIntervalSeconds(event.heartbeatIntervalSeconds);
-  }, [event?.id, event?.minimumWatchSeconds, event?.attendanceGraceSeconds, event?.heartbeatIntervalSeconds]);
+    if (!eventId) return;
+    setMinimumWatchSeconds(savedMinimumWatchSeconds);
+    setAttendanceGraceSeconds(savedAttendanceGraceSeconds);
+    setHeartbeatIntervalSeconds(savedHeartbeatIntervalSeconds);
+  }, [eventId, savedMinimumWatchSeconds, savedAttendanceGraceSeconds, savedHeartbeatIntervalSeconds]);
   const hasPlaybackProof = Boolean(event?.playbackRef);
   return (
     <Panel icon={<Radio className="size-5" />} title={event ? event.title : "Create the first event"} description={event ? `${humanize(event.status)} · ${formatAdminTime(event.scheduledStartAt ?? event.startedAt)} · ${event.playbackRef ? `attendance proof bound to ${event.playbackRef}` : "attendance and Moment Cards disabled until exact media is bound"}` : "Events bind staff, polls, scores, moments, and rewards to one accountable broadcast."}>
@@ -591,7 +597,14 @@ function ScoreDesk({ event, scoreboards, canRevise, canReviseNow, canCertify, bu
   const [homeScore, setHomeScore] = useState("0");
   const [awayScore, setAwayScore] = useState("0");
   const [reason, setReason] = useState("Score update");
-  useEffect(() => { if (scoreboard) { setHomeScore(String(scoreboard.homeScore)); setAwayScore(String(scoreboard.awayScore)); } }, [scoreboard?.id, scoreboard?.homeScore, scoreboard?.awayScore]);
+  const savedScoreboardId = scoreboard?.id;
+  const savedHomeScore = scoreboard?.homeScore;
+  const savedAwayScore = scoreboard?.awayScore;
+  useEffect(() => {
+    if (!savedScoreboardId) return;
+    setHomeScore(String(savedHomeScore));
+    setAwayScore(String(savedAwayScore));
+  }, [savedScoreboardId, savedHomeScore, savedAwayScore]);
   async function submit(formEvent: FormEvent) {
     formEvent.preventDefault();
     if (!canReviseNow) return;
@@ -684,7 +697,7 @@ function MomentRow({ moment, signerOptions, canSetCollectionPolicy, canPreview, 
         {canSeal && moment.status === "published" && moment.edition ? <ActionButton variant="secondary" disabled={busy !== null} loading={busy === "edition.seal"} icon={<Lock className="size-4" />} onClick={() => mutate("edition.seal", { editionId: moment.edition?.id }, "Edition sealed and serials fixed.")}>Seal edition</ActionButton> : null}
         {moment.edition ? <span className="inline-flex min-h-9 items-center rounded-lg border border-secondary bg-primary px-2.5 text-xs text-tertiary">{humanize(moment.edition.rarity)} · {humanize(moment.edition.variant)}{moment.edition.signedBy ? ` by ${moment.edition.signedBy}` : ""} · {moment.edition.accountBound ? "account-bound" : [moment.edition.giftable ? "giftable" : "", moment.edition.tradeable ? "tradeable" : ""].filter(Boolean).join(" + ")} · {humanize(moment.edition.status)} · {moment.edition.issuedCount}{moment.edition.maxSupply ? ` / ${moment.edition.maxSupply} max` : moment.edition.editionSize ? ` / ${moment.edition.editionSize}` : " issued"}{moment.edition.craftValue ? ` · ${moment.edition.craftValue} craft` : ""}</span> : null}
       </div>
-      {moment.edition?.artworkUrl ? <div className="mt-3 w-fit overflow-hidden rounded-lg border border-secondary bg-primary"><img src={moment.edition.artworkUrl} alt={`${moment.edition.name} card artwork`} className="aspect-[3/4] w-40 object-cover sm:w-48" /></div> : null}
+      {moment.edition?.artworkUrl ? <div className="mt-3 w-fit overflow-hidden rounded-lg border border-secondary bg-primary"><SiteImage width={192} height={256} sizes="(min-width: 640px) 192px, 160px" src={moment.edition.artworkUrl} alt={`${moment.edition.name} card artwork`} className="aspect-[3/4] w-40 object-cover sm:w-48" /></div> : null}
     </li>
   );
 }

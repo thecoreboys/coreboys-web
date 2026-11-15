@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function AdminArticlesPage() {
   return (
     <AuthGate>
-      <main className="relative min-h-screen bg-secondary pt-20 md:pt-24">
+      <div className="relative min-h-[var(--page-min-height)] bg-secondary">
         <AdminPageHeader
           eyebrow="Admin · Articles"
           title="Articles."
@@ -30,7 +30,7 @@ export default function AdminArticlesPage() {
             <ArticlesTable />
           </div>
         </section>
-      </main>
+      </div>
     </AuthGate>
   );
 }

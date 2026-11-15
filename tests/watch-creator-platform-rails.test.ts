@@ -409,6 +409,7 @@ test("uses a deterministic platform and content-kind order", () => {
     watchItem("yt-short", { format: "short", accountLabel: "Adapt · Main" }),
     watchItem("yt-video", { accountLabel: "Adapt · Main" }),
     watchItem("yt-replay", { kind: "vod", accountLabel: "Adapt · Live" }),
+    watchItem("yt-stale-live-format", { kind: "vod", format: "live", accountLabel: "Adapt · Main" }),
     watchItem("twitch-replay", { platform: "twitch", kind: "vod", accountLabel: "@adapt" }),
     watchItem("yt-live", { kind: "live", format: "live", accountLabel: "Adapt · Live" }),
     watchItem("twitch-live", { platform: "twitch", kind: "live", format: "live", accountLabel: "@adapt" }),
@@ -428,6 +429,8 @@ test("uses a deterministic platform and content-kind order", () => {
   const youtubeVideo = rails.findIndex((rail) => rail.platform === "youtube" && rail.kind === "videos" && rail.accountLabel === "Adapt · Main");
   const youtubeShort = rails.findIndex((rail) => rail.platform === "youtube" && rail.kind === "shorts" && rail.accountLabel === "Adapt · Main");
   assert.ok(youtubeVideo >= 0 && youtubeVideo < youtubeShort);
+  assert.ok(rails.some((rail) => rail.platform === "youtube" && rail.kind === "broadcasts"
+    && rail.items.some((item) => item.id === "yt-stale-live-format")));
 
   const lastYouTube = Math.max(...indexes((rail) => rail.platform === "youtube"));
   const firstTikTok = Math.min(...indexes((rail) => rail.platform === "tiktok"));
@@ -488,12 +491,13 @@ test("mounts curated rails on the member channel page with an X Community link a
   assert.match(posterCard, /Open video/);
   assert.match(component, /return rail\.items\.length === 0/);
   assert.match(component, /TikTokEmbedScriptLoader signature=\{tiktokEmbedSignature\}/);
-  assert.match(component, /automatic feed is not available/);
-  assert.match(component, /CORE could not refresh \$\{platform\} right now/);
+  assert.match(component, /emptySourceMessage\(rail\)/);
+  assert.match(component, /const officialHref = sourceLink\?\.href \?\? safeExternalUrl\(rail\.sourceHref\)/);
+  assert.match(component, /View creator profile/);
   assert.match(embedFallback, /data-ingest-state=\{rail\.ingestState \?\? "unknown"\}/);
-  assert.match(embedFallback, /TikTok&apos;s official public Creator Profile Embed/);
-  assert.match(embedFallback, /Instagram sometimes removes or restricts public posts/);
-  assert.match(embedFallback, /Open original on Instagram/);
+  assert.match(embedFallback, /cite=\{creator\.profileUrl\}/);
+  assert.match(embedFallback, /data-embed-type="creator"/);
+  assert.match(embedFallback, /<a\s+className=\{styles\.instagramLinkCard\}[^>]*href=\{embed\.permalink\}[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
   assert.match(embedFallback, /instagramProfileCard/);
   assert.match(embedFallback, /filter\(\(embed\) => embed\.kind !== "profile"\)/);
   assert.doesNotMatch(embedFallback, /INSTAGRAM_EMBED_SCRIPT_SRC|instagram-media|processInstagramEmbeds/);
@@ -501,8 +505,8 @@ test("mounts curated rails on the member channel page with an X Community link a
   assert.match(page, /configuredInstagramEmbedUrls\(scopedItems\)/);
   assert.match(page, /publicEmbedUrls: social\.platform === "instagram"/);
   assert.match(page, /ingestState: diagnostic\?\.state/);
-  assert.match(channelRoute, /channelSourceDiagnostics\(channel\)/);
-  assert.match(channelRoute, /sourceDiagnostics=\{sourceDiagnostics\}/);
+  assert.doesNotMatch(channelRoute, /channelSourceDiagnostics|socialCredentialDiagnosticFor/);
+  assert.match(channelRoute, /<NetworkChannelPage[\s\S]{0,220}hub=\{hub\}/);
   assert.doesNotMatch(component, /Connected\. No recent posts/);
   assert.doesNotMatch(component, /XPostEmbed|loadXWidgets|api\.x\.com|api\.twitter\.com|fetch\s*\(/);
 });

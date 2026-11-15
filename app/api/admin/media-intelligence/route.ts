@@ -7,6 +7,9 @@ import { publishMediaIndexGeneration } from "@/lib/media-intelligence/indexing";
 import { retryDeadLetterJobs } from "@/lib/media-intelligence/jobs";
 import { runMediaIntelligenceRetention, tombstoneMediaAsset } from "@/lib/media-intelligence/retention";
 import { runMediaWorkerBatch } from "@/lib/media-intelligence/worker";
+import { mediaIntelligenceQuery } from "@/lib/media-intelligence/schema";
+import { recordContentRemoval } from "@/lib/content-availability";
+import type { ContentIdentityInput, ContentProvider } from "@/lib/content-identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +58,22 @@ export async function POST(request: Request) {
     } else {
       if (!parsed.data.assetKey || !parsed.data.reason) {
         return NextResponse.json({ error: "asset_key_and_reason_required" }, { status: 400 });
+      }
+      // A duplicate index entry is not evidence that the provider original was
+      // removed. Explicit removal/rights actions, however, apply to every surface.
+      if (parsed.data.reason !== "duplicate") {
+        const asset = await mediaIntelligenceQuery<{
+          platform: string; external_id: string; source_url: string | null; item: ContentIdentityInput;
+        }>("SELECT platform,external_id,source_url,item FROM media_intelligence_assets WHERE asset_key=$1", [parsed.data.assetKey]);
+        const row = asset.rows[0];
+        if (row && ["x", "youtube", "instagram", "tiktok", "twitch"].includes(row.platform)) {
+          await recordContentRemoval({ ...row.item, provider: row.platform as ContentProvider,
+            providerId: row.external_id, sourceUrl: row.source_url ?? undefined,
+            reason: parsed.data.reason === "provider-deleted" ? "deleted"
+              : parsed.data.reason === "rights-revoked" ? "rights_revoked" : "admin_removed",
+            evidence: "admin_action",
+          });
+        }
       }
       result = await tombstoneMediaAsset({
         assetKey: parsed.data.assetKey,

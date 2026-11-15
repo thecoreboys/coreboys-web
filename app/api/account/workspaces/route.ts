@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentFanUserId } from "@/lib/fan-auth";
+import { filterAvailableQueuePayload } from "@/lib/watch/available-references";
 import {
   deleteWorkspacePreference,
   listWorkspacePreferences,
@@ -75,12 +76,12 @@ export async function GET(request: Request) {
   }
   const rows = await listWorkspacePreferences(userId, parsed.data);
   return privateJson({
-    items: rows.map((row) => ({
+    items: await Promise.all(rows.map(async (row) => ({
       kind: row.kind,
       name: row.name,
-      payload: row.payload,
+      payload: row.kind === "watch-queue" ? await filterAvailableQueuePayload(row.payload) : row.payload,
       updatedAt: new Date(row.updated_at).toISOString(),
-    })),
+    }))),
   });
 }
 
@@ -97,13 +98,15 @@ export async function PUT(request: Request) {
   const serialized = JSON.stringify(parsed.data.payload);
   if (typeof serialized !== "string") return privateJson({ error: "invalid_payload" }, { status: 400 });
   if (serialized.length > 100_000) return privateJson({ error: "payload_too_large" }, { status: 413 });
-  await upsertWorkspacePreference(userId, parsed.data.kind, parsed.data.name, parsed.data.payload);
+  const payload = parsed.data.kind === "watch-queue"
+    ? await filterAvailableQueuePayload(parsed.data.payload) : parsed.data.payload;
+  await upsertWorkspacePreference(userId, parsed.data.kind, parsed.data.name, payload);
   return privateJson({
     ok: true,
     item: {
       kind: parsed.data.kind,
       name: parsed.data.name,
-      payload: parsed.data.payload,
+      payload,
       updatedAt: new Date().toISOString(),
     },
   });

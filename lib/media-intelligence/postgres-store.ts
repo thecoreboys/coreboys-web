@@ -1,5 +1,6 @@
 import "server-only";
 import type { PoolClient } from "pg";
+import { withAvailableMediaContent } from "./content-guard";
 import {
   ensureMediaIntelligenceSchema,
   mediaIntelligenceQuery,
@@ -187,7 +188,7 @@ export class PostgresMediaIntelligenceStore implements MediaIntelligenceStore {
   readonly kind = "postgres" as const;
 
   async prepareRevision(asset: MediaAssetRecord, revision: MediaRevisionRecord): Promise<void> {
-    await withMediaIntelligenceTransaction(async (client) => {
+    await withAvailableMediaContent(asset.item, async (client, _capabilities, availableItem) => {
       await client.query(
         `INSERT INTO media_intelligence_assets
           (asset_key, source_policy_key, platform, external_id, source_url, content_type, format, orientation,
@@ -207,7 +208,7 @@ export class PostgresMediaIntelligenceStore implements MediaIntelligenceStore {
           asset.key, asset.sourcePolicyKey, asset.platform, asset.externalId, asset.sourceUrl, asset.contentType,
           asset.format, asset.orientation, asset.creatorSlug, asset.creatorLabel, asset.title,
           asset.description, asset.thumbnailUrl, asset.durationSeconds, asset.publishedAt,
-          asset.isLive, JSON.stringify(asset.item), asset.active,
+          asset.isLive, JSON.stringify(availableItem), asset.active,
         ],
       );
       const restored = await client.query<{ tombstone_id: string }>(
@@ -266,9 +267,13 @@ export class PostgresMediaIntelligenceStore implements MediaIntelligenceStore {
   }
 
   async completeAnalysis(result: CompletedAnalysis): Promise<void> {
-    await withMediaIntelligenceTransaction((client, capabilities) =>
-      insertCompletedAnalysis(client, result, capabilities.vector),
-    );
+    const asset = await mediaIntelligenceQuery<{ item: MediaAssetRecord["item"] }>(
+      "SELECT item FROM media_intelligence_assets WHERE asset_key=$1 AND active", [result.assetKey]);
+    if (!asset.rows[0]) throw new Error("content_removed");
+    await withAvailableMediaContent(asset.rows[0].item, async (client, capabilities, availableItem) => {
+      await client.query("UPDATE media_intelligence_assets SET item=$2::jsonb WHERE asset_key=$1", [result.assetKey, JSON.stringify(availableItem)]);
+      return insertCompletedAnalysis(client, result, capabilities.vector);
+    });
   }
 
   async failAnalysis(claim: AnalysisClaim, error: unknown): Promise<void> {

@@ -6,6 +6,7 @@ import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import * as text from "../lib/media-intelligence/text";
 import * as embedding from "../lib/media-intelligence/embedding";
 import * as discovery from "../lib/watch/discovery";
+import * as contentIdentity from "../lib/content-identity";
 import { getLocalMetadataAnalyzer, prepareWatchItem } from "../lib/media-intelligence/analyzer";
 import type { SearchDocument } from "../lib/media-intelligence/types";
 import type { WatchItem } from "../lib/watch/types";
@@ -37,6 +38,8 @@ test("natural search ranks real chapter evidence over a generic stream without i
   const dependencies: Record<string, unknown> = {
     "server-only": {}, "./text": text, "./embedding": embedding,
     "@/lib/watch/discovery": discovery,
+    "@/lib/content-identity": contentIdentity,
+    "@/lib/content-availability": { getUnavailableContentKeys: async () => new Set<string>() },
     "./postgres-store": { getMediaIntelligenceStore: () => ({ searchDocuments: async () => documents }) },
   };
   const source = readFileSync(new URL("../lib/media-intelligence/search.ts", import.meta.url), "utf8");

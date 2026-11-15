@@ -5,6 +5,7 @@ import { query } from "@/lib/db";
 import { ensureFanOauthSchema } from "@/lib/oauth/schema";
 import { EntitlementDeniedError, requireAccountEntitlement } from "@/lib/subscriptions/entitlements";
 import { listAccountMatches } from "@/lib/watch/list-account";
+import { filterAvailableReferences } from "@/lib/watch/available-references";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ async function list(userId: string) {
       LIMIT 80`,
     [userId],
   );
-  return rows.map((row) => row.item_ref);
+  return filterAvailableReferences(rows.map((row) => row.item_ref));
 }
 
 export async function GET(request: Request) {
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
   const denied = await requireDvrAccess(userId, request);
   if (denied) return denied;
   await ensureFanOauthSchema();
-  const ids = [...new Set(parsed.data.ids)];
+  const ids = await filterAvailableReferences([...new Set(parsed.data.ids)]);
   if (ids.length) {
     await query(
       `INSERT INTO fan_watch_list (user_id, item_ref)
@@ -106,6 +107,9 @@ export async function PUT(request: Request) {
   }
   await ensureFanOauthSchema();
   if (parsed.data.saved) {
+    if (!(await filterAvailableReferences([parsed.data.id])).length) {
+      return privateJson({ accountId: userId, ok: false, error: "content_removed" }, { status: 410 });
+    }
     await query(
       `INSERT INTO fan_watch_list (user_id, item_ref)
        VALUES ($1, $2)

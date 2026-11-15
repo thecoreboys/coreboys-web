@@ -9,16 +9,12 @@
  * Social Fetch; public renders read the saved snapshots and never spend.
  */
 
-import {
-  readSocialFetchCreditsCharged,
-  socialFetchBudgetAdapter,
-} from "@/lib/social-fetch-budget";
+import { requestSocialFetchJson } from "@/lib/social-fetch-media";
 
 const BASE = "https://api.socialfetch.dev/v1";
 // 6 hours — Social Fetch counts move slowly enough that fresher than
 // this is wasted credits.
 const REVALIDATE_SECONDS = 6 * 60 * 60;
-const CACHE_TAG = "social-fetch";
 const API_TIMEOUT_MS = 5_000;
 
 export type SocialFetchPlatform = "tiktok" | "instagram" | "x" | "twitter" | "youtube";
@@ -27,7 +23,7 @@ export type SocialFetchPlatform = "tiktok" | "instagram" | "x" | "twitter" | "yo
 export type SocialCount = number;
 
 function endpointFor(platform: SocialFetchPlatform, handle: string, url?: string): string | null {
-  const stripped = handle.replace(/^@/, "").trim();
+  const stripped = handle.replace(/^@+/, "").trim().toLowerCase();
   switch (platform) {
     case "tiktok":
       return stripped ? `${BASE}/tiktok/profiles/${encodeURIComponent(stripped)}` : null;
@@ -98,36 +94,16 @@ async function tryApi(
   handle: string,
   url?: string,
 ): Promise<number | null> {
-  const key = process.env.SOCIAL_FETCH_API_KEY;
+  const key = process.env.SOCIAL_FETCH_API_KEY?.trim();
   if (!key) return null;
 
   const endpoint = endpointFor(platform, handle, url);
   if (!endpoint) return null;
 
-  const reservation = await socialFetchBudgetAdapter.reserve({
-    feature: "profile_metric",
-    requestKey: `${platform}:${handle.replace(/^@+/, "").trim().toLowerCase() || "unknown"}`,
-    estimatedCredits: 1,
+  // Metrics and object checks share the same raw cached response format, so a
+  // future profile check can reuse this endpoint without a second paid request.
+  const result = await requestSocialFetchJson(endpoint.slice(BASE.length), REVALIDATE_SECONDS, {
+    feature: "profile_metric", estimatedCredits: 1, timeoutMs: API_TIMEOUT_MS,
   });
-  if (!reservation.ok) return null;
-
-  let reportedCredits: number | null = null;
-  try {
-    const res = await fetch(endpoint, {
-      headers: { "x-api-key": key, accept: "application/json" },
-      next: { revalidate: REVALIDATE_SECONDS, tags: [CACHE_TAG] },
-      signal: AbortSignal.timeout(API_TIMEOUT_MS),
-    });
-    const json = await res.json().catch(() => null);
-    reportedCredits = readSocialFetchCreditsCharged(json);
-    if (!res.ok || json === null) return null;
-    return pickCount(platform, json);
-  } catch {
-    return null;
-  } finally {
-    await socialFetchBudgetAdapter.settle(reservation.reservationId, reportedCredits).catch((error) => {
-      // Leave the reservation committed if settlement cannot be recorded.
-      console.error("[social-fetch-budget] metric settlement failed", error);
-    });
-  }
+  return result.status === "ok" && !result.budgetDenied ? pickCount(platform, result.body) : null;
 }

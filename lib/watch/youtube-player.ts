@@ -22,6 +22,14 @@ export function youtubePlaybackSample(message: Record<string, unknown>): Record<
   return null;
 }
 
+/** YouTube includes this flag in player info when it knows the broadcast type. */
+export function youtubeLiveContentStatus(sample: Record<string, unknown>): boolean | null {
+  const videoData = sample.videoData;
+  if (!videoData || typeof videoData !== "object") return null;
+  const isLiveContent = (videoData as Record<string, unknown>).isLiveContent;
+  return typeof isLiveContent === "boolean" ? isLiveContent : null;
+}
+
 /**
  * Commands used by the existing postMessage-based YouTube iframe bridge.
  * Loading/unloading the captions module changes captions without navigating

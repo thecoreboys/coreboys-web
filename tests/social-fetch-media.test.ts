@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import test from "node:test";
+import test, { beforeEach } from "node:test";
+import { setSocialFetchRequestStoreForTests } from "../lib/social-fetch-request-cache";
+import { createTestSocialFetchRequestStore } from "./helpers/social-fetch-request-store";
 
 import {
   fetchSocialFetchInstagramPosts,
@@ -11,6 +13,8 @@ import {
   SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS,
   SOCIAL_FETCH_REELS_REVALIDATE_SECONDS,
 } from "../lib/social-fetch-media";
+
+beforeEach(() => setSocialFetchRequestStoreForTests(createTestSocialFetchRequestStore().store));
 
 let reservationSequence = 0;
 setSocialFetchBudgetAdapterForTests({
@@ -27,6 +31,44 @@ setSocialFetchBudgetAdapterForTests({
 type NextFetchInit = RequestInit & {
   next?: { revalidate?: number; tags?: string[] };
 };
+
+test("private and unknown lookup outcomes never masquerade as successful public feeds", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousKey = process.env.SOCIAL_FETCH_API_KEY;
+  process.env.SOCIAL_FETCH_API_KEY = "test-social-fetch-key";
+  try {
+    for (const lookupStatus of ["private", "not_found", "new_unrecognized_status"]) {
+      globalThis.fetch = (async () => Response.json({ data: { lookupStatus, videos: [], posts: [], reels: [] } })) as typeof fetch;
+      assert.equal((await fetchSocialFetchTikTokVideos("privatefixture")).status, "not_found");
+      assert.equal((await fetchSocialFetchInstagramPosts("privatefixture")).status, "not_found");
+      assert.equal((await fetchSocialFetchInstagramReels("privatefixture")).status, "not_found");
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("SOCIAL_FETCH_API_KEY", previousKey);
+  }
+});
+
+test("TikTok native dimensions and timestamp variants survive normalization without losing large ids", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousKey = process.env.SOCIAL_FETCH_API_KEY;
+  process.env.SOCIAL_FETCH_API_KEY = "test-social-fetch-key";
+  const timestamp = Date.parse("2026-08-28T10:00:00Z");
+  globalThis.fetch = (async () => Response.json({ data: { lookupStatus: "found", videos: [
+    { id: "7610123456789012345", createdAt: String(timestamp / 1000), details: { video: { width: 1080, height: 1920 } }, thumbnailUrl: "https://user:secret@cdn.example/image.jpg" },
+    { id: "7610123456789012346", createdAt: String(timestamp) },
+  ] } })) as typeof fetch;
+  try {
+    const result = await fetchSocialFetchTikTokVideos("timestampfixture");
+    assert.equal(result.items[0]?.id, "7610123456789012345");
+    assert.deepEqual(result.items[0]?.dimensions, { width: 1080, height: 1920 });
+    assert.equal(result.items[0]?.thumbnailUrl, undefined);
+    assert.deepEqual(result.items.map((item) => item.createdAt), ["2026-08-28T10:00:00.000Z", "2026-08-28T10:00:00.000Z"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("SOCIAL_FETCH_API_KEY", previousKey);
+  }
+});
 
 function restoreEnv(name: string, value: string | undefined) {
   if (value === undefined) delete process.env[name];
@@ -113,10 +155,7 @@ test("TikTok public media is cached, coalesced, and normalized to provider URLs"
       "https://api.socialfetch.dev/v1/tiktok/profiles/officialcoreboys/videos",
     );
     assert.equal(new Headers(requests[0]?.init?.headers).get("x-api-key"), "test-social-fetch-key");
-    assert.equal(
-      requests[0]?.init?.next?.revalidate,
-      SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS,
-    );
+    assert.equal(requests[0]?.init?.cache, "no-store");
     assert.deepEqual(second, first);
     assert.deepEqual(first, {
       status: "ok",
@@ -191,8 +230,8 @@ test("Instagram photos and Reels retain media shape but only expose official emb
     assert.equal(requests.length, 2);
     const postRequest = requests.find((request) => request.url.endsWith("/posts"));
     const reelRequest = requests.find((request) => request.url.endsWith("/reels"));
-    assert.equal(postRequest?.init?.next?.revalidate, SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS);
-    assert.equal(reelRequest?.init?.next?.revalidate, SOCIAL_FETCH_REELS_REVALIDATE_SECONDS);
+    assert.equal(postRequest?.init?.cache, "no-store");
+    assert.equal(reelRequest?.init?.cache, "no-store");
     assert.deepEqual(posts.items[0], {
       id: "18001234567890123",
       shortcode: "CorePhoto1",

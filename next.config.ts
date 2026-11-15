@@ -4,6 +4,7 @@ const config: NextConfig = {
   // Keep local development isolated when a production build is running in
   // the same workspace (for example: CORE_NEXT_DIST_DIR=.next-dev-3010).
   distDir: process.env.CORE_NEXT_DIST_DIR || ".next",
+  typescript: { tsconfigPath: process.env.CORE_NEXT_TSCONFIG || "tsconfig.json" },
   reactStrictMode: true,
   typedRoutes: true,
   // Smaller, self-contained server bundle so the Docker runtime stage
@@ -12,15 +13,11 @@ const config: NextConfig = {
   // validation build without requiring Developer Mode symlink privileges.
   output: process.env.CORE_NEXT_STANDALONE === "0" ? undefined : "standalone",
   images: {
-    // Skip the Next/Image optimizer entirely. The runtime Docker image
-    // doesn't carry the gitignored `public/{members,crew,group,...}/`
-    // folders, so the optimizer would 404 reading from disk. With
-    // `unoptimized` the browser fetches `src` directly; the redirects
-    // below send those paths to the Cloudflare R2 custom domain. Side benefit: avoids
-    // the Turbopack-dev regression where `loader: "custom"` +
-    // `loaderFile` isn't picked up reliably and every <Image> errors
-    // with "missing loader prop".
-    unoptimized: true,
+    // Artwork now ships in public/ in the production image. Resize it on
+    // demand; SiteImage preserves remote provider URLs and signed previews.
+    unoptimized: false,
+    formats: ["image/webp"],
+    minimumCacheTTL: 86400,
     remotePatterns: [
       { protocol: "https", hostname: "static-cdn.jtvnw.net" },
       { protocol: "https", hostname: "i.ytimg.com" },
@@ -53,6 +50,16 @@ const config: NextConfig = {
         // Keep it browser/CDN cacheable while allowing planned artwork updates
         // to propagate on a short, predictable schedule.
         source: "/brand/:path*.webp",
+        headers: [staticMediaCache],
+      },
+      {
+        source: "/brand/:path*.png",
+        headers: [staticMediaCache],
+      },
+      {
+        // Reuse station recordings across channel changes and repeat visits.
+        // These filenames are not content-hashed, so keep a bounded lifetime.
+        source: "/audio/:path*.mp3",
         headers: [staticMediaCache],
       },
       {
@@ -120,6 +127,11 @@ const config: NextConfig = {
         headers: [staticMediaCache],
       },
     ];
+  },
+  async rewrites() {
+    // App Router parameters occupy a whole path segment. Preserve the public
+    // sharing URLs while resolving them through the actual dynamic page.
+    return [{ source: "/send-to-:slug", destination: "/fan-mail/:slug" }];
   },
   // The oversized house reel stays outside the application image. All
   // artwork used by the product ships from public/ so browse pages remain

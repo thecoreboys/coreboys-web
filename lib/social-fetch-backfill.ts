@@ -138,7 +138,7 @@ type BackfillPage = SocialFetchPrivateMediaPageResult<
   SocialFetchTikTokVideo | SocialFetchInstagramMedia | SocialFetchTwitterTweet
 >;
 
-type RecordEvent = (input: SocialEventInput) => Promise<{ id: string; created: boolean }>;
+type RecordEvent = (input: SocialEventInput) => Promise<{ id: string | null; created: boolean }>;
 
 function iso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();

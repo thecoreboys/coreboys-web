@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import test from "node:test";
+import test, { beforeEach } from "node:test";
+import { setSocialFetchRequestStoreForTests } from "../lib/social-fetch-request-cache";
+import { createTestSocialFetchRequestStore } from "./helpers/social-fetch-request-store";
+
+beforeEach(() => setSocialFetchRequestStoreForTests(createTestSocialFetchRequestStore().store));
 
 import {
   fetchSocialFetchInstagramPostsPage,
@@ -627,7 +631,7 @@ test("historical persistence is explicitly silent even on existing fresh canonic
   assert.match(backfill, /notify:\s*false/);
   assert.match(
     events,
-    /const eligibleNow = input\.notify !== false\s*&&\s*event\.notification_eligible/,
+    /const eligibleNow = input\.notify !== false\s*&&\s*!event\.removed_at\s*&&\s*event\.notification_eligible/,
   );
 });
 

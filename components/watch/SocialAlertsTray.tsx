@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { Bell, Eye, ExternalLink, LayoutGrid, X } from "lucide-react";
 import { useNotificationActivation } from "@/components/notifications/useNotificationActivation";
 import { usePlayer } from "@/components/providers/PlayerProvider";
+import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { BrowserRelativeTime } from "@/components/ui/BrowserDateTime";
+import { WatchThumb } from "@/components/watch/WatchThumb";
 import type { SocialAlert } from "@/lib/social-alert";
 import { socialAlertLabel, socialAlertPrimaryAction } from "@/lib/social-alert";
-import { playableFromUrl } from "@/lib/watch/playable";
+import { playableFromUrl, youtubeIdFromHref } from "@/lib/watch/playable";
 
 export function SocialAlertsTray() {
   const [alerts, setAlerts] = useState<SocialAlert[]>([]);
@@ -93,15 +95,29 @@ export function SocialAlertsTray() {
     <>
       <section
         aria-label="Creator alerts"
-        className="fixed right-3 top-[calc(4.25rem+var(--live-ribbon-h,0px))] z-[96] flex w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2"
+        style={open ? { maxHeight: "calc(100dvh - 5.25rem - var(--live-ribbon-h, 0px))" } : undefined}
+        className={`fixed right-3 top-[calc(4.25rem+var(--live-ribbon-h,0px))] z-[96] flex w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2 ${open ? "overflow-x-hidden overflow-y-auto overscroll-contain pr-1 [scrollbar-color:rgba(255,255,255,.28)_transparent] [scrollbar-width:thin]" : ""}`}
       >
         {visible.map((alert) => (
           <article key={alert.id} className={`group overflow-hidden rounded-2xl border bg-[#151519]/95 text-white shadow-2xl backdrop-blur-xl ${alert.contentType === "live" ? "border-red-400/45 shadow-[0_0_0_1px_rgba(248,113,113,.14),0_0_28px_rgba(239,68,68,.12),0_20px_50px_rgba(0,0,0,.48)]" : "border-pink-400/30 shadow-[0_0_0_1px_rgba(244,114,182,.1),0_0_24px_rgba(219,3,104,.1),0_20px_50px_rgba(0,0,0,.48)]"}`}>
             <div className="flex gap-3 p-3">
               {alert.artworkUrl ? (
-                <img src={alert.artworkUrl} alt="" className={`h-16 w-24 shrink-0 rounded-lg object-cover ${alert.orientation === "portrait" ? "w-12" : ""}`} />
+                <WatchThumb
+                  src={alert.artworkUrl}
+                  youtubeId={alert.provider === "youtube" ? youtubeIdFromHref(alert.href) : null}
+                  tiktokSourceUrl={alert.provider === "tiktok" ? alert.href : undefined}
+                  instagramSourceUrl={alert.provider === "instagram" ? alert.href : undefined}
+                  alt=""
+                  className={`h-16 w-24 shrink-0 rounded-lg object-cover ${alert.orientation === "portrait" ? "w-12" : ""}`}
+                  fallback={<span aria-hidden="true" className="grid h-16 w-24 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-white/10 to-black/40 text-white/45"><Bell className="size-4" /></span>}
+                />
               ) : alert.avatarUrl ? (
-                <img src={alert.avatarUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                <WatchThumb
+                  src={alert.avatarUrl}
+                  alt=""
+                  className="size-10 shrink-0 rounded-full object-cover"
+                  fallback={<span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-[color:var(--core)]/20 text-[color:var(--core)]"><Bell className="size-4" /></span>}
+                />
               ) : (
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[color:var(--core)]/20 text-[color:var(--core)]"><Bell className="size-4" /></span>
               )}
@@ -120,7 +136,9 @@ export function SocialAlertsTray() {
                 {socialAlertPrimaryAction(alert)}
               </button>
               {playableFromUrl(alert.href) ? (
-                <button type="button" onClick={() => addToMultiview(alert)} title="Add to multiview" aria-label={`Add ${alert.title} to multiview`} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"><LayoutGrid className="size-3.5" />Add tile</button>
+                <Tooltip title="Add to multiview" description="Open this alert as a tile in your multiview." placement="top">
+                  <button type="button" onClick={() => addToMultiview(alert)} aria-label={`Add ${alert.title} to multiview`} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"><LayoutGrid className="size-3.5" />Add tile</button>
+                </Tooltip>
               ) : (
                 <a href={alert.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"><ExternalLink className="size-3.5" />Open source</a>
               )}

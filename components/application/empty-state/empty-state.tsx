@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import type { ComponentProps, ComponentPropsWithRef, ReactNode } from "react";
 import { Children, createContext, isValidElement, useContext } from "react";
 import { FileIcon } from "@untitledui/file-icons";
@@ -86,7 +87,7 @@ const Content = (props: ComponentPropsWithRef<"div">) => {
     const { size } = useContext(RootContext);
 
     return (
-        <main
+        <div
             {...props}
             className={cx(
                 "z-10 mb-6 flex w-full max-w-88 flex-col items-center justify-center gap-1",
@@ -177,7 +178,7 @@ const AvatarRadius = ({ avatars = [], ...props }: AvatarRadiusProps) => {
                         className={cx("absolute top-1/2 left-1/2 rounded-full bg-primary p-px shadow-xs ring-[0.5px] ring-black/10", slot.size)}
                         style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
                     >
-                        <img src={avatar.src} alt="" className="size-full rounded-full object-cover outline-[0.5px] -outline-offset-[0.5px] outline-black/16" />
+                        <SiteImage width={80} height={80} src={avatar.src} alt="" className="size-full rounded-full object-cover outline-[0.5px] -outline-offset-[0.5px] outline-black/16" />
                     </div>
                 );
             })}
@@ -213,7 +214,7 @@ const AvatarRow = ({ avatars = [], children, ...props }: AvatarRowProps) => {
                 sizeClass,
             )}
         >
-            <img src={avatar.src} alt={avatar.alt || ""} className="size-full object-cover" />
+            <SiteImage width={80} height={80} src={avatar.src} alt={avatar.alt || ""} className="size-full object-cover" />
         </div>
     );
 
@@ -270,7 +271,7 @@ const AvatarGrid = ({ avatars = [], ...props }: AvatarGridProps) => {
                     config.inner,
                 )}
             >
-                <img src={avatar.src} alt={avatar.alt || ""} className="size-full object-cover" />
+                <SiteImage width={80} height={80} src={avatar.src} alt={avatar.alt || ""} className="size-full object-cover" />
             </div>
         </div>
     );

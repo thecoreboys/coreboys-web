@@ -1,6 +1,6 @@
 import type { Metadata, Route } from "next";
 import { notFound, redirect } from "next/navigation";
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { Mail01 } from "@untitledui/icons";

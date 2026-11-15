@@ -1,4 +1,5 @@
 import "server-only";
+import { withAvailableMediaContent } from "./content-guard";
 import type { WatchItem } from "@/lib/watch/types";
 import { getAzureMediaAdapters } from "./azure";
 import { withMediaIntelligenceTransaction, mediaIntelligenceQuery } from "./schema";
@@ -111,7 +112,7 @@ export async function enqueueAnalysisJob(input: {
   processingItem?: MediaProcessingInput;
   priority?: number;
 }): Promise<"queued" | "existing"> {
-  return withMediaIntelligenceTransaction(async (client) => {
+  return withAvailableMediaContent(input.analysisItem ?? { id: input.assetKey }, async (client, _capabilities, availableItem) => {
     await client.query(
       `INSERT INTO media_intelligence_source_policies
         (source_key, platform, rights_status, analysis_mode, media_access_allowed,
@@ -161,7 +162,7 @@ export async function enqueueAnalysisJob(input: {
           policyKey: input.policy.key,
           policyVersion: input.policy.version,
           inputHash: input.claim.inputHash,
-          analysisItem: input.analysisItem,
+          analysisItem: input.analysisItem ? availableItem : undefined,
           processing: processingInputFor(input.processingItem),
         }),
       ],

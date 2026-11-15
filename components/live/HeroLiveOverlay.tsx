@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { useMemo } from "react";
 import { ExternalLink, Tv } from "lucide-react";
 import { useLiveStatus } from "@/hooks/useLiveStatus";

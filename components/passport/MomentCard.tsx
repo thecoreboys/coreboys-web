@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from "@/components/ui/SiteImage";
 import Link from "next/link";
 import { CalendarDays, Clock3, Copy, ExternalLink, LockKeyhole, Radio, ShieldCheck, Sparkles } from "lucide-react";
 import type { PassportCard } from "@/lib/passport/types";
@@ -56,7 +57,7 @@ export function MomentCardTile({
 
 function CardArtwork({ card }: { card: PassportCard }) {
   if (card.artworkUrl) {
-    return <img className="moment-card-tile__art" src={card.artworkUrl} alt="" loading="lazy" />;
+    return <SiteImage fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw" className="moment-card-tile__art" src={card.artworkUrl} alt="" loading="lazy" />;
   }
   return (
     <span className="moment-card-tile__placeholder" aria-hidden="true">

@@ -1,4 +1,5 @@
 import "server-only";
+import { filterAvailableContent } from "@/lib/content-availability";
 import { availableMediaAnalyzers, prepareWatchItem } from "./analyzer";
 import {
   cancelClaimedAnalysisJob,
@@ -84,7 +85,8 @@ export async function runMediaWorkerBatch(options: {
     const heartbeat = startLeaseHeartbeat(job, workerId, leaseSeconds);
     try {
       if (!await heartbeat.renew()) throw new Error("analysis_job_policy_or_lease_invalid");
-      const item = await loadMediaJobItem(job);
+      const loadedItem = await loadMediaJobItem(job);
+      const item = loadedItem ? (await filterAvailableContent([loadedItem]))[0] : undefined;
       if (!item) {
         await heartbeat.stop();
         if (!await cancelClaimedAnalysisJob(job, workerId, "media_job_revision_superseded")) {
@@ -125,6 +127,14 @@ export async function runMediaWorkerBatch(options: {
         claimedRun = prepared.claim;
         const completed = await analyzer.analyze(item, prepared.asset, prepared.revision, prepared.claim);
         if (!await heartbeat.renew()) throw new Error("analysis_job_policy_or_lease_invalid");
+        if (!(await filterAvailableContent([item])).length) {
+          await store.failAnalysis(prepared.claim, new Error("content_removed"));
+          claimedRun = null;
+          await heartbeat.stop();
+          await cancelClaimedAnalysisJob(job, workerId, "content_removed");
+          summary.unchanged += 1;
+          continue;
+        }
         await store.completeAnalysis(completed);
         claimedRun = null;
         summary.analyzed += 1;

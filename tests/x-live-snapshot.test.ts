@@ -54,6 +54,7 @@ function snapshotReader(rows: unknown[] | Error, locked = true) {
       if (name === "server-only") return {};
       if (name === "next/cache") return { unstable_cache: (fn: unknown) => fn, revalidateTag: () => undefined };
       if (name === "@/lib/x-feed-freshness") return freshness;
+      if (name === "@/lib/content-availability") return { filterAvailableContent: async (items: FeedItem[]) => items };
       if (name === "@/lib/db") return {
         query: async (sql: string) => { calls.push(sql); if (rows instanceof Error) throw rows; return { rows }; },
         withTransaction: async (operation: (client: unknown) => Promise<unknown>) => operation({
@@ -70,6 +71,7 @@ function snapshotReader(rows: unknown[] | Error, locked = true) {
   }, { filename });
   return { read: module.exports.getPublicXFeedSnapshot!,
     refresh: module.exports.refreshXFeedSnapshot!, append: module.exports.appendXFeedSnapshotItems!,
+    purge: module.exports.purgeRemovedXFeedSnapshotItems!,
     calls, transactionCalls };
 }
 
@@ -130,6 +132,17 @@ test("stream appends retain roster bookkeeping and fail for retry when polling h
   const lockedWriter = snapshotReader([], false);
   await assert.rejects(lockedWriter.append([feedItem("lacy", "lacy", 100002)]), /x_feed_snapshot_busy/);
   assert.equal(lockedWriter.transactionCalls.some((call) => /INSERT/.test(call.sql)), false);
+});
+
+test("deletion cleanup yields its database connection when a shared refresh owns the snapshot", async () => {
+  const busy = snapshotReader([], false);
+  await assert.rejects(busy.purge(), /x_feed_snapshot_busy/);
+  assert.equal(busy.transactionCalls.length, 1);
+  const available = snapshotReader([{ payload: [], refreshed_at: at(-400) }]);
+  await available.purge();
+  const saved = available.transactionCalls.find((call) => /UPDATE x_feed_snapshots/.test(call.sql));
+  assert.ok(saved);
+  assert.doesNotMatch(saved.sql, /refreshed_at|attempted_at|search_cursor|stream_received_at/);
 });
 
 test("periodic refresh persists resumable pages and clears them only on explicit completion", async () => {

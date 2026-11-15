@@ -6,11 +6,12 @@
  * official creator-token API authoritative and use these results only to fill
  * a missing or incomplete window.
  *
- * The provider charges per page. Next's data cache keeps TikTok videos,
- * Instagram posts, and Instagram Reels for two hours. Private Twitter pages
+ * The provider charges per page. A database cache keeps TikTok videos,
+ * Instagram posts, and Instagram Reels for two hours across every replica. Private Twitter pages
  * are reserved at their documented two-credit price and exist only for the
  * explicitly started historical job. The small in-flight map also coalesces
- * concurrent cache misses in one server process. This module never returns
+ * concurrent cache misses in one server process, backed by an atomic database
+ * lease before any credits are reserved. This module never returns
  * direct CDN video URLs as durable
  * playback sources; consumers should construct provider-owned players from the
  * canonical ids/permalinks below.
@@ -23,6 +24,7 @@ import {
   type SocialFetchCreditReservationDenialReason,
 } from "@/lib/social-fetch-budget";
 import type { XFeedEntities } from "@/components/feed/types";
+import { sharedSocialFetchRequest, socialFetchRequestKey } from "@/lib/social-fetch-request-cache";
 
 const BASE_URL = "https://api.socialfetch.dev/v1";
 // Successful profile reads can take more than 20 seconds while Social Fetch
@@ -145,6 +147,7 @@ function normalizedHandle(rawHandle: string): string | null {
 }
 
 function normalizedTimestamp(value: unknown): string | null {
+  if (typeof value === "string" && /^\d{10,13}$/.test(value.trim())) value = Number(value);
   if (typeof value === "number" && Number.isFinite(value)) {
     const milliseconds = value > 10_000_000_000 ? value : value * 1_000;
     const date = new Date(milliseconds);
@@ -161,7 +164,7 @@ function safeHttpsUrl(value: unknown): string | undefined {
   if (!text) return undefined;
   try {
     const url = new URL(text);
-    return url.protocol === "https:" ? url.toString() : undefined;
+    return url.protocol === "https:" && !url.username && !url.password ? url.toString() : undefined;
   } catch {
     return undefined;
   }
@@ -181,7 +184,7 @@ function dimensionsFrom(value: unknown, depth = 0): SocialFetchDimensions | unde
   const width = positiveNumber(object.width);
   const height = positiveNumber(object.height);
   if (width && height) return { width, height };
-  for (const key of ["dimensions", "media", "video"]) {
+  for (const key of ["dimensions", "media", "video", "details"]) {
     const found = dimensionsFrom(object[key], depth + 1);
     if (found) return found;
   }
@@ -220,7 +223,7 @@ export function setSocialFetchBudgetAdapterForTests(
   budgetAdapter = adapter ?? socialFetchBudgetAdapter;
 }
 
-type SocialFetchJsonResponse = {
+export type SocialFetchJsonResponse = {
   status: SocialFetchMediaStatus;
   body: unknown;
   budgetDenied?: true;
@@ -228,12 +231,10 @@ type SocialFetchJsonResponse = {
   committedCredits: number;
 };
 
-const inFlight = new Map<string, Promise<SocialFetchJsonResponse>>();
-
-async function requestJson(
+export async function requestSocialFetchJson(
   endpoint: string,
   revalidate: number,
-  options: { privatePage?: boolean; feature?: string; estimatedCredits?: number } = {},
+  options: { privatePage?: boolean; feature?: string; estimatedCredits?: number; apiVersion?: "v1" | "v2"; timeoutMs?: number } = {},
 ): Promise<SocialFetchJsonResponse> {
   const apiKey = process.env.SOCIAL_FETCH_API_KEY?.trim();
   if (!apiKey) {
@@ -245,89 +246,87 @@ async function requestJson(
     };
   }
 
-  const cacheKey = `${options.privatePage ? "private" : revalidate}:${endpoint}`;
-  const pending = inFlight.get(cacheKey);
-  if (pending) return pending;
-
-  const request = (async () => {
-    const estimatedCredits = options.estimatedCredits ?? 1;
-    const reservation = await budgetAdapter.reserve({
-      feature: options.feature ?? "public_media",
-      requestKey: endpoint,
-      estimatedCredits,
-    });
-    if (!reservation.ok) {
-      return {
-        status: socialFetchBudgetDenialMediaStatus(reservation.reason),
-        body: null,
-        budgetDenied: true as const,
-        providerRequestMade: false,
-        committedCredits: 0,
-      };
-    }
-
-    let reportedCredits: number | null = null;
-    try {
-      const response = await fetch(`${BASE_URL}${endpoint}`, {
-        headers: {
-          accept: "application/json",
-          "x-api-key": apiKey,
-        },
-        ...(options.privatePage
-          ? { cache: "no-store" as const }
-          : {
-              next: {
-                revalidate,
-                tags: [SOCIAL_FETCH_MEDIA_CACHE_TAG],
-              },
-            }),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  const requestUrl = `${options.apiVersion === "v2" ? "https://api.socialfetch.dev/v2" : BASE_URL}${endpoint}`;
+  const shared = await sharedSocialFetchRequest<SocialFetchJsonResponse>({
+    // A private backfill page and scheduled discovery share identical first
+    // pages. Cursors remain part of the key; feature/user IDs never are.
+    key: socialFetchRequestKey(requestUrl, apiKey),
+    ttlSeconds: revalidate || SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS,
+    unavailable: () => ({ status: "upstream_error", body: null, providerRequestMade: false, committedCredits: 0 }),
+    successful: (result) => result.status === "ok" && !result.budgetDenied,
+    load: async () => {
+      const estimatedCredits = options.estimatedCredits ?? 1;
+      const reservation = await budgetAdapter.reserve({
+        feature: options.feature ?? "public_media",
+        requestKey: endpoint,
+        estimatedCredits,
       });
-      const body = await response.json().catch(() => null);
-      reportedCredits = readSocialFetchCreditsCharged(body);
-      const committedCredits = reportedCredits ?? estimatedCredits;
-      if (!response.ok) {
+      if (!reservation.ok) {
         return {
-          status: responseStatus(response.status),
+          status: socialFetchBudgetDenialMediaStatus(reservation.reason),
           body: null,
-          providerRequestMade: true,
-          committedCredits,
+          budgetDenied: true as const,
+          providerRequestMade: false,
+          committedCredits: 0,
         };
       }
-      return body === null
-        ? {
-            status: "invalid_response" as const,
-            body: null,
-            providerRequestMade: true,
-            committedCredits,
-          }
-        : {
-            status: "ok" as const,
+
+      let reportedCredits: number | null = null;
+      try {
+        const response = await fetch(requestUrl, {
+          headers: {
+            accept: "application/json",
+            "x-api-key": apiKey,
+          },
+          // Only the database-lease owner gets here. A second cache layer would
+          // otherwise reserve credits for a response that did not hit the API.
+          cache: "no-store",
+          signal: AbortSignal.timeout(options.timeoutMs === undefined ? REQUEST_TIMEOUT_MS
+            : Math.max(1_000, Math.min(REQUEST_TIMEOUT_MS, options.timeoutMs))),
+        });
+        const body = await response.json().catch(() => null);
+        reportedCredits = readSocialFetchCreditsCharged(body);
+        const committedCredits = reportedCredits ?? estimatedCredits;
+        if (!response.ok) {
+          return {
+            status: responseStatus(response.status),
             body,
             providerRequestMade: true,
             committedCredits,
           };
-    } catch {
-      return {
-        status: "upstream_error" as const,
-        body: null,
-        providerRequestMade: true,
-        committedCredits: estimatedCredits,
-      };
-    } finally {
-      await budgetAdapter.settle(reservation.reservationId, reportedCredits).catch((error) => {
-        // The unresolved reservation remains committed, which is the safe
-        // failure mode for the monthly cap if bookkeeping is unavailable.
-        console.error("[social-fetch-budget] media settlement failed", error);
-      });
-    }
-  })();
-  inFlight.set(cacheKey, request);
-  try {
-    return await request;
-  } finally {
-    if (inFlight.get(cacheKey) === request) inFlight.delete(cacheKey);
-  }
+        }
+        return body === null
+          ? {
+              status: "invalid_response" as const,
+              body: null,
+              providerRequestMade: true,
+              committedCredits,
+            }
+          : {
+              status: "ok" as const,
+              body,
+              providerRequestMade: true,
+              committedCredits,
+            };
+      } catch {
+        return {
+          status: "upstream_error" as const,
+          body: null,
+          providerRequestMade: true,
+          committedCredits: estimatedCredits,
+        };
+      } finally {
+        await budgetAdapter.settle(reservation.reservationId, reportedCredits).catch((error) => {
+          // The unresolved reservation remains committed, which is the safe
+          // failure mode for the monthly cap if bookkeeping is unavailable.
+          console.error("[social-fetch-budget] media settlement failed", error);
+        });
+      }
+    },
+  });
+  return shared.reused
+    ? { ...shared.value, providerRequestMade: false, committedCredits: 0 }
+    : shared.value;
 }
 
 function lookupStatusFrom(data: JsonRecord): string | null {
@@ -336,11 +335,13 @@ function lookupStatusFrom(data: JsonRecord): string | null {
 
 function lookupFailureStatus(lookupStatus: string | null): SocialFetchMediaStatus | null {
   if (!lookupStatus) return null;
+  if (lookupStatus === "found") return null;
+  if (lookupStatus === "private") return "not_found";
   if (/not[_ -]?found|missing|unavailable/i.test(lookupStatus)) return "not_found";
   if (/credit|payment|quota/i.test(lookupStatus)) return "credits_exhausted";
   if (/rate|throttl/i.test(lookupStatus)) return "rate_limited";
   if (/error|fail/i.test(lookupStatus)) return "upstream_error";
-  return null;
+  return "not_found";
 }
 
 function cursorValue(value: unknown): string | null {
@@ -407,7 +408,7 @@ export async function fetchSocialFetchTikTokVideos(
   if (!handle || limit <= 0) {
     return { status: handle ? "ok" : "not_found", items: [], lookupStatus: null };
   }
-  const response = await requestJson(
+  const response = await requestSocialFetchJson(
     `/tiktok/profiles/${encodeURIComponent(handle)}/videos`,
     SOCIAL_FETCH_PROFILE_MEDIA_REVALIDATE_SECONDS,
   );
@@ -457,7 +458,7 @@ export async function fetchSocialFetchTikTokVideosPage(
       budgetDenied: false,
     };
   }
-  const response = await requestJson(
+  const response = await requestSocialFetchJson(
     endpointWithCursor(`/tiktok/profiles/${encodeURIComponent(handle)}/videos?sortBy=latest`, cursor),
     0,
     { privatePage: true, feature: "six_month_backfill" },
@@ -555,7 +556,7 @@ async function fetchInstagramEndpoint(
     return { status: handle ? "ok" : "not_found", items: [], lookupStatus: null };
   }
   const collection = surface === "reel" ? "reels" : "posts";
-  const response = await requestJson(
+  const response = await requestSocialFetchJson(
     `/instagram/profiles/${encodeURIComponent(handle)}/${collection}`,
     surface === "reel"
       ? SOCIAL_FETCH_REELS_REVALIDATE_SECONDS
@@ -625,7 +626,7 @@ async function fetchSocialFetchInstagramPage(
     };
   }
   const collection = surface === "reel" ? "reels" : "posts";
-  const response = await requestJson(
+  const response = await requestSocialFetchJson(
     endpointWithCursor(`/instagram/profiles/${encodeURIComponent(handle)}/${collection}`, cursor),
     0,
     { privatePage: true, feature: "six_month_backfill" },
@@ -834,7 +835,7 @@ export async function fetchSocialFetchTwitterTweetsPage(
     };
   }
   const base = `/twitter/profiles/${encodeURIComponent(handle)}/tweets?limit=100&includeReplies=false&includePinned=false`;
-  const response = await requestJson(endpointWithCursor(base, cursor), 0, {
+  const response = await requestSocialFetchJson(endpointWithCursor(base, cursor), 0, {
     privatePage: true,
     feature: "six_month_backfill",
     estimatedCredits: 2,

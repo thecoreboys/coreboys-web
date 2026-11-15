@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function SocialFetchAdminPage() {
   return (
     <AuthGate>
-      <main className="min-h-screen bg-secondary pt-20">
+      <div className="min-h-[var(--page-min-height)] bg-secondary">
         <div className="mx-auto max-w-container px-6 py-10 md:px-8">
           <AdminPageHeader
             eyebrow="CORE · Social operations"
@@ -22,7 +22,7 @@ export default function SocialFetchAdminPage() {
             <SocialFetchControlRoom />
           </div>
         </div>
-      </main>
+      </div>
     </AuthGate>
   );
 }

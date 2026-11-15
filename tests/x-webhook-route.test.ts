@@ -37,7 +37,7 @@ function signedRequest(payload: unknown = post): Request {
   });
 }
 
-function route(input: { configured?: boolean; fail?: "snapshot" | "event"; bindings?: string } = {}) {
+function route(input: { configured?: boolean; fail?: "snapshot" | "event" | "removal"; bindings?: string; removed?: boolean } = {}) {
   const filename = path.resolve("app/api/social/webhooks/x/route.ts");
   const module = { exports: {} as Record<"GET" | "POST", (request: Request) => Promise<Response>> };
   const calls: string[] = [];
@@ -59,7 +59,14 @@ function route(input: { configured?: boolean; fail?: "snapshot" | "event"; bindi
       if (name === "@/lib/x-feed-snapshot") return { appendXFeedSnapshotItems: async (items: FeedItem[]) => {
         calls.push(`snapshot:${items.length}`); if (input.fail === "snapshot") throw new Error("database offline");
         persistedItems.push(...items);
-      } };
+      }, purgeRemovedXFeedSnapshotItems: async () => { calls.push("purge"); } };
+      if (name === "@/lib/content-availability") return {
+        filterAvailableContent: async (items: FeedItem[]) => input.removed ? [] : items,
+        recordContentRemoval: async (removal: { providerId: string }) => {
+          calls.push(`remove:${removal.providerId}`);
+          if (input.fail === "removal") throw new Error("database offline");
+        },
+      };
       if (name === "@/lib/social-events") return {
         socialEventFromFeedItem: (item: FeedItem) => ({ canonicalId: canonicalSocialEventId(item) }),
         recordSocialEvent: async (event: { canonicalId: string }) => {
@@ -84,6 +91,34 @@ test("X webhook route rejects unconfigured, unsigned and malformed requests befo
   const malformed = route();
   assert.equal((await malformed.POST(signedRequest({ data: null }))).status, 400);
   assert.deepEqual(malformed.calls, []);
+});
+
+test("signed delete deliveries durably suppress a bound post before acknowledgment without notifying fans", async () => {
+  const bindings = JSON.stringify({ "1234567890123456789": "crew:drew-wall" });
+  const deletion = { data: { ...activityPost.data, event_type: "post.delete" } };
+  const handler = route({ bindings });
+  const response = await handler.POST(signedRequest(deletion));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { received: true, accepted: 0, removed: 1 });
+  assert.deepEqual(handler.calls, ["remove:2345678901234567890"]);
+  assert.equal(handler.deferred.length, 1);
+  await handler.deferred[0]!();
+  assert.deepEqual(handler.calls, ["remove:2345678901234567890", "purge"]);
+  const unavailable = route({ bindings, fail: "removal" });
+  assert.equal((await unavailable.POST(signedRequest(deletion))).status, 503);
+  assert.deepEqual(unavailable.calls, ["remove:2345678901234567890"]);
+  const unbound = route();
+  assert.equal((await unbound.POST(signedRequest(deletion))).status, 400);
+  assert.deepEqual(unbound.calls, []);
+});
+
+test("a late create delivery cannot republish or notify for an already removed post", async () => {
+  const handler = route({ removed: true });
+  const response = await handler.POST(signedRequest());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { received: true, accepted: 0 });
+  assert.deepEqual(handler.calls, []);
+  assert.equal(handler.deferred.length, 0);
 });
 
 test("X webhook route acknowledges durable canonical events before deferred outbound delivery", async () => {

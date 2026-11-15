@@ -1,5 +1,7 @@
 import "server-only";
 import { isLikelyYouTubeShort } from "@/lib/youtube-classification";
+import { unavailableYouTubeObjects } from "@/lib/provider-availability";
+import { recordContentRemoval } from "@/lib/content-availability";
 
 /** First-party YouTube metadata used to classify watch cards. */
 
@@ -64,7 +66,7 @@ export async function fetchYouTubeMetadata(
     for (let i = 0; i < ids.length; i += BATCH) {
       const batch = ids.slice(i, i + BATCH);
       const params = new URLSearchParams({
-        part: "contentDetails,snippet",
+        part: "contentDetails,snippet,status",
         id: batch.join(","),
         key,
       });
@@ -78,6 +80,7 @@ export async function fetchYouTubeMetadata(
       const json = (await res.json()) as {
         items?: Array<{
           id?: string;
+          status?: { privacyStatus?: string; uploadStatus?: string };
           contentDetails?: { duration?: string };
           snippet?: {
             title?: string;
@@ -88,8 +91,20 @@ export async function fetchYouTubeMetadata(
         }>;
       };
 
+      if (options.fresh) {
+        for (const removed of unavailableYouTubeObjects(batch, json)) {
+          // An upload announcement can precede videos.list visibility. A first
+          // metadata miss must not permanently blacklist a newly published ID;
+          // aged catalog verification handles confirmed missing objects later.
+          if (removed.reason === "not_found") continue;
+          await recordContentRemoval({ provider: "youtube", providerId: removed.id,
+            reason: removed.reason, evidence: "provider_lookup" });
+        }
+      }
+
       for (const item of json.items ?? []) {
         const id = item.id;
+        if (item.status?.privacyStatus === "private" || item.status?.uploadStatus === "deleted") continue;
         const iso = item.contentDetails?.duration;
         if (!id || !iso) continue;
         const durationSeconds = isoDurationSeconds(iso);

@@ -25,6 +25,7 @@ const TABS: Array<{ id: PassportTab; label: string; icon: typeof LayoutDashboard
 
 export function PassportDashboard() {
   const passport = usePassport();
+  const { refresh } = passport;
   const [tab, setTab] = useState<PassportTab>("overview");
   const inventory = usePassportInventory(passport.passport?.cards ?? [], {
     enabled: Boolean(passport.passport) && (tab === "memories" || tab === "identity"),
@@ -34,10 +35,10 @@ export function PassportDashboard() {
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") void passport.refresh();
+      if (document.visibilityState === "visible") void refresh();
     }, 30_000);
     return () => window.clearInterval(interval);
-  }, [passport.refresh]);
+  }, [refresh]);
 
   useEffect(() => {
     const requested = window.location.hash.slice(1) as PassportTab;
@@ -59,9 +60,9 @@ export function PassportDashboard() {
   if (passport.loading) return <PassportLoading />;
   if (!passport.passport) {
     return (
-      <main className="passport-shell">
+      <div className="passport-shell">
         <div className="passport-load-error"><AlertCircle aria-hidden="true" /><h1>Passport is temporarily unavailable.</h1><p>{passport.loadError ?? "Your identity and inventory are safe. Try loading them again."}</p><button type="button" className="passport-button passport-button--primary" onClick={() => void passport.refresh()}><RefreshCw aria-hidden="true" /> Try again</button></div>
-      </main>
+      </div>
     );
   }
 
@@ -70,7 +71,7 @@ export function PassportDashboard() {
   const channels = Array.from(new Set(data.channels.map((channel) => channel.channelSlug)));
   const busy = Boolean(passport.mutation.pendingAction);
   return (
-    <main className="passport-shell">
+    <div className="passport-shell">
       <header className="passport-hero">
         <div className="passport-hero__identity">
           <div><span className="passport-kicker">{displayName} · Level {data.profile.level}</span><h1>CORE Passport</h1><p>Your watch activity, collected moments, and milestones.</p></div>
@@ -98,7 +99,7 @@ export function PassportDashboard() {
           <button type="button" onClick={passport.clearStatus} aria-label="Dismiss message"><X aria-hidden="true" /></button>
         </aside>
       ) : null}
-    </main>
+    </div>
   );
 }
 
@@ -115,10 +116,10 @@ function InventorySyncStatus({ inventory }: { inventory: ReturnType<typeof usePa
 
 function PassportLoading() {
   return (
-    <main className="passport-shell" aria-busy="true" aria-label="Loading CORE Passport">
+    <div className="passport-shell" aria-busy="true" aria-label="Loading CORE Passport">
       <div className="passport-skeleton passport-skeleton--hero" />
       <div className="passport-skeleton passport-skeleton--tabs" />
       <div className="passport-skeleton-grid">{Array.from({ length: 8 }, (_, index) => <div key={index} className="passport-skeleton" />)}</div>
-    </main>
+    </div>
   );
 }

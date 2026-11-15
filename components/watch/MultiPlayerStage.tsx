@@ -30,7 +30,6 @@ import {
   Trash2,
   Volume2,
   VolumeX,
-  WifiOff,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -54,6 +53,8 @@ import {
 import { listenToYouTube, youtubePlaybackSample } from "@/lib/watch/youtube-player";
 import type { WatchCatalog } from "@/lib/watch/types";
 import { formatHandleDisplay } from "@/lib/watch/display-label";
+import { readableTitle } from "@/lib/watch/presentation";
+import { WatchThumb } from "@/components/watch/WatchThumb";
 import { groupCrossPlatformLiveSources, uniqueCrossPlatformLiveSources } from "@/lib/watch/live-source-groups";
 import {
   AUTOPLAY_MODES,
@@ -266,23 +267,25 @@ export function MultiPlayerStage({
   const sourceOpenerRef = useRef<HTMLElement | null>(null);
   const sourceWasOpenRef = useRef(false);
 
+  const { tiles: openRoomTiles, focusedTile: focusedRoomTile, removeTile: removeRoomTile } = player;
+
   useEffect(() => {
     // Older saved rooms can already contain both sides of a YouTube/Twitch
     // simulcast. Keep the intentional main view and release the duplicate;
     // the alternate remains in the source chooser for an in-place switch.
     for (const group of liveSourceGroups) {
       const openTiles = group.sources
-        .map((source) => player.tiles.find((tile) => tile.id === source.tileId))
+        .map((source) => openRoomTiles.find((tile) => tile.id === source.tileId))
         .filter((tile): tile is WorkspaceTile => Boolean(tile));
       if (openTiles.length < 2) continue;
       const keep = openTiles.find((tile) => tile.pinned)
-        ?? openTiles.find((tile) => tile.id === player.focusedTile?.id)
+        ?? openTiles.find((tile) => tile.id === focusedRoomTile?.id)
         ?? openTiles[0];
       for (const tile of openTiles) {
-        if (tile.id !== keep?.id) player.removeTile(tile.id);
+        if (tile.id !== keep?.id) removeRoomTile(tile.id);
       }
     }
-  }, [liveSourceGroups, player.focusedTile?.id, player.removeTile, player.tiles]);
+  }, [liveSourceGroups, focusedRoomTile?.id, removeRoomTile, openRoomTiles]);
 
   const closeMobileSidebar = useCallback(() => {
     setMobileSidebarOpen(false);
@@ -440,7 +443,7 @@ export function MultiPlayerStage({
     setSidebarTab("details");
     if (roomLive.length) setAudioPickerOpen(true);
     if (!roomLive.length) setNotice({ text: "No one is live right now. This room will stay ready for the next stream." });
-  }, [authoritativeLiveRoom, autoFillLive, liveStatus, player, roomLive, subscription.loading, tileLimit]);
+  }, [authoritativeLiveRoom, autoFillLive, currentLive, liveStatus, player, roomLive, subscription.loading, tileLimit]);
 
   const focused = player.focusedTile ?? player.tiles[0] ?? null;
   const audioLead = player.tiles.find((tile) => !tile.muted && !tile.standby) ?? null;
@@ -1107,8 +1110,8 @@ function WorkspaceSidebar({
   onReplace: (tileId: string, opener?: HTMLElement | null) => void;
 }) {
   const desktopClasses = forceCompactDesktop
-    ? "2xl:sticky 2xl:top-[calc(4.75rem+var(--live-ribbon-h,0px))] 2xl:z-20 2xl:flex 2xl:h-[calc(100dvh-9rem-var(--live-ribbon-h,0px))] 2xl:w-auto 2xl:min-h-[18rem] 2xl:shadow-[0_24px_90px_rgba(0,0,0,.3)]"
-    : "xl:sticky xl:top-[calc(4.75rem+var(--live-ribbon-h,0px))] xl:z-20 xl:flex xl:h-[calc(100dvh-9rem-var(--live-ribbon-h,0px))] xl:w-auto xl:min-h-[18rem] xl:shadow-[0_24px_90px_rgba(0,0,0,.3)]";
+    ? "2xl:sticky 2xl:top-[calc(var(--site-header-h,8rem)+.75rem)] 2xl:z-20 2xl:flex 2xl:h-[calc(100dvh-var(--site-header-h,8rem)-2rem)] 2xl:w-auto 2xl:min-h-[18rem] 2xl:shadow-[0_24px_90px_rgba(0,0,0,.3)]"
+    : "xl:sticky xl:top-[calc(var(--site-header-h,8rem)+.75rem)] xl:z-20 xl:flex xl:h-[calc(100dvh-var(--site-header-h,8rem)-2rem)] xl:w-auto xl:min-h-[18rem] xl:shadow-[0_24px_90px_rgba(0,0,0,.3)]";
   const compactHideClass = forceCompactDesktop ? "2xl:hidden" : "xl:hidden";
   useEffect(() => {
     if (!mobileOpen) return;
@@ -1315,7 +1318,7 @@ function UpNextPanel({ onAdd }: { onAdd: (opener?: HTMLElement | null) => void }
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-white/32">{index === 0 ? "Next" : `${index + 1} · ${item.platform}`}</span>
-                  <span className="mt-0.5 block line-clamp-2 text-[11px] font-semibold leading-4 text-white/80">{item.title}</span>
+                  <span className="mt-0.5 block line-clamp-2 text-[13px] font-semibold leading-5 text-white/80">{readableTitle(item.title)}</span>
                   {item.recommendationReason ? <span className="mt-0.5 block truncate text-[9px] text-white/32">{item.recommendationReason}</span> : null}
                 </span>
               </button>
@@ -1387,7 +1390,7 @@ function DetailsPanel({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-white/38">{mediaTypeLabel(focused.item)} · {platformLabel(focused.item)}</p>
-            <h2 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{focused.item.title}</h2>
+            <h2 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{readableTitle(focused.item.title)}</h2>
             <p className="mt-1 truncate text-[10px] text-white/48">{focused.item.memberLabel}</p>
             <dl className="mt-2 grid grid-cols-2 gap-x-2 text-[9px]">
               <div className="min-w-0"><dt className="uppercase tracking-[0.1em] text-white/30">Length</dt><dd className="mt-0.5 truncate font-semibold text-white/68">{duration}</dd></div>
@@ -1450,8 +1453,8 @@ function EmptyStage({ liveCount, onAdd, onFill }: { liveCount: number; onAdd: ()
     <section className="grid min-h-[62dvh] place-items-center rounded-3xl border border-dashed border-white/12 bg-gradient-to-b from-white/[0.035] to-transparent p-6 text-center">
       <div className="max-w-md">
         <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white/7 ring-1 ring-white/10"><LayoutGrid className="size-5 text-white/65" /></span>
-        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">Build your room</h2>
-        <p className="mt-2 text-sm leading-6 text-white/45">Start with one title. Add more when you want them—the advanced grid stays out of the way until then.</p>
+        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">Choose streams to watch together</h2>
+        <p className="mt-2 text-base leading-6 text-white/70">Add a live stream or video. Choose which player has sound, then arrange your views.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button type="button" onClick={onAdd} className="min-h-11 rounded-xl bg-white px-5 text-sm font-semibold text-black">Add a player</button>
           {liveCount ? <button type="button" onClick={onFill} className="min-h-11 rounded-xl px-5 text-sm font-semibold text-white ring-1 ring-white/15">Watch live channels</button> : <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-xl px-5 text-sm font-semibold text-white ring-1 ring-white/15">No one is live · Refresh</button>}
@@ -2161,7 +2164,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [checkpointTile, finishPlayback, tile.item.youtubeId]);
+  }, [checkpointTile, finishPlayback, tile.item.key, tile.item.youtubeId]);
 
   const src = embedFor(tile.item, {
     parent,
@@ -2597,7 +2600,7 @@ const PlayerTileSurface = memo(function PlayerTileSurface({
             className="pointer-events-auto min-h-11 min-w-0 flex-1 cursor-pointer rounded-lg px-1.5 py-0.5 text-left outline-focus-ring transition duration-100 ease-linear hover:-translate-y-px hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 active:translate-y-0 active:scale-[.995] md:min-h-0"
             aria-label={`Make ${tile.item.title} the main player`}
           >
-            <p className="truncate text-xs font-semibold text-white">{tile.item.title}</p>
+            <p className="truncate text-xs font-semibold text-white">{readableTitle(tile.item.title)}</p>
             <p className="mt-0.5 flex items-center gap-1.5 truncate text-[10px] text-white/55">
               {tile.item.kind === "live" ? <span className="size-1.5 rounded-full bg-red-500" /> : null}
               {tile.item.memberLabel} · {tile.item.platform}
@@ -3237,7 +3240,7 @@ function LegacyRoomStudio({
             <div className="hidden space-y-2 border-t border-white/8 pt-3 lg:block"><button type="button" onClick={onAdd} className="min-h-10 w-full rounded-xl bg-white/6 px-3 text-left text-[10px] font-semibold text-white/70 ring-1 ring-white/10 hover:bg-white/10">Add player</button><button type="button" disabled={!liveCount} onClick={onFill} className="min-h-10 w-full rounded-xl bg-white/6 px-3 text-left text-[10px] font-semibold text-white/70 ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-35">Watch live channels</button></div>
           </aside>
 
-          <main className="min-h-0 overflow-auto p-3 sm:p-5">
+          <div className="min-h-0 overflow-auto p-3 sm:p-5">
             <div className="mx-auto flex min-h-full max-w-[1100px] flex-col">
               <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white/85">Live layout canvas</p><p className="mt-1 text-[10px] text-white/40">Changes preview here first; streams keep playing in the room behind it.</p></div><span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] font-semibold text-emerald-300 ring-1 ring-emerald-300/20">Optimized edit mode</span></div>
               <div ref={canvasRef} onPointerMove={onCanvasMove} onPointerUp={finishCanvasAction} onPointerCancel={finishCanvasAction} className="grid min-h-[31rem] flex-1 gap-2 rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.08),transparent_42%),#09090c] p-3 shadow-[0_28px_100px_rgba(0,0,0,.45)]" style={{ gridTemplateColumns: `repeat(${player.gridColumns}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${maxRow + 5}, minmax(2.5rem, 1fr))` }}>
@@ -3246,14 +3249,14 @@ function LegacyRoomStudio({
                   return <article key={tile.id} role="button" tabIndex={0} onClick={() => { setSelected(tile.id); setTab("layout"); }} onKeyDown={(event) => { const amount = event.shiftKey ? 1 : 0; if (!amount) return; if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); pushHistory(); const patch = event.altKey ? (event.key === "ArrowLeft" || event.key === "ArrowRight" ? { colSpan: tile.colSpan + (event.key === "ArrowRight" ? 1 : -1) } : { rowSpan: tile.rowSpan + (event.key === "ArrowDown" ? 1 : -1) }) : (event.key === "ArrowLeft" || event.key === "ArrowRight" ? { col: tile.col + (event.key === "ArrowRight" ? 1 : -1) } : { row: tile.row + (event.key === "ArrowDown" ? 1 : -1) }); const next = resolveDraft({ ...tile, ...patch }, draftRef.current); draftRef.current = next; setDraftTiles(next); commitDraft(next); } }} style={{ gridColumn: `${tile.col} / span ${tile.colSpan}`, gridRow: `${tile.row} / span ${tile.rowSpan}` }} className={`group relative min-h-0 overflow-hidden rounded-xl border bg-[#15151a] text-left outline-none transition ${selectedTile ? "border-white ring-2 ring-white/50" : "border-white/12 hover:border-white/35"}`} aria-label={`${tile.item.title}. Shift arrows move, Shift Alt arrows resize.`}>
                     {tile.item.poster ? <img src={tile.item.poster} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" /> : null}<span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/20" />
                     <span onPointerDown={(event) => beginTileAction(event, tile, "move")} className="absolute inset-x-0 top-0 z-10 h-9 cursor-grab touch-none active:cursor-grabbing" aria-hidden />
-                    <span className="relative z-10 block p-2"><span className="block truncate text-[10px] font-semibold">{tile.item.memberLabel}</span><span className="mt-0.5 block line-clamp-2 text-[9px] text-white/58">{tile.item.title}</span></span>
+                    <span className="relative z-10 block p-2"><span className="block truncate text-[10px] font-semibold">{tile.item.memberLabel}</span><span className="mt-0.5 block line-clamp-2 text-[9px] text-white/58">{readableTitle(tile.item.title)}</span></span>
                     <span onPointerDown={(event) => beginTileAction(event, tile, "resize")} className="absolute bottom-1 right-1 z-20 grid size-6 cursor-nwse-resize place-items-center rounded-md bg-black/70 text-[10px] text-white/70 ring-1 ring-white/15" aria-label="Resize tile">↘</span>
                   </article>;
                 })}
                 <button type="button" onPointerDown={beginChatAction} onClick={() => { setSelected("chat"); setTab("chat"); }} style={chatStyle as CSSProperties} className={`group relative min-h-0 cursor-grab overflow-hidden rounded-xl border border-dashed bg-violet-500/10 p-3 text-left transition active:cursor-grabbing ${selected === "chat" ? "border-violet-200 ring-2 ring-violet-300/45" : "border-violet-300/45 hover:border-violet-200"}`}><MessageSquare className="size-4 text-violet-200" /><span className="mt-2 block text-[10px] font-semibold">Chat dock · {player.chatDock}</span><span className="mt-1 block text-[9px] text-violet-100/60">Drag to an edge or center to re-place.</span></button>
               </div>
             </div>
-          </main>
+          </div>
 
           <aside className="min-h-0 overflow-y-auto border-t border-white/8 bg-[#111116] p-3 lg:border-l lg:border-t-0">
             <div className="grid grid-cols-5 rounded-xl bg-white/[.035] p-1 ring-1 ring-white/8">{(["layout", "chat", "playback", "audio", "saved"] as StudioTab[]).map((entry) => <button key={entry} type="button" onClick={() => setTab(entry)} aria-pressed={tab === entry} className={`min-h-9 rounded-lg px-1 text-[9px] font-semibold capitalize transition ${tab === entry ? "bg-white text-black" : "text-white/42 hover:text-white"}`}>{entry === "playback" ? "Play" : entry}</button>)}</div>
@@ -3888,7 +3891,7 @@ function RoomStudio({
             </div>
           </aside>
 
-          <main className="relative order-1 min-h-0 min-w-0 flex-1 overflow-auto bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.06),transparent_42%)] p-3 sm:p-5 lg:order-none">
+          <div className="relative order-1 min-h-0 min-w-0 flex-1 overflow-auto bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.06),transparent_42%)] p-3 sm:p-5 lg:order-none">
             <div className="mx-auto flex min-h-full max-w-[1180px] flex-col justify-center">
               <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white/85">Live layout canvas</p><p className="mt-1 text-[10px] text-white/42">Streams keep playing behind this lightweight preview. Release to apply.</p></div><span className={`rounded-full px-2 py-1 text-[9px] font-semibold ring-1 ${blocked ? "bg-amber-300/10 text-amber-200 ring-amber-200/20" : "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20"}`}>{blocked ? "Placement blocked" : "Live on release"}</span></div>
               <div
@@ -3907,14 +3910,14 @@ function RoomStudio({
                   return <article key={tile.id} role="button" tabIndex={-1} onClick={() => { setSelected(tile.id); setTab("layout"); boardRef.current?.focus(); }} style={studioPreviewTileStyle(tile, draft)} className={`group relative min-h-0 overflow-hidden rounded-xl border bg-[#15151a] text-left transition ${selectedTile ? "border-white ring-2 ring-white/50" : "border-white/12 hover:border-white/35"}`} aria-label={`${tile.item.title}. Drag the top edge to move and the corner to resize.`}>
                     {tile.item.poster ? <img src={tile.item.poster} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" /> : null}<span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/20" />
                     <button type="button" onPointerDown={(event) => beginTileAction(event, tile, "move")} className="absolute inset-x-0 top-0 z-10 h-9 cursor-grab touch-none active:cursor-grabbing" aria-label={`Move ${tile.item.title}`} />
-                    <span className="relative z-[2] block p-2"><span className="flex items-center gap-1.5"><span className="truncate text-[10px] font-semibold">{tile.item.memberLabel}</span>{tile.item.kind === "live" ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/85 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span> : null}</span><span className="mt-0.5 block line-clamp-2 text-[9px] text-white/58">{tile.item.title}</span><span className="mt-1 flex flex-wrap gap-1 text-[8px] text-white/64"><span className="rounded bg-black/42 px-1 py-0.5">{contentShape(tile.item) === "portrait" ? "9:16" : contentShape(tile.item) === "square" ? "1:1" : "16:9"}</span><span className="rounded bg-black/42 px-1 py-0.5">{tile.muted ? "Muted" : "Audio on"}</span>{tile.id === draft.focusedTileId ? <span className="rounded bg-white/16 px-1 py-0.5 font-semibold text-white/90">Main</span> : null}</span></span>
+                    <span className="relative z-[2] block p-2"><span className="flex items-center gap-1.5"><span className="truncate text-[10px] font-semibold">{tile.item.memberLabel}</span>{tile.item.kind === "live" ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/85 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-white"><span className="size-1 rounded-full bg-white" />Live</span> : null}</span><span className="mt-0.5 block line-clamp-2 text-[9px] text-white/58">{readableTitle(tile.item.title)}</span><span className="mt-1 flex flex-wrap gap-1 text-[8px] text-white/64"><span className="rounded bg-black/42 px-1 py-0.5">{contentShape(tile.item) === "portrait" ? "9:16" : contentShape(tile.item) === "square" ? "1:1" : "16:9"}</span><span className="rounded bg-black/42 px-1 py-0.5">{tile.muted ? "Muted" : "Audio on"}</span>{tile.id === draft.focusedTileId ? <span className="rounded bg-white/16 px-1 py-0.5 font-semibold text-white/90">Main</span> : null}</span></span>
                     <button type="button" onPointerDown={(event) => beginTileAction(event, tile, "resize")} className="absolute bottom-1 right-1 z-20 grid size-7 cursor-nwse-resize place-items-center rounded-md bg-black/75 text-[10px] text-white/80 ring-1 ring-white/15" aria-label={`Resize ${tile.item.title}`}>↘</button>
                   </article>;
                 })}
                 {draft.chatDock !== "closed" ? <div style={dockStyle} className={`absolute z-30 min-h-0 overflow-hidden rounded-xl border border-dashed bg-[#121216]/95 p-2 text-left shadow-xl transition ${selected === "chat" ? "border-white/75 ring-2 ring-white/35" : "border-white/28 hover:border-white/60"}`}><button type="button" onPointerDown={beginChatAction} onClick={() => { setSelected("chat"); setTab("chat"); }} className="absolute inset-0 z-10 cursor-grab touch-none active:cursor-grabbing" aria-label={`Move chat dock to another edge. Current position: ${draft.chatDock}`} /><span className="relative z-[2] flex items-center gap-1.5 text-white/80"><MessageSquare className="size-3.5" /><span className="text-[9px] font-semibold">Chat dock · {draft.chatDock}</span></span><span className="relative z-[2] mt-2 block h-px bg-white/10" /><span className="relative z-[2] mt-2 block space-y-1.5"><span className="block h-1.5 w-3/4 rounded-full bg-white/22" /><span className="block h-1.5 w-[58%] rounded-full bg-white/12" /><span className="block h-1.5 w-[82%] rounded-full bg-white/16" /></span><span className="relative z-[2] mt-2 hidden text-[8px] text-white/42 sm:block">Drag to dock; resize from Inspector.</span>{draft.chatDock === "floating" ? <button type="button" onPointerDown={beginChatResizeAction} className="absolute bottom-1 right-1 z-20 grid size-7 cursor-nwse-resize place-items-center rounded-md bg-black/75 text-[10px] text-white/80 ring-1 ring-white/15" aria-label="Resize floating chat dock">↘</button> : null}</div> : null}
               </div>
             </div>
-          </main>
+          </div>
 
           <aside className={`order-3 min-h-0 shrink-0 overflow-y-auto border-t border-white/8 bg-[#101014] transition-[max-height] lg:border-l lg:border-t-0 ${inspectorOpen ? "max-h-[42dvh] lg:max-h-none" : "max-h-12 lg:max-h-none"}`}>
             <div className={`flex min-h-12 items-center gap-2 border-b border-white/8 px-3 ${inspectorOpen ? "justify-between" : "justify-center"}`}><p className={inspectorOpen ? "text-[10px] font-semibold text-white/72" : "sr-only"}>Inspector</p><button type="button" aria-expanded={inspectorOpen} onClick={() => setInspectorOpen((value) => !value)} className="rounded-lg px-2 py-1 text-[9px] font-semibold text-white/45 hover:bg-white/8 hover:text-white">{inspectorOpen ? "Collapse" : "Open"}</button></div>
@@ -4183,7 +4186,7 @@ function SourceDrawer({
     >
       <section role="dialog" aria-modal="true" aria-label={title} className="absolute inset-x-0 bottom-0 flex max-h-[86dvh] flex-col rounded-t-3xl border border-white/12 bg-[#111115] shadow-2xl md:inset-y-4 md:left-auto md:right-4 md:max-h-none md:w-[28rem] md:rounded-3xl">
         <header className="flex items-start justify-between gap-4 border-b border-white/8 p-4">
-          <div><h2 className="text-base font-semibold">{title}</h2><p className="mt-1 text-[11px] text-white/40">{queue ? "Choose what should play after the focused title." : "Live streams, videos, shorts, and photos in one grid."}</p></div>
+          <div><h2 className="text-base font-semibold">{title}</h2><p className="mt-1 text-sm text-white/65">{queue ? "Choose what should play after the focused title." : "Live streams, videos, shorts, and photos in one grid."}</p></div>
           <IconControlTooltip title="Close" description="Return to your multiview room." placement="bottom">
             <button type="button" onClick={onClose} className="grid size-11 place-items-center rounded-xl text-white/50 hover:bg-white/8 hover:text-white" aria-label="Close"><X className="size-4" aria-hidden /></button>
           </IconControlTooltip>
@@ -4200,8 +4203,8 @@ function SourceDrawer({
               const open = openKeys.has(item.key);
               return (
                 <button key={item.key} type="button" disabled={open && !replace} onClick={() => onChoose(item)} className="group flex min-h-20 w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl bg-white/[0.035] p-2 text-left ring-1 ring-white/8 transition hover:bg-white/8 hover:ring-white/18 disabled:opacity-40">
-                  <span className="relative block aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-black">{item.poster ? <img src={item.poster} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center"><WifiOff className="size-4 text-white/25" /></span>}{item.kind === "live" ? <span className="absolute left-1.5 top-1.5 rounded bg-red-500 px-1.5 py-0.5 text-[8px] font-bold uppercase">Live</span> : null}</span>
-                  <span className="min-w-0 flex-1"><span className="line-clamp-2 text-xs font-semibold leading-4">{item.title}</span><span className="mt-1 block truncate text-[10px] text-white/40">{item.memberLabel} · {item.platform}</span><span className="mt-1 block text-[9px] text-white/28">{open ? "Already open" : replace ? "Use in this tile" : queue ? "Add to Up Next" : "Add as a tile"}</span></span>
+                  <span className="relative block aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-black"><WatchThumb src={item.poster} youtubeId={item.youtubeId} tiktokSourceUrl={item.platform === "tiktok" ? item.sourceUrl : undefined} instagramSourceUrl={item.platform === "instagram" ? item.sourceUrl : undefined} alt="" className="h-full w-full object-cover" fallback={<span className="grid h-full place-items-center text-center text-xs text-white/60">Preview unavailable</span>} />{item.kind === "live" ? <span className="absolute left-1.5 top-1.5 rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-bold uppercase">Live</span> : null}</span>
+                  <span className="min-w-0 flex-1"><span className="line-clamp-2 text-sm font-semibold leading-5">{readableTitle(item.title)}</span><span className="mt-1 block truncate text-[13px] text-white/65">{item.memberLabel} · {item.platform}</span><span className="mt-1 block text-xs text-white/60">{open ? "Already open" : replace ? "Use in this tile" : queue ? "Add to Up Next" : "Add as a tile"}</span></span>
                 </button>
               );
             })}

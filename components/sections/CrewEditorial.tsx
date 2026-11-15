@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/SiteImage";
 import { CREW, MEMBERS_BY_SLUG } from "@/lib/members";
 import { getCrewPortrait } from "@/lib/asset-index";
 import { getCrewRoleLabel } from "@/lib/crew";

@@ -1,8 +1,11 @@
 "use client";
 
 import type { Route } from "next";
+import type { CrewMember } from "@coreboys/shared";
 import Link from "next/link";
+import Image from "@/components/ui/SiteImage";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronRight, Clapperboard, Clock3, ExternalLink, Mail, Play, Radio, RotateCcw, Volume2, VolumeX, Zap } from "lucide-react";
 import { usePlayer } from "@/components/providers/PlayerProvider";
@@ -14,7 +17,7 @@ import { GuideHistory } from "@/components/watch/GuideHistory";
 import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { acknowledgeContentAdvisory, hasAcknowledgedContentAdvisory } from "@/lib/watch/content-advisory";
-import { SocialIcon } from "@/components/ui/SocialIcon";
+import { PLATFORM_LABEL as SOCIAL_PLATFORM_LABEL, SocialIcon } from "@/components/ui/SocialIcon";
 import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { XTweetsRail } from "./XTweetsRail";
 import { GROUP } from "@/lib/group";
@@ -70,6 +73,7 @@ export type ChannelCrewMember = {
   name: string;
   roleLabel: string;
   portrait: string | null;
+  socials: CrewMember["socials"];
 };
 
 // The page needs one full prior cycle available to locate the real program
@@ -586,8 +590,8 @@ function ChannelOnNowPreview({
   }, []);
 
   // The 24/7 channel hero is a real player surface, not merely a poster.
-  // Keep its provider unmounted until the spoken advisory has finished so a
-  // stream can never begin underneath the warning.
+  // Start the advisory as soon as the route opens; DJ Cora's station ID is
+  // independent audio and must never hold the destination page behind it.
   useEffect(() => {
     if (!autoStart) {
       setAdvisoryReady(true);
@@ -602,8 +606,7 @@ function ChannelOnNowPreview({
 
     let disposed = false;
     let audio: HTMLAudioElement | null = null;
-    const beginAfterTuning = async () => {
-      await waitForNetworkTuningAudio();
+    const beginAdvisory = () => {
       if (disposed) return;
       audio = new Audio("/brand/content-advisory.mp3");
       audio.preload = "auto";
@@ -615,7 +618,7 @@ function ChannelOnNowPreview({
       audio.addEventListener("error", complete, { once: true });
       startAdvisory();
     };
-    void beginAfterTuning();
+    beginAdvisory();
     return () => {
       disposed = true;
       audio?.pause();
@@ -1057,16 +1060,9 @@ function ChannelOnNowPreview({
 
       <div className={styles.heroPreviewTop} aria-hidden="true">
         <span className={styles.heroPreviewLiveDot} />
-        <strong>{live ? "Live now" : "On now"}</strong>
-        {channel.slug === "jason" ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className={styles.heroPreviewNetworkLogo} src={channel.artwork} alt="" />
-            <span>24/7</span>
-          </>
-        ) : (
-          <span>{channel.name} 24/7</span>
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className={styles.heroPreviewNetworkLogo} src={channel.artwork} alt="" />
+        <span>24/7</span>
       </div>
       {advisoryReady && playable ? (
         <button
@@ -1208,11 +1204,10 @@ export function NetworkChannelRail({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={channel.backdrop} alt="" className={styles.homeChannelBackdrop} />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             {channel.slug === "core" ? (
               <CoreWordmark className={styles.homeCoreWordmark} />
             ) : (
-              <img src={channel.artwork} alt="" className={styles.homeChannelArtwork} />
+              <Image src={channel.artwork} alt="" width={160} height={160} className={styles.homeChannelArtwork} />
             )}
             <span className={styles.homeChannelCopy}>
               <strong>{channel.name}</strong>
@@ -1232,13 +1227,10 @@ export function NetworkChannelPage({
   continuousItems,
   hub,
   serverNow,
-  twitchTracker,
   airtimeFallback,
-  archivedDaily,
-  sourceDiagnostics,
+  sourceDiagnostics = [],
   xCommunityUrl,
   ownerXPosts,
-  galleryPhotos,
   team,
   socialAvatarByUrl,
 }: {
@@ -1248,16 +1240,12 @@ export function NetworkChannelPage({
   continuousItems: WatchItem[];
   hub: NetworkChannelHub;
   serverNow: string;
-  twitchTracker: TwitchTrackerChannelSnapshot[];
   airtimeFallback: AirtimeHistorySession[];
-  archivedDaily: AirtimeDailyRecord[];
   /** Token-free server diagnostics for official Instagram and TikTok feeds. */
-  sourceDiagnostics: readonly CuratedChannelSourceDiagnostic[];
+  sourceDiagnostics?: readonly CuratedChannelSourceDiagnostic[];
   /** Exact configured X Community URL. No profile URL is substituted. */
   xCommunityUrl: string | null;
   ownerXPosts: WatchHomeXPost[];
-  /** Curated server-side photo selection shared with the creator's /about page. */
-  galleryPhotos: readonly string[];
   /** Canonical crew roster scoped to this channel's creator. */
   team: readonly ChannelCrewMember[];
   /** Official per-platform profile images keyed by the social profile URL. */
@@ -1265,7 +1253,25 @@ export function NetworkChannelPage({
 }) {
   const router = useRouter();
   const player = usePlayer();
+  const { current: activePlayback, channel: activeChannel, playChannel, requestSeek } = player;
   const viewer = useBrowserTimeZone();
+  const [activeSection, setActiveSection] = useState("watch");
+  const extrasSection = activeSection === "schedule" ? "history" : activeSection === "photos" ? "photos" : null;
+  const { data: extras, error: extrasError, isLoading: extrasLoading, mutate: reloadExtras } = useSWR<{
+    photos?: string[]; total?: number;
+    twitchTracker?: TwitchTrackerChannelSnapshot[];
+    archivedDaily?: AirtimeDailyRecord[];
+  }>(extrasSection ? `/api/watch/channels/${channel.slug}/extras?section=${extrasSection}` : null, async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Could not load this section");
+    return response.json();
+  }, { revalidateOnFocus: false, dedupingInterval: 60_000 });
+  const galleryPhotos = extras?.photos ?? [];
+  useEffect(() => {
+    const sync = () => { const section = window.location.hash.slice(1); if (["watch", "schedule", "photos", "about", "posts"].includes(section)) setActiveSection(section); else if (section === "crew") setActiveSection("about"); };
+    sync(); window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
   const member = channel.memberSlug ? MEMBERS_BY_SLUG[channel.memberSlug] : null;
   const memberAge = member ? ageFromIso(member.birthDate) : null;
   const socialLinks = useMemo(
@@ -1296,12 +1302,12 @@ export function NetworkChannelPage({
     networkSlug: string;
     entry: ChannelScheduleEntry | null;
   } | null>(null);
-  const activePlaybackRef = useRef(player.current);
+  const activePlaybackRef = useRef(activePlayback);
   const isCreatorBirthday = isBirthdayToday(member?.birthDate, now);
 
   useEffect(() => {
-    activePlaybackRef.current = player.current;
-  }, [player.current]);
+    activePlaybackRef.current = activePlayback;
+  }, [activePlayback]);
 
   useEffect(() => {
     // This client component is only mounted after the server route has
@@ -1316,10 +1322,21 @@ export function NetworkChannelPage({
   }, [channel.slug, mode]);
 
   useEffect(() => {
-    const tick = () => setNow(Date.now());
+    // The channel page contains a large guide rail and creator sections. A
+    // one-second React update needlessly reconciles all of them just to move
+    // the live progress marker. Keep labels/progress fresh without making the
+    // whole page render at video-frame-like frequency.
+    const tick = () => { if (document.visibilityState === "visible") setNow(Date.now()); };
     tick();
-    const interval = window.setInterval(tick, 1_000);
-    return () => window.clearInterval(interval);
+    const interval = window.setInterval(tick, 10_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   // Poll the dynamic channel route for live-state changes. The active stream
@@ -1327,7 +1344,9 @@ export function NetworkChannelPage({
   // below supplies the exact pause in the rotation after it ends.
   useEffect(() => {
     if (mode !== "continuous") return;
-    const interval = window.setInterval(() => router.refresh(), 60_000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") router.refresh();
+    }, 60_000);
     return () => window.clearInterval(interval);
   }, [mode, router]);
 
@@ -1424,6 +1443,18 @@ export function NetworkChannelPage({
       : queue.slice(0, Math.max(CHANNEL_CONTINUOUS_QUEUE_MIN_BLOCKS, withinVisibleHorizon.length));
     return visible.slice(0, CHANNEL_CONTINUOUS_QUEUE_MAX_BLOCKS);
   }, [continuousBlocks, now]);
+  // The lower-frequency UI clock must not delay a program handoff. Wake the
+  // schedule exactly when the current entry ends, then arm the next boundary.
+  const nextScheduleBoundary = mode === "continuous"
+    ? continuousSchedule[0]?.endsAt
+    : schedule[0]?.endsAt;
+  useEffect(() => {
+    if (!nextScheduleBoundary) return;
+    const delay = nextScheduleBoundary - Date.now();
+    if (delay <= 0) return;
+    const timeout = window.setTimeout(() => setNow(Date.now()), delay + 25);
+    return () => window.clearTimeout(timeout);
+  }, [nextScheduleBoundary]);
   const current = schedule[0]?.item ?? items[0] ?? null;
   const continuousEntry = continuousSchedule[0] ?? null;
   useEffect(() => {
@@ -1447,7 +1478,7 @@ export function NetworkChannelPage({
       mode,
       previous: previous.entry.item,
       next: continuousEntry.item,
-      activePlayback: player.current,
+      activePlayback,
     })) return;
 
     const detail = createNetworkLiveTakeoverDetail({
@@ -1458,7 +1489,7 @@ export function NetworkChannelPage({
       },
       previous: previous.entry.item,
       next: continuousEntry.item,
-      activePlayback: player.current,
+      activePlayback,
     });
     if (!detail) return;
     // First-tune station IDs begin inside the navigation click. Wait for that
@@ -1473,7 +1504,7 @@ export function NetworkChannelPage({
     };
     void announceAfterStationId();
     return () => { cancelled = true; };
-  }, [channel, continuousEntry, mode, player.current]);
+  }, [activePlayback, channel, continuousEntry, mode]);
   // A 24/7 channel must stay on the scheduled program even if a provider
   // rejects autoplay. The hero owns its retry + sound controls rather than
   // replacing the title with a later queue item behind the viewer's back.
@@ -1531,7 +1562,7 @@ export function NetworkChannelPage({
     if (!items.length && !start) return;
     player.playChannel(channelContext, items.length ? items : start ? [start] : [], start ?? displayedCurrent ?? 0);
   };
-  const tuneContinuous = (requestedEntry?: ChannelScheduleEntry) => {
+  const tuneContinuous = useCallback((requestedEntry?: ChannelScheduleEntry) => {
     const selectedEntry = requestedEntry ?? previewEntry;
     if (!selectedEntry || !continuousItems.length) return;
     const previewPlayable = itemToPlayable(selectedEntry.item);
@@ -1552,21 +1583,21 @@ export function NetworkChannelPage({
         continuous: true,
       },
     } : continuousContext;
-    player.playChannel(
+    playChannel(
       channelWithAiring,
       scheduledItems.length ? scheduledItems : continuousItems,
       selectedEntry.item,
     );
     const elapsed = channelProgramElapsedSeconds(selectedEntry, now);
-    if (elapsed > 0) player.requestSeek(elapsed);
-  };
+    if (elapsed > 0) requestSeek(elapsed);
+  }, [channel.name, continuousContext, continuousItems, continuousSchedule, now, playChannel, previewEntry, requestSeek]);
   useEffect(() => {
     if (
       mode !== "continuous"
       || !continuousEntry
-      || player.channel?.id !== continuousContext.id
-      || !player.current
-      || (player.current.kind !== "live" && player.current.format !== "live")
+      || activeChannel?.id !== continuousContext.id
+      || !activePlayback
+      || (activePlayback.kind !== "live" && activePlayback.format !== "live")
       || continuousEntry.item.kind === "live"
       || continuousEntry.item.format === "live"
     ) return;
@@ -1574,7 +1605,7 @@ export function NetworkChannelPage({
     // to the exact resumed block rather than falling back to the beginning of
     // the normal rotation.
     tuneContinuous(continuousEntry);
-  }, [continuousContext.id, continuousEntry, mode, player.channel?.id, player.current]);
+  }, [activeChannel?.id, activePlayback, continuousContext.id, continuousEntry, mode, tuneContinuous]);
   const playSourceItem = useCallback((item: WatchItem, sourceQueue: readonly WatchItem[]) => {
     player.play(item, [...sourceQueue]);
   }, [player]);
@@ -1689,6 +1720,9 @@ export function NetworkChannelPage({
             {tuned ? <RotateCcw size={18} aria-hidden /> : <Play size={18} fill="currentColor" aria-hidden />}
             {tuneLabel}
           </button>
+          <a href="#crew" className={styles.teamJumpLink}>
+            Meet the crew <ChevronRight size={14} aria-hidden />
+          </a>
         </div>
         {heroPreviewEntry ? (
           <ChannelOnNowPreview
@@ -1717,7 +1751,19 @@ export function NetworkChannelPage({
         </div>
       ) : null}
 
-      <main className={styles.content}>
+      <nav className="creator-section-nav" aria-label="Creator sections">
+        {[["watch", "Latest"], ["schedule", "Guide & history"], ["photos", "Photos"], ["posts", "Posts"], ["about", "About & fan mail"]].map(([id, label]) => <button key={id} type="button" aria-pressed={activeSection === id} onClick={() => { setActiveSection(id!); window.history.replaceState(null, "", `#${id}`); }}>{label}</button>)}
+      </nav>
+      {activeSection === "watch" ? <div className="py-6">
+      <CreatorPlatformRails
+        channelName={channel.memberSlug === null ? GROUP.name : channel.host}
+        items={nonXHubItems}
+        initialItemsPerSource={6}
+        sources={nonXSourceDescriptors}
+        onPlay={playSourceItem}
+      />
+      </div> : null}
+      {activeSection === "schedule" ? <div className={styles.content}>
         <section className={styles.scheduleSection} aria-labelledby="channel-schedule-heading">
           <div className={styles.sectionHeading}>
             <div>
@@ -1854,24 +1900,25 @@ export function NetworkChannelPage({
         </section>
 
         <section className={styles.airtimeSection} aria-label={`${channel.name} airtime history`}>
+          {extrasLoading ? <p className="py-6 text-sm text-secondary" role="status">Loading airtime history…</p> : extrasError ? <p className="py-6 text-sm" role="alert">History could not be loaded. <button type="button" className="min-h-11 underline" onClick={() => void reloadExtras()}>Try again</button></p> :
           <GuideHistory
             serverNow={serverNow}
-            twitchTracker={twitchTracker}
+            twitchTracker={extras?.twitchTracker ?? []}
             fallbackSessions={airtimeFallback}
-            archivedDaily={archivedDaily}
+            archivedDaily={extras?.archivedDaily ?? []}
             memberSlug={channel.memberSlug}
             className={styles.airtimeHistory}
-          />
+          />}
         </section>
 
-      </main>
+      </div> : null}
 
-      {member && galleryPhotos.length > 0 ? (
+      {activeSection === "photos" && member && galleryPhotos.length > 0 ? (
         <section className={styles.creatorGallery} aria-labelledby="channel-gallery-heading">
           <div className={styles.creatorGalleryHeader}>
             <div>
-              <span className={styles.eyebrow}>Gallery · {galleryPhotos.length}</span>
-              <h2 id="channel-gallery-heading">Stills.</h2>
+              <span className={styles.eyebrow}>Gallery · {extras?.total ?? galleryPhotos.length}</span>
+              <h2 id="channel-gallery-heading">Photos</h2>
             </div>
             <Link href="/media" className={styles.creatorGalleryLink}>
               All media <ChevronRight size={15} aria-hidden />
@@ -1879,7 +1926,7 @@ export function NetworkChannelPage({
           </div>
           <div className={styles.creatorGalleryRail}>
             <AutoScrollGallery
-              photos={galleryPhotos}
+              photos={galleryPhotos.slice(0, 24)}
               alt={member.stageName}
               people={[
                 {
@@ -1896,14 +1943,17 @@ export function NetworkChannelPage({
         </section>
       ) : null}
 
-      {team.length > 0 ? (
-        <section className={styles.teamSection} aria-labelledby="channel-team-heading">
-          <div className={styles.teamSectionHeading}>
-            <div>
-              <span className={styles.eyebrow}>Behind the camera</span>
-              <h2 id="channel-team-heading">{member ? `${member.stageName}'s crew.` : "The CORE crew."}</h2>
-            </div>
+      {activeSection === "photos" && (!member || !galleryPhotos.length) ? <p className="px-5 py-10 text-secondary" role="status">{extrasLoading ? "Loading photos…" : extrasError ? <>Photos could not be loaded. <button type="button" className="min-h-11 underline" onClick={() => void reloadExtras()}>Try again</button></> : <>No photos are available for this channel yet. <Link href="/media" className="underline">Browse all photos</Link></>}</p> : null}
+      {activeSection === "about" ? <>
+      <section id="crew" className={styles.teamSection} aria-labelledby="channel-team-heading">
+        <div className={styles.teamSectionHeading}>
+          <div>
+            <span className={styles.eyebrow}>Behind the camera</span>
+            <h2 id="channel-team-heading">{member ? `${member.stageName}'s crew.` : "The CORE crew."}</h2>
           </div>
+          <p>The people behind the stream. Explore their profiles and follow their socials.</p>
+        </div>
+        {team.length > 0 ? (
           <ul className={styles.teamGrid}>
             {team.map((crew) => (
               <li key={crew.slug}>
@@ -1911,7 +1961,7 @@ export function NetworkChannelPage({
                   <span className={styles.teamPortrait}>
                     {crew.portrait ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={crew.portrait} alt="" />
+                      <img src={crew.portrait} alt="" loading="lazy" decoding="async" />
                     ) : (
                       <span aria-hidden>{crew.name.split(" ").map((part) => part[0]).filter(Boolean).slice(0, 2).join("")}</span>
                     )}
@@ -1919,14 +1969,37 @@ export function NetworkChannelPage({
                   <span className={styles.teamCardCopy}>
                     <small>{crew.roleLabel}</small>
                     <strong>{crew.name}</strong>
-                    <span>View profile <ChevronRight size={13} aria-hidden /></span>
+                    <span>Profile & socials <ChevronRight size={13} aria-hidden /></span>
                   </span>
                 </Link>
+                {crew.socials.length > 0 ? (
+                  <ul className={styles.teamSocials} aria-label={`${crew.name}'s socials`}>
+                    {crew.socials.map((social) => (
+                      <li key={social.url}>
+                        <a
+                          href={social.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${crew.name} on ${SOCIAL_PLATFORM_LABEL[social.platform]}${social.handle ? ` (${social.handle})` : ""} — opens in a new tab`}
+                          title={`${SOCIAL_PLATFORM_LABEL[social.platform]}${social.handle ? ` · ${social.handle}` : ""}`}
+                        >
+                          <SocialIcon platform={social.platform} size={14} />
+                          <span>{SOCIAL_PLATFORM_LABEL[social.platform]}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>
-        </section>
-      ) : null}
+        ) : (
+          <div className={styles.teamEmpty}>
+            <p>{channel.host}&apos;s crew profiles haven&apos;t been added yet.</p>
+            <Link href="/channels/core#crew">Explore the CORE crew <ChevronRight size={14} aria-hidden /></Link>
+          </div>
+        )}
+      </section>
 
       <section className={styles.mailSection} aria-labelledby="channel-mail-heading">
         {member ? (
@@ -1948,10 +2021,10 @@ export function NetworkChannelPage({
             <div className={styles.mailCopy}>
               <span className={styles.eyebrow}><Mail size={13} aria-hidden /> Community mail</span>
               <h2 id="channel-mail-heading">Send something to the house.</h2>
-              <p>Choose a public mailing address for any community, or create a postcard online for a creator.</p>
+              <p>Choose a public mailing address for any community, and check the recipient details before sending.</p>
             </div>
             <Link href="/fan-mail" className={styles.mailUnavailable}>
-              <span><Mail size={17} aria-hidden /> <strong>Open the CORE mailroom</strong><small>See every confirmed community address and postcard option.</small></span>
+              <span><Mail size={17} aria-hidden /> <strong>Open the CORE mailroom</strong><small>See public community addresses and mailing details.</small></span>
               <ChevronRight size={17} aria-hidden />
             </Link>
           </>
@@ -1961,12 +2034,14 @@ export function NetworkChannelPage({
       <section className={styles.channelHub} aria-labelledby="channel-hub-heading">
         <div className={styles.channelHubIntro}>
           <div className={styles.channelHubIdentity}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={member?.portrait ?? channel.artwork}
-              alt=""
-              className={styles.channelHubPortrait}
-            />
+            {member ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={member.portrait} alt="" className={styles.channelHubPortrait} />
+            ) : (
+              <span className={`${styles.channelHubPortrait} ${styles.channelHubCoreMark}`} aria-hidden="true">
+                <CoreWordmark />
+              </span>
+            )}
             <div>
               <h2 id="channel-hub-heading">
                 {channel.memberSlug === null ? "Everything across CORE" : `Everything from ${channel.host}`}
@@ -2034,13 +2109,10 @@ export function NetworkChannelPage({
         ) : null}
       </section>
 
-      <CreatorPlatformRails
-        channelName={channel.memberSlug === null ? GROUP.name : channel.host}
-        items={nonXHubItems}
-        sources={nonXSourceDescriptors}
-        onPlay={playSourceItem}
-      />
 
+
+      </> : null}
+      {activeSection === "posts" ? <>
       {xCommunityUrl ? (
         <section className={styles.xCommunitySection} aria-labelledby="channel-x-community-heading">
           <div className={styles.xCommunityIntro}>
@@ -2064,7 +2136,7 @@ export function NetworkChannelPage({
           <XTweetsRail
             items={ownerXPosts}
             title={channel.memberSlug === null ? "Official CORE posts on X" : `${channel.host}'s posts on X`}
-            maxItems={8}
+            maxItems={24}
           />
         ) : null}
         <div className={styles.xArchiveActions}>
@@ -2074,6 +2146,7 @@ export function NetworkChannelPage({
           </Link>
         </div>
       </div>
+      </> : null}
 
     </div>
   );

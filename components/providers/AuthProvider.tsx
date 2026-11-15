@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext } from "react";
+import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 
@@ -25,6 +25,10 @@ const Ctx = createContext<AuthCtx>({
   refresh: () => {},
   logout: async () => {},
 });
+
+const subscribeToHydration = () => () => {};
+const clientHydrationSnapshot = () => true;
+const serverHydrationSnapshot = () => false;
 
 async function fetchMe(url: string): Promise<FanUser | null> {
   const res = await fetch(url, { credentials: "same-origin" });
@@ -58,5 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  return useContext(Ctx);
+  const auth = useContext(Ctx);
+  const hydrated = useSyncExternalStore(subscribeToHydration, clientHydrationSnapshot, serverHydrationSnapshot);
+  // A fast account response can resolve before a streamed consumer hydrates.
+  // Match its server placeholder first, then expose the current account state.
+  return hydrated ? auth : { ...auth, user: null, loading: true };
 }

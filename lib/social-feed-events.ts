@@ -209,7 +209,7 @@ export async function getPersistedPublicSocialFeed(
     `SELECT provider,member_slug,content_type,canonical_id,title,body,href,artwork_url,orientation,
             platform_payload,published_at::text
        FROM social_content_events
-      WHERE provider IN ('instagram','tiktok','x') AND ${memberPredicate}
+      WHERE provider IN ('instagram','tiktok','x') AND ${memberPredicate} AND removed_at IS NULL
       ORDER BY published_at DESC,created_at DESC
       LIMIT $1`,
     [boundedLimit],
@@ -243,6 +243,7 @@ export async function getPersistedPublicXArchive(input: {
             href,artwork_url,orientation,platform_payload,published_at::text
        FROM social_content_events
       WHERE provider='x'
+        AND removed_at IS NULL
         AND member_slug IS NOT DISTINCT FROM $1::text
         AND (
           $2::timestamptz IS NULL
