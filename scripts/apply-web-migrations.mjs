@@ -72,6 +72,7 @@ const migrations = [
   "062_face_profile_review.sql",
   "063_face_photo_candidates.sql",
   "064_face_processing_costs.sql",
+  "065_face_owner_photo_review.sql",
 ];
 
 function loadEnvLocal() {

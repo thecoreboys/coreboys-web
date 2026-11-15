@@ -42,6 +42,7 @@ export const FaceConsentGrantSchema = z.object({
   captureMethod: z.enum([
     "signed_release",
     "subject_portal",
+    "owner_attested_email",
   ]),
   evidenceRef: z.string().trim().min(3).max(500),
   consentTextSha256: Sha256,
@@ -107,6 +108,7 @@ export const FaceReferenceActionSchema = z.discriminatedUnion("action", [
     action: z.literal("approve"),
     note: z.string().trim().max(500).optional(),
   }).strict(),
+  z.object({action:z.literal("approve_owner"),ownerConfirmed:z.literal(true),note:z.string().trim().min(3).max(500)}).strict(),
   z.object({ action: z.literal("reject"), reason: ShortReason }).strict(),
 ]);
 

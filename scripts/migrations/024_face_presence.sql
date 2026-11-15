@@ -655,6 +655,11 @@ CREATE TRIGGER face_reference_assets_consent_guard
 BEFORE INSERT OR UPDATE OF identity_id, consent_id, retention_expires_at
 ON face_reference_assets
 FOR EACH ROW EXECUTE FUNCTION face_guard_biometric_consent();
+-- Migration 065 owns the upgraded implementation once installed. Replaying
+-- this baseline must not downgrade an active owner-review deployment.
+DO $owner_compat$ BEGIN
+IF to_regprocedure('public.face_reference_review_is_valid(uuid)') IS NULL THEN
+EXECUTE $original_definition$
 CREATE OR REPLACE FUNCTION face_guard_template_set_consent()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE grant_row face_consents%ROWTYPE;
@@ -702,7 +707,13 @@ BEFORE INSERT OR UPDATE OF
   template_count, reference_hashes, worker_id, expires_at, state
 ON face_template_sets
 FOR EACH ROW EXECUTE FUNCTION face_guard_template_set_consent();
+$original_definition$;
+END IF;
+END $owner_compat$;
 
+DO $owner_compat$ BEGIN
+IF to_regprocedure('public.face_reference_review_is_valid(uuid)') IS NULL THEN
+EXECUTE $original_definition$
 CREATE OR REPLACE FUNCTION face_guard_reference_review_independence()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE consent_recorder uuid;
@@ -724,6 +735,9 @@ DROP TRIGGER IF EXISTS face_reference_assets_independent_review ON face_referenc
 CREATE TRIGGER face_reference_assets_independent_review
 BEFORE UPDATE OF state, reviewed_by ON face_reference_assets
 FOR EACH ROW EXECUTE FUNCTION face_guard_reference_review_independence();
+$original_definition$;
+END IF;
+END $owner_compat$;
 
 CREATE OR REPLACE FUNCTION face_guard_source_allowlist()
 RETURNS trigger LANGUAGE plpgsql AS $$
@@ -1751,7 +1765,7 @@ BEGIN
     EXECUTE 'GRANT SELECT (id, state, canonical_kind, canonical_slug) ON TABLE public.face_identities TO core_face_worker';
     EXECUTE 'GRANT SELECT (id, identity_id, subject_confirmed_adult, allow_template_creation, allow_live_matching, allow_archive_matching, approved_content_ids, revoked_at, expires_at, created_at) ON TABLE public.face_consents TO core_face_worker';
     EXECUTE 'GRANT SELECT (consent_id, identity_id, content_id, start_ms, end_ms) ON TABLE public.face_consent_archive_scopes TO core_face_worker';
-    EXECUTE 'GRANT SELECT (identity_id, consent_id, content_sha256, subject_approved, state, revoked_at, reviewed_at, reviewed_by, created_by, retention_expires_at) ON TABLE public.face_reference_assets TO core_face_worker';
+    EXECUTE 'GRANT SELECT (id, identity_id, consent_id, content_sha256, subject_approved, state, revoked_at, reviewed_at, reviewed_by, created_by, retention_expires_at) ON TABLE public.face_reference_assets TO core_face_worker';
     EXECUTE 'GRANT SELECT (id, content_id, source_kind, state, operation_mode, all_visible_people_consented, recognition_enabled, automatic_matching_enabled, automatic_publish_enabled, kill_switch_active, active_session_id) ON TABLE public.face_sources TO core_face_worker';
     EXECUTE 'GRANT SELECT (source_id, identity_id, consent_id) ON TABLE public.face_source_identities TO core_face_worker';
     EXECUTE 'GRANT SELECT (id, identity_id, consent_id, model_name, model_version, template_fingerprint, template_count, reference_hashes, worker_id, state, expires_at, created_at) ON TABLE public.face_template_sets TO core_face_worker';

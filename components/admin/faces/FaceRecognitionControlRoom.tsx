@@ -357,6 +357,7 @@ export function FaceRecognitionControlRoom({
           people={people}
           identities={overview.identities}
           photoCandidates={overview.photoCandidates ?? []}
+          ownerPhotoReviewAllowed={overview.ownerPhotoReviewAllowed ?? false}
           apiAvailable={apiAvailable}
           busy={busy}
           mutate={mutate}
@@ -372,6 +373,7 @@ export function FaceRecognitionControlRoom({
           busy={busy}
           mutate={mutate}
           uploadReference={uploadReference}
+          ownerPhotoReviewAllowed={overview.ownerPhotoReviewAllowed ?? false}
         />
       ) : tab === "sources" ? (
         <SourcesPanel
@@ -415,6 +417,7 @@ function PeopleConsentPanel({
   people,
   identities,
   photoCandidates,
+  ownerPhotoReviewAllowed,
   apiAvailable,
   busy,
   mutate,
@@ -424,6 +427,7 @@ function PeopleConsentPanel({
   people: FaceCanonicalPerson[];
   identities: FaceIdentity[];
   photoCandidates: FacePhotoCandidate[];
+  ownerPhotoReviewAllowed: boolean;
   apiAvailable: boolean;
   busy: string | null;
   mutate: Mutate;
@@ -495,7 +499,7 @@ function PeopleConsentPanel({
       </Panel>
 
       <div className="space-y-4">
-      <PhotoCandidates key={person.key} person={person} identity={identity} candidates={photoCandidates.filter((candidate)=>candidate.canonicalKey===person.key)} apiAvailable={apiAvailable} busy={busy} mutate={mutate} />
+      <PhotoCandidates key={person.key} person={person} identity={identity} candidates={photoCandidates.filter((candidate)=>candidate.canonicalKey===person.key)} apiAvailable={apiAvailable} busy={busy} mutate={mutate} ownerPhotoReviewAllowed={ownerPhotoReviewAllowed} />
       {person.profileReview && (person.profileReview.research || person.profileReview.status !== "approved") ? <ProfileResearchReview key={`${person.key}:${person.profileReview.version}`} person={person} apiAvailable={apiAvailable} busy={busy} mutate={mutate} /> : null}
       {person.kind === "guest" ? (
         <Panel icon={<Users className="size-5" />} title="Guest profile" description="Update the name and channels used by this person's reviewed on-screen tags.">
@@ -506,6 +510,7 @@ function PeopleConsentPanel({
         key={`${person.key}:${identity?.updatedAt ?? "new"}`}
         person={person}
         identity={identity}
+        ownerPhotoReviewAllowed={ownerPhotoReviewAllowed}
         apiAvailable={apiAvailable}
         busy={busy}
         mutate={mutate}
@@ -515,24 +520,26 @@ function PeopleConsentPanel({
   );
 }
 
-function PhotoCandidates({person,identity,candidates,apiAvailable,busy,mutate}: {
+function PhotoCandidates({person,identity,candidates,apiAvailable,busy,mutate,ownerPhotoReviewAllowed=false}: {
   person: FaceCanonicalPerson; identity: FaceIdentity | null; candidates: FacePhotoCandidate[];
   apiAvailable: boolean; busy: string | null; mutate: Mutate;
+  ownerPhotoReviewAllowed?: boolean;
 }) {
   if (!candidates.length) return null;
   const eligible = Boolean(identity && identity.consent.status === "active" && identity.consent.adultConfirmed
     && identity.consent.templateCreation && (!person.profileReview || person.profileReview.status === "approved"));
   return <Panel icon={<FileImage className="size-5" />} title={`Reference photo candidates · ${candidates.filter((candidate)=>candidate.status!=="dismissed").length}`}
-    description="Review these researched photos and their sources. Confirm the person, a clear single face, and permission for each exact photo before submitting it for independent photo review.">
+    description={ownerPhotoReviewAllowed?"Confirm the pictured person, a clear single face, and exact-photo permission. Submit each photo, then record your owner approval in Enrollment.":"Review these researched photos and their sources. Confirm the person, a clear single face, and permission for each exact photo before submitting it for independent photo review."}>
     {!eligible ? <p className="mb-4 text-sm text-tertiary">Approve the profile and record active adult enrollment permission to submit these photos.</p> : null}
     <div className="grid gap-4 sm:grid-cols-2">
-      {candidates.map((candidate)=><PhotoCandidateCard key={candidate.id} candidate={candidate} identityId={identity?.id ?? null} eligible={eligible} disabled={!apiAvailable || busy!==null} mutate={mutate} />)}
+      {candidates.map((candidate)=><PhotoCandidateCard key={candidate.id} candidate={candidate} identityId={identity?.id ?? null} eligible={eligible} disabled={!apiAvailable || busy!==null} mutate={mutate} ownerPhotoReviewAllowed={ownerPhotoReviewAllowed} />)}
     </div>
   </Panel>;
 }
 
-function PhotoCandidateCard({candidate,identityId,eligible,disabled,mutate}: {
+function PhotoCandidateCard({candidate,identityId,eligible,disabled,mutate,ownerPhotoReviewAllowed=false}: {
   candidate: FacePhotoCandidate; identityId: string | null; eligible: boolean; disabled: boolean; mutate: Mutate;
+  ownerPhotoReviewAllowed?: boolean;
 }) {
   const [confirmed,setConfirmed] = useState(false);
   const [note,setNote] = useState("");
@@ -543,7 +550,7 @@ function PhotoCandidateCard({candidate,identityId,eligible,disabled,mutate}: {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={preview} alt="Researched reference photo awaiting identity and permission review" className="h-48 w-full rounded-lg bg-black object-contain" loading="lazy" />
     </a> : null}
-    <StatusPill tone={candidate.status==="submitted"?"success":candidate.status==="dismissed"?"neutral":"warning"}>{candidate.status==="submitted"?"Submitted for independent review":candidate.status==="dismissed"?"Dismissed":"Awaiting photo approval"}</StatusPill>
+    <StatusPill tone={candidate.status==="submitted"?"success":candidate.status==="dismissed"?"neutral":"warning"}>{candidate.status==="submitted"?"Submitted for photo review":candidate.status==="dismissed"?"Dismissed":"Awaiting photo approval"}</StatusPill>
     {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="block text-sm font-semibold text-brand-secondary">{candidate.sourceLabel} <ExternalLink className="inline size-3" /></a> : null}
     <p className="text-xs text-tertiary">{candidate.width} × {candidate.height} · researched {formatDate(candidate.checkedAt)}</p>
     <p className="text-xs text-tertiary">{candidate.researchNote}</p>
@@ -551,7 +558,7 @@ function PhotoCandidateCard({candidate,identityId,eligible,disabled,mutate}: {
       <CheckRow checked={confirmed} onChange={setConfirmed} disabled={disabled || !eligible} label="I verified this person and photo" detail="The subject approved this exact image for enrollment, and we have the rights to use it." />
       <Field label="Photo approval evidence"><input className={inputClass} maxLength={500} value={note} disabled={disabled || !eligible} onChange={(event)=>setNote(event.target.value)} placeholder="Approval or release reference for this photo" /></Field>
       <button type="button" className={primaryButton} disabled={disabled || !eligible || !identityId || !confirmed || note.trim().length<3}
-        onClick={()=>void mutate(`candidate-submit:${candidate.id}`,`/photo-candidates/${candidate.id}`,"POST",{action:"submit",identityId,subjectApproved:true,rightsConfirmed:true,note:note.trim()},"Photo submitted. A different admin must approve it in Enrollment before it can be used.")}>Submit for photo review</button>
+        onClick={()=>void mutate(`candidate-submit:${candidate.id}`,`/photo-candidates/${candidate.id}`,"POST",{action:"submit",identityId,subjectApproved:true,rightsConfirmed:true,note:note.trim()},ownerPhotoReviewAllowed?"Photo submitted. Record your explicit owner approval in Enrollment before it can be used.":"Photo submitted. A different admin must approve it in Enrollment before it can be used.")}>Submit for photo review</button>
       <button type="button" className={secondaryButton} disabled={disabled} onClick={()=>{
         const reason=window.prompt("Why is this photo unsuitable?");
         if(reason && reason.trim().length>=3) void mutate(`candidate-dismiss:${candidate.id}`,`/photo-candidates/${candidate.id}`,"POST",{action:"dismiss",reason:reason.trim()},"Photo candidate dismissed.");
@@ -582,7 +589,7 @@ function ProfileResearchReview({ person, apiAvailable, busy, mutate }: {
       <p className="whitespace-pre-line text-sm text-secondary">{review.research?.note}</p>
       <details className="text-sm text-tertiary"><summary className="cursor-pointer">Research sources · {review.research ? new Date(review.research.checkedAt).toLocaleDateString() : ""}</summary><ul className="mt-2 space-y-2">{review.research?.sources.map((source) => <li key={source.url}><a className="underline" href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></li>)}</ul></details>
       {review.note ? <p className="text-sm text-tertiary">Last review: {review.note}</p> : null}
-      <p className="text-sm text-tertiary">Next: record this person&apos;s permission, upload at least 3 photos they supplied or approved, then have a second admin review the photos. Profile approval alone does not enroll or publish them.</p>
+      <p className="text-sm text-tertiary">Next: record this person&apos;s permission and submit at least 3 photos they supplied or approved for enrollment review. Profile approval alone does not enroll or publish them.</p>
       <Field label="Review note"><textarea className={textareaClass} value={note} maxLength={1000} disabled={!apiAvailable || busy !== null} onChange={(event) => setNote(event.target.value)} placeholder="What you checked, or what needs correcting" /></Field>
       <label className="flex items-start gap-2 text-sm text-secondary"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /> I checked that these accounts and the profile picture belong to this creator.</label>
       <div className="flex flex-wrap gap-2">
@@ -688,12 +695,14 @@ function ConsentEditor({
   apiAvailable,
   busy,
   mutate,
+  ownerPhotoReviewAllowed=false,
 }: {
   person: FaceCanonicalPerson;
   identity: FaceIdentity | null;
   apiAvailable: boolean;
   busy: string | null;
   mutate: Mutate;
+  ownerPhotoReviewAllowed?: boolean;
 }) {
   const consent = identity?.consent;
   const [adultConfirmed, setAdultConfirmed] = useState(consent?.adultConfirmed ?? false);
@@ -829,17 +838,25 @@ function ConsentEditor({
             />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="How the subject confirmed">
-                <select className={inputClass} value={confirmationMethod} onChange={(event) => setConfirmationMethod(event.target.value as typeof confirmationMethod)} required>
+                <select className={inputClass} value={confirmationMethod} onChange={(event) => {
+                  const method=event.target.value as typeof confirmationMethod;setConfirmationMethod(method);
+                  if(method==="owner_attested_email"){
+                    setSubjectConfirmedAt(toLocalDateTimeInput(new Date()));
+                    if(!evidenceReference.trim())setEvidenceReference("Owner reports receiving this person's enrollment permission by email.");
+                  }
+                }} required>
                   <option value="">Select a method</option>
                   <option value="signed_release">Signed release</option>
                   <option value="subject_portal">Subject portal confirmation</option>
+                  {ownerPhotoReviewAllowed||confirmationMethod==="owner_attested_email"?<option value="owner_attested_email" disabled={!ownerPhotoReviewAllowed}>Email permission · owner confirmation</option>:null}
                 </select>
               </Field>
-              <Field label="Subject confirmed at" hint="Required; record the subject's actual confirmation time (within the last 30 days).">
+              <Field label={confirmationMethod==="owner_attested_email"?"Owner reviewed permission at":"Subject confirmed at"} hint={confirmationMethod==="owner_attested_email"?"Records when you reviewed the email permission; it does not assert the email was sent at this time.":"Required; record the subject's actual confirmation time (within the last 30 days)."}>
                 <input className={inputClass} type="datetime-local" value={subjectConfirmedAt} onChange={(event) => setSubjectConfirmedAt(event.target.value)} required />
               </Field>
-              <Field label="Consent expires" hint="Required; future and no more than 366 days from now.">
+              <Field label={confirmationMethod==="owner_attested_email"?"Enrollment access ends":"Consent expires"} hint={confirmationMethod==="owner_attested_email"?"Choose your access cutoff. Any earlier limit or withdrawal in the email still applies.":"Required; future and no more than 366 days from now."}>
                 <input className={inputClass} type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} required />
+                {confirmationMethod==="owner_attested_email"?<button type="button" className={`${secondaryButton} mt-2`} onClick={()=>setExpiresAt(toLocalDateTimeInput(new Date(Date.now()+90*24*60*60*1000)))}>Set 90-day access limit</button>:null}
               </Field>
             </div>
             <Field label="Evidence reference" hint="Store an internal release ID or recording timestamp, not a public URL containing private data.">
@@ -869,7 +886,7 @@ function ConsentEditor({
             checked={subjectAttested}
             onChange={setSubjectAttested}
             label="I am recording the subject's own, specific choice"
-            detail="This is not permission to scrape photos, enroll from a profile portrait, or infer consent from appearing on stream."
+            detail={confirmationMethod==="owner_attested_email"?"I received this person's email permission and am recording my own confirmation. This is an owner attestation, not a signed release or portal record.":"This is not permission to scrape photos, enroll from a profile portrait, or infer consent from appearing on stream."}
           />
 
           {replacesActiveConsent ? (
@@ -955,6 +972,7 @@ function EnrollmentPanel({
   busy,
   mutate,
   uploadReference,
+  ownerPhotoReviewAllowed=false,
 }: {
   panelId: string;
   identities: FaceIdentity[];
@@ -963,6 +981,7 @@ function EnrollmentPanel({
   busy: string | null;
   mutate: Mutate;
   uploadReference: (identityId: string, formData: FormData) => Promise<boolean>;
+  ownerPhotoReviewAllowed?: boolean;
 }) {
   const [identityId, setIdentityId] = useState(identities[0]?.id ?? "");
   const [file, setFile] = useState<File | null>(null);
@@ -1063,7 +1082,7 @@ function EnrollmentPanel({
       <Panel icon={<FileImage className="size-5" />} title={`${canonical?.displayName ?? identity?.displayName ?? "Reference"} · inventory`} description="Accepted references may produce templates only after quality review. Rejected and deleted items are never matchable." actions={identity ? <StatusPill tone={eligible ? "success" : "warning"}>{identity.templateCount} templates</StatusPill> : undefined}>
         {identity ? <div className="mb-4 space-y-3 rounded-xl border border-secondary p-4">
           <p className="text-sm font-semibold text-primary">{identity.enrollmentJob?.status === "running" ? "Creating face templates…" : identity.enrollmentJob?.status === "queued" ? "Enrollment queued" : identity.enrollmentJob?.status === "failed" ? "Enrollment needs attention" : identity.enrollmentStatus === "ready" ? "Ready for approved recordings" : "Enroll this person"}</p>
-          <p className="text-xs text-tertiary">{identity.enrollmentJob?.status === "failed" ? "Check permission and photo approvals, then retry with clear, different photos containing only this person. Expired approvals need new reference photos." : "A second admin must approve at least 3 different photos. Enrollment uses up to 20 approved photos and does not publish any names."}</p>
+          <p className="text-xs text-tertiary">{identity.enrollmentJob?.status === "failed" ? "Check permission and photo approvals, then retry with clear, different photos containing only this person. Expired approvals need new reference photos." : ownerPhotoReviewAllowed?"You can explicitly approve these photos as the site owner. At least 3 different subject-approved photos are required. Enrollment does not publish names.":"A second admin must approve at least 3 different photos. Enrollment uses up to 20 approved photos and does not publish any names."}</p>
           <button type="button" className={primaryButton} disabled={!apiAvailable || !eligible || busy !== null || identity.references.filter(reference=>reference.status === "accepted").length < 3 || ["queued","running"].includes(identity.enrollmentJob?.status ?? "")}
             onClick={()=>void mutate(`enroll:${identity.id}`,`/identities/${identity.id}/enroll`,"POST",{},"Enrollment queued. This screen will show when the person is ready.")}>
             {identity.enrollmentJob?.status === "failed" ? "Retry enrollment" : identity.templateCount > 0 ? "Update enrollment from approved photos" : "Enroll approved photos"}
@@ -1088,11 +1107,11 @@ function EnrollmentPanel({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-primary">{reference.fileName}</p>
                     <p className="mt-1 text-xs text-tertiary">{humanize(reference.sourceKind)} · captured {reference.capturedAt ? formatDate(reference.capturedAt) : "not supplied"} · submitted {formatDateTime(reference.createdAt)}</p>
-                    <p className="mt-1 text-xs text-tertiary">Uploader {reference.uploadedBy}{reference.reviewedBy ? ` · reviewer ${reference.reviewedBy}` : " · independent review pending"}</p>
+                    <p className="mt-1 text-xs text-tertiary">Uploader {reference.uploadedBy}{reference.reviewedBy ? reference.reviewMode==="owner"?" · owner approval recorded":` · reviewer ${reference.reviewedBy}` : ownerPhotoReviewAllowed?" · owner or independent review pending":" · independent review pending"}</p>
                     {reference.reviewNote ? <p className="mt-1 text-xs text-tertiary">Reviewer note: {reference.reviewNote}</p> : null}
                     {reference.qualityIssues.length > 0 ? <p className="mt-2 text-xs text-warning-primary">Quality review: {reference.qualityIssues.join(", ")}</p> : null}
                   </div>
-                  <StatusPill tone={reference.status === "accepted" ? "success" : reference.status === "rejected" ? "error" : reference.status === "deletion_pending" ? "warning" : "neutral"}>{humanize(reference.status)}</StatusPill>
+                  <StatusPill tone={reference.status === "accepted" ? "success" : reference.status === "rejected" ? "error" : reference.status === "deletion_pending" ? "warning" : "neutral"}>{reference.status==="accepted"&&reference.reviewMode==="owner"?"Owner approved":humanize(reference.status)}</StatusPill>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {reference.status === "pending_review" ? (
@@ -1102,13 +1121,13 @@ function EnrollmentPanel({
                         className={primaryButton}
                         disabled={busy === `reference-approve:${reference.id}`}
                         onClick={() => {
-                          const note = window.prompt("Record a quality/identity review note. A different staff member from the uploader and consent recorder must approve.");
+                          const note = window.prompt(ownerPhotoReviewAllowed?"Owner review: confirm this person's identity, photo quality and exact-photo permission. This records your owner approval, not an independent second review. Add your review note.":"Record a quality/identity review note. A different staff member from the uploader and consent recorder must approve.");
                           if (note === null) return;
                           if (note.trim().length < 3) return window.alert("Enter a short quality review note.");
-                          void mutate(`reference-approve:${reference.id}`, `/identities/${encodeURIComponent(identity.id)}/references/${encodeURIComponent(reference.id)}`, "PATCH", { action: "approve", note: note.trim() }, "Independent reference approval recorded. The worker must still enroll and verify a local template set.");
+                          void mutate(`reference-approve:${reference.id}`, `/identities/${encodeURIComponent(identity.id)}/references/${encodeURIComponent(reference.id)}`, "PATCH", ownerPhotoReviewAllowed?{action:"approve_owner",ownerConfirmed:true,note:note.trim()}:{ action: "approve", note: note.trim() }, ownerPhotoReviewAllowed?"Owner photo approval recorded. Enroll the approved photos when at least three are ready.":"Independent reference approval recorded. The worker must still enroll and verify a local template set.");
                         }}
                       >
-                        <CheckCircle2 className="size-4" /> Accept for enrollment
+                        <CheckCircle2 className="size-4" /> {ownerPhotoReviewAllowed?"Approve as owner":"Accept for enrollment"}
                       </button>
                       <button
                         type="button"

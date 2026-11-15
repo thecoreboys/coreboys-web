@@ -22,7 +22,7 @@ export type FaceConsent = FaceConsentPurpose & {
   status: "active" | "expired" | "revoked" | "missing";
   adultConfirmed: boolean;
   subjectConfirmedAt: string | null;
-  confirmationMethod: "signed_release" | "subject_portal" | null;
+  confirmationMethod: "signed_release" | "subject_portal" | "owner_attested_email" | null;
   evidenceReference: string | null;
   expiresAt: string | null;
   revokedAt: string | null;
@@ -43,6 +43,7 @@ export type FaceReference = {
   uploadedBy: string;
   reviewedBy: string | null;
   reviewNote: string | null;
+  reviewMode?: "independent" | "owner";
 };
 
 export type FaceIdentity = {
@@ -136,6 +137,7 @@ export type FaceAuditEntry = {
 
 export type FaceAdminOverview = {
   apiVersion: string;
+  ownerPhotoReviewAllowed?: boolean;
   service: {
     status: "ready" | "degraded" | "offline";
     message: string | null;
@@ -195,7 +197,7 @@ const ConsentSchema = z.object({
   status: z.enum(["active", "expired", "revoked", "missing"]),
   adultConfirmed: z.boolean(),
   subjectConfirmedAt: NullableString,
-  confirmationMethod: z.enum(["signed_release", "subject_portal"]).nullable(),
+  confirmationMethod: z.enum(["signed_release", "subject_portal", "owner_attested_email"]).nullable(),
   evidenceReference: NullableString,
   expiresAt: NullableString,
   revokedAt: NullableString,
@@ -224,6 +226,7 @@ const ReferenceSchema = z.object({
   uploadedBy: z.string(),
   reviewedBy: NullableString,
   reviewNote: NullableString,
+  reviewMode: z.enum(["independent","owner"]).default("independent"),
 });
 const IdentitySchema = z.object({
   id: z.string().uuid(),
@@ -284,6 +287,7 @@ const AuditSchema = z.object({
 });
 const FaceAdminOverviewSchema = z.object({
   apiVersion: z.string(),
+  ownerPhotoReviewAllowed: z.boolean().default(false),
   service: z.object({
     status: z.enum(["ready", "degraded", "offline"]), message: NullableString,
     analyzerVersion: NullableString, lastHeartbeatAt: NullableString,
