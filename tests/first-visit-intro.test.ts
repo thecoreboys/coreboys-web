@@ -79,22 +79,25 @@ test("the boot percentage is a weighted view of the real preload and only comple
   assert.equal(introPreloadPercent({ video: 4, decode: Number.NaN, shelves: -1, artwork: 1, portraits: 1 }), 85);
 });
 
-test("sound is requested from the visitor's own begin press, with an honest muted fallback", () => {
+test("the intro starts when ready, with a muted fallback when autoplay sound is blocked", () => {
   const begin = component.slice(component.indexOf("const begin = useCallback("), component.indexOf("}, [go, source]);"));
   assert.match(begin, /media\.muted = !withSound/);
   assert.match(begin, /playWithMutedFallback\(media/);
   assert.match(begin, /if \(withSound && media\.muted\) setSoundBlocked\(true\)/);
   assert.match(component, /onClick=\{\(\) => begin\(true\)\}/);
   assert.match(component, /soundBlocked \? <button[^>]*onClick=\{toggleSound\}/);
-  // The prompted Enter press must never land on Skip.
-  assert.match(component, /querySelector<HTMLElement>\("\[data-intro-focus\]"\)\?\.focus\(\)/);
+  const autoplay = component.slice(component.indexOf('if (!ready || phaseRef.current !== "boot") return;'), component.indexOf('}, [begin, ready]);'));
+  assert.match(autoplay, /begin\(true\)/);
+  assert.doesNotMatch(component, /Watch without sound|friends intro|friends on set/i);
+  // Initial keyboard focus must not accidentally activate Skip.
+  assert.match(component, /element\?\.focus\(\)/);
 });
 
 test("the boot terminal reports real progress from the preload", () => {
   assert.match(preload, /response\.body\.getReader\(\)/);
   assert.match(preload, /onProgress\(loaded, Math\.max\(total, loaded\)\)/);
   assert.match(preload, /state\.shelves\.done \+= 1/);
-  assert.match(component, /Preparing your CORE experience/);
+  assert.match(component, /Loading intro/);
   assert.match(component, /preloadIntroVideo\(controller\.signal, \(done, total\)/);
   assert.match(component, /prepareHomeForIntro\(controller\.signal, \(progress\)/);
 });

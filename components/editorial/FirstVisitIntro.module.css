@@ -43,6 +43,11 @@
   font-family: var(--font-inter), system-ui, sans-serif;
 }
 .dialog::backdrop { background: transparent; }
+/* The modal is above the custom cursor's layer. Keep a native pointer here. */
+:global(body[data-cursor="agentic"]) .dialog,
+:global(body[data-cursor="agentic"]) .dialog * { cursor: default !important; }
+:global(body[data-cursor="agentic"]) .dialog button,
+:global(body[data-cursor="agentic"]) .dialog button * { cursor: pointer !important; }
 .dialog button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .dialog button:focus-visible { outline: 1px solid var(--intro-gold); outline-offset: 3px; }
 
@@ -77,6 +82,8 @@
 
 /* Stage -------------------------------------------------------------------- */
 .stage { position: relative; display: grid; place-items: center; min-height: 0; container-type: size; }
+.stage::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--intro-accent, transparent) 9%, transparent), transparent 65%); opacity: 0; transition: opacity 800ms ease; }
+.stage[data-cue="active"]::before { opacity: 1; }
 
 /* Boot terminal */
 .terminal {
@@ -114,17 +121,10 @@
 .meterOff { color: rgb(241 199 124 / .22); }
 .percent { color: var(--intro-ivory); }
 .prompt { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; min-height: 52px; animation: fadeIn 500ms var(--intro-ease) both; animation-delay: 1.45s; }
-.ready { flex-basis: 100%; margin: 0; color: var(--intro-gold); letter-spacing: .2em; text-transform: uppercase; }
 .begin { display: inline-flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 18px; border: 1px solid var(--intro-phosphor); border-radius: 0; color: var(--intro-ivory) !important; background: rgb(241 199 124 / .08); letter-spacing: .16em; text-transform: uppercase; text-shadow: inherit; box-shadow: 0 0 0 0 rgb(241 199 124 / .35); animation: breathe 2.6s var(--intro-ease-inout) infinite; transition: background-color var(--motion-fast, 160ms) ease, color var(--motion-fast, 160ms) ease; }
 .begin:hover { color: #0b0a08 !important; background: var(--intro-phosphor); text-shadow: none; }
-.beginSound { display: inline-flex; align-items: center; gap: 6px; padding-left: 12px; border-left: 1px solid rgb(241 199 124 / .45); color: var(--intro-phosphor); }
-.begin:hover .beginSound { color: inherit; border-color: rgb(11 10 8 / .4); }
 .quiet { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--intro-dim) !important; text-decoration: underline; text-decoration-color: rgb(148 139 121 / .45); text-underline-offset: 4px; letter-spacing: .08em; }
 .quiet:hover { color: var(--intro-ivory) !important; }
-.queue { min-height: 44px; padding: 0 14px; border: 1px dashed rgb(241 199 124 / .35); border-radius: 0; background: none; color: var(--intro-phosphor-dim) !important; letter-spacing: .12em; text-transform: uppercase; text-shadow: none; }
-.queue[aria-pressed="true"] { border-style: solid; color: var(--intro-phosphor) !important; }
-.coarse { display: none; }
-@media (pointer: coarse) { .fine { display: none; } .coarse { display: inline; } }
 
 /* Screen */
 .screenWrap {
@@ -159,7 +159,8 @@
 .card[data-place^="bottom"] .lead { bottom: 100%; transform-origin: top; }
 .card[data-place$="start"] .lead { left: 32px; }
 .card[data-place$="end"] .lead { right: 32px; }
-.cardBody { position: relative; display: flex; gap: 16px; height: 100%; overflow: hidden; border: 1px solid rgb(239 232 216 / .12); background: linear-gradient(100deg, rgb(19 18 15 / .97), rgb(10 10 8 / .94)); }
+.cardBody { position: relative; display: flex; gap: 16px; height: 100%; overflow: hidden; border: 1px solid rgb(239 232 216 / .12); background: linear-gradient(100deg, rgb(19 18 15 / .97), rgb(10 10 8 / .94)); transform-origin: center bottom; }
+.card[data-place^="bottom"] .cardBody { transform-origin: center top; }
 .card[data-place$="end"] .cardBody { flex-direction: row-reverse; text-align: right; }
 .cardBody::after { content: ""; position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; }
 .card[data-place$="end"] .cardBody::after { transform-origin: right; }
@@ -178,7 +179,7 @@
 .card[data-place^="bottom"][data-state="on"] .cardBody { animation: dropDown 780ms var(--intro-ease) both; }
 .card[data-state="on"] .lead { animation: grow 420ms var(--intro-ease) both; }
 .card[data-state="on"] .cardBody::after { animation: sweep 900ms var(--intro-ease) 180ms both; }
-.card[data-state="on"] .portrait img { animation: settle 1600ms var(--intro-ease) both; }
+.card[data-state="on"] .portrait img { animation: settle 3200ms var(--intro-ease) both; }
 .card[data-state="on"] .cardName { animation: nameIn 760ms var(--intro-ease) 140ms both; }
 .card[data-state="on"] .cardMeta { animation: fadeIn 600ms var(--intro-ease) 320ms both; }
 .card[data-state="done"] { animation: cardOut 460ms var(--intro-ease-in) both; }
@@ -249,11 +250,11 @@
 @keyframes seam { 0% { opacity: 1; transform: scaleX(0); } 45% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
 @keyframes partUp { to { transform: translateY(-101%); } }
 @keyframes partDown { to { transform: translateY(101%); } }
-@keyframes riseUp { from { opacity: 0; transform: translateY(16px); clip-path: inset(100% 0 0 0); } to { opacity: 1; transform: none; clip-path: inset(0); } }
-@keyframes dropDown { from { opacity: 0; transform: translateY(-16px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0); } }
+@keyframes riseUp { from { opacity: 0; transform: perspective(900px) translateY(28px) rotateX(-7deg); clip-path: inset(100% 0 0 0); } to { opacity: 1; transform: none; clip-path: inset(0); } }
+@keyframes dropDown { from { opacity: 0; transform: perspective(900px) translateY(-28px) rotateX(7deg); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0); } }
 @keyframes grow { to { transform: scaleY(1); } }
 @keyframes sweep { to { transform: scaleX(1); } }
-@keyframes settle { from { transform: scale(1.14); } }
+@keyframes settle { from { transform: scale(1.16) translateY(2%); } to { transform: scale(1); } }
 @keyframes nameIn { from { opacity: 0; transform: translateY(40%); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 -10% 0); } }
 @keyframes cardOut { from { opacity: 1; } to { opacity: 0; transform: translateY(var(--out, 0)); } }
 @keyframes creditIn { from { opacity: 0; transform: translateY(14px); } }

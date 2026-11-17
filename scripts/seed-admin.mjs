@@ -60,13 +60,15 @@ if (!url) {
   process.exit(1);
 }
 const u = new URL(url);
+const sslDisabled = u.searchParams.get("sslmode") === "disable";
+const isLocalDatabase = u.hostname === "127.0.0.1" || u.hostname === "localhost";
 const pool = new Pool({
   host: u.hostname,
   port: u.port ? Number(u.port) : 5432,
   user: decodeURIComponent(u.username),
   password: decodeURIComponent(u.password),
   database: u.pathname.replace(/^\//, ""),
-  ssl: { rejectUnauthorized: false },
+  ssl: sslDisabled || isLocalDatabase ? false : { rejectUnauthorized: false },
 });
 
 (async () => {

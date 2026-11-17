@@ -59,9 +59,8 @@ const MARK: Record<LineState, string> = { run: " .. ", ok: " OK ", skip: "SKIP",
 
 /**
  * The first Home visit opens on a boot terminal that reports the real preload
- * (intro video bytes, Home shelves, artwork, cast portraits). A deliberate
- * "begin" press is the gesture that lets the intro play with sound. Name cards
- * rise beside the video as each friend is named, credits follow, and the
+ * (intro video bytes, Home shelves, artwork, cast portraits), then starts
+ * playback automatically. Name cards rise beside the video, credits follow, and the
  * console splits open onto Home, which stays mounted behind it throughout.
  */
 export function FirstVisitIntro({ children }: { children: ReactNode }) {
@@ -81,7 +80,6 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
   const [portraits, setPortraits] = useState(0);
   const [portraitGrace, setPortraitGrace] = useState(false);
   const [minElapsed, setMinElapsed] = useState(false);
-  const [armed, setArmed] = useState(false);
   const [muted, setMuted] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -129,9 +127,8 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
     document.body.style.overflow = "hidden";
     root.style.overflow = "hidden";
     if (element && !element.open) element.showModal();
-    // showModal() focuses the first control (Skip). Start on the begin
-    // control instead so the prompted Enter press never skips the intro.
-    element?.querySelector<HTMLElement>("[data-intro-focus]")?.focus();
+    // Keep keyboard shortcuts in the dialog without focusing Skip.
+    element?.focus();
     setMinimal(prefersMinimalMotion());
     const width = Math.max(window.innerWidth, root.clientWidth);
     const height = Math.max(window.innerHeight, root.clientHeight);
@@ -179,7 +176,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
   const portraitsDone = portraits >= CAST.length || portraitGrace;
   const ready = phase === "boot" && Boolean(source) && Boolean(decoded) && homeReady && minElapsed && portraitsDone;
 
-  /** Must run inside the click or key handler so browsers allow sound. */
+  /** Try sound first; browsers that block it can still autoplay muted. */
   const begin = useCallback((withSound: boolean) => {
     const media = video.current;
     if (!media || !source) return;
@@ -198,13 +195,9 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
   }, [go, source]);
 
   useEffect(() => {
-    if (!ready) return;
-    go("gate");
-    // A press during boot already counts as the visitor's go-ahead. The
-    // browser decides whether that earlier press still allows sound; if not,
-    // playback starts muted and the sound prompt stays on screen.
-    if (armed) begin(true);
-  }, [armed, begin, go, ready]);
+    if (!ready || phaseRef.current !== "boot") return;
+    begin(true);
+  }, [begin, ready]);
 
   // The begin button unmounts on play; keep focus (and the K/M/Esc keys) in the dialog.
   useEffect(() => {
@@ -292,8 +285,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const onButton = event.target instanceof HTMLButtonElement;
     const key = event.key.toLowerCase();
-    if (phase === "boot" && !onButton && (key === "enter" || key === " ")) { event.preventDefault(); setArmed(true); }
-    else if (phase === "gate" && !onButton && key === "enter") { event.preventDefault(); begin(true); }
+    if (phase === "gate" && !onButton && key === "enter") { event.preventDefault(); begin(true); }
     else if (phase === "playing") {
       if (key === "m") { event.preventDefault(); toggleSound(); }
       else if (key === "k" || (key === " " && !onButton)) { event.preventDefault(); togglePause(); }
@@ -328,7 +320,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
 
   return <IntroContext.Provider value={active}>
     {children}
-    {open ? <dialog ref={dialog} className={styles.dialog} aria-labelledby="core-welcome-title" data-phase={phase} data-motion={minimal ? "minimal" : "full"} data-lenis-prevent
+    {open ? <dialog ref={dialog} tabIndex={-1} className={styles.dialog} aria-labelledby="core-welcome-title" data-phase={phase} data-motion={minimal ? "minimal" : "full"} data-lenis-prevent
       onCancel={(event) => { event.preventDefault(); leave(); }} onClose={() => { saveSeen(); setOpen(false); }} onKeyDown={onKeyDown}>
       <div className={styles.shutterTop} aria-hidden="true" />
       <div className={styles.shutterBottom} aria-hidden="true" />
@@ -336,17 +328,18 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
       <div className={styles.shell}>
         <header className={styles.bar}>
           <CoreWordmark className={styles.mark} />
-          <h2 id="core-welcome-title" className={styles.title}><span>Welcome to CORE</span><span aria-hidden="true">·</span><span>The friends intro</span></h2>
-          <p className={styles.tally} aria-label={`${revealed} of ${CAST.length} friends named`}>
+          <h2 id="core-welcome-title" className={styles.title}><span>Welcome to CORE</span><span aria-hidden="true">·</span><span>Intro</span></h2>
+          <p className={styles.tally} aria-label={`${revealed} of ${CAST.length} cast members introduced`}>
             <span aria-hidden="true">Cast {pad(revealed)}/{pad(CAST.length)}</span>
             <span className={styles.tallyBars} aria-hidden="true">{CAST.map(({ member }, index) => <i key={member.slug} data-on={index < revealed} style={{ "--accent": member.accent } as CSSProperties} />)}</span>
           </p>
           {phase !== "credits" ? <button type="button" className={styles.skip} onClick={leave}>Skip intro <X size={14} aria-hidden="true" /></button> : null}
         </header>
 
-        <div className={styles.stage}>
-          {showTerminal ? <section className={styles.terminal} aria-label="Preparing the intro" onPointerDown={(event) => { if (phase === "boot" && !(event.target as Element).closest("button")) setArmed(true); }}>
-            <p className={styles.boot} data-line="0">CORE/OS · signal 01 · friends intro</p>
+        <div className={styles.stage} data-cue={cue ? "active" : "idle"}
+          style={{ "--intro-accent": cue ? MEMBERS_BY_SLUG[cue.slug]?.accent : "transparent" } as CSSProperties}>
+          {showTerminal ? <section className={styles.terminal} aria-label="Loading intro">
+            <p className={styles.boot} data-line="0">CORE · Intro</p>
             <ol className={styles.lines}>
               {lines.map((line, index) => <li key={line.key} className={styles.line} data-state={line.state} style={{ "--i": index + 1 } as CSSProperties}>
                 <span className={styles.lineMark}>[{MARK[line.state]}]</span>
@@ -356,7 +349,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
               </li>)}
             </ol>
             <div className={styles.readout} role="status" aria-live="polite">
-              <p className={styles.headline}>{failed ? "The intro couldn't load" : "Preparing your CORE experience"}<span className={styles.cursor} aria-hidden="true" /></p>
+              <p className={styles.headline}>{failed ? "The intro couldn't load" : "Loading intro"}<span className={styles.cursor} aria-hidden="true" /></p>
               <p className={styles.meter} aria-hidden="true"><span>[</span><span className={styles.meterOn}>{"█".repeat(filled)}</span><span className={styles.meterOff}>{"░".repeat(BAR_CELLS - filled)}</span><span>]</span> <span className={styles.percent}>{pad(shownPercent)}%</span></p>
               <span className={styles.srOnly}>{failed ? "Intro unavailable." : phase === "gate" ? "Ready." : `${shownPercent} percent`}</span>
             </div>
@@ -365,22 +358,17 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
                 <button type="button" className={styles.begin} onClick={tryAgain} autoFocus>Try again</button>
                 <button type="button" className={styles.quiet} onClick={leave}>Go to Home</button>
               </> : phase === "gate" ? <>
-                <p className={styles.ready}>System ready · {CAST.length} friends on set</p>
                 <button type="button" className={styles.begin} onClick={() => begin(true)} autoFocus>
                   <Play size={15} fill="currentColor" aria-hidden="true" />
-                  <span className={styles.fine}>Press Enter to begin</span><span className={styles.coarse}>Tap to begin</span>
-                  <span className={styles.beginSound}><Volume2 size={14} aria-hidden="true" /> Sound on</span>
+                  Play intro
                 </button>
-                <button type="button" className={styles.quiet} onClick={() => begin(false)}>Watch without sound</button>
-              </> : <button type="button" className={styles.queue} onClick={() => setArmed(true)} aria-pressed={armed} data-intro-focus>
-                {armed ? "Queued · starts with sound when ready" : <><span className={styles.fine}>Press Enter to start as soon as it&apos;s ready</span><span className={styles.coarse}>Tap to start as soon as it&apos;s ready</span></>}
-              </button>}
+              </> : null}
             </div>
           </section> : null}
 
           <div className={styles.screenWrap} data-visible={showStage}>
             <div className={styles.frame}>
-              <video ref={video} src={source ?? undefined} playsInline preload="auto" className={styles.video} aria-label="CORE friends intro"
+              <video ref={video} src={source ?? undefined} playsInline preload="auto" className={styles.video} aria-label="CORE intro"
                 onCanPlayThrough={(event) => { const media = event.currentTarget; setDecoded(`${media.videoWidth}×${media.videoHeight} · ${clock(media.duration)}`); }}
                 onPlaying={() => { if (!started.current) { started.current = true; saveSeen(); } setPaused(false); }}
                 onPause={() => setPaused(true)} onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
@@ -391,7 +379,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
               <span className={styles.scan} aria-hidden="true" />
               <span className={styles.corners} aria-hidden="true"><i /><i /><i /><i /></span>
               {phase === "playing" && soundBlocked ? <button type="button" className={styles.soundPrompt} onClick={toggleSound}>
-                <VolumeX size={16} aria-hidden="true" /> Your browser started this muted. <strong>Turn sound on</strong>
+                <VolumeX size={16} aria-hidden="true" /><strong>Turn sound on</strong>
               </button> : null}
 
               <ol className={styles.cast} aria-hidden="true">
@@ -414,7 +402,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
           </div>
           {ended && (phase === "credits" || phase === "leaving") ? <section className={styles.credits} aria-labelledby="core-intro-credits">
             <p className={styles.creditsEyebrow} style={{ "--i": 0 } as CSSProperties}>CORE TV presents</p>
-            <h3 id="core-intro-credits" className={styles.creditsTitle} style={{ "--i": 1 } as CSSProperties}>The Friends Intro</h3>
+            <h3 id="core-intro-credits" className={styles.creditsTitle} style={{ "--i": 1 } as CSSProperties}>Intro</h3>
             <p className={styles.creditsRole} style={{ "--i": 2 } as CSSProperties}>Starring</p>
             <ul className={styles.starring}>
               {CAST.map(({ member }, index) => <li key={member.slug} style={{ "--i": 3 + index * 0.5, "--accent": member.accent } as CSSProperties}>
