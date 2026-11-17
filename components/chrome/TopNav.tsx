@@ -368,7 +368,7 @@ export function TopNav() {
                           {network.slug === "core" ? (
                             <span
                               aria-hidden
-                              className="pointer-events-none absolute left-1/2 top-[35%] inline-flex -translate-x-1/2 -translate-y-1/2 text-[color:var(--ink)] drop-shadow-[0_3px_10px_rgba(0,0,0,0.8)] transition duration-300 group-hover:scale-105"
+                            className="pointer-events-none absolute inset-x-0 top-[35%] flex -translate-y-1/2 items-center justify-center text-[color:var(--ink)] drop-shadow-[0_3px_10px_rgba(0,0,0,0.8)] transition duration-300 group-hover:scale-105"
                               style={{ fontSize: "clamp(2.15rem, 3.2vw, 3rem)" }}
                             >
                               <CoreWordmark />
