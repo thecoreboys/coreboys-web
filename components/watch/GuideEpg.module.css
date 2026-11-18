@@ -184,13 +184,15 @@
 /* ---------- Grid ---------- */
 .scroller {
   position: relative;
-  overflow: auto;
-  max-height: min(calc(100dvh - 180px), calc(var(--epg-ruler) + 9.5 * var(--epg-row)));
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Every channel stays in page flow; only the time axis can pan. */
+  max-height: none;
   min-height: calc(var(--epg-ruler) + 3 * var(--epg-row));
   border: 1px solid var(--epg-line);
   border-radius: 16px;
   background: var(--bg);
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--epg-line-strong) transparent;
   -webkit-overflow-scrolling: touch;
@@ -437,7 +439,7 @@
 }
 
 @media (max-width: 639px) {
-  .scroller { max-height: calc(100dvh - 150px); border-radius: 14px; }
+  .scroller { border-radius: 14px; }
   .channel { flex-direction: column; justify-content: center; gap: 4px; padding-inline: 6px; }
   .logo { width: 32px; height: 32px; padding: 5px; border-radius: 8px; }
   .channelCopy { justify-items: center; text-align: center; width: 100%; }

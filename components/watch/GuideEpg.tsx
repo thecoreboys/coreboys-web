@@ -37,8 +37,8 @@ const HALF_HOUR = 1_800_000;
 
 /**
  * A TV-guide grid: channels down the side, time across the top, programmes as
- * blocks. One scroller owns both axes so the time ruler and channel column
- * stay pinned while the viewer pans through the day by touch, drag, wheel,
+ * blocks. All channel rows stay in page flow. The time axis pans horizontally
+ * with its channel column pinned, using touch, drag, wheel,
  * buttons or the keyboard.
  */
 export function GuideEpg({
