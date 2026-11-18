@@ -19,10 +19,6 @@ const RadioAudioSystem = dynamic(
   () => import("@/components/watch/RadioAudioSystem").then((module) => module.RadioAudioSystem),
   { ssr: false },
 );
-const WatchTogetherBridge = dynamic(
-  () => import("@/components/watch/WatchTogetherBridge").then((module) => module.WatchTogetherBridge),
-  { ssr: false },
-);
 const CinematicRouteTransition = dynamic(
   () => import("@/components/watch/CinematicRouteTransition").then((module) => module.CinematicRouteTransition),
   { ssr: false },
@@ -120,8 +116,6 @@ export function GlobalWatchEnhancements() {
       {nativeApp === false ? <RadioAudioSystem /> : null}
       {ready ? <>
       {player.current || isRoomSurface(pathname) || pathname.startsWith("/shorts") ? <PersistentPlayer /> : null}
-      {/* Watch together lives on Theater only; Multiview has no room widget. */}
-      {pathname.startsWith("/theater") ? <WatchTogetherBridge /> : null}
       <CinematicRouteTransition />
       <WatchPalette />
       {user ? <PassportPresenceBridge key={user.id} /> : null}

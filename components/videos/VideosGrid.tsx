@@ -12,6 +12,8 @@ import { FilterSelect } from "@/components/ui/FilterSelect";
 import browse from "@/components/ui/BrowseControls.module.css";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import type { Playable } from "@/lib/watch/playable";
+import { useHoverAutoplay } from "@/hooks/useHoverAutoplay";
+import { AutoplayEmbed } from "@/components/media/AutoplayEmbed";
 
 export type VideoChannel = {
   key: string;
@@ -64,16 +66,9 @@ function playableOf(item: FeedItem): Playable | null {
 }
 
 /**
- * Client-side videos grid with a per-channel filter (button-group) plus a
- * centered hover/click video preview.
- *
- *  - Hover a card (after ~400ms) → muted autoplay preview opens centered.
- *  - Click a card → same player, unmuted + pinned until dismissed.
- *
- * Honors prefers-reduced-motion: no auto-open on hover when reduced (click
- * still works). The server resolves + fetches every channel's RSS and
- * hands us the merged, date-sorted list + a duration map; we filter +
- * render UUI-style cards and manage the preview state here.
+ * Filtered video listings share the full player on click and start a muted
+ * inline preview after hover intent. Preview, data-saving, and motion
+ * preferences are respected; no provider players load on first paint.
  */
 export function VideosGrid({
   videos,
@@ -89,6 +84,7 @@ export function VideosGrid({
   const setActive = (creator: string) => update({ creator });
   const { map } = useWatchProgress();
   const player = usePlayer();
+  const { activeId: previewId, start: startPreview, stop: stopPreview } = useHoverAutoplay();
   const [multiviewNotice, setMultiviewNotice] = useState<{ key: string; added: boolean } | null>(null);
   useEffect(() => {
     if (!multiviewNotice) return;
@@ -112,6 +108,7 @@ export function VideosGrid({
 
   const onCardClick = useCallback(
     (e: React.MouseEvent, vid: string, item: FeedItem) => {
+      stopPreview();
       if (!vid) return; // no derivable id → let the link navigate normally
       e.preventDefault();
       const playable = playableOf(item);
@@ -128,7 +125,7 @@ export function VideosGrid({
         }),
       });
     },
-    [context, player],
+    [context, player, stopPreview],
   );
 
   if (videos.length === 0) {
@@ -175,7 +172,9 @@ export function VideosGrid({
             const isOrg = (it.authorSlug ?? "org") === "org";
             const featured = i === 0;
             return (
-              <li key={it.id} className={`group relative ${featured ? "sm:col-span-2" : ""}`}>
+              <li key={it.id} className={`group relative ${featured ? "sm:col-span-2" : ""}`}
+                onMouseEnter={() => startPreview(it.id)} onMouseLeave={stopPreview}
+                onFocus={() => startPreview(it.id)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) stopPreview(); }}>
                 <a
                   href={it.url}
                   target="_blank"
@@ -184,7 +183,7 @@ export function VideosGrid({
                   onClick={(e) => onCardClick(e, vid, it)}
                   className="collection-card group flex h-full flex-col overflow-hidden"
                 >
-                  <span className="relative block aspect-video w-full overflow-hidden bg-black media-tone">
+                  <div className="relative block aspect-video w-full overflow-hidden bg-black media-tone">
                     {it.thumbnailUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -194,6 +193,9 @@ export function VideosGrid({
                         loading="lazy"
                       />
                     ) : null}
+                    {previewId === it.id && vid ? <div className="pointer-events-none absolute inset-0" aria-hidden="true" data-hover-preview>
+                      <AutoplayEmbed sourceUrl={it.url} title={`${it.title} preview`} controls={false} loop />
+                    </div> : null}
                     <span
                       aria-hidden
                       className="pointer-events-none absolute inset-0"
@@ -235,14 +237,14 @@ export function VideosGrid({
                     ) : null}
 
                     {/* Play affordance. */}
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition duration-200 group-hover:opacity-100">
+                    <span className={`pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition duration-200 ${previewId === it.id ? "" : "group-hover:opacity-100"}`}>
                       <PlayCircle
                         size={52}
                         className="text-white transition-transform duration-200 group-hover:scale-105"
                         style={{ filter: "drop-shadow(0 4px 18px rgba(0,0,0,.6))" }}
                       />
                     </span>
-                  </span>
+                  </div>
 
                   <div className="flex flex-1 flex-col gap-2 p-4">
                     <h3 title={it.title} className="line-clamp-2 text-balance text-base font-medium leading-snug tracking-tight text-[color:var(--ink)]">

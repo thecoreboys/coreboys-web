@@ -86,8 +86,8 @@ function elementTypes(node: React.ReactNode): unknown[] {
   return [node.type, ...elementTypes(node.props.children)];
 }
 
-test("the app keeps players and room controls without mounting DJ Cora or its audio effects", () => {
-  // Watch together mounts on Theater only; Multiview no longer shows the room widget.
+test("watch surfaces retain players and chat without a floating room widget", () => {
+  // No floating Watch Together widget is mounted on either player surface.
   for (const [pathname, nativeApp] of [["/theater", true], ["/theater", null], ["/theater", false], ["/multiview", true], ["/multiview", false]] as const) {
     const component = load<{ GlobalWatchEnhancements: () => React.ReactNode }>("components/watch/GlobalWatchEnhancements.tsx", {
       react: { ...React, useState: (value: unknown) => [typeof value === "function" ? value() : value, () => {}], useEffect() {} },
@@ -100,7 +100,7 @@ test("the app keeps players and room controls without mounting DJ Cora or its au
     const types = elementTypes(component.GlobalWatchEnhancements());
     assert.equal(types.includes("RadioAudioSystem"), nativeApp === false);
     assert.ok(types.includes("PersistentPlayer"));
-    assert.equal(types.includes("WatchTogetherBridge"), pathname === "/theater");
+    assert.equal(types.includes("WatchTogetherBridge"), false);
     assert.ok(types.includes("PlayerChatCompanion"));
   }
 });

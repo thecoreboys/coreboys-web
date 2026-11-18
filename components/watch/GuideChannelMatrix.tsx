@@ -2,6 +2,7 @@
 
 import { useMemo, type CSSProperties, type KeyboardEvent } from "react";
 import { ArrowRight, Play, Radio, RotateCcw, Smartphone } from "lucide-react";
+import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { usePlayer } from "@/components/providers/PlayerProvider";
 import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import {
@@ -158,8 +159,10 @@ export function GuideChannelMatrix({ networks }: { networks: GuideNetworkGroup[]
               >
                 <div className="guide-channel-timeline-network guide-channel-timeline-sticky">
                   <span className="guide-network-logo">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={group.network.artwork} alt="" />
+                    {group.network.slug === "core" ? <CoreWordmark /> : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={group.network.artwork} alt="" />
+                    )}
                   </span>
                   <span className="guide-network-copy">
                     <strong id={`${regionId}-title`}>{group.network.name}</strong>

@@ -2150,6 +2150,7 @@
 }
 
 .guide-network-logo {
+  container-type: inline-size;
   display: grid;
   width: 2.6rem;
   height: 2.6rem;
@@ -2166,6 +2167,7 @@
   height: 78%;
   object-fit: contain;
 }
+.guide-network-logo .core-wordmark { color: #fff; font-size: 42cqw; }
 
 .guide-network-copy,
 .guide-network-copy strong,

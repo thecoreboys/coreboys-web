@@ -5,6 +5,7 @@ import { LinkExternal01, PlayCircle } from "@untitledui/icons";
 import type { Clip } from "@/lib/clips";
 import { PlatformLogo, PLATFORM_BRAND } from "@/components/clips/PlatformLogo";
 import { AutoplayEmbed } from "@/components/media/AutoplayEmbed";
+import { useHoverAutoplay } from "@/hooks/useHoverAutoplay";
 
 const PLATFORM_LABEL: Record<Clip["source"], string> = {
   twitch: "Twitch",
@@ -13,24 +14,22 @@ const PLATFORM_LABEL: Record<Clip["source"], string> = {
   instagram: "Instagram",
 };
 
-/**
- * Click-to-load embed for a single clip. We hold the embed iframe
- * behind a thumbnail + play button so the page doesn't fire 50+
- * cross-origin requests on first paint. Clicking the cover swaps in
- * the platform's official iframe.
- */
+/** Load a muted preview on hover; clicks open the shared player or inline controls. */
 export function ClipEmbed({ clip, onPlay }: { clip: Clip; onPlay?: () => void }) {
   const [loaded, setLoaded] = useState(false);
+  const preview = useHoverAutoplay();
   const brand = PLATFORM_BRAND[clip.source];
 
   const aspectClass =
     clip.aspect === "vertical" ? "aspect-[9/16]" : "aspect-video";
   return (
-    <div className={`relative ${aspectClass} w-full overflow-hidden rounded-xl bg-black ring-1 ring-inset ring-secondary media-tone`}>
+    <div className={`relative ${aspectClass} w-full overflow-hidden rounded-xl bg-black ring-1 ring-inset ring-secondary media-tone`}
+      onMouseEnter={() => preview.start(clip.id)} onMouseLeave={preview.stop}
+      onFocus={() => preview.start(clip.id)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) preview.stop(); }}>
       {!loaded ? (
         <button
           type="button"
-          onClick={() => onPlay ? onPlay() : setLoaded(true)}
+          onClick={() => { preview.stop(); if (onPlay) onPlay(); else setLoaded(true); }}
           className="group absolute inset-0 flex items-center justify-center"
           aria-label={`Play ${clip.title}`}
         >
@@ -58,10 +57,10 @@ export function ClipEmbed({ clip, onPlay }: { clip: Clip; onPlay?: () => void })
                 "linear-gradient(180deg, transparent 60%, rgba(8,8,10,0.85) 100%)",
             }}
           />
-          <PlayCircle
+          {preview.activeId !== clip.id ? <PlayCircle
             className="absolute size-16 text-white opacity-90 transition-transform group-hover:scale-110"
             style={{ filter: `drop-shadow(0 8px 24px ${brand}88)` }}
-          />
+          /> : null}
           {/* Platform watermark — logo only, accent-tinted, in a glass plate. */}
           <span
             className="absolute left-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-md border bg-[rgba(8,8,10,0.78)] backdrop-blur"
@@ -74,11 +73,14 @@ export function ClipEmbed({ clip, onPlay }: { clip: Clip; onPlay?: () => void })
       ) : (
         <ClipIframe clip={clip} />
       )}
+      {!loaded && preview.activeId === clip.id ? <div className="pointer-events-none absolute inset-0" aria-hidden="true" data-hover-preview>
+        <ClipIframe clip={clip} preview />
+      </div> : null}
     </div>
   );
 }
 
-function ClipIframe({ clip }: { clip: Clip }) {
+function ClipIframe({ clip, preview = false }: { clip: Clip; preview?: boolean }) {
   const id = encodeURIComponent(clip.externalId);
   const sourceUrl = {
     twitch: `https://clips.twitch.tv/${id}`,
@@ -86,7 +88,7 @@ function ClipIframe({ clip }: { clip: Clip }) {
     tiktok: `https://www.tiktok.com/@_/video/${id}`,
     instagram: `https://www.instagram.com/reel/${id}/`,
   }[clip.source];
-  return <AutoplayEmbed sourceUrl={sourceUrl} title={clip.title} />;
+  return <AutoplayEmbed sourceUrl={sourceUrl} title={clip.title} controls={!preview} loop={preview} />;
 }
 
 export function ClipPlatformBadge({ source }: { source: Clip["source"] }) {

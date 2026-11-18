@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ArrowRight, Play } from "lucide-react";
+import { CoreWordmark } from "@/components/brand/CoreWordmark";
 import { useWatchGuide } from "@/hooks/useWatchGuide";
 import { useBrowserTimeZone } from "@/hooks/useBrowserTimeZone";
 import { usePlayer } from "@/components/providers/PlayerProvider";
@@ -140,9 +141,11 @@ export function GuideNowStrip({ network, limit = 6, title = "On now", headingId 
           const label = `${group.network.name} ${row.label}`;
           return (
             <li key={row.id} className={styles.nowRow} data-kind={kind} style={{ "--strip-accent": group.network.accent } as CSSProperties}>
-              <span className={styles.nowLogo} aria-hidden="true">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={group.network.artwork} alt="" />
+              <span className={styles.nowLogo} data-network={group.network.slug} aria-hidden="true">
+                {group.network.slug === "core" ? <CoreWordmark className={styles.nowCoreWordmark} /> : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={group.network.artwork} alt="" />
+                )}
               </span>
               <div className={styles.nowCopy}>
                 <p className={styles.nowChannel}>

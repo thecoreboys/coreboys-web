@@ -79,7 +79,7 @@ export function AutoplayEmbed({ sourceUrl, embedUrl, title, controls = true, loo
     {active && nativeUrl ? <video key={nativeUrl} src={nativeUrl} autoPlay muted playsInline controls={controls} loop={loop} className="absolute inset-0 h-full w-full object-contain"
       onPlaying={() => setPlayingSource(nativeUrl)} onPause={() => setPlayingSource(null)}
       onCanPlay={(event) => { const media = event.currentTarget; if (nativeAttempted.current === media) return; nativeAttempted.current = media; void media.play().catch(() => {}); }}
-      onError={() => setFailedNative(nativeUrl)} /> : src ? <iframe ref={frame} src={src} title={title}
+      onError={() => setFailedNative(nativeUrl)} /> : src ? <iframe ref={frame} src={src} title={title} tabIndex={controls ? undefined : -1}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen
         className="absolute inset-0 h-full w-full" referrerPolicy="strict-origin-when-cross-origin" /> : null}
   </div>;
