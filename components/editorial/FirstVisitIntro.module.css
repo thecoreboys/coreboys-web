@@ -316,3 +316,25 @@
   .card[data-state="done"] { visibility: hidden; }
   .dialog[data-phase="leaving"] { animation: fadeOut 260ms ease both !important; }
 }
+
+/* Cue-driven gallery layers sit behind the clear film and outside name cards. */
+.photoAtmosphere { position: absolute; inset: 0; overflow: hidden; pointer-events: none; isolation: isolate; }
+.photoScene { position: absolute; inset: 0; opacity: 0; transition: opacity 650ms ease; }
+.photoScene[data-active="true"] { opacity: 1; }
+.photoWash { position: absolute; inset: -12%; background-position: center; background-size: cover; filter: blur(42px) saturate(.65); opacity: .2; transform: scale(1.08); }
+.photoScene::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse, #080807 25%, transparent 85%), linear-gradient(transparent, #080807); }
+.flutterPhoto { position: absolute; z-index: 1; width: clamp(85px, 13vw, 210px); aspect-ratio: 4/5; left: 3%; top: 5%; padding: 4px; background: #d7d0c0; box-shadow: 0 16px 45px #0009; opacity: 0; transform: translateY(26px) rotate(var(--photo-turn)); }
+.flutterPhoto:nth-of-type(2) { left: auto; right: 3%; top: 9%; }
+.flutterPhoto:nth-of-type(3) { left: 12%; top: auto; bottom: 5%; }
+.flutterPhoto:nth-of-type(4) { left: auto; right: 12%; top: auto; bottom: 3%; }
+.flutterPhoto img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.75); }
+.photoScene[data-active="true"] .flutterPhoto { animation: photoFlutter 3800ms ease-out both; animation-delay: calc(var(--photo-index) * 90ms); }
+.dialog[data-paused="true"] .flutterPhoto { animation-play-state: paused; }
+@keyframes photoFlutter {
+  0% { opacity: 0; transform: perspective(700px) translateY(35px) rotateX(18deg) rotate(var(--photo-turn)); }
+  18% { opacity: .72; }
+  75% { opacity: .65; }
+  100% { opacity: 0; transform: perspective(700px) translateY(-25px) rotateX(-8deg) rotate(calc(var(--photo-turn) * -1)); }
+}
+@media (max-width: 640px) { .flutterPhoto { width: 22vw; } .photoWash { filter: blur(24px) saturate(.65); } }
+@media (prefers-reduced-motion: reduce) { .photoAtmosphere { display: none; } }

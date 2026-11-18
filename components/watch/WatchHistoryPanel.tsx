@@ -10,6 +10,7 @@ import { bestWatchProgressMark, selectContinueWatchingItems } from "@/lib/watch/
 import { homeItemReferences } from "@/lib/watch/home-catalog";
 import { readableTitle } from "@/lib/watch/presentation";
 import type { WatchItem } from "@/lib/watch/types";
+import { HoverAutoplay } from "@/components/media/HoverAutoplay";
 import { WatchThumb } from "./WatchThumb";
 import styles from "./GuideHistoryDeck.module.css";
 
@@ -92,7 +93,7 @@ export function WatchHistoryPanel({ items, broadcasts, limit = 6, headingId = "w
               <li key={`${item.platform}:${item.id}`}>
                 <button type="button" className={styles.historyItem} onClick={() => player.play(item, list)} aria-label={`${tab === "watched" ? "Resume" : "Watch"} ${readableTitle(item.title)}`}>
                   <span className={styles.historyThumb}>
-                    <WatchThumb src={item.poster || item.backdrop} alt="" />
+                    <HoverAutoplay sourceUrl={item.format !== "photo" && item.kind !== "post" ? item.mediaUrl ?? item.sourceUrl ?? item.href : undefined} embedUrl={item.embedUrl} title={item.title}><WatchThumb src={item.poster || item.backdrop} alt="" /></HoverAutoplay>
                     {progress > 0 ? <span className={styles.progress} aria-hidden="true"><i style={{ width: `${progress * 100}%` }} /></span> : null}
                   </span>
                   <span className={styles.historyCopy}>

@@ -1,5 +1,6 @@
 "use client";
 
+import { HoverAutoplay } from "@/components/media/HoverAutoplay";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MEMBERS } from "@/lib/members";
@@ -31,7 +32,7 @@ export function TimelineArchive({ items }: { items: WatchItem[] }) {
       const playable = itemToPlayable(item);
       const source = item.sourceUrl ?? item.href;
       return <li key={item.id} className="overflow-hidden rounded-lg border border-white/15">
-        <div className="aspect-video overflow-hidden bg-white/5"><WatchThumb src={item.poster} alt="" className="h-full w-full object-contain" /></div>
+        <div className="aspect-video overflow-hidden bg-white/5"><HoverAutoplay sourceUrl={playable && item.format !== "photo" ? playable.mediaUrl ?? playable.sourceUrl ?? source : undefined} embedUrl={item.embedUrl} title={item.title}><WatchThumb src={item.poster} alt="" className="h-full w-full object-contain" /></HoverAutoplay></div>
         <div className="space-y-3 p-4"><time dateTime={item.publishedAt} className="text-sm text-secondary"><BrowserDateTime value={item.publishedAt!} options={{ year: "numeric", month: "long", day: "numeric" }} fallback={item.publishedAt!.slice(0, 10)} /></time><h2 className="line-clamp-2 text-base font-semibold" title={item.title}>{watchTitle(item)}</h2><p className="text-sm text-secondary">{item.memberLabel} · {watchFormatLabel(item)} · {item.platform === "x" ? "X" : item.platform}</p><div className="flex flex-wrap gap-4">{playable ? <button type="button" className="min-h-11 font-semibold underline underline-offset-4" onClick={() => player.play(playable)}>Play</button> : null}<a className="min-h-11 py-3 text-sm underline underline-offset-4" href={source} target="_blank" rel="noopener noreferrer">{item.kind === "post" ? "Read post" : "Open original"} ↗</a></div></div>
       </li>;
     })}</ol> : <p className="py-10 text-secondary">No dated posts match these filters.</p>}

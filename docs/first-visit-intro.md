@@ -18,3 +18,5 @@ creator's accent softly lights the stage; reduced-motion modes disable these
 effects. No remote profile lookup is needed to show the intro portraits.
 
 The 45.7-second clip is served as `/intro/core-welcome-v1.mp4` (H.264/AAC, front-loaded index, 8,395,517 bytes). Browser policy references: [Chrome autoplay](https://developer.chrome.com/blog/autoplay/) and [WebKit inline video](https://webkit.org/blog/6784/new-video-policies-for-ios/).
+
+Name cues also crossfade a blurred portrait backdrop and flutter up to four curated images from the same Photos endpoint as each creator channel. The film and name cards stay clear above those decorative layers. Gallery errors fall back to the canonical channel portrait; reduced motion and data saver suppress the gallery effects and requests. Cue activation follows the video clock, so seeking and replay select the matching member.

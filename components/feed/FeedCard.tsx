@@ -1,3 +1,6 @@
+"use client";
+
+import { HoverAutoplay } from "@/components/media/HoverAutoplay";
 import { ArrowUpRight, PlayCircle } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { PlatformLogo, PLATFORM_BRAND } from "@/components/clips/PlatformLogo";
@@ -23,7 +26,7 @@ const PLATFORM_BADGE: Record<SocialPlatform, "error" | "pink" | "purple" | "gray
 /**
  * One feed item rendered as a UUI media card: thumbnail, platform Badge,
  * title, author/channel + relative date, link-out with a hover lift.
- * Pure presentational + server-safe (no client hooks).
+ * Muted previews share the catalog hover preferences.
  */
 export function FeedCard({ item }: { item: FeedItem }) {
   return (
@@ -33,7 +36,8 @@ export function FeedCard({ item }: { item: FeedItem }) {
       rel="noopener noreferrer"
       className="group flex h-full flex-col overflow-hidden rounded-xl bg-secondary ring-1 ring-inset ring-secondary shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <span className="relative block aspect-video w-full overflow-hidden bg-black media-tone">
+      <div className="relative block aspect-video w-full overflow-hidden bg-black media-tone">
+        <HoverAutoplay sourceUrl={item.mediaType === "image" || item.mediaType === "text" || item.embeddable === false ? undefined : item.mediaUrl ?? item.sourceUrl ?? item.url} embedUrl={item.embedUrl} title={item.title}>
         {item.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -74,7 +78,8 @@ export function FeedCard({ item }: { item: FeedItem }) {
             />
           </span>
         ) : null}
-      </span>
+        </HoverAutoplay>
+      </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <span className="text-xs font-medium uppercase tracking-wide text-tertiary">

@@ -26,6 +26,7 @@ import { XTweetsRail } from "./XTweetsRail";
 import { GROUP } from "@/lib/group";
 import { MEMBERS, MEMBERS_BY_SLUG } from "@/lib/members";
 import { ageFromIso } from "@/lib/utils";
+import { HoverAutoplay } from "@/components/media/HoverAutoplay";
 import { WatchThumb } from "./WatchThumb";
 import { DragScrollRail } from "./DragScrollRail";
 import { CreatorPlatformRails } from "./CreatorPlatformRails";
@@ -1789,7 +1790,7 @@ export function NetworkChannelPage({
                             title={`${entry.item.title} · ${viewer.ready ? timeLabel(entry.startsAt, viewer.locale, viewer.timeZone) : "Scheduled"}`}
                           >
                             <span className={styles.continuousGuideMedia}>
-                              <WatchThumb src={entry.item.poster} youtubeId={entry.item.platform === "youtube" ? entry.item.id.replace(/^yt-/, "") : null} />
+                              <HoverAutoplay sourceUrl={entry.item.format !== "photo" && entry.item.kind !== "post" ? entry.item.mediaUrl ?? entry.item.sourceUrl ?? entry.item.href : undefined} embedUrl={entry.item.embedUrl} title={entry.item.title}><WatchThumb src={entry.item.poster} youtubeId={entry.item.platform === "youtube" ? entry.item.id.replace(/^yt-/, "") : null} /></HoverAutoplay>
                             </span>
                             <span className={styles.continuousGuideCopy}>
                               <small>
@@ -1829,7 +1830,7 @@ export function NetworkChannelPage({
                             : "Later"}
                     </time>
                     <span className={styles.queueThumb}>
-                      <WatchThumb src={entry.item.poster} youtubeId={entry.item.platform === "youtube" ? entry.item.id.replace(/^yt-/, "") : null} />
+                      <HoverAutoplay sourceUrl={entry.item.format !== "photo" && entry.item.kind !== "post" ? entry.item.mediaUrl ?? entry.item.sourceUrl ?? entry.item.href : undefined} embedUrl={entry.item.embedUrl} title={entry.item.title}><WatchThumb src={entry.item.poster} youtubeId={entry.item.platform === "youtube" ? entry.item.id.replace(/^yt-/, "") : null} /></HoverAutoplay>
                       {entry.current && entry.item.kind === "live" ? <i>Live</i> : mode === "continuous" && entry.item.kind !== "live" ? <i>Rewind</i> : null}
                     </span>
                     <span className={styles.queueCopy}>

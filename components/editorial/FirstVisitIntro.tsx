@@ -89,10 +89,27 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [minimal, setMinimal] = useState(false);
+  const [gallery, setGallery] = useState<Record<string, string[]>>({});
   const [viewport, setViewport] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const started = useRef(false);
+
+  // The same curated photo endpoint powers each channel's Photos tab.
+  useEffect(() => {
+    if (!open || minimal || prefersMinimalMotion() || player.dataSaver) return;
+    const controller = new AbortController();
+    for (const { member } of CAST) {
+      void fetch(`/api/watch/channels/${member.slug}/extras?section=photos`, { signal: controller.signal })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data: { photos?: unknown } | null) => {
+          if (!Array.isArray(data?.photos) || controller.signal.aborted) return;
+          const photos = data.photos.filter((src): src is string => typeof src === "string" && /^(\/|https?:\/\/)/.test(src)).slice(0, 4);
+          if (photos.length) setGallery((previous) => ({ ...previous, [member.slug]: photos }));
+        }).catch(() => { /* Canonical channel portraits remain available offline. */ });
+    }
+    return () => controller.abort();
+  }, [open, minimal, player.dataSaver]);
 
   const go = useCallback((next: Phase) => { phaseRef.current = next; setPhase(next); }, []);
 
@@ -320,7 +337,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
 
   return <IntroContext.Provider value={active}>
     {children}
-    {open ? <dialog ref={dialog} tabIndex={-1} className={styles.dialog} aria-labelledby="core-welcome-title" data-phase={phase} data-motion={minimal ? "minimal" : "full"} data-lenis-prevent
+    {open ? <dialog ref={dialog} tabIndex={-1} className={styles.dialog} aria-labelledby="core-welcome-title" data-phase={phase} data-paused={paused} data-motion={minimal ? "minimal" : "full"} data-lenis-prevent
       onCancel={(event) => { event.preventDefault(); leave(); }} onClose={() => { saveSeen(); setOpen(false); }} onKeyDown={onKeyDown}>
       <div className={styles.shutterTop} aria-hidden="true" />
       <div className={styles.shutterBottom} aria-hidden="true" />
@@ -338,6 +355,19 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
 
         <div className={styles.stage} data-cue={cue ? "active" : "idle"}
           style={{ "--intro-accent": cue ? MEMBERS_BY_SLUG[cue.slug]?.accent : "transparent" } as CSSProperties}>
+          {!minimal && !player.dataSaver ? <div className={styles.photoAtmosphere} aria-hidden="true">
+            {CAST.map(({ member }) => <div key={member.slug} className={styles.photoScene}
+              data-member={member.slug} data-active={cue?.slug === member.slug}
+              style={{ "--photo-accent": member.accent } as CSSProperties}>
+              <div className={styles.photoWash} style={{ backgroundImage: `url("${member.portrait}")` }} />
+              {(gallery[member.slug] ?? [member.portrait]).map((src, index) => <span key={src} className={styles.flutterPhoto}
+                style={{ "--photo-index": index, "--photo-turn": `${index % 2 ? 9 : -8}deg` } as CSSProperties}>
+                {/* Gallery URLs follow the channel Photos tab, including external sources. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
+              </span>)}
+            </div>)}
+          </div> : null}
           {showTerminal ? <section className={styles.terminal} aria-label="Loading intro">
             <p className={styles.boot} data-line="0">CORE · Intro</p>
             <ol className={styles.lines}>
