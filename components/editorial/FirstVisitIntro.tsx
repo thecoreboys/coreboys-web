@@ -10,7 +10,7 @@ import { prefersMinimalMotion } from "@/lib/motion";
 import { playWithMutedFallback } from "@/lib/watch/native-media";
 import {
   activeIntroCue, hasSeenIntro, introCastRevealed, introCreditVisible, introCueState, introFraction, introPreloadPercent, rememberIntro,
-  INTRO_CREDITS, INTRO_CREDITS_MS, INTRO_NAME_CUES, INTRO_PORTRAIT_GRACE_MS, INTRO_SEEN_COOKIE, INTRO_SEEN_KEY, INTRO_START_DELAY_MS, INTRO_VIDEO_BYTES,
+  INTRO_CREDITS, INTRO_CREDITS_MS, INTRO_NAME_CUES, INTRO_PORTRAIT_GRACE_MS, INTRO_SEEN_COOKIE, INTRO_SEEN_KEY, INTRO_START_DELAY_MS, INTRO_VIDEO_BYTES, INTRO_VIDEO_URL,
   type IntroNameCue,
 } from "@/lib/first-visit-intro";
 import { prepareHomeForIntro, preloadIntroVideo, type HomePrepProgress } from "./intro-preload";
@@ -161,7 +161,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
     };
   }, [open]);
 
-  // Real preload: the full video file plus Home's deferred shelves and artwork.
+  // Stream on touch devices; prepare desktop video and Home in parallel.
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
@@ -170,13 +170,18 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
     const deadline = setTimeout(() => controller.abort(), 45_000);
     const minimum = setTimeout(() => setMinElapsed(true), INTRO_START_DELAY_MS);
     const grace = setTimeout(() => setPortraitGrace(true), INTRO_PORTRAIT_GRACE_MS);
-    // The video decodes as soon as its bytes land, while Home keeps preparing.
-    void preloadIntroVideo(controller.signal, (done, total) => { if (!disposed) setBytes({ done, total }); })
+    // iOS can defer decoding hidden media. Let its native player stream the
+    // range-enabled MP4 instead of blocking on a full blob download.
+    const stream = window.matchMedia("(pointer: coarse)").matches;
+    if (stream) {
+      clearTimeout(deadline);
+      setSource(INTRO_VIDEO_URL);
+    } else void preloadIntroVideo(controller.signal, (done, total) => { if (!disposed) setBytes({ done, total }); })
       .then((blob) => {
         if (disposed || controller.signal.aborted) return;
         blobUrl = URL.createObjectURL(blob);
         setSource(blobUrl);
-      }).catch(() => { if (!disposed) go("failed"); })
+      }).catch(() => { if (!disposed) setSource(INTRO_VIDEO_URL); })
       .finally(() => clearTimeout(deadline));
     void prepareHomeForIntro(controller.signal, (progress) => { if (!disposed) setHome(progress); })
       .then(() => { if (!disposed) setHomeReady(true); });
@@ -191,7 +196,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
   }, [go, open, retry]);
 
   const portraitsDone = portraits >= CAST.length || portraitGrace;
-  const ready = phase === "boot" && Boolean(source) && Boolean(decoded) && homeReady && minElapsed && portraitsDone;
+  const ready = phase === "boot" && Boolean(source) && homeReady && minElapsed && portraitsDone;
 
   /** Try sound first; browsers that block it can still autoplay muted. */
   const begin = useCallback((withSound: boolean) => {
@@ -202,19 +207,40 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
     setEnded(false);
     setShown(true);
     if (media.ended || phaseRef.current === "credits") { media.currentTime = 0; setPosition(0); }
+    const automatic = phaseRef.current === "boot";
     go("playing");
-    void playWithMutedFallback(media, () => Boolean(dialog.current?.open))
+    const start = () => {
+      if (!dialog.current?.open || phaseRef.current !== "playing") return;
+      void playWithMutedFallback(media, () => Boolean(dialog.current?.open) && phaseRef.current === "playing")
       .then(() => { if (withSound && media.muted) setSoundBlocked(true); })
       .catch((error: unknown) => {
-        if (!dialog.current?.open) return;
+        if (!dialog.current?.open || phaseRef.current !== "playing") return;
         go(error instanceof Error && error.name === "NotAllowedError" ? "gate" : "failed");
       });
+    };
+    // Commit the visible player before asking Safari to autoplay it. Keep
+    // explicit Play taps synchronous so their user activation is preserved.
+    if (automatic) requestAnimationFrame(start);
+    else start();
   }, [go, source]);
 
   useEffect(() => {
     if (!ready || phaseRef.current !== "boot") return;
     begin(true);
   }, [begin, ready]);
+
+  // Some mobile power-saving modes leave play() pending instead of rejecting.
+  useEffect(() => {
+    if (phase !== "playing" || started.current) return;
+    const timer = setTimeout(() => {
+      const media = video.current;
+      if (media && !started.current && phaseRef.current === "playing") {
+        media.pause();
+        go("gate");
+      }
+    }, 8_000);
+    return () => clearTimeout(timer);
+  }, [go, phase]);
 
   // The begin button unmounts on play; keep focus (and the K/M/Esc keys) in the dialog.
   useEffect(() => {
@@ -326,7 +352,7 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
   const shelvesDone = homeReady || (home !== null && home.shelves.done >= home.shelves.total);
   const lines: { key: string; label: string; detail: string; state: LineState }[] = [
     { key: "display", label: "display", detail: viewport || "probing", state: viewport ? "ok" : "run" },
-    { key: "reel", label: "intro reel", detail: `${megabytes(bytes.done)} / ${megabytes(bytes.total)} MB`, state: source ? "ok" : failed ? "fail" : "run" },
+    { key: "reel", label: "intro reel", detail: source === INTRO_VIDEO_URL ? "Streaming" : `${megabytes(bytes.done)} / ${megabytes(bytes.total)} MB`, state: source ? "ok" : failed ? "fail" : "run" },
     { key: "decode", label: "decode check", detail: decoded ?? (source ? "verifying" : "waiting"), state: decoded ? "ok" : failed ? "fail" : "run" },
     { key: "shelves", label: "home shelves", detail: home ? `${home.shelves.done} / ${home.shelves.total} staged` : "locating", state: shelvesDone ? "ok" : "run" },
     { key: "artwork", label: "artwork", detail: home ? `${home.artwork.done} / ${home.artwork.total} warmed${homeReady && home.artwork.done < home.artwork.total ? " · rest streams in" : ""}` : "queued", state: homeReady ? "ok" : "run" },
@@ -399,10 +425,11 @@ export function FirstVisitIntro({ children }: { children: ReactNode }) {
           <div className={styles.screenWrap} data-visible={showStage}>
             <div className={styles.frame}>
               <video ref={video} src={source ?? undefined} playsInline preload="auto" className={styles.video} aria-label="CORE intro"
+                onLoadedData={(event) => { const media = event.currentTarget; setDecoded(`${media.videoWidth}×${media.videoHeight} · ${clock(media.duration)}`); }}
                 onCanPlayThrough={(event) => { const media = event.currentTarget; setDecoded(`${media.videoWidth}×${media.videoHeight} · ${clock(media.duration)}`); }}
                 onPlaying={() => { if (!started.current) { started.current = true; saveSeen(); } setPaused(false); }}
                 onPause={() => setPaused(true)} onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
-                onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
+                onLoadedMetadata={(event) => { const media = event.currentTarget; setDuration(media.duration); setDecoded(`${media.videoWidth}×${media.videoHeight} · ${clock(media.duration)}`); }}
                 onTimeUpdate={(event) => { const next = Math.floor(event.currentTarget.currentTime * 10) / 10; setPosition((previous) => (previous === next ? previous : next)); }}
                 onEnded={() => { setPosition(duration); setEnded(true); go("credits"); }}
                 onError={() => { if (source) go("failed"); }} />
